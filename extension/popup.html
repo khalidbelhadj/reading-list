@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <div id="loading" class="state">
+      <span class="spinner"></span>
+    </div>
+
+    <div id="form" class="state" hidden>
+      <div class="header">
+        <img id="favicon" width="16" height="16" alt="">
+        <span id="status-label" class="status-label"></span>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Title</span>
+        <input type="text" id="title" placeholder="Page title">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Tags</span>
+        <input type="text" id="tags" placeholder="e.g. react, docs">
+      </label>
+
+      <div class="field">
+        <span class="field-label">List</span>
+        <div id="type-toggle" class="toggle">
+          <button type="button" class="toggle-btn active" data-value="reading-list">Reading List</button>
+          <button type="button" class="toggle-btn" data-value="bookmark">Bookmark</button>
+        </div>
+      </div>
+
+      <div id="actions-save" class="actions" hidden>
+        <button id="btn-save" class="btn btn-primary">Save</button>
+      </div>
+
+      <div id="actions-edit" class="actions" hidden>
+        <button id="btn-remove" class="btn btn-danger">Remove</button>
+        <button id="btn-update" class="btn btn-primary">Update</button>
+      </div>
+    </div>
+
+    <div id="done" class="state" hidden>
+      <span id="done-message"></span>
+    </div>
+
+    <div id="error" class="state" hidden>
+      <span id="error-message" class="error-text"></span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
