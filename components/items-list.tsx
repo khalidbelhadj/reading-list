@@ -236,6 +236,7 @@ function SortableItemRow({
   item,
   isEditing,
   isSelected,
+  isBulkMode,
   selectedTop,
   selectedBottom,
   suppressHover,
@@ -250,6 +251,7 @@ function SortableItemRow({
   item: Item;
   isEditing: boolean;
   isSelected: boolean;
+  isBulkMode: boolean;
   selectedTop: boolean;
   selectedBottom: boolean;
   suppressHover: boolean;
@@ -305,7 +307,7 @@ function SortableItemRow({
         "group relative flex items-center gap-2 py-1 px-1 overflow-hidden select-none active:cursor-grabbing outline-none",
         isSelected
           ? cn(
-              "bg-accent/70",
+              isBulkMode ? "bg-blue-500/10 dark:bg-blue-400/10" : "bg-accent",
               selectedTop && selectedBottom && "rounded-md",
               selectedTop && !selectedBottom && "rounded-t-md",
               !selectedTop && selectedBottom && "rounded-b-md",
@@ -446,10 +448,13 @@ export function ItemsList() {
   const [tagDialogInput, setTagDialogInput] = React.useState("");
   const [pendingActions, setPendingActions] = React.useState(0);
   const [bulkMode, setBulkMode] = React.useState(false);
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   const lastClickedRef = React.useRef<string | null>(null);
   const cursorRef = React.useRef<string | null>(null);
   const anchorRef = React.useRef<string | null>(null);
+  const pendingGRef = React.useRef<number>(0);
+  const pendingDRef = React.useRef<number>(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Filter by tab type
@@ -511,7 +516,7 @@ export function ItemsList() {
           setSearchOpen(false);
         } else {
           setSelectedIds(new Set());
-          cursorRef.current = null;
+          setBulkMode(false);
         }
         return;
       }
@@ -523,11 +528,15 @@ export function ItemsList() {
         setSearchOpen(true);
         requestAnimationFrame(() => searchInputRef.current?.focus());
       }
-      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
+      if (e.key === "1" && !e.metaKey && !e.ctrlKey) {
         setActiveTabAndUrl("reading-list");
       }
-      if (e.key === "b" && !e.metaKey && !e.ctrlKey) {
+      if (e.key === "2" && !e.metaKey && !e.ctrlKey) {
         setActiveTabAndUrl("bookmarks");
+      }
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setHelpOpen(true);
       }
     }
     document.addEventListener("keydown", handleSlash);
@@ -791,8 +800,44 @@ export function ItemsList() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, editingId, handleBulkDelete]);
 
-  // Ctrl+N / Ctrl+P to navigate, Enter to edit, Space to toggle read
+  // Vim-style navigation, visual mode, Enter to edit, Space to toggle read
   React.useEffect(() => {
+    function scrollWithMargin(id: string) {
+      const el = document.querySelector(`[data-item-id="${id}"]`);
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const rowHeight = rect.height;
+      const margin = rowHeight * 3;
+      const viewTop = 0;
+      const viewBottom = window.innerHeight;
+      if (rect.top - margin < viewTop) {
+        window.scrollBy({ top: rect.top - margin - viewTop });
+      } else if (rect.bottom + margin > viewBottom) {
+        window.scrollBy({ top: rect.bottom + margin - viewBottom });
+      }
+    }
+
+    function moveCursor(nextId: string) {
+      cursorRef.current = nextId;
+      anchorRef.current = nextId;
+      setSelectedIds(new Set([nextId]));
+      setBulkMode(false);
+      setSuppressHover(true);
+      scrollWithMargin(nextId);
+    }
+
+    function moveCursorVisual(nextId: string) {
+      cursorRef.current = nextId;
+      const ids = filteredItems.map((i) => i.id);
+      const anchor = anchorRef.current && ids.includes(anchorRef.current) ? anchorRef.current : nextId;
+      const anchorIdx = ids.indexOf(anchor);
+      const cursorIdx = ids.indexOf(nextId);
+      const [start, end] = anchorIdx < cursorIdx ? [anchorIdx, cursorIdx] : [cursorIdx, anchorIdx];
+      setSelectedIds(new Set(ids.slice(start, end + 1)));
+      setSuppressHover(true);
+      scrollWithMargin(nextId);
+    }
+
     function handleNav(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
@@ -800,41 +845,134 @@ export function ItemsList() {
       }
       if (editingId) return;
 
-      // Navigation: Ctrl+N / Ctrl+P
-      const key = e.key.toLowerCase();
-      if ((key === "n" || key === "p") && e.ctrlKey && !e.metaKey) {
+      const ids = filteredItems.map((i) => i.id);
+      const currentCursor = cursorRef.current;
+      const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
+
+      // j / k / Ctrl+N / Ctrl+P — navigation; hold Shift to extend selection
+      const isDown = (e.key === "j" && !e.metaKey && !e.ctrlKey && !e.shiftKey)
+        || (e.key === "n" && e.ctrlKey && !e.metaKey && !e.shiftKey);
+      const isUp = (e.key === "k" && !e.metaKey && !e.ctrlKey && !e.shiftKey)
+        || (e.key === "p" && e.ctrlKey && !e.metaKey && !e.shiftKey);
+      const isShiftDown = (e.key === "J" && e.shiftKey && !e.metaKey && !e.ctrlKey)
+        || (e.key === "N" && e.ctrlKey && e.shiftKey && !e.metaKey);
+      const isShiftUp = (e.key === "K" && e.shiftKey && !e.metaKey && !e.ctrlKey)
+        || (e.key === "P" && e.ctrlKey && e.shiftKey && !e.metaKey);
+      if (isDown || isUp || isShiftDown || isShiftUp) {
         e.preventDefault();
-        const ids = filteredItems.map((i) => i.id);
         if (ids.length === 0) return;
-
-        const currentCursor = cursorRef.current;
+        const goingDown = isDown || isShiftDown;
+        const extending = isShiftDown || isShiftUp;
         let nextId: string;
-        if (!currentCursor || !ids.includes(currentCursor)) {
-          nextId = key === "n" ? ids[0] : ids[ids.length - 1];
+        if (cursorIdx === -1) {
+          nextId = goingDown ? ids[0] : ids[ids.length - 1];
         } else {
-          const idx = ids.indexOf(currentCursor);
-          nextId = key === "n"
-            ? ids[Math.min(idx + 1, ids.length - 1)]
-            : ids[Math.max(idx - 1, 0)];
+          nextId = goingDown
+            ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
+            : ids[Math.max(cursorIdx - 1, 0)];
         }
-
-        cursorRef.current = nextId;
-
-        if (e.shiftKey) {
-          if (!anchorRef.current || !ids.includes(anchorRef.current)) {
+        if (bulkMode || extending) {
+          if (!bulkMode) {
+            setBulkMode(true);
             anchorRef.current = currentCursor ?? nextId;
           }
-          const anchorIdx = ids.indexOf(anchorRef.current);
-          const cursorIdx = ids.indexOf(nextId);
-          const [start, end] = anchorIdx < cursorIdx ? [anchorIdx, cursorIdx] : [cursorIdx, anchorIdx];
-          setSelectedIds(new Set(ids.slice(start, end + 1)));
+          moveCursorVisual(nextId);
         } else {
-          anchorRef.current = nextId;
-          setSelectedIds(new Set([nextId]));
+          moveCursor(nextId);
         }
+        return;
+      }
 
-        setSuppressHover(true);
-        document.querySelector(`[data-item-id="${nextId}"]`)?.scrollIntoView({ block: "nearest" });
+      // G (Shift+g) — jump to last item
+      if (e.key === "G" && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        pendingGRef.current = 0;
+        if (ids.length === 0) return;
+        if (bulkMode) {
+          moveCursorVisual(ids[ids.length - 1]);
+        } else {
+          moveCursor(ids[ids.length - 1]);
+        }
+        return;
+      }
+
+      // g — first press sets pending, second press (gg) jumps to first item
+      if (e.key === "g" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        const now = Date.now();
+        if (now - pendingGRef.current < 300) {
+          e.preventDefault();
+          pendingGRef.current = 0;
+          if (ids.length === 0) return;
+          if (bulkMode) {
+            moveCursorVisual(ids[0]);
+          } else {
+            moveCursor(ids[0]);
+          }
+        } else {
+          pendingGRef.current = now;
+        }
+        return;
+      }
+
+      // Ctrl+D / Ctrl+U — half-page jump (~10 items)
+      if ((e.key === "d" || e.key === "u") && e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (ids.length === 0) return;
+        const jump = 10;
+        let nextId: string;
+        if (cursorIdx === -1) {
+          nextId = e.key === "d" ? ids[Math.min(jump - 1, ids.length - 1)] : ids[0];
+        } else {
+          nextId = e.key === "d"
+            ? ids[Math.min(cursorIdx + jump, ids.length - 1)]
+            : ids[Math.max(cursorIdx - jump, 0)];
+        }
+        if (bulkMode) {
+          moveCursorVisual(nextId);
+        } else {
+          moveCursor(nextId);
+        }
+        return;
+      }
+
+      // dd — delete selected items
+      if (e.key === "d" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const now = Date.now();
+        if (now - pendingDRef.current < 300) {
+          e.preventDefault();
+          pendingDRef.current = 0;
+          if (selectedIds.size > 0) {
+            if (bulkMode && selectedIds.size > 1) {
+              void handleBulkDelete();
+            } else {
+              const id = cursorRef.current && selectedIds.has(cursorRef.current)
+                ? cursorRef.current
+                : Array.from(selectedIds)[0];
+              void handleDeleteSingle(id);
+            }
+          }
+        } else {
+          pendingDRef.current = now;
+        }
+        return;
+      }
+
+      // v / V — toggle visual (bulk) mode
+      if (e.key === "v" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        if (bulkMode) {
+          setBulkMode(false);
+          setSelectedIds(new Set());
+        } else {
+          setBulkMode(true);
+          const target = currentCursor && ids.includes(currentCursor) ? currentCursor : ids[0];
+          if (target) {
+            cursorRef.current = target;
+            anchorRef.current = target;
+            setSelectedIds(new Set([target]));
+          }
+        }
+        return;
       }
 
       // Cmd+Enter to open in new tab
@@ -871,7 +1009,7 @@ export function ItemsList() {
     }
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, handleBulkMarkRead]);
+  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMarkRead]);
 
   const handleSave = React.useCallback(
     async (itemId: string, fields: EditFields) => {
@@ -948,7 +1086,7 @@ export function ItemsList() {
             <Button variant="ghost" size="icon" className="text-muted-foreground" title="Delete" onClick={() => void handleBulkDelete()}>
               <IconTrash />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground" title="Clear selection" onClick={() => { setSelectedIds(new Set()); cursorRef.current = null; setBulkMode(false); }}>
+            <Button variant="ghost" size="icon" className="text-muted-foreground" title="Clear selection" onClick={() => { setSelectedIds(new Set()); setBulkMode(false); }}>
               <IconX />
             </Button>
           </>
@@ -1125,6 +1263,7 @@ export function ItemsList() {
                 item={item}
                 isEditing={editingId === item.id}
                 isSelected={isSelected}
+                isBulkMode={bulkMode}
                 selectedTop={isSelected && !prevSelected}
                 selectedBottom={isSelected && !nextSelected}
                 suppressHover={suppressHover}
@@ -1234,6 +1373,43 @@ export function ItemsList() {
         </DialogContent>
       </Dialog>
 
+      {/* Keyboard shortcuts help dialog */}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent showCloseButton={false} className="gap-0 p-4 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+            <DialogDescription className="sr-only">List of keyboard shortcuts</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs mt-3">
+            <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-1 first:mt-0">Navigation</span>
+            <kbd className="font-mono text-muted-foreground">j / k</kbd><span>Move down / up</span>
+            <kbd className="font-mono text-muted-foreground">Ctrl+N / P</kbd><span>Move down / up</span>
+            <kbd className="font-mono text-muted-foreground">Shift+J / K</kbd><span>Extend selection down / up</span>
+            <kbd className="font-mono text-muted-foreground">Ctrl+Shift+N / P</kbd><span>Extend selection down / up</span>
+            <kbd className="font-mono text-muted-foreground">g g</kbd><span>Go to first item</span>
+            <kbd className="font-mono text-muted-foreground">G</kbd><span>Go to last item</span>
+            <kbd className="font-mono text-muted-foreground">Ctrl+D / U</kbd><span>Half-page down / up</span>
+
+            <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-2">Selection</span>
+            <kbd className="font-mono text-muted-foreground">v</kbd><span>Toggle visual mode</span>
+
+            <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-2">Actions</span>
+            <kbd className="font-mono text-muted-foreground">Enter</kbd><span>Edit selected item</span>
+            <kbd className="font-mono text-muted-foreground">Space</kbd><span>Toggle read</span>
+            <kbd className="font-mono text-muted-foreground">Cmd+Enter</kbd><span>Open URL in new tab</span>
+            <kbd className="font-mono text-muted-foreground">d d</kbd><span>Delete selected</span>
+            <kbd className="font-mono text-muted-foreground">Cmd+Backspace</kbd><span>Delete selected</span>
+            <kbd className="font-mono text-muted-foreground">Cmd+V</kbd><span>Quick-add URL from clipboard</span>
+
+            <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-2">Other</span>
+            <kbd className="font-mono text-muted-foreground">/</kbd><span>Search</span>
+            <kbd className="font-mono text-muted-foreground">1 / 2</kbd><span>Reading List / Bookmarks</span>
+            <kbd className="font-mono text-muted-foreground">Escape</kbd><span>Close / clear selection</span>
+            <kbd className="font-mono text-muted-foreground">?</kbd><span>Show this help</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -1261,6 +1437,14 @@ export function ItemsList() {
           className="hover:text-muted-foreground transition-colors cursor-pointer"
         >
           Import bookmarks
+        </button>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="hover:text-muted-foreground transition-colors cursor-pointer"
+        >
+          Shortcuts
         </button>
         <span>·</span>
         <button
