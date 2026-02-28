@@ -243,6 +243,7 @@ function SortableItemRow({
   isDragDisabled,
   onToggleRead,
   onSelect,
+  onRightClick,
   onStartEdit,
   onSave,
   onCancelEdit,
@@ -258,6 +259,7 @@ function SortableItemRow({
   isDragDisabled: boolean;
   onToggleRead?: () => void;
   onSelect: (e: React.MouseEvent) => void;
+  onRightClick: () => void;
   onStartEdit: () => void;
   onSave: (fields: EditFields) => void;
   onDelete: () => void;
@@ -317,6 +319,10 @@ function SortableItemRow({
         isReadingListItem(item) && item.read && "opacity-50",
       )}
       onClick={onSelect}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onRightClick();
+      }}
       onDoubleClick={(e) => {
         if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
           onStartEdit();
@@ -749,27 +755,14 @@ export function ItemsList() {
   // Bulk action handlers
   const handleBulkDelete = React.useCallback(async () => {
     const ids = Array.from(selectedIds);
-    // Find the next item after the last selected one
-    const lastIdx = Math.max(...ids.map((id) => filteredItems.findIndex((i) => i.id === id)));
-    const remaining = filteredItems.filter((i) => !selectedIds.has(i.id));
-    const nextItem = remaining.find((_, idx) => {
-      const origIdx = filteredItems.findIndex((i) => i.id === remaining[idx].id);
-      return origIdx > lastIdx;
-    }) ?? remaining[remaining.length - 1];
     queryClient.setQueryData<Item[]>(["items"], (old) =>
       old ? old.filter((i) => !selectedIds.has(i.id)) : old,
     );
-    if (nextItem) {
-      setSelectedIds(new Set([nextItem.id]));
-      cursorRef.current = nextItem.id;
-      anchorRef.current = nextItem.id;
-    } else {
-      setSelectedIds(new Set());
-      cursorRef.current = null;
-    }
+    setSelectedIds(new Set());
+    setBulkMode(false);
     setPendingActions((n) => n + 1);
     bulkDeleteItems(ids).then(() => queryClient.invalidateQueries({ queryKey: ["items"] })).finally(() => setPendingActions((n) => n - 1));
-  }, [selectedIds, queryClient, filteredItems]);
+  }, [selectedIds, queryClient]);
 
   const handleBulkMarkRead = React.useCallback(async (read: boolean) => {
     const ids = Array.from(selectedIds);
@@ -793,7 +786,7 @@ export function ItemsList() {
       old ? old.filter((i) => !selectedIds.has(i.id)) : old,
     );
     setSelectedIds(new Set());
-    cursorRef.current = null;
+    setBulkMode(false);
     setPendingActions((n) => n + 1);
     bulkMoveItems(ids, targetType).then(() => queryClient.invalidateQueries({ queryKey: ["items"] })).finally(() => setPendingActions((n) => n - 1));
   }, [selectedIds, tabType, queryClient]);
@@ -1318,6 +1311,13 @@ export function ItemsList() {
                         })
                     : undefined
                 }
+                onRightClick={() => {
+                  if (editingId !== null) setEditingId(null);
+                  setBulkMode(true);
+                  setSelectedIds(new Set([item.id]));
+                  cursorRef.current = item.id;
+                  anchorRef.current = item.id;
+                }}
                 onSelect={(e) => {
                   if (editingId !== null) setEditingId(null);
 
@@ -1479,7 +1479,30 @@ export function ItemsList() {
           onClick={() => fileInputRef.current?.click()}
           className="hover:text-muted-foreground transition-colors cursor-pointer"
         >
-          Import bookmarks
+          Import
+        </button>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => {
+            if (!items || items.length === 0) return;
+            const header = "type,title,url,tags,notes,read,created_at,updated_at";
+            const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+            const rows = items.map((i) =>
+              [esc(i.type), esc(i.title), esc(i.url), esc(i.tags.map((t) => t.name).join("; ")), esc(i.notes ?? ""), i.type === "bookmark" ? "" : i.read ? "true" : "false", i.createdAt, i.updatedAt].join(",")
+            );
+            const csv = [header, ...rows].join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `reading-list-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="hover:text-muted-foreground transition-colors cursor-pointer"
+        >
+          Export
         </button>
         <span>·</span>
         <button
