@@ -335,60 +335,83 @@ export async function importBookmarks(html: string) {
   const parsed = parseBookmarksHtml(html);
   if (parsed.length === 0) return { imported: 0 };
 
-  let imported = 0;
-
-  await db.transaction(async (tx) => {
+  const imported = await db.transaction(async (tx) => {
     // Get existing URLs to deduplicate
     const existingItems = await tx
       .select({ url: items.url })
-      .from(items)
-      .where(eq(items.type, "reading-list"));
+      .from(items);
     const existingUrls = new Set(existingItems.map((i) => i.url));
 
-    // Get max position in reading-list
-    const [maxPos] = await tx
-      .select({ max: sql<number>`coalesce(max(${items.position}), -1)` })
+    // Filter to new bookmarks only
+    const newBookmarks = parsed.filter((b) => !existingUrls.has(b.url));
+    if (newBookmarks.length === 0) return 0;
+
+    // Get max positions per type
+    const maxPositions = await tx
+      .select({
+        type: items.type,
+        max: sql<number>`coalesce(max(${items.position}), -1)`,
+      })
       .from(items)
-      .where(eq(items.type, "reading-list"));
-    let nextPosition = (maxPos?.max ?? -1) + 1;
+      .groupBy(items.type);
+    const nextPos: Record<string, number> = {
+      "reading-list": 0,
+      bookmark: 0,
+    };
+    for (const row of maxPositions) {
+      nextPos[row.type] = row.max + 1;
+    }
 
     const now = new Date().toISOString();
 
-    for (const bookmark of parsed) {
-      if (existingUrls.has(bookmark.url)) continue;
+    // Batch insert all items
+    const itemRows = newBookmarks.map((b) => ({
+      id: crypto.randomUUID(),
+      title: b.title,
+      url: b.url,
+      faviconUrl: null,
+      type: b.type,
+      starred: false,
+      notes: null,
+      read: false,
+      position: nextPos[b.type]++,
+      createdAt: b.addedAt ?? now,
+      updatedAt: b.addedAt ?? now,
+    }));
+    await tx.insert(items).values(itemRows);
 
-      const itemId = crypto.randomUUID();
-      await tx.insert(items).values({
-        id: itemId,
-        title: bookmark.title,
-        url: bookmark.url,
-        faviconUrl: null,
-        type: "reading-list",
-        starred: false,
-        notes: null,
-        read: false,
-        position: nextPosition++,
-        createdAt: now,
-        updatedAt: now,
-      });
+    // Collect all unique tag names
+    const allTagNames = [...new Set(newBookmarks.flatMap((b) => b.tags))];
 
-      for (const tagName of bookmark.tags) {
-        await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
-        const [tag] = await tx
-          .select()
-          .from(tags)
-          .where(eq(tags.name, tagName));
-        if (tag) {
-          await tx
-            .insert(itemsTags)
-            .values({ itemId, tagId: tag.id })
-            .onConflictDoNothing();
+    if (allTagNames.length > 0) {
+      // Batch upsert all tags
+      await tx
+        .insert(tags)
+        .values(allTagNames.map((name) => ({ name })))
+        .onConflictDoNothing();
+
+      // Fetch all tag IDs in one query
+      const tagRows = await tx
+        .select({ id: tags.id, name: tags.name })
+        .from(tags)
+        .where(inArray(tags.name, allTagNames));
+      const tagIdByName = new Map(tagRows.map((t) => [t.name, t.id]));
+
+      // Build all item-tag links
+      const linkRows: { itemId: string; tagId: number }[] = [];
+      for (let i = 0; i < newBookmarks.length; i++) {
+        for (const tagName of newBookmarks[i].tags) {
+          const tagId = tagIdByName.get(tagName);
+          if (tagId) linkRows.push({ itemId: itemRows[i].id, tagId });
         }
       }
 
-      existingUrls.add(bookmark.url);
-      imported++;
+      if (linkRows.length > 0) {
+        await tx.insert(itemsTags).values(linkRows).onConflictDoNothing();
+      }
     }
+
+    return newBookmarks.length;
   });
 
   revalidatePath("/");

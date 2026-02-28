@@ -445,6 +445,7 @@ export function ItemsList() {
   const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
   const [tagDialogInput, setTagDialogInput] = React.useState("");
   const [pendingActions, setPendingActions] = React.useState(0);
+  const [bulkMode, setBulkMode] = React.useState(false);
 
   const lastClickedRef = React.useRef<string | null>(null);
   const cursorRef = React.useRef<string | null>(null);
@@ -605,7 +606,7 @@ export function ItemsList() {
 
   // DnD setup
   const isDragDisabled =
-    search.trim().length > 0 || activeTags.size > 0 || editingId !== null || selectedIds.size > 1;
+    search.trim().length > 0 || activeTags.size > 0 || editingId !== null || (bulkMode && selectedIds.size >= 1);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -701,29 +702,50 @@ export function ItemsList() {
 
   const handleDeleteSingle = React.useCallback(
     async (itemId: string) => {
+      const idx = filteredItems.findIndex((i) => i.id === itemId);
+      const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
       queryClient.setQueryData<Item[]>(["items"], (old) =>
         old ? old.filter((i) => i.id !== itemId) : old,
       );
       setEditingId(null);
-      setSelectedIds(new Set());
-      cursorRef.current = null;
+      if (nextItem) {
+        setSelectedIds(new Set([nextItem.id]));
+        cursorRef.current = nextItem.id;
+        anchorRef.current = nextItem.id;
+      } else {
+        setSelectedIds(new Set());
+        cursorRef.current = null;
+      }
       setPendingActions((n) => n + 1);
       deleteItem(itemId).then(() => queryClient.invalidateQueries({ queryKey: ["items"] })).finally(() => setPendingActions((n) => n - 1));
     },
-    [queryClient],
+    [queryClient, filteredItems],
   );
 
   // Bulk action handlers
   const handleBulkDelete = React.useCallback(async () => {
     const ids = Array.from(selectedIds);
+    // Find the next item after the last selected one
+    const lastIdx = Math.max(...ids.map((id) => filteredItems.findIndex((i) => i.id === id)));
+    const remaining = filteredItems.filter((i) => !selectedIds.has(i.id));
+    const nextItem = remaining.find((_, idx) => {
+      const origIdx = filteredItems.findIndex((i) => i.id === remaining[idx].id);
+      return origIdx > lastIdx;
+    }) ?? remaining[remaining.length - 1];
     queryClient.setQueryData<Item[]>(["items"], (old) =>
       old ? old.filter((i) => !selectedIds.has(i.id)) : old,
     );
-    setSelectedIds(new Set());
-    cursorRef.current = null;
+    if (nextItem) {
+      setSelectedIds(new Set([nextItem.id]));
+      cursorRef.current = nextItem.id;
+      anchorRef.current = nextItem.id;
+    } else {
+      setSelectedIds(new Set());
+      cursorRef.current = null;
+    }
     setPendingActions((n) => n + 1);
     bulkDeleteItems(ids).then(() => queryClient.invalidateQueries({ queryKey: ["items"] })).finally(() => setPendingActions((n) => n - 1));
-  }, [selectedIds, queryClient]);
+  }, [selectedIds, queryClient, filteredItems]);
 
   const handleBulkMarkRead = React.useCallback(async (read: boolean) => {
     const ids = Array.from(selectedIds);
@@ -815,6 +837,16 @@ export function ItemsList() {
         document.querySelector(`[data-item-id="${nextId}"]`)?.scrollIntoView({ block: "nearest" });
       }
 
+      // Cmd+Enter to open in new tab
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedIds.size >= 1) {
+        e.preventDefault();
+        for (const id of selectedIds) {
+          const item = filteredItems.find((i) => i.id === id);
+          if (item) window.open(item.url, "_blank");
+        }
+        return;
+      }
+
       // Enter to edit (only if exactly one item selected)
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedIds.size === 1) {
         e.preventDefault();
@@ -877,7 +909,9 @@ export function ItemsList() {
   );
 
   return (
-    <div className="mx-auto max-w-150 p-5 flex flex-col gap-3">
+    <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-10 relative flex flex-col gap-3 pt-5 bg-background">
       {/* Toolbar */}
       <div className="flex items-center relative">
         <Tabs
@@ -892,7 +926,7 @@ export function ItemsList() {
         {(isFetching || pendingActions > 0) && <Spinner className="size-3 text-muted-foreground/50 ml-2" />}
         <div className="flex-1" />
 
-        {selectedIds.size > 1 ? (
+        {bulkMode && selectedIds.size >= 1 ? (
           <>
             <span className="absolute left-1/2 -translate-x-1/2 text-xs text-muted-foreground">{selectedIds.size} selected</span>
             {tabType === "reading-list" && (
@@ -914,7 +948,7 @@ export function ItemsList() {
             <Button variant="ghost" size="icon" className="text-muted-foreground" title="Delete" onClick={() => void handleBulkDelete()}>
               <IconTrash />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground" title="Clear selection" onClick={() => { setSelectedIds(new Set()); cursorRef.current = null; }}>
+            <Button variant="ghost" size="icon" className="text-muted-foreground" title="Clear selection" onClick={() => { setSelectedIds(new Set()); cursorRef.current = null; setBulkMode(false); }}>
               <IconX />
             </Button>
           </>
@@ -1039,6 +1073,9 @@ export function ItemsList() {
         </div>
       )}
 
+      {/* Fade gradient */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent translate-y-full pointer-events-none" />
+      </div>
 
       {/* New item inline form */}
       {editingId === "new" && (
@@ -1106,6 +1143,7 @@ export function ItemsList() {
 
                   if (e.metaKey || e.ctrlKey) {
                     // Cmd+click: toggle individual item in set
+                    setBulkMode(true);
                     setSelectedIds((prev) => {
                       const next = new Set(prev);
                       if (next.has(item.id)) next.delete(item.id);
@@ -1113,6 +1151,7 @@ export function ItemsList() {
                       return next;
                     });
                   } else if (e.shiftKey && lastClickedRef.current) {
+                    setBulkMode(true);
                     // Shift+click: range select from last clicked to this
                     const ids = filteredItems.map((i) => i.id);
                     const from = ids.indexOf(lastClickedRef.current);
@@ -1127,6 +1166,7 @@ export function ItemsList() {
                     }
                   } else {
                     // Plain click: single select (toggle)
+                    setBulkMode(false);
                     setSelectedIds((prev) =>
                       prev.size === 1 && prev.has(item.id)
                         ? new Set()
@@ -1214,7 +1254,7 @@ export function ItemsList() {
         }}
       />
 
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 text-xs text-muted-foreground/50">
+      <div className="fixed bottom-4 left-4 flex items-center gap-3 text-xs text-muted-foreground/50">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
