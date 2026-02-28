@@ -428,10 +428,18 @@ export function ItemsList() {
   const [search, setSearch] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
-  const [activeTags, setActiveTags] = React.useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try { return new Set(JSON.parse(localStorage.getItem("activeTags") ?? "[]")); } catch { return new Set(); }
+  const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("activeTagsMap") ?? "{}"); } catch { return {}; }
   });
+  const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
+  const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
+    setActiveTagsMap((prev) => {
+      const current = new Set(prev[activeTab] ?? []);
+      const next = updater(current);
+      return { ...prev, [activeTab]: [...next] };
+    });
+  }, [activeTab]);
   const [tagsOpen, setTagsOpen] = React.useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("tagsOpen") === "true";
@@ -440,7 +448,7 @@ export function ItemsList() {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("showRead") === "true";
   });
-  React.useEffect(() => { localStorage.setItem("activeTags", JSON.stringify([...activeTags])); }, [activeTags]);
+  React.useEffect(() => { localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap)); }, [activeTagsMap]);
   React.useEffect(() => { localStorage.setItem("tagsOpen", String(tagsOpen)); }, [tagsOpen]);
   React.useEffect(() => { localStorage.setItem("showRead", String(showRead)); }, [showRead]);
   const [suppressHover, setSuppressHover] = React.useState(false);
@@ -1235,7 +1243,7 @@ export function ItemsList() {
           {activeTags.size > 0 && (
             <button
               type="button"
-              onClick={() => setActiveTags(new Set())}
+              onClick={() => setActiveTags(() => new Set())}
               className="px-1.5 py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               clear
