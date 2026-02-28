@@ -449,6 +449,13 @@ export function ItemsList() {
   const [pendingActions, setPendingActions] = React.useState(0);
   const [bulkMode, setBulkMode] = React.useState(false);
   const [helpOpen, setHelpOpen] = React.useState(false);
+  const [scrolled, setScrolled] = React.useState(false);
+  React.useEffect(() => {
+    function onScroll() { setScrolled(window.scrollY > 0); }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const lastClickedRef = React.useRef<string | null>(null);
   const cursorRef = React.useRef<string | null>(null);
@@ -975,6 +982,32 @@ export function ItemsList() {
         return;
       }
 
+      // o — open selected in new tab
+      if (e.key === "o" && !e.metaKey && !e.ctrlKey && !e.shiftKey && selectedIds.size >= 1) {
+        e.preventDefault();
+        for (const id of selectedIds) {
+          const item = filteredItems.find((i) => i.id === id);
+          if (item) window.open(item.url, "_blank");
+        }
+        return;
+      }
+
+      // x — toggle read on selected
+      if (e.key === "x" && !e.metaKey && !e.ctrlKey && !e.shiftKey && selectedIds.size > 0) {
+        e.preventDefault();
+        const selectedItems = filteredItems
+          .filter((i) => selectedIds.has(i.id))
+          .filter(isReadingListItem);
+        if (selectedItems.length === 0) return;
+        const allRead = selectedItems.every((i) => i.read);
+        if (selectedItems.length === 1) {
+          toggleReadMutation.mutate({ itemId: selectedItems[0].id, read: !selectedItems[0].read });
+        } else {
+          void handleBulkMarkRead(!allRead);
+        }
+        return;
+      }
+
       // Cmd+Enter to open in new tab
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedIds.size >= 1) {
         e.preventDefault();
@@ -1211,8 +1244,8 @@ export function ItemsList() {
         </div>
       )}
 
-      {/* Fade gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent translate-y-full pointer-events-none" />
+      {/* Fade gradient — only when scrolled */}
+      {scrolled && <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent translate-y-full pointer-events-none" />}
       </div>
 
       {/* New item inline form */}
@@ -1395,6 +1428,8 @@ export function ItemsList() {
 
             <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-2">Actions</span>
             <kbd className="font-mono text-muted-foreground">Enter</kbd><span>Edit selected item</span>
+            <kbd className="font-mono text-muted-foreground">o</kbd><span>Open URL in new tab</span>
+            <kbd className="font-mono text-muted-foreground">x</kbd><span>Toggle read</span>
             <kbd className="font-mono text-muted-foreground">Space</kbd><span>Toggle read</span>
             <kbd className="font-mono text-muted-foreground">Cmd+Enter</kbd><span>Open URL in new tab</span>
             <kbd className="font-mono text-muted-foreground">d d</kbd><span>Delete selected</span>
