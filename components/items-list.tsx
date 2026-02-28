@@ -40,6 +40,7 @@ import {
   createItem,
   deleteItem,
   fetchPageTitle,
+  importBookmarks,
   reorderItem,
   toggleRead,
   updateItem,
@@ -448,6 +449,7 @@ export function ItemsList() {
   const lastClickedRef = React.useRef<string | null>(null);
   const cursorRef = React.useRef<string | null>(null);
   const anchorRef = React.useRef<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Filter by tab type
   const tabType = activeTab === "bookmarks" ? "bookmark" : "reading-list";
@@ -1192,13 +1194,43 @@ export function ItemsList() {
         </DialogContent>
       </Dialog>
 
-      <button
-        type="button"
-        onClick={() => void logout()}
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer"
-      >
-        Log out
-      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".html"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const html = await file.text();
+          e.target.value = "";
+          setPendingActions((n) => n + 1);
+          try {
+            await importBookmarks(html);
+            queryClient.invalidateQueries({ queryKey: ["items"] });
+          } finally {
+            setPendingActions((n) => n - 1);
+          }
+        }}
+      />
+
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 text-xs text-muted-foreground/50">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="hover:text-muted-foreground transition-colors cursor-pointer"
+        >
+          Import bookmarks
+        </button>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="hover:text-muted-foreground transition-colors cursor-pointer"
+        >
+          Log out
+        </button>
+      </div>
     </div>
   );
 }

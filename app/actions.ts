@@ -330,6 +330,71 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
   revalidatePath("/");
 }
 
+export async function importBookmarks(html: string) {
+  const { parseBookmarksHtml } = await import("@/lib/parse-bookmarks");
+  const parsed = parseBookmarksHtml(html);
+  if (parsed.length === 0) return { imported: 0 };
+
+  let imported = 0;
+
+  await db.transaction(async (tx) => {
+    // Get existing URLs to deduplicate
+    const existingItems = await tx
+      .select({ url: items.url })
+      .from(items)
+      .where(eq(items.type, "reading-list"));
+    const existingUrls = new Set(existingItems.map((i) => i.url));
+
+    // Get max position in reading-list
+    const [maxPos] = await tx
+      .select({ max: sql<number>`coalesce(max(${items.position}), -1)` })
+      .from(items)
+      .where(eq(items.type, "reading-list"));
+    let nextPosition = (maxPos?.max ?? -1) + 1;
+
+    const now = new Date().toISOString();
+
+    for (const bookmark of parsed) {
+      if (existingUrls.has(bookmark.url)) continue;
+
+      const itemId = crypto.randomUUID();
+      await tx.insert(items).values({
+        id: itemId,
+        title: bookmark.title,
+        url: bookmark.url,
+        faviconUrl: null,
+        type: "reading-list",
+        starred: false,
+        notes: null,
+        read: false,
+        position: nextPosition++,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const tagName of bookmark.tags) {
+        await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
+        const [tag] = await tx
+          .select()
+          .from(tags)
+          .where(eq(tags.name, tagName));
+        if (tag) {
+          await tx
+            .insert(itemsTags)
+            .values({ itemId, tagId: tag.id })
+            .onConflictDoNothing();
+        }
+      }
+
+      existingUrls.add(bookmark.url);
+      imported++;
+    }
+  });
+
+  revalidatePath("/");
+  return { imported };
+}
+
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
   if (itemIds.length === 0) return;
 

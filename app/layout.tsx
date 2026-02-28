@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/lora";
 import "@fontsource-variable/crimson-pro";
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans bg-background text-foreground">
         <FontPicker />
-        <QueryProvider>{children}</QueryProvider>
+        <Suspense>
+          <QueryProvider>{children}</QueryProvider>
+        </Suspense>
       </body>
     </html>
   );
