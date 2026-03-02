@@ -18,6 +18,7 @@ export const items = pgTable("items", {
   starred: boolean("starred").notNull().default(false),
   notes: text("notes"),
   read: boolean("read").notNull().default(false),
+  readAt: timestamp("read_at", { withTimezone: true, mode: "string" }),
   position: integer("position").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),

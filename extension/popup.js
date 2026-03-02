@@ -1,6 +1,12 @@
 const API = "http://localhost:3000/api";
+const API_KEY = "a3fe3be95323cdf4fdae05eaacada250f50367264d54984eba10c5989c65b39b";
 
 const $ = (id) => document.getElementById(id);
+
+const authHeaders = {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${API_KEY}`,
+};
 
 let currentItem = null;
 let tabInfo = null;
@@ -16,7 +22,9 @@ async function init() {
     };
 
     // Check if already saved
-    const res = await fetch(`${API}/items/lookup?url=${encodeURIComponent(tabInfo.url)}`);
+    const res = await fetch(`${API}/items/lookup?url=${encodeURIComponent(tabInfo.url)}`, {
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
     const data = await res.json();
 
     $("title").value = data.found ? data.item.title : tabInfo.title;
@@ -62,7 +70,7 @@ async function save() {
   try {
     await fetch(`${API}/items`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         title: $("title").value.trim(),
         url: tabInfo.url,
@@ -82,7 +90,7 @@ async function update() {
   try {
     await fetch(`${API}/items/${currentItem.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         title: $("title").value.trim(),
         faviconUrl: tabInfo.faviconUrl,
@@ -99,7 +107,10 @@ async function update() {
 async function remove() {
   disableButtons();
   try {
-    await fetch(`${API}/items/${currentItem.id}`, { method: "DELETE" });
+    await fetch(`${API}/items/${currentItem.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
     showDone("Removed");
   } catch {
     showError("Failed to remove");

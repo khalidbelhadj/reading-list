@@ -1,11 +1,11 @@
+import { ItemsList } from "@/components/items-list";
+import { fetchItems } from "@/lib/queries";
 import {
   dehydrate,
   HydrationBoundary,
   QueryClient,
 } from "@tanstack/react-query";
 import { Suspense } from "react";
-import { ItemsList } from "@/components/items-list";
-import { fetchItems } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 

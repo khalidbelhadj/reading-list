@@ -12,6 +12,7 @@ type BaseItem = Omit<DbItem, "type" | "read"> & {
 export type ReadingListItem = BaseItem & {
   type: "reading-list";
   read: boolean;
+  readAt: string | null;
 };
 
 export type BookmarkItem = BaseItem & {

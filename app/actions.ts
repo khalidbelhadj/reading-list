@@ -33,29 +33,57 @@ export async function deleteItem(itemId: string) {
   revalidatePath("/");
 }
 
+async function fetchOembedTitle(url: string): Promise<string | null> {
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.title || null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export async function fetchPageTitle(url: string): Promise<string | null> {
   try {
+    const parsed = new URL(url);
+    const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(parsed.hostname);
+    if (isYouTube) {
+      const title = await fetchOembedTitle(url);
+      if (title) return title;
+    }
+
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; ReadingList/1.0)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      },
       redirect: "follow",
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const text = await res.text();
-    const match = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const ogMatch = text.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i)
+      || text.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["'][^>]*>/i);
+    const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const match = ogMatch || titleMatch;
     if (!match) return null;
-    return match[1]
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#039;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/&#x27;/g, "'")
-      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-      .trim()
-      .replace(/\s+/g, " ");
+    return decodeHtmlEntities(match[1]);
   } catch {
     return null;
   }
@@ -232,9 +260,10 @@ export async function reorderItem(itemId: string, type: string, newPosition: num
 }
 
 export async function toggleRead(itemId: string, read: boolean) {
+  const now = new Date().toISOString();
   await db
     .update(items)
-    .set({ read, updatedAt: new Date().toISOString() })
+    .set({ read, readAt: read ? now : null, updatedAt: now })
     .where(eq(items.id, itemId));
   revalidatePath("/");
 }
@@ -421,9 +450,10 @@ export async function importBookmarks(html: string) {
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
   if (itemIds.length === 0) return;
 
+  const now = new Date().toISOString();
   await db
     .update(items)
-    .set({ read, updatedAt: new Date().toISOString() })
+    .set({ read, readAt: read ? now : null, updatedAt: now })
     .where(inArray(items.id, itemIds));
 
   revalidatePath("/");
