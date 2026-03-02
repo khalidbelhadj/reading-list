@@ -89,8 +89,8 @@ export async function fetchPageTitle(url: string): Promise<string | null> {
   }
 }
 
-export async function createItem(title: string, url: string, tagNames: string[], faviconUrl?: string, type: string = "bookmark", notes?: string) {
-  const itemId = crypto.randomUUID();
+export async function createItem(title: string, url: string, tagNames: string[], faviconUrl?: string, type: string = "bookmark", notes?: string, id?: string) {
+  const itemId = id ?? crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.transaction(async (tx) => {

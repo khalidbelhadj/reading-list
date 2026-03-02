@@ -6,6 +6,7 @@ import "@fontsource-variable/crimson-pro";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
+import { StoreHydrator } from "@/components/store-hydrator";
 import { FontPicker } from "@/components/font-picker";
 
 export const metadata: Metadata = {
@@ -22,7 +23,10 @@ export default function RootLayout({
       <body className="font-sans bg-background text-foreground">
         <FontPicker />
         <Suspense>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <StoreHydrator />
+            {children}
+          </QueryProvider>
         </Suspense>
       </body>
     </html>
