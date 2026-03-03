@@ -34,9 +34,22 @@ export function useItemsMutations({
 
   const handleToggleRead = React.useCallback(
     (itemId: string, read: boolean) => {
+      // When marking as read and read items are hidden, select the next item
+      if (read && !showRead) {
+        const idx = filteredItems.findIndex((i) => i.id === itemId);
+        const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
+        if (nextItem) {
+          setSelectedIds(new Set([nextItem.id]));
+          cursorRef.current = nextItem.id;
+          anchorRef.current = nextItem.id;
+        } else {
+          setSelectedIds(new Set());
+          cursorRef.current = null;
+        }
+      }
       store.toggleRead(itemId, read);
     },
-    [store],
+    [store, showRead, filteredItems, setSelectedIds, cursorRef, anchorRef],
   );
 
   const handleDeleteSingle = React.useCallback(
@@ -70,13 +83,26 @@ export function useItemsMutations({
         const item = filteredItems.find((i) => i.id === id);
         return item && isReadingListItem(item);
       });
-      store.bulkMarkRead(ids, read);
       if (read && !showRead) {
-        setSelectedIds(new Set());
-        cursorRef.current = null;
+        const idsSet = new Set(ids);
+        // Find the first item after the selection that won't be hidden
+        const lastIdx = filteredItems.reduce((max, item, idx) => idsSet.has(item.id) ? Math.max(max, idx) : max, -1);
+        const firstIdx = filteredItems.findIndex((i) => idsSet.has(i.id));
+        const nextItem = filteredItems.slice(lastIdx + 1).find((i) => !idsSet.has(i.id))
+          ?? (firstIdx > 0 ? filteredItems[firstIdx - 1] : undefined);
+        if (nextItem) {
+          setSelectedIds(new Set([nextItem.id]));
+          cursorRef.current = nextItem.id;
+          anchorRef.current = nextItem.id;
+        } else {
+          setSelectedIds(new Set());
+          cursorRef.current = null;
+        }
+        setBulkMode(false);
       }
+      store.bulkMarkRead(ids, read);
     },
-    [selectedIds, filteredItems, showRead, store, setSelectedIds, cursorRef],
+    [selectedIds, filteredItems, showRead, store, setSelectedIds, cursorRef, anchorRef, setBulkMode],
   );
 
   const handleBulkMove = React.useCallback(() => {

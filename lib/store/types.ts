@@ -3,7 +3,7 @@ import type { Item, DbTag } from "@/lib/types";
 // ── Mutation payloads (discriminated union for all mutation kinds) ──
 
 export type MutationPayload =
-  | { kind: "create"; id: string; title: string; url: string; tagNames: string[]; faviconUrl?: string; type: string; notes?: string }
+  | { kind: "create"; id: string; title: string; url: string; tagNames: string[]; faviconUrl?: string; type: string; notes?: string; position?: number }
   | { kind: "update"; id: string; fields: { title?: string; url?: string; faviconUrl?: string; type?: string; starred?: boolean; notes?: string; read?: boolean; tagNames?: string[] } }
   | { kind: "delete"; id: string }
   | { kind: "reorder"; id: string; type: string; newPosition: number }

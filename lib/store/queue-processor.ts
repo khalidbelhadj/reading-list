@@ -23,6 +23,7 @@ export async function executeMutation(payload: MutationPayload): Promise<void> {
         payload.type,
         payload.notes,
         payload.id,
+        payload.position,
       );
       break;
     case "update":

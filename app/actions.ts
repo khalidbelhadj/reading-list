@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { items, tags, itemsTags } from "@/db/schema";
-import { eq, and, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, asc, gte, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function deleteItem(itemId: string) {
@@ -89,15 +89,17 @@ export async function fetchPageTitle(url: string): Promise<string | null> {
   }
 }
 
-export async function createItem(title: string, url: string, tagNames: string[], faviconUrl?: string, type: string = "bookmark", notes?: string, id?: string) {
+export async function createItem(title: string, url: string, tagNames: string[], faviconUrl?: string, type: string = "bookmark", notes?: string, id?: string, position?: number) {
   const itemId = id ?? crypto.randomUUID();
   const now = new Date().toISOString();
+  const insertAt = position ?? 0;
 
   await db.transaction(async (tx) => {
+    // Shift items at or after the insertion point down by 1
     await tx
       .update(items)
       .set({ position: sql`${items.position} + 1` })
-      .where(eq(items.type, type));
+      .where(and(eq(items.type, type), gte(items.position, insertAt)));
 
     await tx.insert(items).values({
       id: itemId,
@@ -107,7 +109,7 @@ export async function createItem(title: string, url: string, tagNames: string[],
       type,
       starred: false,
       notes: notes ?? null,
-      position: 0,
+      position: insertAt,
       createdAt: now,
       updatedAt: now,
     });

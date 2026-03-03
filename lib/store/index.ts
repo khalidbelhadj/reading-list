@@ -6,6 +6,12 @@ import { executeMutation } from "./queue-processor";
 const UNDO_CAP = 50;
 const LS_KEY = "reading-list-store";
 
+/** Debug: artificial delay (ms) before each mutation is sent to the server. */
+export const __debugQueueDelay = { ms: 0 };
+
+/** Debug: when true, setOnline() calls from StoreHydrator are ignored. */
+export const __debugOfflineOverride = { active: false };
+
 // Helper: resolve tags from tag names using known tags in the items Map
 function resolveTagsFromNames(tagNames: string[], knownTags: DbTag[]): DbTag[] {
   const tagMap = new Map(knownTags.map((t) => [t.name, t]));
@@ -71,6 +77,7 @@ function enqueueCompensating(
           faviconUrl: item.faviconUrl ?? undefined,
           type: item.type,
           notes: item.notes ?? undefined,
+          position: item.position,
         },
         status: "pending",
         retryCount: 0,
@@ -292,6 +299,9 @@ export const useStore = create<ReadingListStore>()((set, get) => {
         }));
 
         try {
+          if (__debugQueueDelay.ms > 0) {
+            await new Promise((r) => setTimeout(r, __debugQueueDelay.ms));
+          }
           await executeMutation(next.payload);
 
           // Mark done
@@ -929,6 +939,7 @@ export const useStore = create<ReadingListStore>()((set, get) => {
     },
 
     setOnline: (online) => {
+      if (__debugOfflineOverride.active) return;
       set({ isOnline: online });
       if (online) processQueue();
     },
