@@ -1,16 +1,10 @@
 import React from "react";
-import { type QueryClient } from "@tanstack/react-query";
 
-import {
-  createItem,
-  fetchPageTitle,
-  reorderItem,
-  updateItem,
-} from "@/app/actions";
+import { fetchPageTitle } from "@/app/actions";
+import { useStore } from "@/lib/store";
 import { type Item, isReadingListItem } from "@/lib/types";
 
 export function useKeyboardNavigation({
-  queryClient,
   filteredItems,
   selectedIds,
   setSelectedIds,
@@ -33,12 +27,11 @@ export function useKeyboardNavigation({
   handleBulkMarkRead,
   handleBulkMove,
   handleDeleteSingle,
-  toggleReadMutation,
+  handleToggleRead,
   cursorRef,
   anchorRef,
   lastClickedRef,
 }: {
-  queryClient: QueryClient;
   filteredItems: Item[];
   selectedIds: Set<string>;
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -57,20 +50,19 @@ export function useKeyboardNavigation({
   setTagDialogInput: React.Dispatch<React.SetStateAction<string>>;
   setTagDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   tabType: string;
-  handleBulkDelete: () => Promise<void>;
-  handleBulkMarkRead: (read: boolean) => Promise<void>;
-  handleBulkMove: () => Promise<void>;
-  handleDeleteSingle: (itemId: string) => Promise<void>;
-  toggleReadMutation: { mutate: (args: { itemId: string; read: boolean }) => void };
+  handleBulkDelete: () => void;
+  handleBulkMarkRead: (read: boolean) => void;
+  handleBulkMove: () => void;
+  handleDeleteSingle: (itemId: string) => void;
+  handleToggleRead: (itemId: string, read: boolean) => void;
   cursorRef: React.MutableRefObject<string | null>;
   anchorRef: React.MutableRefObject<string | null>;
   lastClickedRef: React.MutableRefObject<string | null>;
 }) {
   const pendingGRef = React.useRef<number>(0);
   const pendingDRef = React.useRef<number>(0);
-  const reorderTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingReorderRef = React.useRef<{ itemId: string; type: string } | null>(null);
   const [suppressHover, setSuppressHover] = React.useState(false);
+  const store = useStore();
 
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
@@ -90,22 +82,18 @@ export function useKeyboardNavigation({
         if (url.protocol === "http:" || url.protocol === "https:") {
           e.preventDefault();
           const domain = url.hostname.replace(/^www\./, "");
-          void createItem(domain, text, [], undefined, tabType).then(
-            async () => {
-              await queryClient.invalidateQueries({ queryKey: ["items"] });
-              const title = await fetchPageTitle(text);
-              if (title) {
-                const freshItems = queryClient.getQueryData<Item[]>(["items"]);
-                const created = freshItems?.find(
-                  (i) => i.url === text && i.title === domain,
-                );
-                if (created) {
-                  await updateItem(created.id, { title });
-                  queryClient.invalidateQueries({ queryKey: ["items"] });
-                }
-              }
-            },
-          );
+          const tempId = store.createItem({
+            title: domain,
+            url: text,
+            tagNames: [],
+            type: tabType,
+          });
+          // Fetch title in background and update
+          fetchPageTitle(text).then((title) => {
+            if (title) {
+              store.updateItem(tempId, { title });
+            }
+          });
         }
       } catch {
         // not a valid URL, ignore
@@ -113,7 +101,26 @@ export function useKeyboardNavigation({
     }
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [tabType, queryClient]);
+  }, [tabType, store]);
+
+  // Cmd+Z / Cmd+Shift+Z for undo/redo
+  React.useEffect(() => {
+    function handleUndoRedo(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      if (e.shiftKey) {
+        store.redo();
+      } else {
+        store.undo();
+      }
+    }
+    document.addEventListener("keydown", handleUndoRedo);
+    return () => document.removeEventListener("keydown", handleUndoRedo);
+  }, [store]);
 
   // Global keyboard shortcuts: /, 1, 2, ?, a, t, r, Escape
   React.useEffect(() => {
@@ -179,7 +186,7 @@ export function useKeyboardNavigation({
       }
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedIds.size > 0 && !editingId) {
         e.preventDefault();
-        void handleBulkDelete();
+        handleBulkDelete();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -246,7 +253,9 @@ export function useKeyboardNavigation({
         e.preventDefault();
         if (selectedIds.size !== 1) return;
         const [selectedId] = selectedIds;
-        const allItems = queryClient.getQueryData<Item[]>(["items"]) ?? [];
+
+        // Get items of this type from the store
+        const allItems = store.getAllItems();
         const typeItems = allItems
           .filter((i) => i.type === tabType)
           .sort((a, b) => a.position - b.position);
@@ -257,39 +266,8 @@ export function useKeyboardNavigation({
           : Math.max(currentIndex - 1, 0);
         if (newIndex === currentIndex) return;
 
-        // Cancel any inflight refetches so stale data doesn't overwrite optimistic state
-        queryClient.cancelQueries({ queryKey: ["items"] });
-
-        // Optimistic local update for immediate animation
-        queryClient.setQueryData<Item[]>(["items"], (old) => {
-          if (!old) return old;
-          const updated = old.map((i) => ({ ...i }));
-          const sorted = updated
-            .filter((i) => i.type === tabType)
-            .sort((a, b) => a.position - b.position);
-          const [moved] = sorted.splice(currentIndex, 1);
-          sorted.splice(newIndex, 0, moved);
-          sorted.forEach((item, idx) => { item.position = idx; });
-          return updated;
-        });
-
-        // Debounce the server call — read final position from cache at flush time
-        pendingReorderRef.current = { itemId: selectedId, type: tabType };
-        if (reorderTimerRef.current) clearTimeout(reorderTimerRef.current);
-        reorderTimerRef.current = setTimeout(() => {
-          const pending = pendingReorderRef.current;
-          if (!pending) return;
-          pendingReorderRef.current = null;
-          const cached = queryClient.getQueryData<Item[]>(["items"]) ?? [];
-          const finalPosition = cached
-            .filter((i) => i.type === pending.type)
-            .sort((a, b) => a.position - b.position)
-            .findIndex((i) => i.id === pending.itemId);
-          if (finalPosition === -1) return;
-          reorderItem(pending.itemId, pending.type, finalPosition).then(() =>
-            queryClient.invalidateQueries({ queryKey: ["items"] })
-          );
-        }, 300);
+        // Store handles deduplication for rapid reorders
+        store.reorderItem(selectedId, tabType, newIndex);
         return;
       }
 
@@ -387,12 +365,12 @@ export function useKeyboardNavigation({
           pendingDRef.current = 0;
           if (selectedIds.size > 0) {
             if (bulkMode && selectedIds.size > 1) {
-              void handleBulkDelete();
+              handleBulkDelete();
             } else {
               const id = cursorRef.current && selectedIds.has(cursorRef.current)
                 ? cursorRef.current
                 : Array.from(selectedIds)[0];
-              void handleDeleteSingle(id);
+              handleDeleteSingle(id);
             }
           }
         } else {
@@ -438,9 +416,9 @@ export function useKeyboardNavigation({
         if (selectedItems.length === 0) return;
         const allRead = selectedItems.every((i) => i.read);
         if (selectedItems.length === 1) {
-          toggleReadMutation.mutate({ itemId: selectedItems[0].id, read: !selectedItems[0].read });
+          handleToggleRead(selectedItems[0].id, !selectedItems[0].read);
         } else {
-          void handleBulkMarkRead(!allRead);
+          handleBulkMarkRead(!allRead);
         }
         return;
       }
@@ -471,9 +449,9 @@ export function useKeyboardNavigation({
         if (selectedItems.length === 0) return;
         const allRead = selectedItems.every((i) => i.read);
         if (selectedItems.length === 1) {
-          toggleReadMutation.mutate({ itemId: selectedItems[0].id, read: !selectedItems[0].read });
+          handleToggleRead(selectedItems[0].id, !selectedItems[0].read);
         } else {
-          void handleBulkMarkRead(!allRead);
+          handleBulkMarkRead(!allRead);
         }
       }
 
@@ -487,12 +465,12 @@ export function useKeyboardNavigation({
       // m — bulk move to other list
       if (e.key === "m" && !e.metaKey && !e.ctrlKey && bulkMode && selectedIds.size >= 1) {
         e.preventDefault();
-        void handleBulkMove();
+        handleBulkMove();
       }
     }
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMarkRead, handleBulkMove, handleBulkDelete, handleDeleteSingle, tabType, queryClient, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen, toggleReadMutation]);
+  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMarkRead, handleBulkMove, handleBulkDelete, handleDeleteSingle, handleToggleRead, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen]);
 
   return {
     cursorRef,

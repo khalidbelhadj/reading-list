@@ -6,7 +6,8 @@ import "@fontsource-variable/crimson-pro";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
-import { FontPicker } from "@/components/font-picker";
+import { StoreHydrator } from "@/components/store-hydrator";
+import { DebugPanel } from "@/components/debug-panel";
 
 export const metadata: Metadata = {
   title: "Reading List",
@@ -20,9 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans bg-background text-foreground">
-        <FontPicker />
+        <DebugPanel />
         <Suspense>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <StoreHydrator />
+            {children}
+          </QueryProvider>
         </Suspense>
       </body>
     </html>

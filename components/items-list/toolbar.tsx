@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
   IconArrowsExchange,
+  IconCloudOff,
   IconEye,
   IconEyeOff,
   IconPlus,
@@ -15,12 +16,11 @@ import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
+import { useIsSyncing, usePendingCount, useIsOnline } from "@/lib/store/selectors";
 
 export function Toolbar({
   activeTab,
   setActiveTabAndUrl,
-  isFetching,
-  pendingActions,
   bulkMode,
   selectedIds,
   tabType,
@@ -46,8 +46,6 @@ export function Toolbar({
 }: {
   activeTab: string;
   setActiveTabAndUrl: (tab: string) => void;
-  isFetching: boolean;
-  pendingActions: number;
   bulkMode: boolean;
   selectedIds: Set<string>;
   tabType: string;
@@ -67,10 +65,14 @@ export function Toolbar({
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   setTagDialogInput: React.Dispatch<React.SetStateAction<string>>;
   setTagDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  handleBulkMarkRead: (read: boolean) => Promise<void>;
-  handleBulkMove: () => Promise<void>;
-  handleBulkDelete: () => Promise<void>;
+  handleBulkMarkRead: (read: boolean) => void;
+  handleBulkMove: () => void;
+  handleBulkDelete: () => void;
 }) {
+  const isSyncing = useIsSyncing();
+  const pendingCount = usePendingCount();
+  const isOnline = useIsOnline();
+
   return (
     <div className="flex items-center relative">
       <Tabs
@@ -82,7 +84,10 @@ export function Toolbar({
           { label: "Bookmarks", value: "bookmarks" },
         ]}
       />
-      {(isFetching || pendingActions > 0) && <Spinner className="size-3 text-muted-foreground/50 ml-2" />}
+      {!isOnline && (
+        <IconCloudOff className="size-3.5 text-muted-foreground/50 ml-2" />
+      )}
+      {(isSyncing || pendingCount > 0) && <Spinner className="size-3 text-muted-foreground/50 ml-2" />}
       <div className="flex-1" />
 
       {bulkMode && selectedIds.size >= 1 ? (
@@ -90,21 +95,21 @@ export function Toolbar({
           <span className="absolute left-1/2 -translate-x-1/2 text-xs text-muted-foreground">{selectedIds.size} selected</span>
           {tabType === "reading-list" && (
             <>
-              <Button variant="ghost" size="icon" className="text-muted-foreground" title="Mark read" onClick={() => void handleBulkMarkRead(true)}>
+              <Button variant="ghost" size="icon" className="text-muted-foreground" title="Mark read" onClick={() => handleBulkMarkRead(true)}>
                 <IconEye />
               </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground" title="Mark unread" onClick={() => void handleBulkMarkRead(false)}>
+              <Button variant="ghost" size="icon" className="text-muted-foreground" title="Mark unread" onClick={() => handleBulkMarkRead(false)}>
                 <IconEyeOff />
               </Button>
             </>
           )}
-          <Button variant="ghost" size="icon" className="text-muted-foreground" title={`Move to ${tabType === "reading-list" ? "Bookmarks" : "Reading List"}`} onClick={() => void handleBulkMove()}>
+          <Button variant="ghost" size="icon" className="text-muted-foreground" title={`Move to ${tabType === "reading-list" ? "Bookmarks" : "Reading List"}`} onClick={() => handleBulkMove()}>
             <IconArrowsExchange />
           </Button>
           <Button variant="ghost" size="icon" className="text-muted-foreground" title="Tag" onClick={() => { setTagDialogInput(""); setTagDialogOpen(true); }}>
             <IconTag />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground" title="Delete" onClick={() => void handleBulkDelete()}>
+          <Button variant="ghost" size="icon" className="text-muted-foreground" title="Delete" onClick={() => handleBulkDelete()}>
             <IconTrash />
           </Button>
           <Button variant="ghost" size="icon" className="text-muted-foreground" title="Clear selection" onClick={() => { setSelectedIds(new Set()); setBulkMode(false); }}>

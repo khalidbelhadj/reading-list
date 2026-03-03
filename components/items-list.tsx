@@ -12,13 +12,13 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import React from "react";
 
-import { createItem, updateItem } from "@/app/actions";
+import { useStore } from "@/lib/store";
+import { useItems, useIsHydrated } from "@/lib/store/selectors";
 import { isReadingListItem } from "@/lib/types";
-import { type EditFields, fetchItems } from "./items-list/utils";
+import { type EditFields } from "./items-list/utils";
 import { SortableItemRow, InlineEditForm } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useItemsFilters } from "./items-list/use-filters";
@@ -30,11 +30,9 @@ import { HelpDialog } from "./items-list/help-dialog";
 import { BulkTagDialog } from "./items-list/bulk-tag-dialog";
 
 export function ItemsList() {
-  const queryClient = useQueryClient();
-  const { data: items, isFetching, error, isPending } = useQuery({
-    queryKey: ["items"],
-    queryFn: fetchItems,
-  });
+  const store = useStore();
+  const items = useItems();
+  const isHydrated = useIsHydrated();
 
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = React.useState(() => {
@@ -54,7 +52,6 @@ export function ItemsList() {
 
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [pendingActions, setPendingActions] = React.useState(0);
   const [bulkMode, setBulkMode] = React.useState(false);
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
@@ -82,20 +79,18 @@ export function ItemsList() {
   } = useItemsFilters(items, activeTab);
 
   const {
-    reorderMutation,
-    toggleReadMutation,
+    handleReorder,
+    handleToggleRead,
     handleDeleteSingle,
     handleBulkDelete,
     handleBulkMarkRead,
     handleBulkMove,
   } = useItemsMutations({
-    queryClient,
     filteredItems,
     selectedIds,
     setSelectedIds,
     setEditingId,
     setBulkMode,
-    setPendingActions,
     showRead,
     tabType,
     cursorRef,
@@ -103,7 +98,6 @@ export function ItemsList() {
   });
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
-    queryClient,
     filteredItems,
     selectedIds,
     setSelectedIds,
@@ -126,7 +120,7 @@ export function ItemsList() {
     handleBulkMarkRead,
     handleBulkMove,
     handleDeleteSingle,
-    toggleReadMutation,
+    handleToggleRead,
     cursorRef,
     anchorRef,
     lastClickedRef,
@@ -161,15 +155,11 @@ export function ItemsList() {
     const overIndex = sortedTypeItems.findIndex((i) => i.id === over.id);
     if (overIndex === -1) return;
 
-    reorderMutation.mutate({
-      itemId: active.id as string,
-      type: tabType,
-      newPosition: overIndex,
-    });
+    handleReorder(active.id as string, tabType, overIndex);
   }
 
   const handleSave = React.useCallback(
-    async (itemId: string, fields: EditFields) => {
+    (itemId: string, fields: EditFields) => {
       const tagNames = fields.tags
         .split(",")
         .map((t) => t.trim().toLowerCase())
@@ -180,16 +170,15 @@ export function ItemsList() {
           setEditingId(null);
           return;
         }
-        await createItem(
-          fields.title.trim() || fields.url.trim(),
-          fields.url.trim(),
+        store.createItem({
+          title: fields.title.trim() || fields.url.trim(),
+          url: fields.url.trim(),
           tagNames,
-          undefined,
-          tabType,
-          fields.notes.trim() || undefined,
-        );
+          type: tabType,
+          notes: fields.notes.trim() || undefined,
+        });
       } else {
-        await updateItem(itemId, {
+        store.updateItem(itemId, {
           title: fields.title,
           url: fields.url,
           notes: fields.notes,
@@ -197,10 +186,9 @@ export function ItemsList() {
         });
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
       setEditingId(null);
     },
-    [tabType, queryClient],
+    [tabType, store],
   );
 
   return (
@@ -210,8 +198,6 @@ export function ItemsList() {
         <Toolbar
           activeTab={activeTab}
           setActiveTabAndUrl={setActiveTabAndUrl}
-          isFetching={isFetching}
-          pendingActions={pendingActions}
           bulkMode={bulkMode}
           selectedIds={selectedIds}
           tabType={tabType}
@@ -256,17 +242,14 @@ export function ItemsList() {
           initialTags=""
           initialNotes=""
           faviconSrc={null}
-          onSave={(fields) => void handleSave("new", fields)}
+          onSave={(fields) => handleSave("new", fields)}
           onCancel={() => setEditingId(null)}
         />
       )}
 
       {/* Items list */}
-      {isPending ? (
+      {!isHydrated ? (
         <div className="px-1 py-6 text-center text-muted-foreground text-xs">Loading...</div>
-      ) : error ? (
-        (console.error("Failed to fetch items:", error),
-        <div className="px-1 py-6 text-center text-destructive text-xs">An error has occurred</div>)
       ) : (
       <DndContext
         id="items-list-dnd"
@@ -303,11 +286,7 @@ export function ItemsList() {
                 isDragDisabled={isDragDisabled}
                 onToggleRead={
                   isReadingListItem(item)
-                    ? () =>
-                        toggleReadMutation.mutate({
-                          itemId: item.id,
-                          read: !item.read,
-                        })
+                    ? () => handleToggleRead(item.id, !item.read)
                     : undefined
                 }
                 onRightClick={() => {
@@ -365,9 +344,9 @@ export function ItemsList() {
                   cursorRef.current = item.id;
                 }}
                 onStartEdit={() => setEditingId(item.id)}
-                onSave={(fields) => void handleSave(item.id, fields)}
+                onSave={(fields) => handleSave(item.id, fields)}
                 onCancelEdit={() => setEditingId(null)}
-                onDelete={() => void handleDeleteSingle(item.id)}
+                onDelete={() => handleDeleteSingle(item.id)}
               />
               );
             })}
@@ -380,16 +359,11 @@ export function ItemsList() {
         open={tagDialogOpen}
         onOpenChange={setTagDialogOpen}
         selectedIds={selectedIds}
-        queryClient={queryClient}
-        setPendingActions={setPendingActions}
       />
 
       <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
 
       <Footer
-        items={items}
-        queryClient={queryClient}
-        setPendingActions={setPendingActions}
         setHelpOpen={setHelpOpen}
       />
     </div>

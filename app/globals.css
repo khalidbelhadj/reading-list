@@ -128,3 +128,21 @@
         @apply font-sans;
     }
 }
+
+.debug-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.15) transparent;
+}
+.debug-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.debug-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.debug-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.15);
+    border-radius: 3px;
+}
+.debug-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.25);
+}

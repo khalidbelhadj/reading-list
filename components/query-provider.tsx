@@ -9,8 +9,8 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        refetchOnWindowFocus: true,
-        staleTime: 0,
+        refetchOnWindowFocus: false,
+        staleTime: Infinity,
       },
     },
   });
