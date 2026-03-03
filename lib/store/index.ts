@@ -215,6 +215,37 @@ function enqueueCompensating(
   }
 }
 
+// Read localStorage synchronously at module load so the first render already has data.
+// Runs once; returns null if SSR or no cached data.
+function loadCachedState(): {
+  items: Map<string, Item>;
+  mutationQueue: QueuedMutation[];
+  nextMutationId: number;
+  lastSyncedAt: number | null;
+} | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.items || !Array.isArray(data.items)) return null;
+    const items = new Map<string, Item>();
+    for (const item of data.items) {
+      items.set(item.id, item);
+    }
+    return {
+      items,
+      mutationQueue: data.mutationQueue ?? [],
+      nextMutationId: data.nextMutationId ?? 1,
+      lastSyncedAt: data.lastSyncedAt ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const cachedState = loadCachedState();
+
 export const useStore = create<ReadingListStore>()((set, get) => {
   // Internal queue processing lock
   let isProcessing = false;
@@ -348,15 +379,15 @@ export const useStore = create<ReadingListStore>()((set, get) => {
 
   return {
     // ── Data ──
-    items: new Map(),
-    isHydrated: false,
+    items: cachedState?.items ?? new Map(),
+    isHydrated: false, // always false initially to match SSR; set true before first paint via useLayoutEffect
     isOnline: true, // always true initially to match SSR; StoreHydrator sets real value after mount
     isSyncing: false,
-    lastSyncedAt: null,
+    lastSyncedAt: cachedState?.lastSyncedAt ?? null,
 
     // ── Queue ──
-    mutationQueue: [],
-    nextMutationId: 1,
+    mutationQueue: cachedState?.mutationQueue ?? [],
+    nextMutationId: cachedState?.nextMutationId ?? 1,
 
     // ── Undo/Redo ──
     undoStack: [],
@@ -897,12 +928,73 @@ export const useStore = create<ReadingListStore>()((set, get) => {
     // ── Sync ──
 
     hydrateFromServer: (serverItems) => {
-      const newItems = new Map<string, Item>();
+      const state = get();
+      const pendingMutations = state.mutationQueue.filter(
+        (m) => m.status === "pending" || m.status === "in-flight",
+      );
+
+      // Start with server items as the base
+      const merged = new Map<string, Item>();
       for (const item of serverItems) {
-        newItems.set(item.id, item);
+        merged.set(item.id, item);
       }
+
+      if (pendingMutations.length > 0) {
+        // Collect IDs affected by pending mutations
+        const dirtyIds = new Set<string>();
+        const pendingDeleteIds = new Set<string>();
+        const pendingCreateIds = new Set<string>();
+
+        for (const m of pendingMutations) {
+          const p = m.payload;
+          switch (p.kind) {
+            case "create":
+              dirtyIds.add(p.id);
+              pendingCreateIds.add(p.id);
+              break;
+            case "update":
+            case "delete":
+            case "reorder":
+            case "toggleRead":
+              dirtyIds.add(p.id);
+              if (p.kind === "delete") pendingDeleteIds.add(p.id);
+              break;
+            case "bulkDelete":
+              for (const id of p.ids) { dirtyIds.add(id); pendingDeleteIds.add(id); }
+              break;
+            case "bulkMove":
+            case "bulkTag":
+            case "bulkMarkRead":
+              for (const id of p.ids) dirtyIds.add(id);
+              break;
+            // importBookmarks has no item IDs to track
+          }
+        }
+
+        // For dirty IDs: keep local store's version instead of server's
+        for (const id of dirtyIds) {
+          const localItem = state.items.get(id);
+          if (pendingDeleteIds.has(id)) {
+            // Item was deleted locally — remove from merged even if server still has it
+            merged.delete(id);
+          } else if (localItem) {
+            // Keep the local optimistic version
+            merged.set(id, localItem);
+          }
+          // If not in local store and not a delete, server version stands (already in merged)
+        }
+
+        // For pending creates: if item exists locally but not on server, keep local
+        for (const id of pendingCreateIds) {
+          if (!merged.has(id)) {
+            const localItem = state.items.get(id);
+            if (localItem) merged.set(id, localItem);
+          }
+        }
+      }
+
       set({
-        items: newItems,
+        items: merged,
         isHydrated: true,
         lastSyncedAt: Date.now(),
       });

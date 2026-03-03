@@ -10,7 +10,6 @@ const SYNC_INTERVAL = 30_000; // 30 seconds
 
 export function StoreHydrator() {
   const hydrateFromServer = useStore((s) => s.hydrateFromServer);
-  const loadFromLocalStorage = useStore((s) => s.loadFromLocalStorage);
   const setOnline = useStore((s) => s.setOnline);
   const processQueue = useStore((s) => s.processQueue);
   const fullSync = useStore((s) => s.fullSync);
@@ -21,14 +20,13 @@ export function StoreHydrator() {
     queryFn: fetchItems,
   });
 
-  // Step 1: Load from localStorage on mount (instant data)
-  const initializedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      loadFromLocalStorage();
+  // Step 1: Items are loaded synchronously at store creation, but isHydrated starts
+  // false to match SSR. Flip it before the browser paints so the user never sees "Loading...".
+  React.useLayoutEffect(() => {
+    if (useStore.getState().items.size > 0) {
+      useStore.setState({ isHydrated: true });
     }
-  }, [loadFromLocalStorage]);
+  }, []);
 
   // Step 2: When SSR data arrives, hydrate store with fresh server data
   const hydratedRef = React.useRef(false);

@@ -131,13 +131,13 @@
 
 .debug-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.15) transparent;
+    scrollbar-color: rgb(255 255 255 / 0.15) rgb(23 23 23);
 }
 .debug-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
 .debug-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgb(23 23 23); /* neutral-900 — opaque so it doesn't show page content behind the translucent panel */
 }
 .debug-scrollbar::-webkit-scrollbar-thumb {
     background: rgb(255 255 255 / 0.15);

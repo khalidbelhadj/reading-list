@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 export async function deleteItem(itemId: string) {
   await db.transaction(async (tx) => {
     const [item] = await tx
-      .select({ type: items.type })
+      .select({ type: items.type, position: items.position })
       .from(items)
       .where(eq(items.id, itemId));
 
@@ -16,18 +16,11 @@ export async function deleteItem(itemId: string) {
     await tx.delete(items).where(eq(items.id, itemId));
 
     if (item) {
-      const remaining = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(eq(items.type, item.type))
-        .orderBy(asc(items.position));
-
-      for (let i = 0; i < remaining.length; i++) {
-        await tx
-          .update(items)
-          .set({ position: i })
-          .where(eq(items.id, remaining[i].id));
-      }
+      // Decrement positions for items that were after the deleted one (single query)
+      await tx
+        .update(items)
+        .set({ position: sql`${items.position} - 1` })
+        .where(and(eq(items.type, item.type), gte(items.position, item.position)));
     }
   });
   revalidatePath("/");
@@ -285,16 +278,16 @@ export async function bulkDeleteItems(itemIds: string[]) {
     await tx.delete(itemsTags).where(inArray(itemsTags.itemId, itemIds));
     await tx.delete(items).where(inArray(items.id, itemIds));
 
-    // Renumber positions per affected type
+    // Renumber positions per affected type (single query each)
     for (const type of affectedTypes) {
-      const remaining = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(eq(items.type, type))
-        .orderBy(asc(items.position));
-      for (let i = 0; i < remaining.length; i++) {
-        await tx.update(items).set({ position: i }).where(eq(items.id, remaining[i].id));
-      }
+      await tx.execute(sql`
+        UPDATE ${items} SET position = sub.new_pos
+        FROM (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
+          FROM ${items} WHERE type = ${type}
+        ) sub
+        WHERE ${items}.id = sub.id
+      `);
     }
   });
 
