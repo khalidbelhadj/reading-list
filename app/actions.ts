@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { items, tags, itemsTags } from "@/db/schema";
-import { eq, and, asc, gte, sql, inArray } from "drizzle-orm";
+import { items, itemsTags, tags } from "@/db/schema";
+import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function deleteItem(itemId: string) {
@@ -20,7 +20,9 @@ export async function deleteItem(itemId: string) {
       await tx
         .update(items)
         .set({ position: sql`${items.position} - 1` })
-        .where(and(eq(items.type, item.type), gte(items.position, item.position)));
+        .where(
+          and(eq(items.type, item.type), gte(items.position, item.position)),
+        );
     }
   });
   revalidatePath("/");
@@ -48,7 +50,9 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&apos;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    )
     .trim()
     .replace(/\s+/g, " ");
 }
@@ -56,7 +60,9 @@ function decodeHtmlEntities(str: string): string {
 export async function fetchPageTitle(url: string): Promise<string | null> {
   try {
     const parsed = new URL(url);
-    const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(parsed.hostname);
+    const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(
+      parsed.hostname,
+    );
     if (isYouTube) {
       const title = await fetchOembedTitle(url);
       if (title) return title;
@@ -64,15 +70,21 @@ export async function fetchPageTitle(url: string): Promise<string | null> {
 
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       },
       redirect: "follow",
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const text = await res.text();
-    const ogMatch = text.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i)
-      || text.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["'][^>]*>/i);
+    const ogMatch =
+      text.match(
+        /<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i,
+      ) ||
+      text.match(
+        /<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["'][^>]*>/i,
+      );
     const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const match = ogMatch || titleMatch;
     if (!match) return null;
@@ -82,7 +94,16 @@ export async function fetchPageTitle(url: string): Promise<string | null> {
   }
 }
 
-export async function createItem(title: string, url: string, tagNames: string[], faviconUrl?: string, type: string = "bookmark", notes?: string, id?: string, position?: number) {
+export async function createItem(
+  title: string,
+  url: string,
+  tagNames: string[],
+  faviconUrl?: string,
+  type: string = "bookmark",
+  notes?: string,
+  id?: string,
+  position?: number,
+) {
   const itemId = id ?? crypto.randomUUID();
   const now = new Date().toISOString();
   const insertAt = position ?? 0;
@@ -110,10 +131,7 @@ export async function createItem(title: string, url: string, tagNames: string[],
     for (const tagName of tagNames) {
       await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
 
-      const [tag] = await tx
-        .select()
-        .from(tags)
-        .where(eq(tags.name, tagName));
+      const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
 
       if (tag) {
         await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
@@ -206,12 +224,11 @@ export async function updateItem(
 
       for (const tagId of existingTagIds) {
         if (!newTagIds.includes(tagId)) {
-          await tx.delete(itemsTags).where(
-            and(
-              eq(itemsTags.itemId, itemId),
-              eq(itemsTags.tagId, tagId),
-            ),
-          );
+          await tx
+            .delete(itemsTags)
+            .where(
+              and(eq(itemsTags.itemId, itemId), eq(itemsTags.tagId, tagId)),
+            );
         }
       }
 
@@ -226,7 +243,11 @@ export async function updateItem(
   revalidatePath("/");
 }
 
-export async function reorderItem(itemId: string, type: string, newPosition: number) {
+export async function reorderItem(
+  itemId: string,
+  type: string,
+  newPosition: number,
+) {
   await db.transaction(async (tx) => {
     const typeItems = await tx
       .select({ id: items.id, position: items.position })
@@ -329,7 +350,10 @@ export async function bulkMoveItems(itemIds: string[], newType: string) {
         .where(eq(items.type, type))
         .orderBy(asc(items.position));
       for (let i = 0; i < remaining.length; i++) {
-        await tx.update(items).set({ position: i }).where(eq(items.id, remaining[i].id));
+        await tx
+          .update(items)
+          .set({ position: i })
+          .where(eq(items.id, remaining[i].id));
       }
     }
   });
@@ -346,7 +370,10 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
       const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
       if (!tag) continue;
       for (const itemId of itemIds) {
-        await tx.insert(itemsTags).values({ itemId, tagId: tag.id }).onConflictDoNothing();
+        await tx
+          .insert(itemsTags)
+          .values({ itemId, tagId: tag.id })
+          .onConflictDoNothing();
       }
     }
   });
@@ -361,9 +388,7 @@ export async function importBookmarks(html: string) {
 
   const imported = await db.transaction(async (tx) => {
     // Get existing URLs to deduplicate
-    const existingItems = await tx
-      .select({ url: items.url })
-      .from(items);
+    const existingItems = await tx.select({ url: items.url }).from(items);
     const existingUrls = new Set(existingItems.map((i) => i.url));
 
     // Filter to new bookmarks only

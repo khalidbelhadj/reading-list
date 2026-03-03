@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "db:push": "drizzle-kit push",
-    "db:seed": "bun db/seed.ts"
+    "db:seed": "bun db/seed.ts",
+    "lint": "next lint"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
@@ -36,10 +37,15 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.4",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.30.0",
-    "typescript": "~5.9.3"
+    "eslint": "9",
+    "eslint-config-next": "15.5.12",
+    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
+    "typescript": "~5.9.3",
+    "zod-validation-error": "^5.0.0"
   }
 }
