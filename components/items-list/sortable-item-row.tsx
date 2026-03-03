@@ -306,14 +306,14 @@ export function SortableItemRow({
           isSelected && isBulkMode
             ? "color-mix(in oklch, oklch(0.55 0.2 260) 10%, var(--color-background))"
             : isSelected
-            ? "color-mix(in oklch, var(--color-accent) 50%, var(--color-background))"
+            ? "var(--color-accent)"
             : "var(--color-background)"
         })` }} />
         <div className="h-full flex items-center pr-1" style={{ backgroundColor:
           isSelected && isBulkMode
             ? "color-mix(in oklch, oklch(0.55 0.2 260) 10%, var(--color-background))"
             : isSelected
-            ? "color-mix(in oklch, var(--color-accent) 50%, var(--color-background))"
+            ? "var(--color-accent)"
             : "var(--color-background)"
         }}>
         <button

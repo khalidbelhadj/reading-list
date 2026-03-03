@@ -958,7 +958,7 @@ export function DebugPanel() {
     document.body.style.userSelect = "none";
   };
 
-  if (process.env.NODE_ENV !== "development" || !enabled) return null;
+  if (!enabled) return null;
 
   return (
     <>
