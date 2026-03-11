@@ -8,6 +8,7 @@ import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
 import { StoreHydrator } from "@/components/store-hydrator";
 import { DebugPanel } from "@/components/debug-panel";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Reading List",
@@ -28,6 +29,7 @@ export default function RootLayout({
             {children}
           </QueryProvider>
         </Suspense>
+        <Toaster />
       </body>
     </html>
   );

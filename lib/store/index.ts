@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import type { Item, DbTag } from "@/lib/types";
 import type { ReadingListStore, QueuedMutation, UndoEntry, MutationPayload } from "./types";
 import { executeMutation } from "./queue-processor";
@@ -250,6 +251,106 @@ export const useStore = create<ReadingListStore>()((set, get) => {
   // Internal queue processing lock
   let isProcessing = false;
 
+  /** Collect item IDs affected by a mutation payload. */
+  function getMutationItemIds(payload: MutationPayload): string[] {
+    switch (payload.kind) {
+      case "create":
+      case "update":
+      case "delete":
+      case "reorder":
+      case "toggleRead":
+        return [payload.id];
+      case "bulkDelete":
+      case "bulkMove":
+      case "bulkTag":
+      case "bulkMarkRead":
+        return payload.ids;
+      case "importBookmarks":
+        return [];
+    }
+  }
+
+  /**
+   * Revert local state for a failed mutation and any dependent subsequent mutations.
+   * Removes them from the queue, restores undo snapshots, and shows a toast.
+   */
+  function revertFailedMutation(failedMutation: QueuedMutation) {
+    const state = get();
+    const failedIds = new Set(getMutationItemIds(failedMutation.payload));
+
+    // Find the undo entry for the failed mutation
+    const undoEntry = state.undoStack.find(
+      (entry) => entry.mutationId === failedMutation.id,
+    );
+
+    if (!undoEntry) {
+      // No undo entry (fell off the 50-entry cap) — remove from queue and fullSync
+      set((s) => ({
+        mutationQueue: s.mutationQueue.filter((m) => m.id !== failedMutation.id),
+      }));
+      get().fullSync();
+      toast.error("Failed to sync change — reloading from server");
+      return;
+    }
+
+    // Find subsequent pending mutations that touch the same item IDs
+    const dependentMutations: QueuedMutation[] = [];
+    const dependentUndoEntries: UndoEntry[] = [];
+    for (const m of state.mutationQueue) {
+      if (m.id <= failedMutation.id) continue;
+      if (m.status !== "pending") continue;
+      const ids = getMutationItemIds(m.payload);
+      if (ids.some((id) => failedIds.has(id))) {
+        dependentMutations.push(m);
+        const entry = state.undoStack.find((e) => e.mutationId === m.id);
+        if (entry) dependentUndoEntries.push(entry);
+        // Expand the affected IDs set
+        for (const id of ids) failedIds.add(id);
+      }
+    }
+
+    // Collect all mutation IDs to remove
+    const removeIds = new Set([
+      failedMutation.id,
+      ...dependentMutations.map((m) => m.id),
+    ]);
+    const removeUndoMutationIds = new Set([
+      undoEntry.mutationId,
+      ...dependentUndoEntries.map((e) => e.mutationId),
+    ]);
+
+    // Revert: apply the earliest (failed) undo entry's `before` snapshot
+    // and remove added items. Dependent mutations are also reverted by
+    // restoring from the failed mutation's before state.
+    set((s) => {
+      const newItems = new Map(s.items);
+
+      // Revert dependent mutations in reverse order first
+      for (let i = dependentUndoEntries.length - 1; i >= 0; i--) {
+        const entry = dependentUndoEntries[i];
+        for (const id of entry.addedIds) newItems.delete(id);
+        for (const [id, item] of entry.before) newItems.set(id, item);
+      }
+
+      // Revert the failed mutation itself
+      for (const id of undoEntry.addedIds) newItems.delete(id);
+      for (const [id, item] of undoEntry.before) newItems.set(id, item);
+
+      return {
+        items: newItems,
+        mutationQueue: s.mutationQueue.filter((m) => !removeIds.has(m.id)),
+        undoStack: s.undoStack.filter(
+          (e) => !removeUndoMutationIds.has(e.mutationId),
+        ),
+      };
+    });
+
+    const label = undoEntry.label || "Unknown change";
+    const depCount = dependentMutations.length;
+    const depSuffix = depCount > 0 ? ` (+${depCount} dependent change${depCount > 1 ? "s" : ""})` : "";
+    toast.error(`Failed to sync: ${label} — reverted${depSuffix}`);
+  }
+
   function enqueueMutation(payload: MutationPayload): number {
     const state = get();
     const mutationId = state.nextMutationId;
@@ -345,12 +446,8 @@ export const useStore = create<ReadingListStore>()((set, get) => {
           console.error("Queue mutation failed:", err);
           const updated = get().mutationQueue.find((m) => m.id === next.id);
           if (updated && updated.retryCount >= 2) {
-            // Give up after 3 attempts — mark failed and stop
-            set((s) => ({
-              mutationQueue: s.mutationQueue.map((m) =>
-                m.id === next.id ? { ...m, status: "failed" as const } : m,
-              ),
-            }));
+            // Give up after 3 attempts — revert local state and remove from queue
+            revertFailedMutation({ ...next, retryCount: updated.retryCount, status: "failed" });
             break;
           } else {
             // Retry: reset to pending with incremented count
@@ -1043,7 +1140,7 @@ export const useStore = create<ReadingListStore>()((set, get) => {
         const state = get();
         const data = {
           items: Array.from(state.items.values()),
-          mutationQueue: state.mutationQueue.filter((m) => m.status === "pending" || m.status === "failed"),
+          mutationQueue: state.mutationQueue.filter((m) => m.status === "pending"),
           nextMutationId: state.nextMutationId,
           lastSyncedAt: state.lastSyncedAt,
         };

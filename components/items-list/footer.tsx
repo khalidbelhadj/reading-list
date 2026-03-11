@@ -30,7 +30,7 @@ export function Footer({
         }}
       />
 
-      <div className="fixed bottom-4 left-4 flex items-center gap-3 text-xs text-muted-foreground/50">
+      <div className="mt-8 flex items-center justify-center gap-3 text-xs text-muted-foreground/50 md:fixed md:bottom-4 md:left-4 md:mt-0 md:justify-start">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}

@@ -3,13 +3,13 @@ import React from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 
 export function BulkTagDialog({
   open,
@@ -38,11 +38,11 @@ export function BulkTagDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="gap-3 p-3 sm:max-w-xs">
-        <DialogHeader>
-          <DialogTitle>Tag {selectedIds.size} items</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent showCloseButton={false} className="gap-3 p-3 sm:max-w-xs">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Tag {selectedIds.size} items</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         <input
           autoFocus
           value={tagInput}
@@ -55,15 +55,15 @@ export function BulkTagDialog({
             }
           }}
         />
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>
+        <ResponsiveDialogFooter>
+          <ResponsiveDialogClose render={<Button variant="outline" />}>
             Cancel
-          </DialogClose>
+          </ResponsiveDialogClose>
           <Button onClick={applyTags}>
             Add tags
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

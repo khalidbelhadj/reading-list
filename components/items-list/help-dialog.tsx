@@ -1,10 +1,10 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 
 export function HelpDialog({
   open,
@@ -14,12 +14,12 @@ export function HelpDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="gap-0 p-4 sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription className="sr-only">List of keyboard shortcuts</DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent showCloseButton={false} className="gap-0 p-4 sm:max-w-sm">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Keyboard shortcuts</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="sr-only">List of keyboard shortcuts</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs mt-3">
           <span className="text-muted-foreground text-[11px] font-medium col-span-2 mt-1 first:mt-0">Navigation</span>
           <kbd className="font-mono text-muted-foreground">j / k</kbd><span>Move down / up</span>
@@ -54,7 +54,7 @@ export function HelpDialog({
           <kbd className="font-mono text-muted-foreground">Escape</kbd><span>Close / clear selection</span>
           <kbd className="font-mono text-muted-foreground">?</kbd><span>Show this help</span>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

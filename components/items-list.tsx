@@ -18,6 +18,7 @@ import React from "react";
 import { useStore } from "@/lib/store";
 import { useItems, useIsHydrated } from "@/lib/store/selectors";
 import { isReadingListItem } from "@/lib/types";
+import useIsMobile from "@/lib/use-is-mobile";
 import { type EditFields } from "./items-list/utils";
 import { SortableItemRow, InlineEditForm } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
@@ -28,11 +29,14 @@ import { TagFilters } from "./items-list/tag-filters";
 import { Footer } from "./items-list/footer";
 import { HelpDialog } from "./items-list/help-dialog";
 import { BulkTagDialog } from "./items-list/bulk-tag-dialog";
+import { ItemFormDrawer } from "./items-list/item-form-drawer";
+import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 
 export function ItemsList() {
   const store = useStore();
   const items = useItems();
   const isHydrated = useIsHydrated();
+  const { isMobile } = useIsMobile();
 
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = React.useState(() => {
@@ -57,6 +61,7 @@ export function ItemsList() {
   const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
   const [tagDialogInput, setTagDialogInput] = React.useState("");
   const [scrolled, setScrolled] = React.useState(false);
+  const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Shared refs used by both mutations and keyboard navigation
@@ -220,6 +225,15 @@ export function ItemsList() {
           handleBulkMarkRead={handleBulkMarkRead}
           handleBulkMove={handleBulkMove}
           handleBulkDelete={handleBulkDelete}
+          onToggleBulkMode={() => {
+            if (bulkMode) {
+              setBulkMode(false);
+              setSelectedIds(new Set());
+            } else {
+              setBulkMode(true);
+            }
+          }}
+          isMobile={isMobile}
         />
 
         {tagsOpen && allTags.length > 0 && (
@@ -234,8 +248,8 @@ export function ItemsList() {
         {scrolled && <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent translate-y-full pointer-events-none" />}
       </div>
 
-      {/* New item inline form */}
-      {editingId === "new" && (
+      {/* New item inline form (desktop only) */}
+      {editingId === "new" && !isMobile && (
         <InlineEditForm
           initialTitle=""
           initialUrl=""
@@ -280,6 +294,7 @@ export function ItemsList() {
                 isEditing={editingId === item.id}
                 isSelected={isSelected}
                 isBulkMode={bulkMode}
+                isMobile={isMobile}
                 selectedTop={isSelected && !prevSelected}
                 selectedBottom={isSelected && !nextSelected}
                 suppressHover={suppressHover}
@@ -304,36 +319,18 @@ export function ItemsList() {
                   }
                   cursorRef.current = item.id;
                 }}
-                onSelect={(e) => {
+                onSelect={() => {
                   if (editingId !== null) setEditingId(null);
 
-                  if (e.metaKey || e.ctrlKey) {
-                    if (!bulkMode) {
-                      setBulkMode(true);
-                      setSelectedIds(new Set([item.id]));
-                    } else {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(item.id)) next.delete(item.id);
-                        else next.add(item.id);
-                        return next;
-                      });
-                    }
-                  } else if (e.shiftKey && lastClickedRef.current) {
-                    setBulkMode(true);
-                    const ids = filteredItems.map((i) => i.id);
-                    const from = ids.indexOf(lastClickedRef.current);
-                    const to = ids.indexOf(item.id);
-                    if (from !== -1 && to !== -1) {
-                      const [start, end] = from < to ? [from, to] : [to, from];
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        for (let i = start; i <= end; i++) next.add(ids[i]);
-                        return next;
-                      });
-                    }
+                  if (bulkMode) {
+                    // In bulk mode, toggle selection
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    });
                   } else {
-                    setBulkMode(false);
                     setSelectedIds((prev) =>
                       prev.size === 1 && prev.has(item.id)
                         ? new Set()
@@ -347,6 +344,7 @@ export function ItemsList() {
                 onSave={(fields) => handleSave(item.id, fields)}
                 onCancelEdit={() => setEditingId(null)}
                 onDelete={() => handleDeleteSingle(item.id)}
+                onOpenMenu={isMobile ? () => setMenuItemId(item.id) : undefined}
               />
               );
             })}
@@ -366,6 +364,43 @@ export function ItemsList() {
       <Footer
         setHelpOpen={setHelpOpen}
       />
+
+      {/* Mobile drawers */}
+      {isMobile && (
+        <>
+          <ItemFormDrawer
+            open={editingId !== null}
+            isNew={editingId === "new"}
+            item={editingId && editingId !== "new" ? items?.find((i) => i.id === editingId) ?? null : null}
+            onSave={(fields) => handleSave(editingId!, fields)}
+            onCancel={() => setEditingId(null)}
+            onDelete={editingId && editingId !== "new" ? () => handleDeleteSingle(editingId) : undefined}
+          />
+          {(() => {
+            const menuItem = menuItemId ? items?.find((i) => i.id === menuItemId) ?? null : null;
+            return (
+              <ItemActionsDrawer
+                item={menuItem}
+                open={menuItemId !== null}
+                onOpenChange={(open) => { if (!open) setMenuItemId(null); }}
+                onEdit={() => {
+                  setEditingId(menuItemId);
+                  setMenuItemId(null);
+                }}
+                onToggleRead={
+                  menuItem && isReadingListItem(menuItem)
+                    ? (read: boolean) => handleToggleRead(menuItemId!, read)
+                    : undefined
+                }
+                onDelete={() => {
+                  if (menuItemId) handleDeleteSingle(menuItemId);
+                  setMenuItemId(null);
+                }}
+              />
+            );
+          })()}
+        </>
+      )}
     </div>
   );
 }

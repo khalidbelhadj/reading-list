@@ -1,9 +1,11 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  IconArrowUpRight,
   IconCheck,
+  IconClipboard,
+  IconDots,
   IconGlobe,
+  IconWand,
   IconX,
 } from "@tabler/icons-react";
 import React from "react";
@@ -11,8 +13,10 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { type Item, isReadingListItem } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Spinner } from "@/components/ui/spinner";
 
 import { type EditFields, relativeTime, getFaviconSrc } from "./utils";
+import { useAutofill } from "./use-autofill";
 
 function InlineEditForm({
   initialTitle,
@@ -40,6 +44,8 @@ function InlineEditForm({
   const [tagsInput, setTagsInput] = React.useState(initialTags);
   const [notes, setNotes] = React.useState(initialNotes);
   const [saving, setSaving] = React.useState(false);
+  const urlInputRef = React.useRef<HTMLInputElement>(null);
+  const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(url, title, setTitle);
 
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -84,21 +90,54 @@ function InlineEditForm({
           )}
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            data-item-title
-            className="text-sm bg-transparent outline-none w-full placeholder:text-muted-foreground"
-            style={{ fontFamily: "var(--font-item)" }}
-          />
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com"
-            className="text-xs text-muted-foreground/70 bg-transparent outline-none w-full placeholder:text-muted-foreground/40"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title"
+              data-item-title
+              className="text-sm bg-transparent outline-none flex-1 min-w-0 placeholder:text-muted-foreground"
+              style={{ fontFamily: "var(--font-item)" }}
+            />
+            {showAutofill && (
+              <button
+                type="button"
+                className="shrink-0 text-muted-foreground/50 hover:text-foreground cursor-pointer"
+                onClick={handleAutofill}
+                disabled={fetching}
+                title="Autofill title from URL"
+              >
+                {fetching ? <Spinner className="size-3" /> : <IconWand className="size-3.5" />}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              ref={urlInputRef}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onPaste={onUrlPaste}
+              placeholder="https://example.com"
+              className="text-xs text-muted-foreground/70 bg-transparent outline-none flex-1 min-w-0 placeholder:text-muted-foreground/40"
+            />
+            {!url.trim() && (
+              <button
+                type="button"
+                className="shrink-0 text-muted-foreground/50 hover:text-foreground cursor-pointer"
+                onClick={() => {
+                  navigator.clipboard.readText().then((text) => {
+                    if (text.trim()) setUrl(text.trim());
+                  }).catch(() => {
+                    urlInputRef.current?.focus();
+                  });
+                }}
+                title="Paste from clipboard"
+              >
+                <IconClipboard className="size-3.5" />
+              </button>
+            )}
+          </div>
           <input
             value={tagsInput}
             onChange={(e) => setTagsInput(e.target.value)}
@@ -152,6 +191,7 @@ export function SortableItemRow({
   isEditing,
   isSelected,
   isBulkMode,
+  isMobile,
   selectedTop,
   selectedBottom,
   suppressHover,
@@ -163,11 +203,13 @@ export function SortableItemRow({
   onSave,
   onCancelEdit,
   onDelete,
+  onOpenMenu,
 }: {
   item: Item;
   isEditing: boolean;
   isSelected: boolean;
   isBulkMode: boolean;
+  isMobile: boolean;
   selectedTop: boolean;
   selectedBottom: boolean;
   suppressHover: boolean;
@@ -179,6 +221,7 @@ export function SortableItemRow({
   onSave: (fields: EditFields) => void;
   onDelete: () => void;
   onCancelEdit: () => void;
+  onOpenMenu?: () => void;
 }) {
   const {
     attributes,
@@ -197,7 +240,7 @@ export function SortableItemRow({
     zIndex: isDragging ? 10 : undefined,
   };
 
-  if (isEditing) {
+  if (isEditing && !isMobile) {
     return (
       <div ref={setNodeRef} style={style}>
         <InlineEditForm
@@ -246,6 +289,15 @@ export function SortableItemRow({
       {...attributes}
       {...listeners}
     >
+      {isBulkMode && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onSelect({} as React.MouseEvent)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="size-3.5 shrink-0"
+        />
+      )}
       <div className="relative size-4 shrink-0">
         {getFaviconSrc(item) ? (
           <img
@@ -255,7 +307,7 @@ export function SortableItemRow({
             height={16}
             className={cn(
               "size-4 rounded-[3px]",
-              onToggleRead && "group-hover:invisible",
+              !isMobile && onToggleRead && "group-hover:invisible",
             )}
             loading="lazy"
           />
@@ -263,11 +315,11 @@ export function SortableItemRow({
           <IconGlobe
             className={cn(
               "size-4 text-muted-foreground",
-              onToggleRead && "group-hover:invisible",
+              !isMobile && onToggleRead && "group-hover:invisible",
             )}
           />
         )}
-        {onToggleRead && (
+        {!isMobile && onToggleRead && (
           <div className="absolute inset-0 invisible group-hover:visible flex items-center justify-center">
             <Checkbox
               checked={isReadingListItem(item) && item.read}
@@ -280,7 +332,10 @@ export function SortableItemRow({
           </div>
         )}
       </div>
-      <span
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
         data-item-title
         className={cn(
           "text-sm truncate min-w-0",
@@ -288,48 +343,35 @@ export function SortableItemRow({
           !item.title && "text-muted-foreground",
         )}
         style={{ fontFamily: "var(--font-item)" }}
+        onClick={(e) => {
+          if (isBulkMode) {
+            e.preventDefault();
+          }
+          e.stopPropagation();
+        }}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {item.title || "Untitled"}
-      </span>
+      </a>
       {item.tags.length > 0 && (
         <span className="text-[11px] italic text-muted-foreground/50 max-w-1/2 truncate hidden sm:inline ml-auto">
           {item.tags.map((t) => t.name).join(", ")}
         </span>
       )}
-      <div
-        className={cn(
-          "absolute right-0 top-0 bottom-0 flex items-center",
-          suppressHover ? "invisible" : "invisible group-hover:visible",
-        )}
-      >
-        <div className="w-8 h-full" style={{ background: `linear-gradient(to right, transparent, ${
-          isSelected && isBulkMode
-            ? "color-mix(in oklch, oklch(0.55 0.2 260) 10%, var(--color-background))"
-            : isSelected
-            ? "var(--color-accent)"
-            : "var(--color-background)"
-        })` }} />
-        <div className="h-full flex items-center pr-1" style={{ backgroundColor:
-          isSelected && isBulkMode
-            ? "color-mix(in oklch, oklch(0.55 0.2 260) 10%, var(--color-background))"
-            : isSelected
-            ? "var(--color-accent)"
-            : "var(--color-background)"
-        }}>
+      {isMobile && onOpenMenu && (
         <button
           type="button"
-          className="text-muted-foreground hover:text-foreground cursor-pointer"
+          className="ml-auto shrink-0 text-muted-foreground p-1 -mr-1"
           onClick={(e) => {
             e.stopPropagation();
-            window.open(item.url, "_blank");
+            onOpenMenu();
           }}
-          onDoubleClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <IconArrowUpRight className="size-4" />
+          <IconDots className="size-4" />
         </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

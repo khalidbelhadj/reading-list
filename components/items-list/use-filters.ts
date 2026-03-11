@@ -3,10 +3,7 @@ import React from "react";
 import { type Item, type DbTag, isReadingListItem } from "@/lib/types";
 
 export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
-  const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>(() => {
-    if (typeof window === "undefined") return {};
-    try { return JSON.parse(localStorage.getItem("activeTagsMap") ?? "{}"); } catch { return {}; }
-  });
+  const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
   const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
   const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
     setActiveTagsMap((prev) => {
@@ -16,20 +13,26 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
     });
   }, [activeTab]);
 
-  const [tagsOpen, setTagsOpen] = React.useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("tagsOpen") === "true";
-  });
-  const [showRead, setShowRead] = React.useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("showRead") === "true";
-  });
+  const [tagsOpen, setTagsOpen] = React.useState(false);
+  const [showRead, setShowRead] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
 
-  React.useEffect(() => { localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap)); }, [activeTagsMap]);
-  React.useEffect(() => { localStorage.setItem("tagsOpen", String(tagsOpen)); }, [tagsOpen]);
-  React.useEffect(() => { localStorage.setItem("showRead", String(showRead)); }, [showRead]);
+  // Hydrate from localStorage after mount to avoid SSR mismatch
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem("activeTagsMap");
+      if (stored) setActiveTagsMap(JSON.parse(stored));
+    } catch {}
+    setTagsOpen(localStorage.getItem("tagsOpen") === "true");
+    setShowRead(localStorage.getItem("showRead") === "true");
+    setHydrated(true);
+  }, []);
+
+  React.useEffect(() => { if (hydrated) localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap)); }, [activeTagsMap, hydrated]);
+  React.useEffect(() => { if (hydrated) localStorage.setItem("tagsOpen", String(tagsOpen)); }, [tagsOpen, hydrated]);
+  React.useEffect(() => { if (hydrated) localStorage.setItem("showRead", String(showRead)); }, [showRead, hydrated]);
 
   const tabType = activeTab === "bookmarks" ? "bookmark" : "reading-list";
 

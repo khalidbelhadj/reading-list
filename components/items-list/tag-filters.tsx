@@ -20,7 +20,7 @@ export function TagFilters({
             key={tag.id}
             type="button"
             onClick={() => toggleTag(tag.name)}
-            className={`px-1.5 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+            className={`px-2.5 py-1.5 sm:px-1.5 sm:py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
               isActive
                 ? "bg-foreground text-background"
                 : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
@@ -34,7 +34,7 @@ export function TagFilters({
         <button
           type="button"
           onClick={() => setActiveTags(() => new Set())}
-          className="px-1.5 py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          className="px-2.5 py-1.5 sm:px-1.5 sm:py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           clear
         </button>
