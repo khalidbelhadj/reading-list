@@ -296,6 +296,7 @@ export function useKeyboardNavigation({
         if (bulkMode || extending) {
           if (!bulkMode) {
             setBulkMode(true);
+            // eslint-disable-next-line react-compiler/react-compiler
             anchorRef.current = currentCursor ?? nextId;
           }
           moveCursorVisual(nextId);

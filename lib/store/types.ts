@@ -1,4 +1,4 @@
-import type { Item, DbTag } from "@/lib/types";
+import type { Item } from "@/lib/types";
 
 // ── Mutation payloads (discriminated union for all mutation kinds) ──
 

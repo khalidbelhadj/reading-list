@@ -47,7 +47,7 @@ export function Footer({
             const header = "type,title,url,tags,notes,read,created_at,updated_at";
             const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
             const rows = items.map((i) =>
-              [esc(i.type), esc(i.title), esc(i.url), esc(i.tags.map((t) => t.name).join("; ")), esc(i.notes ?? ""), i.type === "bookmark" ? "" : (i as any).read ? "true" : "false", i.createdAt, i.updatedAt].join(",")
+              [esc(i.type), esc(i.title), esc(i.url), esc(i.tags.map((t) => t.name).join("; ")), esc(i.notes ?? ""), i.type === "bookmark" ? "" : i.type === "reading-list" ? (i.read ? "true" : "false") : "", i.createdAt, i.updatedAt].join(",")
             );
             const csv = [header, ...rows].join("\n");
             const blob = new Blob([csv], { type: "text/csv" });

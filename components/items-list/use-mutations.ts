@@ -40,6 +40,7 @@ export function useItemsMutations({
         const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
         if (nextItem) {
           setSelectedIds(new Set([nextItem.id]));
+          // eslint-disable-next-line react-compiler/react-compiler
           cursorRef.current = nextItem.id;
           anchorRef.current = nextItem.id;
         } else {

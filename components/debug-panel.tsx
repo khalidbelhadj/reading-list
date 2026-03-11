@@ -560,17 +560,23 @@ function FontSection() {
     () => FONTS.find((f) => f.label === "Source Serif 4")?.value ?? FONTS[0].value,
   );
 
+  React.useEffect(() => {
+    document.body.style.fontFamily = uiFont;
+  }, [uiFont]);
+
+  React.useEffect(() => {
+    document.querySelectorAll<HTMLElement>("[data-item-title]").forEach((el) => {
+      el.style.fontFamily = itemFont;
+    });
+    document.body.style.setProperty("--font-item", itemFont);
+  }, [itemFont]);
+
   function pickUi(value: string) {
     setUiFont(value);
-    document.body.style.fontFamily = value;
   }
 
   function pickItem(value: string) {
     setItemFont(value);
-    document.querySelectorAll<HTMLElement>("[data-item-title]").forEach((el) => {
-      el.style.fontFamily = value;
-    });
-    document.body.style.setProperty("--font-item", value);
   }
 
   return (

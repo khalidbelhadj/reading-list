@@ -59,7 +59,7 @@ export function ItemsList() {
   const [bulkMode, setBulkMode] = React.useState(false);
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
-  const [tagDialogInput, setTagDialogInput] = React.useState("");
+  const [, setTagDialogInput] = React.useState("");
   const [scrolled, setScrolled] = React.useState(false);
   const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);

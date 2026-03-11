@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { Item, DbTag } from "@/lib/types";
+import type { Item, DbTag, ReadingListItem } from "@/lib/types";
+import { isReadingListItem } from "@/lib/types";
 import type { ReadingListStore, QueuedMutation, UndoEntry, MutationPayload } from "./types";
 import { executeMutation } from "./queue-processor";
 
@@ -116,7 +117,7 @@ function enqueueCompensating(
       if (!other) return false;
       return item.title === other.title && item.url === other.url &&
         item.type === other.type && item.starred === other.starred &&
-        item.notes === other.notes && (item as any).read === (other as any).read;
+        item.notes === other.notes && (isReadingListItem(item) ? item.read : undefined) === (isReadingListItem(other) ? other.read : undefined);
     });
 
     if (isPositionOnly && changedItems.length > 0) {
@@ -169,10 +170,10 @@ function enqueueCompensating(
     // Check if this is a read status change
     const readChanges = changedItems.filter(({ id, item }) => {
       const other = oppositeSnap.get(id);
-      return other && (item as any).read !== (other as any).read;
+      return other && isReadingListItem(item) && isReadingListItem(other) && item.read !== other.read;
     });
     if (readChanges.length > 0) {
-      const read = (readChanges[0].item as any).read as boolean;
+      const read = (readChanges[0].item as ReadingListItem).read;
       if (readChanges.length === 1) {
         queue.push({
           id: nextId++,
@@ -205,7 +206,7 @@ function enqueueCompensating(
             type: item.type,
             starred: item.starred,
             notes: item.notes ?? undefined,
-            read: (item as any).read,
+            read: isReadingListItem(item) ? item.read : undefined,
             tagNames: item.tags.map((t) => t.name),
           },
         },
@@ -579,7 +580,7 @@ export const useStore = create<ReadingListStore>()((set, get) => {
         if (fields.faviconUrl !== undefined) updated.faviconUrl = fields.faviconUrl;
         if (fields.starred !== undefined) updated.starred = fields.starred;
         if (fields.notes !== undefined) updated.notes = fields.notes ?? null;
-        if (fields.read !== undefined) (updated as any).read = fields.read;
+        if (fields.read !== undefined && isReadingListItem(updated)) updated.read = fields.read;
 
         if (fields.tagNames !== undefined) {
           const knownTags = getAllKnownTags(newItems);
@@ -596,9 +597,8 @@ export const useStore = create<ReadingListStore>()((set, get) => {
               newItems.set(i.id, { ...i, position: i.position + 1 });
             }
           }
-          (updated as any).type = newType;
-          updated.position = 0;
-          newItems.set(id, updated as Item);
+          const retyped = { ...updated, type: newType, position: 0 } as Item;
+          newItems.set(id, retyped);
           // Renumber old type
           const allArr = Array.from(newItems.values());
           renumberPositions(allArr, oldType);
