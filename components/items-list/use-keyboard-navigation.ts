@@ -2,7 +2,7 @@ import React from "react";
 
 import { fetchPageTitle } from "@/app/actions";
 import { useStore } from "@/lib/store";
-import { type Item, isReadingListItem } from "@/lib/types";
+import { type Item } from "@/lib/types";
 
 export function useKeyboardNavigation({
   filteredItems,
@@ -24,13 +24,11 @@ export function useKeyboardNavigation({
   setTagDialogOpen,
   tabType,
   handleBulkDelete,
-  handleBulkMarkRead,
   handleBulkMove,
-  handleDeleteSingle,
-  handleToggleRead,
   cursorRef,
   anchorRef,
-  lastClickedRef,
+  baseSelectionRef,
+  setFocusedId,
 }: {
   filteredItems: Item[];
   selectedIds: Set<string>;
@@ -51,16 +49,12 @@ export function useKeyboardNavigation({
   setTagDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   tabType: string;
   handleBulkDelete: () => void;
-  handleBulkMarkRead: (read: boolean) => void;
   handleBulkMove: () => void;
-  handleDeleteSingle: (itemId: string) => void;
-  handleToggleRead: (itemId: string, read: boolean) => void;
   cursorRef: React.MutableRefObject<string | null>;
   anchorRef: React.MutableRefObject<string | null>;
-  lastClickedRef: React.MutableRefObject<string | null>;
+  baseSelectionRef: React.MutableRefObject<Set<string>>;
+  setFocusedId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
-  const pendingGRef = React.useRef<number>(0);
-  const pendingDRef = React.useRef<number>(0);
   const [suppressHover, setSuppressHover] = React.useState(false);
   const store = useStore();
 
@@ -124,7 +118,7 @@ export function useKeyboardNavigation({
 
   // Global keyboard shortcuts: /, 1, 2, ?, a, t, r, Escape
   React.useEffect(() => {
-    function handleSlash(e: KeyboardEvent) {
+    function handleGlobal(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       // Escape priority chain: editing → search → selection
       if (e.key === "Escape") {
@@ -135,6 +129,10 @@ export function useKeyboardNavigation({
           setSearchOpen(false);
         } else {
           setSelectedIds(new Set());
+          setFocusedId(null);
+          cursorRef.current = null;
+          anchorRef.current = null;
+          baseSelectionRef.current = new Set();
           setBulkMode(false);
         }
         return;
@@ -173,9 +171,9 @@ export function useKeyboardNavigation({
         setShowRead((v) => !v);
       }
     }
-    document.addEventListener("keydown", handleSlash);
-    return () => document.removeEventListener("keydown", handleSlash);
-  }, [editingId, searchOpen, bulkMode, setEditingId, setSearch, setSearchOpen, setSelectedIds, setBulkMode, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead]);
+    document.addEventListener("keydown", handleGlobal);
+    return () => document.removeEventListener("keydown", handleGlobal);
+  }, [editingId, searchOpen, bulkMode, setEditingId, setSearch, setSearchOpen, setSelectedIds, setBulkMode, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead, setFocusedId, cursorRef, anchorRef]);
 
   // Cmd+Backspace to delete selected items
   React.useEffect(() => {
@@ -193,7 +191,7 @@ export function useKeyboardNavigation({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, editingId, handleBulkDelete]);
 
-  // Vim-style navigation, visual mode, Enter to edit, Space to toggle read
+  // Ctrl+N/P navigation, Shift to extend selection, Alt+Ctrl+N/P to reorder
   React.useEffect(() => {
     function scrollWithMargin(id: string) {
       const el = document.querySelector(`[data-item-id="${id}"]`);
@@ -210,27 +208,6 @@ export function useKeyboardNavigation({
       }
     }
 
-    function moveCursor(nextId: string) {
-      cursorRef.current = nextId;
-      anchorRef.current = nextId;
-      setSelectedIds(new Set([nextId]));
-      setBulkMode(false);
-      setSuppressHover(true);
-      scrollWithMargin(nextId);
-    }
-
-    function moveCursorVisual(nextId: string) {
-      cursorRef.current = nextId;
-      const ids = filteredItems.map((i) => i.id);
-      const anchor = anchorRef.current && ids.includes(anchorRef.current) ? anchorRef.current : nextId;
-      const anchorIdx = ids.indexOf(anchor);
-      const cursorIdx = ids.indexOf(nextId);
-      const [start, end] = anchorIdx < cursorIdx ? [anchorIdx, cursorIdx] : [cursorIdx, anchorIdx];
-      setSelectedIds(new Set(ids.slice(start, end + 1)));
-      setSuppressHover(true);
-      scrollWithMargin(nextId);
-    }
-
     function handleNav(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
@@ -242,19 +219,13 @@ export function useKeyboardNavigation({
       const currentCursor = cursorRef.current;
       const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
 
-      // Alt+j / Alt+k / Alt+Ctrl+N / Alt+Ctrl+P — move item up/down
-      const isMoveDown = (e.altKey && !e.metaKey && !e.shiftKey && (
-        (e.code === "KeyJ" && !e.ctrlKey) || (e.code === "KeyN" && e.ctrlKey)
-      ));
-      const isMoveUp = (e.altKey && !e.metaKey && !e.shiftKey && (
-        (e.code === "KeyK" && !e.ctrlKey) || (e.code === "KeyP" && e.ctrlKey)
-      ));
+      // Alt+Ctrl+N / Alt+Ctrl+P — move item up/down
+      const isMoveDown = e.altKey && e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyN";
+      const isMoveUp = e.altKey && e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyP";
       if (isMoveDown || isMoveUp) {
         e.preventDefault();
         if (selectedIds.size !== 1) return;
         const [selectedId] = selectedIds;
-
-        // Get items of this type from the store
         const allItems = store.getAllItems();
         const typeItems = allItems
           .filter((i) => i.type === tabType)
@@ -265,26 +236,21 @@ export function useKeyboardNavigation({
           ? Math.min(currentIndex + 1, typeItems.length - 1)
           : Math.max(currentIndex - 1, 0);
         if (newIndex === currentIndex) return;
-
-        // Store handles deduplication for rapid reorders
         store.reorderItem(selectedId, tabType, newIndex);
         return;
       }
 
-      // j / k / Ctrl+N / Ctrl+P — navigation; hold Shift to extend selection
-      const isDown = (e.key === "j" && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey)
-        || (e.key === "n" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey);
-      const isUp = (e.key === "k" && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey)
-        || (e.key === "p" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey);
-      const isShiftDown = (e.key === "J" && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey)
-        || (e.key === "N" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey);
-      const isShiftUp = (e.key === "K" && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey)
-        || (e.key === "P" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey);
+      // Ctrl+N / Ctrl+P — navigation; Shift to extend selection
+      const isDown = e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      const isUp = e.code === "KeyP" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      const isShiftDown = e.code === "KeyN" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey;
+      const isShiftUp = e.code === "KeyP" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey;
       if (isDown || isUp || isShiftDown || isShiftUp) {
         e.preventDefault();
         if (ids.length === 0) return;
         const goingDown = isDown || isShiftDown;
         const extending = isShiftDown || isShiftUp;
+
         let nextId: string;
         if (cursorIdx === -1) {
           nextId = goingDown ? ids[0] : ids[ids.length - 1];
@@ -293,134 +259,47 @@ export function useKeyboardNavigation({
             ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
             : ids[Math.max(cursorIdx - 1, 0)];
         }
-        if (bulkMode || extending) {
+
+        cursorRef.current = nextId;
+        setFocusedId(nextId);
+        setSuppressHover(true);
+        scrollWithMargin(nextId);
+
+        if (extending) {
+          // Enter bulk mode if needed, set anchor
           if (!bulkMode) {
             setBulkMode(true);
             // eslint-disable-next-line react-compiler/react-compiler
             anchorRef.current = currentCursor ?? nextId;
+            baseSelectionRef.current = new Set(selectedIds);
           }
-          moveCursorVisual(nextId);
+          // Extend selection: base + range from anchor to cursor
+          const anchor = anchorRef.current && ids.includes(anchorRef.current) ? anchorRef.current : nextId;
+          const anchorIdx = ids.indexOf(anchor);
+          const nextIdx = ids.indexOf(nextId);
+          const [start, end] = anchorIdx < nextIdx ? [anchorIdx, nextIdx] : [nextIdx, anchorIdx];
+          const newSelection = new Set(baseSelectionRef.current);
+          for (let i = start; i <= end; i++) newSelection.add(ids[i]);
+          setSelectedIds(newSelection);
+        } else if (bulkMode) {
+          // In bulk mode without shift: move cursor, lock in selection as base, set new anchor
+          anchorRef.current = nextId;
+          baseSelectionRef.current = new Set(selectedIds);
         } else {
-          moveCursor(nextId);
+          // Not in bulk mode: move cursor and select single item
+          anchorRef.current = nextId;
+          const newSelection = new Set([nextId]);
+          setSelectedIds(newSelection);
+          baseSelectionRef.current = newSelection;
         }
         return;
       }
 
-      // G (Shift+g) — jump to last item
-      if (e.key === "G" && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      // Enter to edit (only if exactly one item selected)
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedIds.size === 1) {
         e.preventDefault();
-        pendingGRef.current = 0;
-        if (ids.length === 0) return;
-        if (bulkMode) {
-          moveCursorVisual(ids[ids.length - 1]);
-        } else {
-          moveCursor(ids[ids.length - 1]);
-        }
-        return;
-      }
-
-      // g — first press sets pending, second press (gg) jumps to first item
-      if (e.key === "g" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-        const now = Date.now();
-        if (now - pendingGRef.current < 300) {
-          e.preventDefault();
-          pendingGRef.current = 0;
-          if (ids.length === 0) return;
-          if (bulkMode) {
-            moveCursorVisual(ids[0]);
-          } else {
-            moveCursor(ids[0]);
-          }
-        } else {
-          pendingGRef.current = now;
-        }
-        return;
-      }
-
-      // Ctrl+D / Ctrl+U — half-page jump (~10 items)
-      if ((e.key === "d" || e.key === "u") && e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        if (ids.length === 0) return;
-        const jump = 10;
-        let nextId: string;
-        if (cursorIdx === -1) {
-          nextId = e.key === "d" ? ids[Math.min(jump - 1, ids.length - 1)] : ids[0];
-        } else {
-          nextId = e.key === "d"
-            ? ids[Math.min(cursorIdx + jump, ids.length - 1)]
-            : ids[Math.max(cursorIdx - jump, 0)];
-        }
-        if (bulkMode) {
-          moveCursorVisual(nextId);
-        } else {
-          moveCursor(nextId);
-        }
-        return;
-      }
-
-      // dd — delete selected items
-      if (e.key === "d" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        const now = Date.now();
-        if (now - pendingDRef.current < 300) {
-          e.preventDefault();
-          pendingDRef.current = 0;
-          if (selectedIds.size > 0) {
-            if (bulkMode && selectedIds.size > 1) {
-              handleBulkDelete();
-            } else {
-              const id = cursorRef.current && selectedIds.has(cursorRef.current)
-                ? cursorRef.current
-                : Array.from(selectedIds)[0];
-              handleDeleteSingle(id);
-            }
-          }
-        } else {
-          pendingDRef.current = now;
-        }
-        return;
-      }
-
-      // v / V — toggle visual (bulk) mode
-      if (e.key === "v" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        if (bulkMode) {
-          setBulkMode(false);
-          setSelectedIds(new Set());
-        } else {
-          setBulkMode(true);
-          const target = currentCursor && ids.includes(currentCursor) ? currentCursor : ids[0];
-          if (target) {
-            cursorRef.current = target;
-            anchorRef.current = target;
-            setSelectedIds(new Set([target]));
-          }
-        }
-        return;
-      }
-
-      // o — open selected in new tab
-      if (e.key === "o" && !e.metaKey && !e.ctrlKey && !e.shiftKey && selectedIds.size >= 1) {
-        e.preventDefault();
-        for (const id of selectedIds) {
-          const item = filteredItems.find((i) => i.id === id);
-          if (item) window.open(item.url, "_blank");
-        }
-        return;
-      }
-
-      // x — toggle read on selected
-      if (e.key === "x" && !e.metaKey && !e.ctrlKey && !e.shiftKey && selectedIds.size > 0) {
-        e.preventDefault();
-        const selectedItems = filteredItems
-          .filter((i) => selectedIds.has(i.id))
-          .filter(isReadingListItem);
-        if (selectedItems.length === 0) return;
-        const allRead = selectedItems.every((i) => i.read);
-        if (selectedItems.length === 1) {
-          handleToggleRead(selectedItems[0].id, !selectedItems[0].read);
-        } else {
-          handleBulkMarkRead(!allRead);
-        }
+        const [id] = selectedIds;
+        setEditingId(id);
         return;
       }
 
@@ -434,49 +313,26 @@ export function useKeyboardNavigation({
         return;
       }
 
-      // Enter to edit (only if exactly one item selected)
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedIds.size === 1) {
-        e.preventDefault();
-        const [id] = selectedIds;
-        setEditingId(id);
-      }
-
-      // Space to toggle read on all selected (reading-list only)
-      if (e.key === " " && selectedIds.size > 0) {
-        e.preventDefault();
-        const selectedItems = filteredItems
-          .filter((i) => selectedIds.has(i.id))
-          .filter(isReadingListItem);
-        if (selectedItems.length === 0) return;
-        const allRead = selectedItems.every((i) => i.read);
-        if (selectedItems.length === 1) {
-          handleToggleRead(selectedItems[0].id, !selectedItems[0].read);
-        } else {
-          handleBulkMarkRead(!allRead);
-        }
-      }
-
       // t — bulk tag (in bulk mode)
       if (e.key === "t" && !e.metaKey && !e.ctrlKey && bulkMode && selectedIds.size >= 1) {
         e.preventDefault();
         setTagDialogInput("");
         setTagDialogOpen(true);
+        return;
       }
 
       // m — bulk move to other list
       if (e.key === "m" && !e.metaKey && !e.ctrlKey && bulkMode && selectedIds.size >= 1) {
         e.preventDefault();
         handleBulkMove();
+        return;
       }
     }
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMarkRead, handleBulkMove, handleBulkDelete, handleDeleteSingle, handleToggleRead, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen]);
+  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMove, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen, setSuppressHover, setFocusedId, cursorRef, anchorRef]);
 
   return {
-    cursorRef,
-    anchorRef,
-    lastClickedRef,
     suppressHover,
     setSuppressHover,
   };

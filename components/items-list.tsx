@@ -57,6 +57,7 @@ export function ItemsList() {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [bulkMode, setBulkMode] = React.useState(false);
+  const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [tagDialogOpen, setTagDialogOpen] = React.useState(false);
   const [, setTagDialogInput] = React.useState("");
@@ -68,6 +69,7 @@ export function ItemsList() {
   const cursorRef = React.useRef<string | null>(null);
   const anchorRef = React.useRef<string | null>(null);
   const lastClickedRef = React.useRef<string | null>(null);
+  const baseSelectionRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 0); }
@@ -122,13 +124,11 @@ export function ItemsList() {
     setTagDialogOpen,
     tabType,
     handleBulkDelete,
-    handleBulkMarkRead,
     handleBulkMove,
-    handleDeleteSingle,
-    handleToggleRead,
     cursorRef,
     anchorRef,
-    lastClickedRef,
+    baseSelectionRef,
+    setFocusedId,
   });
 
   // Auto-select first result when searching
@@ -229,8 +229,13 @@ export function ItemsList() {
             if (bulkMode) {
               setBulkMode(false);
               setSelectedIds(new Set());
+              setFocusedId(null);
+              baseSelectionRef.current = new Set();
+              cursorRef.current = null;
+              anchorRef.current = null;
             } else {
               setBulkMode(true);
+              baseSelectionRef.current = new Set(selectedIds);
             }
           }}
           isMobile={isMobile}
@@ -276,13 +281,23 @@ export function ItemsList() {
           strategy={verticalListSortingStrategy}
         >
           <div onMouseMove={suppressHover ? () => setSuppressHover(false) : undefined}>
-            {filteredItems.length === 0 && editingId !== "new" && (
-              <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-                {tabItems.length === 0
-                  ? "Nothing here yet"
-                  : "No items match your filters"}
-              </div>
-            )}
+            {filteredItems.length === 0 && editingId !== "new" && (() => {
+              const q = search.toLowerCase().trim();
+              const readCount = !showRead ? tabItems.filter((i) =>
+                isReadingListItem(i) && i.read
+                && (!q || i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q))
+                && (activeTags.size === 0 || i.tags.some((t) => activeTags.has(t.name)))
+              ).length : 0;
+              return (
+                <div className="px-1 py-6 text-center text-muted-foreground text-xs">
+                  {tabItems.length === 0
+                    ? "Nothing here yet"
+                    : readCount > 0
+                      ? `${readCount} read ${readCount === 1 ? "item" : "items"} not shown`
+                      : "No items match your filters"}
+                </div>
+              );
+            })()}
             {filteredItems.map((item, idx) => {
               const isSelected = selectedIds.has(item.id);
               const prevSelected = idx > 0 && selectedIds.has(filteredItems[idx - 1].id);
@@ -293,6 +308,7 @@ export function ItemsList() {
                 item={item}
                 isEditing={editingId === item.id}
                 isSelected={isSelected}
+                isFocused={bulkMode && focusedId === item.id && !isSelected}
                 isBulkMode={bulkMode}
                 isMobile={isMobile}
                 selectedTop={isSelected && !prevSelected}
@@ -300,45 +316,63 @@ export function ItemsList() {
                 suppressHover={suppressHover}
                 isDragDisabled={isDragDisabled}
                 onToggleRead={
-                  isReadingListItem(item)
+                  !bulkMode && isReadingListItem(item)
                     ? () => handleToggleRead(item.id, !item.read)
                     : undefined
                 }
                 onRightClick={() => {
                   if (editingId !== null) setEditingId(null);
+                  let newSelection: Set<string>;
                   if (bulkMode) {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      next.add(item.id);
-                      return next;
-                    });
+                    newSelection = new Set(selectedIds);
+                    newSelection.add(item.id);
                   } else {
                     setBulkMode(true);
-                    setSelectedIds(new Set([item.id]));
-                    anchorRef.current = item.id;
+                    newSelection = new Set([item.id]);
                   }
+                  setSelectedIds(newSelection);
+                  baseSelectionRef.current = newSelection;
+                  anchorRef.current = item.id;
                   cursorRef.current = item.id;
+                  setFocusedId(item.id);
                 }}
-                onSelect={() => {
+                onSelect={(e: React.MouseEvent) => {
                   if (editingId !== null) setEditingId(null);
 
                   if (bulkMode) {
-                    // In bulk mode, toggle selection
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id);
-                      else next.add(item.id);
-                      return next;
-                    });
+                    let newSelection: Set<string>;
+                    if (e.shiftKey && lastClickedRef.current) {
+                      // Range select: add range from lastClicked to this item on top of base
+                      const ids = filteredItems.map((i) => i.id);
+                      const fromIdx = ids.indexOf(lastClickedRef.current);
+                      const toIdx = ids.indexOf(item.id);
+                      if (fromIdx !== -1 && toIdx !== -1) {
+                        const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                        newSelection = new Set(baseSelectionRef.current);
+                        for (let i = start; i <= end; i++) newSelection.add(ids[i]);
+                      } else {
+                        newSelection = new Set(selectedIds);
+                      }
+                    } else {
+                      // Toggle selection
+                      newSelection = new Set(selectedIds);
+                      if (newSelection.has(item.id)) newSelection.delete(item.id);
+                      else newSelection.add(item.id);
+                      // Lock in selection as new base
+                      baseSelectionRef.current = newSelection;
+                    }
+                    setSelectedIds(newSelection);
                   } else {
-                    setSelectedIds((prev) =>
-                      prev.size === 1 && prev.has(item.id)
-                        ? new Set()
-                        : new Set([item.id]),
-                    );
+                    const newSelection = selectedIds.size === 1 && selectedIds.has(item.id)
+                      ? new Set<string>()
+                      : new Set([item.id]);
+                    setSelectedIds(newSelection);
+                    baseSelectionRef.current = newSelection;
                   }
                   lastClickedRef.current = item.id;
                   cursorRef.current = item.id;
+                  anchorRef.current = item.id;
+                  setFocusedId(item.id);
                 }}
                 onStartEdit={() => setEditingId(item.id)}
                 onSave={(fields) => handleSave(item.id, fields)}

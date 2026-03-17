@@ -190,6 +190,7 @@ export function SortableItemRow({
   item,
   isEditing,
   isSelected,
+  isFocused,
   isBulkMode,
   isMobile,
   selectedTop,
@@ -208,6 +209,7 @@ export function SortableItemRow({
   item: Item;
   isEditing: boolean;
   isSelected: boolean;
+  isFocused: boolean;
   isBulkMode: boolean;
   isMobile: boolean;
   selectedTop: boolean;
@@ -273,7 +275,8 @@ export function SortableItemRow({
               !selectedTop && selectedBottom && "rounded-b-md",
             )
           : "rounded-md",
-        !isSelected && !suppressHover && "hover:bg-accent/50",
+        isFocused && "ring-1 ring-blue-500/30 dark:ring-blue-400/30 rounded-md",
+        !isSelected && !isFocused && !suppressHover && "hover:bg-accent/50",
         isReadingListItem(item) && item.read && "opacity-50",
       )}
       onClick={onSelect}
@@ -346,11 +349,15 @@ export function SortableItemRow({
         onClick={(e) => {
           if (isBulkMode) {
             e.preventDefault();
+            // Let click propagate to row for selection
+            return;
           }
           e.stopPropagation();
         }}
         onDoubleClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          if (!isBulkMode) e.stopPropagation();
+        }}
       >
         {item.title || "Untitled"}
       </a>
