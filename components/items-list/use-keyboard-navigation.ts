@@ -130,6 +130,7 @@ export function useKeyboardNavigation({
         } else {
           setSelectedIds(new Set());
           setFocusedId(null);
+          // eslint-disable-next-line react-compiler/react-compiler
           cursorRef.current = null;
           anchorRef.current = null;
           baseSelectionRef.current = new Set();
@@ -173,7 +174,7 @@ export function useKeyboardNavigation({
     }
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [editingId, searchOpen, bulkMode, setEditingId, setSearch, setSearchOpen, setSelectedIds, setBulkMode, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead, setFocusedId, cursorRef, anchorRef]);
+  }, [editingId, searchOpen, bulkMode, setEditingId, setSearch, setSearchOpen, setSelectedIds, setBulkMode, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead, setFocusedId, cursorRef, anchorRef, baseSelectionRef]);
 
   // Cmd+Backspace to delete selected items
   React.useEffect(() => {
@@ -269,7 +270,6 @@ export function useKeyboardNavigation({
           // Enter bulk mode if needed, set anchor
           if (!bulkMode) {
             setBulkMode(true);
-            // eslint-disable-next-line react-compiler/react-compiler
             anchorRef.current = currentCursor ?? nextId;
             baseSelectionRef.current = new Set(selectedIds);
           }
@@ -330,7 +330,7 @@ export function useKeyboardNavigation({
     }
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMove, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen, setSuppressHover, setFocusedId, cursorRef, anchorRef]);
+  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMove, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen, setSuppressHover, setFocusedId, cursorRef, anchorRef, baseSelectionRef]);
 
   return {
     suppressHover,
