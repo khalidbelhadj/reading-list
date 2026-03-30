@@ -7,7 +7,7 @@ import {
   IconPlus,
   IconSearch,
   IconTag,
-  IconTarget,
+  IconListCheck,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
@@ -16,6 +16,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Tabs } from "@/components/ui/tabs";
 import {
   useIsSyncing,
@@ -276,7 +277,7 @@ export function Toolbar({
               onClick={onToggleBulkMode}
               title="Select items"
             >
-              <IconTarget />
+              <IconListCheck />
             </Button>
 
             {/* Add */}
@@ -288,6 +289,9 @@ export function Toolbar({
             >
               <IconPlus />
             </Button>
+
+            {/* Theme toggle */}
+            <ThemeToggle />
           </>
         )}
       </div>

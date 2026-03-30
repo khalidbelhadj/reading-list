@@ -56,6 +56,19 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
     );
   }, [tabItems]);
 
+  // Prune active tags that no longer exist in the current tab's items
+  React.useEffect(() => {
+    const validTagNames = new Set(allTags.map((t) => t.name));
+    const stale = [...activeTags].filter((t) => !validTagNames.has(t));
+    if (stale.length > 0) {
+      setActiveTags((prev) => {
+        const next = new Set(prev);
+        for (const t of stale) next.delete(t);
+        return next;
+      });
+    }
+  }, [allTags, activeTags, setActiveTags]);
+
   const filteredItems = React.useMemo(() => {
     const q = search.toLowerCase().trim();
     return tabItems.filter((item) => {

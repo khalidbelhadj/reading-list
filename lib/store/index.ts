@@ -1025,6 +1025,8 @@ export const useStore = create<ReadingListStore>()((set, get) => {
     // ── Sync ──
 
     hydrateFromServer: (serverItems) => {
+      if (!Array.isArray(serverItems)) return;
+
       const state = get();
       const pendingMutations = state.mutationQueue.filter(
         (m) => m.status === "pending" || m.status === "in-flight",
