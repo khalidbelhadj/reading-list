@@ -17,61 +17,89 @@ All commands use `bun` (not npm/npx):
 
 If asked to run the dev server, run it in the background and read its output to check for errors.
 
-## Architecture
+## Code Conventions
 
-Single-page reading list app with a Chrome extension for quick saving.
+- Use `useQuery`/`useMutation` from React Query for all server interactions — never bare `await` on server actions in components
+- Use shadcn `Button` for all buttons, never raw `<button>`. Raw `<input>` and `<textarea>` are fine for unstyled inline form fields.
+- Export components and hooks as `const X = () =>`, not `function X()`
+- Use `useCallback` for functions passed as props
+- Component ordering: data/queries → UI state → refs → helpers → hooks → mutations/callbacks → effects → derived state → render
+- No `eslint-disable` comments — fix the underlying issue instead
+- Full variable names (`searchQuery` not `q`). Single-letter vars only in `.map()/.filter()` chains.
+- Extract complex inline JSX logic into `const` or `useMemo` above the return
+- Prefer inline arrow: `items.map((item) => (<X />))` not `items.map((item) => { return (<X />) })`
 
-**Stack:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Drizzle ORM + Supabase (PostgreSQL), Zustand, TanStack React Query (SSR hydration only), @base-ui/react (headless components)
+## Design Language
 
-### Local-First Store
-
-The app uses a **local-first architecture** built on Zustand (`lib/store/`):
-
-- **Source of truth:** `useStore()` — a Zustand store holding all items in a `Map<string, Item>`, plus mutation queue, undo/redo stacks, and sync state
-- **Optimistic mutations:** All user actions (create, delete, reorder, toggle read, bulk ops) update the store immediately, then enqueue a mutation for the server
-- **Mutation queue:** `lib/store/queue-processor.ts` sends mutations to server actions sequentially. Retry on failure (up to 3 attempts), then mark failed
-- **Undo/Redo:** Snapshot-based. Each mutation saves before/after snapshots of affected items. Undo restores the snapshot and enqueues compensating mutations if the original already reached the server
-- **Offline support:** Queue pauses when offline, drains when back online. `StoreHydrator` manages online/offline listeners
-- **Persistence:** Store state is persisted to localStorage for instant load. `StoreHydrator` (`components/store-hydrator.tsx`) handles the hydration sequence: localStorage first, then SSR data via React Query, then periodic fullSync every 30s
-
-### Data Flow
-
-- **SSR hydration:** `app/page.tsx` prefetches items via React Query + Drizzle. `StoreHydrator` picks up SSR data and hydrates the Zustand store on mount
-- **Client mutations:** All writes go through the Zustand store, which enqueues mutations processed by `lib/store/queue-processor.ts` → server actions in `app/actions.ts`
-- **Server actions** (`app/actions.ts`) handle all writes (create, update, delete, reorder, bulk operations), each calls `revalidatePath("/")`
-- **API routes** (`app/api/items/`) exist for the Chrome extension and for `fullSync` — the web app uses server actions for mutations
-- **Periodic sync:** `fullSync` fetches from `/api/items` every 30s and on window focus, overwriting local state only when the mutation queue is idle
-
-### Database
-
-- Schema in `db/schema.ts`: three tables — `items`, `tags`, `items_tags` (many-to-many)
-- Items have a `type` field ("bookmark" | "reading-list") and a `position` integer for ordering within each type
-- Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`
-- Config in `drizzle.config.ts` (dialect: postgresql)
-
-### UI Components
-
-- `components/ui/` — shadcn-style wrappers around @base-ui/react primitives, styled with CVA + Tailwind
-- `components/items-list.tsx` — Main client component: tabs, search, tag filters, drag-and-drop (@dnd-kit), bulk actions
-- `components/items-list/use-keyboard-navigation.ts` — Vim-style keyboard navigation (j/k, gg/G, x to toggle read, d to delete, v for visual/bulk mode, etc.)
-- `components/side-panel.tsx` — Reusable sliding panel for edit/create forms
-- `components/debug-panel.tsx` — Dev-only debug widgets (enabled via `?debug=true`): store inspector, mutation queue, undo/redo stacks, sync info, font picker
+- Minimal UI — no borders, title bars, or close buttons unless explicitly requested
+- Cards use `bg-card` with `rounded-lg`, no border
+- When in doubt, build less chrome — the user will ask for more if needed
 - Icons: @tabler/icons-react
 - Theme: oklch color space with light/dark mode variables in `app/globals.css`
 - shadcn config in `components.json` (style: base-mira, icon library: tabler)
 
+## Colors
+
+- When adding new color tokens, propose oklch values in chat before writing them
+- Match chroma and hue angle to the nearest existing token (background uses hue 85, chroma 0.005)
+- Always show both light and dark mode values for confirmation
+- Existing custom tokens: `--badge` / `--badge-foreground` for badge backgrounds, `--font-content` for serif font
+
+## Architecture
+
+Single-page reading list app with a Chrome extension for quick saving, and an MCP server for AI integrations.
+
+**Stack:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Drizzle ORM + Supabase (PostgreSQL), TanStack React Query, @base-ui/react (headless components)
+
+### Data Flow
+
+- **Fetching:** React Query with `queryKey: ["items"]`. SSR prefetch via `HydrationBoundary` in `app/page.tsx`.
+- **Mutations:** Server actions (`app/actions.ts`) called via `useMutation` → `invalidateQueries(["items"])` on success.
+- **No local state for items** — React Query is the cache. Component state only for UI (selection, editing, search).
+- **No undo/redo, no offline queue, no localStorage persistence.**
+
+### Database
+
+- Schema in `db/schema.ts`: four tables — `items`, `tags`, `items_tags` (many-to-many), `flashcards` (linked to items)
+- Items have a `type` field ("bookmark" | "reading-list") and a `position` integer for ordering within each type
+- Flashcards have `front`/`back` text, linked to items via `itemId` (nullable FK)
+- Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`
+- Config in `drizzle.config.ts` (dialect: postgresql)
+- Fuzzy search via `pg_trgm` extension (enabled) + client-side trigram matching in `lib/trigram.ts`
+
+### UI Components
+
+- `components/ui/` — shadcn-style wrappers around @base-ui/react primitives, styled with CVA + Tailwind
+- `components/items-list.tsx` — Main client component: tabs, search, tag filters, drag-and-drop (@dnd-kit)
+- `components/items-list/detail-panel.tsx` — Fixed right-side panel showing item edit form + flashcards when an item is selected
+- `components/items-list/use-keyboard-navigation.ts` — Keyboard navigation (Ctrl+N/P, Enter, Escape, Cmd+V paste, etc.)
+- `components/items-list/tag-input.tsx` — Inline tag input with badges
+- `components/items-list/use-filters.ts` — Client-side filtering with trigram fuzzy search
+- `components/items-list/use-mutations.ts` — React Query mutation wrappers for item CRUD
+
+### Fonts
+
+- Default body font is Inter (`--font-sans`)
+- Content font (titles, flashcards, tabs) uses `font-content` Tailwind class (`--font-content: Source Serif 4`)
+- Do not use inline `style={{ fontFamily }}` — always use the `font-content` class
+
+### MCP Server
+
+`app/api/mcp/route.ts` — Remote MCP server using `@modelcontextprotocol/sdk`. Exposes tools for reading list + flashcard CRUD. Auth via existing middleware (bearer token / cookie). Used by Claude Desktop, Claude Code, and Claude mobile.
+
 ### Chrome Extension
 
-`extension/` — Manifest V3 extension that talks to localhost:3000 API routes. Lets users save/edit/remove the current tab as a bookmark or reading list item. Uses `/api/items/lookup` to check existing URLs.
+`extension/` — Manifest V3 extension that talks to the app's API routes. Lets users save/edit/remove the current tab as a bookmark or reading list item. Uses `/api/items/lookup` to check existing URLs.
 
 ### Middleware
 
-`middleware.ts` adds CORS headers to all `/api/*` routes (needed for the extension).
+`middleware.ts` — Auth (bearer token or cookie) + CORS headers for all `/api/*` routes.
 
 ## Notes
 
-`notes/` contains documentation of past bugs, implementation decisions, and architectural notes. Search this directory when investigating issues that may have been encountered before — it may contain relevant root cause analysis or context on why things are built a certain way.
+`notes/` contains documentation of past bugs, implementation decisions, and architectural notes. Search this directory when investigating issues that may have been encountered before.
 
 ## Known Issues
 
-None currently.
+- Hydration mismatch on tag filter button: the button is always rendered with `disabled={allTags.length === 0}` to avoid SSR/client DOM mismatch. Do not conditionally render toolbar buttons based on client-only state.
+- Auto-save in the detail panel uses refs (`itemIdRef`, `getFieldsRef`, `onSaveRef`, `initFieldsRef`) to avoid stale closures. When modifying save logic, always pass explicit IDs rather than relying on closure-captured values.

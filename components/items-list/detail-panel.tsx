@@ -7,8 +7,9 @@ import {
 } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { type Item, type Flashcard } from "@/lib/types";
+import { type Item } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -22,7 +23,7 @@ import { type EditFields, relativeTime, getFaviconSrc } from "./utils";
 import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
 
-export function DetailPanel({
+export const DetailPanel = ({
   item,
   isNew,
   onSave,
@@ -36,20 +37,13 @@ export function DetailPanel({
   onCreate: (fields: EditFields) => void;
   onFlashcardChange: () => void;
   onDelete?: () => void;
-}) {
+}) => {
+  // Form state
   const [title, setTitle] = React.useState("");
   const [url, setUrl] = React.useState("");
   const [tags, setTags] = React.useState<string[]>([]);
   const [notes, setNotes] = React.useState("");
   const [saving, setSaving] = React.useState(false);
-  const titleRef = React.useRef<HTMLInputElement>(null);
-  const urlInputRef = React.useRef<HTMLInputElement>(null);
-  const notesRef = React.useRef<HTMLTextAreaElement>(null);
-  const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(url, title, setTitle);
-
-  // Flashcards state
-  const [cards, setCards] = React.useState<Flashcard[]>([]);
-  const [loadingCards, setLoadingCards] = React.useState(false);
   const [newFront, setNewFront] = React.useState("");
   const [newBack, setNewBack] = React.useState("");
   const [addingCard, setAddingCard] = React.useState(false);
@@ -57,23 +51,57 @@ export function DetailPanel({
   const [editFront, setEditFront] = React.useState("");
   const [editBack, setEditBack] = React.useState("");
 
-  // Track the current item id to detect switches
+  // Refs
+  const titleRef = React.useRef<HTMLInputElement>(null);
+  const urlInputRef = React.useRef<HTMLInputElement>(null);
+  const notesRef = React.useRef<HTMLTextAreaElement>(null);
   const itemIdRef = React.useRef<string | null>(null);
+  const initFieldsRef = React.useRef({ title: "", url: "", tags: "", notes: "" });
   const getFieldsRef = React.useRef(() => ({ title, url, tags: tags.join(", "), notes }));
   getFieldsRef.current = () => ({ title, url, tags: tags.join(", "), notes });
-
-  const initFieldsRef = React.useRef({ title: "", url: "", tags: "", notes: "" });
-
-  // Initialize fields when item changes
-  const currentId = item?.id ?? (isNew ? "new" : null);
-
   const onSaveRef = React.useRef(onSave);
   onSaveRef.current = onSave;
   const itemRef = React.useRef(item);
   itemRef.current = item;
 
+  // Hooks
+  const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(url, title, setTitle);
+  const queryClient = useQueryClient();
+  const currentId = item?.id ?? (isNew ? "new" : null);
+
+  const { data: cards = [], isLoading: loadingCards } = useQuery({
+    queryKey: ["flashcards", item?.id],
+    queryFn: () => getFlashcards(item!.id),
+    enabled: !!item?.id,
+  });
+
+  const addCardMutation = useMutation({
+    mutationFn: ({ itemId, front, back }: { itemId: string; front: string; back: string }) =>
+      createFlashcard(itemId, front, back),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+      onFlashcardChange();
+    },
+  });
+
+  const updateCardMutation = useMutation({
+    mutationFn: ({ id, front, back }: { id: string; front?: string; back?: string }) =>
+      updateFlashcard(id, { front, back }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+    },
+  });
+
+  const deleteCardMutation = useMutation({
+    mutationFn: (id: string) => deleteFlashcard(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+      onFlashcardChange();
+    },
+  });
+
+  // Initialize fields when item changes
   React.useEffect(() => {
-    // Auto-save previous item if changed
     const prevId = itemIdRef.current;
     if (prevId !== null && prevId !== currentId) {
       const prev = getFieldsRef.current();
@@ -88,36 +116,25 @@ export function DetailPanel({
       }
     }
 
-    // Set new fields
     const currentItem = itemRef.current;
-    const t = currentItem?.title ?? "";
-    const u = currentItem?.url ?? "";
-    const tg = currentItem?.tags.map((tag) => tag.name) ?? [];
-    const n = currentItem?.notes ?? "";
-    setTitle(t);
-    setUrl(u);
-    setTags(tg);
-    setNotes(n);
+    const initialTitle = currentItem?.title ?? "";
+    const initialUrl = currentItem?.url ?? "";
+    const initialTags = currentItem?.tags.map((tag) => tag.name) ?? [];
+    const initialNotes = currentItem?.notes ?? "";
+    setTitle(initialTitle);
+    setUrl(initialUrl);
+    setTags(initialTags);
+    setNotes(initialNotes);
     setSaving(false);
-    initFieldsRef.current = { title: t, url: u, tags: tg.join(", "), notes: n };
+    initFieldsRef.current = { title: initialTitle, url: initialUrl, tags: initialTags.join(", "), notes: initialNotes };
     itemIdRef.current = currentId;
-
-    // Fetch flashcards for this item
-    setCards([]);
     setAddingCard(false);
     setNewFront("");
     setNewBack("");
     setEditingCardId(null);
-    if (currentItem?.id) {
-      setLoadingCards(true);
-      getFlashcards(currentItem.id).then((c) => {
-        setCards(c);
-        setLoadingCards(false);
-      });
-    }
   }, [currentId]);
 
-  // Save on unmount (e.g. Escape closing the panel)
+  // Save on unmount
   React.useEffect(() => {
     return () => {
       const id = itemIdRef.current;
@@ -137,7 +154,7 @@ export function DetailPanel({
 
   // Keyboard shortcuts within the panel
   React.useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (saving) return;
       const panel = document.querySelector("[data-detail-panel]");
       if (!panel?.contains(e.target as Node)) return;
@@ -156,50 +173,57 @@ export function DetailPanel({
         e.preventDefault();
         onDelete();
       }
-    }
+    };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [title, url, tags, notes, onSave, onDelete, saving, currentId]);
 
-  // When focus leaves the editing card (click outside, Escape blur, tab away) → save and exit
-  function handleCardFocusOut(e: React.FocusEvent) {
-    const card = e.currentTarget;
-    if (card.contains(e.relatedTarget as Node)) return;
-    saveEditCard();
-  }
+  // Callbacks
+  const handleCardFocusOut = React.useCallback(
+    (e: React.FocusEvent) => {
+      const card = e.currentTarget;
+      if (card.contains(e.relatedTarget as Node)) return;
+      if (!editingCardId) return;
+      const front = editFront.trim();
+      const back = editBack.trim();
+      if (!front || !back) return;
+      updateCardMutation.mutate({ id: editingCardId, front, back });
+      setEditingCardId(null);
+    },
+    [editingCardId, editFront, editBack, updateCardMutation],
+  );
 
-  async function handleAddCard() {
+  const handleAddCard = React.useCallback(async () => {
     if (!item?.id || !newFront.trim() || !newBack.trim()) return;
-    const card = await createFlashcard(item.id, newFront.trim(), newBack.trim());
-    setCards((prev) => [card, ...prev]);
+    addCardMutation.mutate({ itemId: item.id, front: newFront.trim(), back: newBack.trim() });
     setNewFront("");
     setNewBack("");
     setAddingCard(false);
-    onFlashcardChange();
-  }
+  }, [item?.id, newFront, newBack, addCardMutation]);
 
-  async function handleDeleteCard(cardId: string) {
-    await deleteFlashcard(cardId);
-    setCards((prev) => prev.filter((c) => c.id !== cardId));
-    if (editingCardId === cardId) setEditingCardId(null);
-    onFlashcardChange();
-  }
+  const handleDeleteCard = React.useCallback(
+    (cardId: string) => {
+      if (editingCardId === cardId) setEditingCardId(null);
+      deleteCardMutation.mutate(cardId);
+    },
+    [editingCardId, deleteCardMutation],
+  );
 
-  function startEditCard(card: Flashcard) {
-    setEditingCardId(card.id);
-    setEditFront(card.front);
-    setEditBack(card.back);
-  }
+  const startEditCard = React.useCallback(
+    (card: { id: string; front: string; back: string }) => {
+      setEditingCardId(card.id);
+      setEditFront(card.front);
+      setEditBack(card.back);
+    },
+    [],
+  );
 
-  async function saveEditCard() {
+  const saveEditCard = async () => {
     if (!editingCardId) return;
     const front = editFront.trim();
     const back = editBack.trim();
     if (!front || !back) return;
-    await updateFlashcard(editingCardId, { front, back });
-    setCards((prev) =>
-      prev.map((c) => c.id === editingCardId ? { ...c, front, back } : c),
-    );
+    updateCardMutation.mutate({ id: editingCardId, front, back });
     setEditingCardId(null);
   }
 
@@ -318,10 +342,9 @@ export function DetailPanel({
         </div>
       </div>
 
-      {/* Flashcards — each as its own card below */}
+      {/* Flashcards */}
       {item && !isNew && (
         <div className="flex flex-col gap-2">
-          {/* Add card button */}
           <Button
             variant="ghost"
             className="rounded-lg bg-card text-muted-foreground/50"
@@ -331,7 +354,6 @@ export function DetailPanel({
             Add flashcard
           </Button>
 
-          {/* New card form */}
           {addingCard && (
             <div
               className="rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
@@ -368,15 +390,19 @@ export function DetailPanel({
             </div>
           )}
 
-          {/* Saved cards */}
           {loadingCards && (
-            <span className="text-[11px] text-muted-foreground/40 px-1">Loading...</span>
+            <span className="text-[11px] text-muted-foreground/40 px-1">
+              Loading...
+            </span>
           )}
+
           {cards.map((card) => (
             <div
               key={card.id}
               className="font-content group rounded-lg bg-card px-4 py-3 flex flex-col gap-0.5 cursor-pointer"
-              onClick={() => { if (editingCardId !== card.id) startEditCard(card); }}
+              onClick={() => {
+                if (editingCardId !== card.id) startEditCard(card);
+              }}
               onBlur={editingCardId === card.id ? handleCardFocusOut : undefined}
             >
               {editingCardId === card.id ? (
@@ -388,7 +414,10 @@ export function DetailPanel({
                     rows={1}
                     className="text-xs font-medium bg-transparent outline-none w-full resize-none field-sizing-content"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEditCard(); }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        saveEditCard();
+                      }
                     }}
                   />
                   <textarea
@@ -397,7 +426,10 @@ export function DetailPanel({
                     rows={1}
                     className="text-xs text-muted-foreground bg-transparent outline-none w-full resize-none field-sizing-content"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEditCard(); }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        saveEditCard();
+                      }
                     }}
                   />
                 </>
@@ -409,7 +441,10 @@ export function DetailPanel({
                       variant="ghost"
                       size="icon-xs"
                       className="shrink-0 text-muted-foreground/30 hover:text-destructive opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteCard(card.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCard(card.id);
+                      }}
                     >
                       <IconTrash />
                     </Button>

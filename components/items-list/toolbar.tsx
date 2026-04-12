@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
 import { Tabs } from "@/components/ui/tabs";
 
-export function Toolbar({
+export const Toolbar = ({
   activeTab,
   setActiveTabAndUrl,
   tabType,
@@ -47,7 +47,7 @@ export function Toolbar({
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
   isMobile: boolean;
-}) {
+}) => {
   return (
     <>
       <div className="flex items-center relative">
@@ -183,16 +183,17 @@ export function Toolbar({
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-0 h-8 bg-transparent text-sm outline-none"
           />
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             className="text-muted-foreground shrink-0"
             onClick={() => {
               setSearch("");
               setSearchOpen(false);
             }}
           >
-            <IconX className="size-4" />
-          </button>
+            <IconX />
+          </Button>
         </div>
       )}
     </>

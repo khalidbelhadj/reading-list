@@ -14,17 +14,13 @@ import {
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
 import React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { isReadingListItem, type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
 import useIsMobile from "@/lib/use-is-mobile";
 import { type EditFields } from "./items-list/utils";
-import {
-  createItem,
-  updateItem,
-  getFlashcardCounts,
-} from "@/app/actions";
+import { createItem, updateItem, getFlashcardCounts } from "@/app/actions";
 import { SortableItemRow } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useItemsFilters } from "./items-list/use-filters";
@@ -32,33 +28,45 @@ import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
 import { Footer } from "./items-list/footer";
-import { HelpDialog } from "./items-list/help-dialog";
 import { ItemFormDrawer } from "./items-list/item-form-drawer";
 import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 import { DetailPanel } from "./items-list/detail-panel";
 
-export function ItemsList() {
+export const ItemsList = () => {
+  // Data
   const queryClient = useQueryClient();
   const { data: items, isLoading } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
   });
+  const { data: flashcardCounts = new Map() } = useQuery({
+    queryKey: ["flashcard-counts"],
+    queryFn: getFlashcardCounts,
+  });
   const { isMobile } = useIsMobile();
 
-  function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ["items"] });
-  }
+  // UI state
+  const searchParams = useSearchParams();
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [scrolled, setScrolled] = React.useState(false);
+  const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
+  const [activeTab, setActiveTab] = React.useState(() =>
+    searchParams.get("tab") === "bookmarks" ? "bookmarks" : "reading-list",
+  );
 
-  // Flashcard counts per item
-  const [flashcardCounts, setFlashcardCounts] = React.useState<Map<string, number>>(new Map());
-  React.useEffect(() => {
-    getFlashcardCounts().then(setFlashcardCounts);
+  // Refs
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const cursorRef = React.useRef<string | null>(null);
+  const setCursor = React.useCallback((id: string | null) => {
+    cursorRef.current = id;
   }, []);
 
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = React.useState(() => {
-    return searchParams.get("tab") === "bookmarks" ? "bookmarks" : "reading-list";
-  });
+  // Helpers
+  const invalidate = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["items"] });
+  }, [queryClient]);
+
   const setActiveTabAndUrl = React.useCallback((tab: string) => {
     setActiveTab(tab);
     const params = new URLSearchParams(window.location.search);
@@ -67,44 +75,41 @@ export function ItemsList() {
     } else {
       params.set("tab", tab);
     }
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    const queryString = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      queryString ? `?${queryString}` : window.location.pathname,
+    );
   }, []);
 
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [helpOpen, setHelpOpen] = React.useState(false);
-  const [scrolled, setScrolled] = React.useState(false);
-  const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
-  const cursorRef = React.useRef<string | null>(null);
-  const setCursor = React.useCallback((id: string | null) => { cursorRef.current = id; }, []);
-
-  React.useEffect(() => {
-    function onScroll() { setScrolled(window.scrollY > 0); }
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
+  // Hooks
   const {
-    tabType, tabItems, allTags, filteredItems,
-    activeTags, setActiveTags, toggleTag,
-    tagsOpen, setTagsOpen, showRead, setShowRead,
-    search, setSearch, searchOpen, setSearchOpen,
+    tabType,
+    tabItems,
+    allTags,
+    filteredItems,
+    activeTags,
+    setActiveTags,
+    toggleTag,
+    tagsOpen,
+    setTagsOpen,
+    showRead,
+    setShowRead,
+    search,
+    setSearch,
+    searchOpen,
+    setSearchOpen,
   } = useItemsFilters(items, activeTab);
 
-  const {
-    handleReorder,
-    handleToggleRead,
-    handleDeleteSingle,
-  } = useItemsMutations({
-    filteredItems,
-    setSelectedIds,
-    setEditingId,
-    showRead,
-    setCursor,
-  });
+  const { handleReorder, handleToggleRead, handleDeleteSingle } =
+    useItemsMutations({
+      filteredItems,
+      setSelectedIds,
+      setEditingId,
+      showRead,
+      setCursor,
+    });
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
@@ -117,7 +122,6 @@ export function ItemsList() {
     setSearchOpen,
     searchInputRef,
     setActiveTabAndUrl,
-    setHelpOpen,
     setTagsOpen,
     setShowRead,
     tabType,
@@ -126,7 +130,75 @@ export function ItemsList() {
     setCursor,
   });
 
-  // Auto-select first result when searching
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (args: { title: string; url: string; tagNames: string[]; notes?: string }) =>
+      createItem(args.title, args.url, args.tagNames, undefined, tabType, args.notes),
+    onSuccess: invalidate,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (args: { id: string; fields: { title?: string; url?: string; notes?: string; tagNames?: string[] } }) =>
+      updateItem(args.id, args.fields),
+    onSuccess: invalidate,
+  });
+
+  const handleSave = React.useCallback(
+    (itemId: string, fields: EditFields) => {
+      const tagNames = fields.tags
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (itemId === "new") {
+        if (!fields.title.trim() && !fields.url.trim()) {
+          setEditingId(null);
+          return;
+        }
+        createMutation.mutate({
+          title: fields.title.trim() || fields.url.trim(),
+          url: fields.url.trim(),
+          tagNames,
+          notes: fields.notes.trim() || undefined,
+        });
+      } else {
+        updateMutation.mutate({
+          id: itemId,
+          fields: { title: fields.title, url: fields.url, notes: fields.notes, tagNames },
+        });
+      }
+
+      setEditingId(null);
+    },
+    [createMutation, updateMutation],
+  );
+
+  const handleCreate = React.useCallback(
+    (fields: EditFields) => {
+      const tagNames = fields.tags
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      if (!fields.title.trim() && !fields.url.trim()) return;
+      createMutation.mutate({
+        title: fields.title.trim() || fields.url.trim(),
+        url: fields.url.trim(),
+        tagNames,
+        notes: fields.notes.trim() || undefined,
+      });
+      setEditingId(null);
+    },
+    [createMutation],
+  );
+
+  // Effects
+  React.useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 0);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   React.useEffect(() => {
     if (search.trim() && filteredItems.length > 0) {
       const anyVisible = Array.from(selectedIds).some((id) =>
@@ -139,7 +211,7 @@ export function ItemsList() {
     }
   }, [search, filteredItems, selectedIds, setCursor]);
 
-  // DnD setup
+  // DnD
   const isDragDisabled =
     search.trim().length > 0 || activeTags.size > 0 || editingId !== null;
 
@@ -147,62 +219,55 @@ export function ItemsList() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const overIndex = tabItems.findIndex((i) => i.id === over.id);
+      if (overIndex === -1) return;
+      handleReorder(active.id as string, tabType, overIndex);
+    },
+    [tabItems, tabType, handleReorder],
+  );
 
-    const sortedTypeItems = [...tabItems];
-    const overIndex = sortedTypeItems.findIndex((i) => i.id === over.id);
-    if (overIndex === -1) return;
-
-    handleReorder(active.id as string, tabType, overIndex);
-  }
-
-  async function handleSave(itemId: string, fields: EditFields) {
-    const tagNames = fields.tags
-      .split(",")
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (itemId === "new") {
-      if (!fields.title.trim() && !fields.url.trim()) {
-        setEditingId(null);
-        return;
-      }
-      await createItem(
-        fields.title.trim() || fields.url.trim(),
-        fields.url.trim(),
-        tagNames,
-        undefined,
-        tabType,
-        fields.notes.trim() || undefined,
-      );
-    } else {
-      await updateItem(itemId, {
-        title: fields.title,
-        url: fields.url,
-        notes: fields.notes,
-        tagNames,
-      });
-    }
-
-    setEditingId(null);
-    invalidate();
-  }
-
-  // Detail panel state (desktop only)
+  // Derived state
   const isNewItem = editingId === "new";
-  const detailItem = !isMobile && !isNewItem && selectedIds.size === 1
-    ? filteredItems.find((i) => i.id === [...selectedIds][0]) ?? null
-    : null;
+  const detailItem =
+    !isMobile && !isNewItem && selectedIds.size === 1
+      ? (filteredItems.find((i) => i.id === [...selectedIds][0]) ?? null)
+      : null;
   const showDetailPanel = !isMobile && (detailItem !== null || isNewItem);
+
+  // Empty state message
+  const emptyMessage = React.useMemo(() => {
+    if (filteredItems.length > 0 || isNewItem) return null;
+    if (tabItems.length === 0) return "Nothing here yet";
+
+    const searchQuery = search.toLowerCase().trim();
+    const hiddenReadCount = !showRead
+      ? tabItems.filter(
+          (item) =>
+            isReadingListItem(item) &&
+            item.read &&
+            (!searchQuery ||
+              item.title.toLowerCase().includes(searchQuery) ||
+              item.url.toLowerCase().includes(searchQuery)) &&
+            (activeTags.size === 0 ||
+              item.tags.some((t) => activeTags.has(t.name))),
+        ).length
+      : 0;
+
+    if (hiddenReadCount > 0) {
+      return `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`;
+    }
+    return "No items match your filters";
+  }, [filteredItems, isNewItem, tabItems, search, showRead, activeTags]);
 
   return (
     <div className="relative">
-      {/* Main list column */}
       <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 relative flex flex-col gap-3 pt-5 bg-background">
+        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
           <Toolbar
             activeTab={activeTab}
             setActiveTabAndUrl={setActiveTabAndUrl}
@@ -231,87 +296,83 @@ export function ItemsList() {
             />
           )}
 
-          {scrolled && <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent translate-y-full pointer-events-none" />}
+          {scrolled && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
+          )}
         </div>
 
         {/* Items list */}
         {isLoading ? (
-          <div className="px-1 py-6 text-center text-muted-foreground text-xs">Loading...</div>
+          <div className="px-1 py-6 text-center text-muted-foreground text-xs">
+            Loading...
+          </div>
         ) : (
-        <DndContext
-          id="items-list-dnd"
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={filteredItems.map((i) => i.id)}
-            strategy={verticalListSortingStrategy}
+          <DndContext
+            id="items-list-dnd"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            <div onMouseMove={suppressHover ? () => setSuppressHover(false) : undefined}>
-              {filteredItems.length === 0 && editingId !== "new" && (() => {
-                const q = search.toLowerCase().trim();
-                const readCount = !showRead ? tabItems.filter((i) =>
-                  isReadingListItem(i) && i.read
-                  && (!q || i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q))
-                  && (activeTags.size === 0 || i.tags.some((t) => activeTags.has(t.name)))
-                ).length : 0;
-                return (
+            <SortableContext
+              items={filteredItems.map((i) => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div
+                onMouseMove={
+                  suppressHover ? () => setSuppressHover(false) : undefined
+                }
+              >
+                {emptyMessage && (
                   <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-                    {tabItems.length === 0
-                      ? "Nothing here yet"
-                      : readCount > 0
-                        ? `${readCount} read ${readCount === 1 ? "item" : "items"} not shown`
-                        : "No items match your filters"}
+                    {emptyMessage}
                   </div>
-                );
-              })()}
-              {filteredItems.map((item) => {
-                const isSelected = selectedIds.has(item.id);
-                return (
-                <SortableItemRow
-                  key={item.id}
-                  item={item}
-                  flashcardCount={flashcardCounts.get(item.id) ?? 0}
-                  isEditing={isMobile && editingId === item.id}
-                  isSelected={isSelected}
-                  isMobile={isMobile}
-                  suppressHover={suppressHover}
-                  isDragDisabled={isDragDisabled}
-                  onToggleRead={
-                    isReadingListItem(item)
-                      ? () => handleToggleRead(item.id, !item.read)
-                      : undefined
-                  }
-                  onSelect={() => {
-                    if (editingId !== null) setEditingId(null);
-                    setSelectedIds(new Set([item.id]));
-                    setCursor(item.id);
-                  }}
-                  onStartEdit={() => {
-                    if (isMobile) {
-                      setEditingId(item.id);
-                    } else {
-                      setSelectedIds(new Set([item.id]));
-                      requestAnimationFrame(() => {
-                        const el = document.querySelector<HTMLInputElement>("[data-detail-title]");
-                        el?.focus();
-                      });
+                )}
+                {filteredItems.map((item) => (
+                  <SortableItemRow
+                    key={item.id}
+                    item={item}
+                    flashcardCount={flashcardCounts.get(item.id) ?? 0}
+                    isEditing={isMobile && editingId === item.id}
+                    isSelected={selectedIds.has(item.id)}
+                    isMobile={isMobile}
+                    suppressHover={suppressHover}
+                    isDragDisabled={isDragDisabled}
+                    onToggleRead={
+                      isReadingListItem(item)
+                        ? () => handleToggleRead(item.id, !item.read)
+                        : undefined
                     }
-                  }}
-                  onSave={(fields) => handleSave(item.id, fields)}
-                  onCancelEdit={() => setEditingId(null)}
-                  onDelete={() => handleDeleteSingle(item.id)}
-                  onOpenMenu={isMobile ? () => setMenuItemId(item.id) : undefined}
-                />
-                );
-              })}
-            </div>
-          </SortableContext>
-        </DndContext>
+                    onSelect={() => {
+                      if (editingId !== null) setEditingId(null);
+                      setSelectedIds(new Set([item.id]));
+                      setCursor(item.id);
+                    }}
+                    onStartEdit={() => {
+                      if (isMobile) {
+                        setEditingId(item.id);
+                      } else {
+                        setSelectedIds(new Set([item.id]));
+                        requestAnimationFrame(() => {
+                          document
+                            .querySelector<HTMLInputElement>(
+                              "[data-detail-title]",
+                            )
+                            ?.focus();
+                        });
+                      }
+                    }}
+                    onSave={(fields) => handleSave(item.id, fields)}
+                    onCancelEdit={() => setEditingId(null)}
+                    onDelete={() => handleDeleteSingle(item.id)}
+                    onOpenMenu={
+                      isMobile ? () => setMenuItemId(item.id) : undefined
+                    }
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
-
-        <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
 
         <Footer />
 
@@ -321,18 +382,30 @@ export function ItemsList() {
             <ItemFormDrawer
               open={editingId !== null}
               isNew={isNewItem}
-              item={editingId && editingId !== "new" ? items?.find((i) => i.id === editingId) ?? null : null}
+              item={
+                editingId && editingId !== "new"
+                  ? (items?.find((i) => i.id === editingId) ?? null)
+                  : null
+              }
               onSave={(fields) => handleSave(editingId!, fields)}
               onCancel={() => setEditingId(null)}
-              onDelete={editingId && editingId !== "new" ? () => handleDeleteSingle(editingId) : undefined}
+              onDelete={
+                editingId && editingId !== "new"
+                  ? () => handleDeleteSingle(editingId)
+                  : undefined
+              }
             />
             {(() => {
-              const menuItem = menuItemId ? items?.find((i) => i.id === menuItemId) ?? null : null;
+              const menuItem = menuItemId
+                ? (items?.find((i) => i.id === menuItemId) ?? null)
+                : null;
               return (
                 <ItemActionsDrawer
                   item={menuItem}
                   open={menuItemId !== null}
-                  onOpenChange={(open) => { if (!open) setMenuItemId(null); }}
+                  onOpenChange={(open) => {
+                    if (!open) setMenuItemId(null);
+                  }}
                   onEdit={() => {
                     setEditingId(menuItemId);
                     setMenuItemId(null);
@@ -359,25 +432,13 @@ export function ItemsList() {
           item={detailItem}
           isNew={isNewItem}
           onSave={(itemId, fields) => handleSave(itemId, fields)}
-          onFlashcardChange={() => getFlashcardCounts().then(setFlashcardCounts)}
-          onCreate={async (fields) => {
-            const tagNames = fields.tags
-              .split(",")
-              .map((t) => t.trim().toLowerCase())
-              .filter(Boolean);
-            if (!fields.title.trim() && !fields.url.trim()) return;
-            await createItem(
-              fields.title.trim() || fields.url.trim(),
-              fields.url.trim(),
-              tagNames,
-              undefined,
-              tabType,
-              fields.notes.trim() || undefined,
-            );
-            setEditingId(null);
-            invalidate();
-          }}
-          onDelete={detailItem ? () => handleDeleteSingle(detailItem.id) : undefined}
+          onFlashcardChange={() =>
+            queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
+          }
+          onCreate={handleCreate}
+          onDelete={
+            detailItem ? () => handleDeleteSingle(detailItem.id) : undefined
+          }
         />
       )}
     </div>

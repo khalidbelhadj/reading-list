@@ -140,6 +140,7 @@ export async function createItem(
   });
 
   revalidatePath("/");
+  return itemId;
 }
 
 export async function updateItem(
