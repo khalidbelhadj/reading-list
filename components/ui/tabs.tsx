@@ -20,7 +20,7 @@ export function Tabs({ value, onValueChange, tabs, variant }: TabsProps) {
             type="button"
             onClick={() => onValueChange(tab.value)}
             className={cn(
-              "transition-colors cursor-pointer",
+              "font-content transition-colors cursor-pointer",
               value === tab.value
                 ? "text-foreground font-medium"
                 : "text-muted-foreground/50 hover:text-muted-foreground",

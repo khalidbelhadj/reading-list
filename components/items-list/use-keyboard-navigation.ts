@@ -1,7 +1,12 @@
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { fetchPageTitle } from "@/app/actions";
-import { useStore } from "@/lib/store";
+import {
+  fetchPageTitle,
+  createItem,
+  deleteItem,
+  reorderItem,
+} from "@/app/actions";
 import { type Item } from "@/lib/types";
 
 export function useKeyboardNavigation({
@@ -10,8 +15,6 @@ export function useKeyboardNavigation({
   setSelectedIds,
   editingId,
   setEditingId,
-  bulkMode,
-  setBulkMode,
   searchOpen,
   setSearch,
   setSearchOpen,
@@ -20,23 +23,16 @@ export function useKeyboardNavigation({
   setHelpOpen,
   setTagsOpen,
   setShowRead,
-  setTagDialogInput,
-  setTagDialogOpen,
   tabType,
-  handleBulkDelete,
-  handleBulkMove,
+  tabItems,
   cursorRef,
-  anchorRef,
-  baseSelectionRef,
-  setFocusedId,
+  setCursor,
 }: {
   filteredItems: Item[];
   selectedIds: Set<string>;
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   editingId: string | null;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
-  bulkMode: boolean;
-  setBulkMode: React.Dispatch<React.SetStateAction<boolean>>;
   searchOpen: boolean;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -45,18 +41,17 @@ export function useKeyboardNavigation({
   setHelpOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
-  setTagDialogInput: React.Dispatch<React.SetStateAction<string>>;
-  setTagDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   tabType: string;
-  handleBulkDelete: () => void;
-  handleBulkMove: () => void;
-  cursorRef: React.MutableRefObject<string | null>;
-  anchorRef: React.MutableRefObject<string | null>;
-  baseSelectionRef: React.MutableRefObject<Set<string>>;
-  setFocusedId: React.Dispatch<React.SetStateAction<string | null>>;
+  tabItems: Item[];
+  cursorRef: React.RefObject<string | null>;
+  setCursor: (id: string | null) => void;
 }) {
   const [suppressHover, setSuppressHover] = React.useState(false);
-  const store = useStore();
+  const queryClient = useQueryClient();
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["items"] });
+  }
 
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
@@ -76,17 +71,10 @@ export function useKeyboardNavigation({
         if (url.protocol === "http:" || url.protocol === "https:") {
           e.preventDefault();
           const domain = url.hostname.replace(/^www\./, "");
-          const tempId = store.createItem({
-            title: domain,
-            url: text,
-            tagNames: [],
-            type: tabType,
-          });
-          // Fetch title in background and update
-          fetchPageTitle(text).then((title) => {
-            if (title) {
-              store.updateItem(tempId, { title });
-            }
+          createItem(domain, text, [], undefined, tabType).then(() => {
+            invalidate();
+            // Fetch title in background and update
+            fetchPageTitle(text).then(() => invalidate());
           });
         }
       } catch {
@@ -95,32 +83,13 @@ export function useKeyboardNavigation({
     }
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [tabType, store]);
-
-  // Cmd+Z / Cmd+Shift+Z for undo/redo
-  React.useEffect(() => {
-    function handleUndoRedo(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
-        return;
-      }
-      e.preventDefault();
-      if (e.shiftKey) {
-        store.redo();
-      } else {
-        store.undo();
-      }
-    }
-    document.addEventListener("keydown", handleUndoRedo);
-    return () => document.removeEventListener("keydown", handleUndoRedo);
-  }, [store]);
+  }, [tabType, queryClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Global keyboard shortcuts: /, 1, 2, ?, a, t, r, Escape
   React.useEffect(() => {
     function handleGlobal(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
-      // Escape priority chain: editing → search → selection
+      // Escape priority chain: editing → search → detail panel focus → selection
       if (e.key === "Escape") {
         if (editingId) {
           setEditingId(null);
@@ -128,13 +97,13 @@ export function useKeyboardNavigation({
           setSearch("");
           setSearchOpen(false);
         } else {
-          setSelectedIds(new Set());
-          setFocusedId(null);
-          // eslint-disable-next-line react-compiler/react-compiler
-          cursorRef.current = null;
-          anchorRef.current = null;
-          baseSelectionRef.current = new Set();
-          setBulkMode(false);
+          const panel = document.querySelector("[data-detail-panel]");
+          if (panel?.contains(e.target as Node)) {
+            (e.target as HTMLElement)?.blur?.();
+          } else {
+            setSelectedIds(new Set());
+            setCursor(null);
+          }
         }
         return;
       }
@@ -156,17 +125,14 @@ export function useKeyboardNavigation({
         e.preventDefault();
         setHelpOpen(true);
       }
-      // a — add new item
       if (e.key === "a" && !e.metaKey && !e.ctrlKey && !editingId) {
         e.preventDefault();
         setEditingId("new");
       }
-      // t — toggle tags filter (when not in bulk mode)
-      if (e.key === "t" && !e.metaKey && !e.ctrlKey && !editingId && !bulkMode) {
+      if (e.key === "t" && !e.metaKey && !e.ctrlKey && !editingId) {
         e.preventDefault();
         setTagsOpen((v) => !v);
       }
-      // r — toggle show read (reading-list tab only)
       if (e.key === "r" && !e.metaKey && !e.ctrlKey && !editingId) {
         e.preventDefault();
         setShowRead((v) => !v);
@@ -174,25 +140,27 @@ export function useKeyboardNavigation({
     }
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [editingId, searchOpen, bulkMode, setEditingId, setSearch, setSearchOpen, setSelectedIds, setBulkMode, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead, setFocusedId, cursorRef, anchorRef, baseSelectionRef]);
+  }, [editingId, searchOpen, setEditingId, setSearch, setSearchOpen, setSelectedIds, searchInputRef, setActiveTabAndUrl, setHelpOpen, setTagsOpen, setShowRead, cursorRef, setCursor]);
 
-  // Cmd+Backspace to delete selected items
+  // Cmd+Backspace to delete selected item
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
         return;
       }
-      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedIds.size > 0 && !editingId) {
+      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedIds.size === 1 && !editingId) {
         e.preventDefault();
-        handleBulkDelete();
+        const [id] = selectedIds;
+        setSelectedIds(new Set());
+        deleteItem(id).then(() => invalidate());
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, editingId, handleBulkDelete]);
+  }, [selectedIds, editingId, setSelectedIds, queryClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ctrl+N/P navigation, Shift to extend selection, Alt+Ctrl+N/P to reorder
+  // Ctrl+N/P navigation, Alt+Ctrl+N/P to reorder
   React.useEffect(() => {
     function scrollWithMargin(id: string) {
       const el = document.querySelector(`[data-item-id="${id}"]`);
@@ -227,79 +195,50 @@ export function useKeyboardNavigation({
         e.preventDefault();
         if (selectedIds.size !== 1) return;
         const [selectedId] = selectedIds;
-        const allItems = store.getAllItems();
-        const typeItems = allItems
-          .filter((i) => i.type === tabType)
-          .sort((a, b) => a.position - b.position);
-        const currentIndex = typeItems.findIndex((i) => i.id === selectedId);
+        const sortedItems = [...tabItems].sort((a, b) => a.position - b.position);
+        const currentIndex = sortedItems.findIndex((i) => i.id === selectedId);
         if (currentIndex === -1) return;
         const newIndex = isMoveDown
-          ? Math.min(currentIndex + 1, typeItems.length - 1)
+          ? Math.min(currentIndex + 1, sortedItems.length - 1)
           : Math.max(currentIndex - 1, 0);
         if (newIndex === currentIndex) return;
-        store.reorderItem(selectedId, tabType, newIndex);
+        reorderItem(selectedId, tabType, newIndex).then(() => invalidate());
         return;
       }
 
-      // Ctrl+N / Ctrl+P — navigation; Shift to extend selection
+      // Ctrl+N / Ctrl+P — navigation
       const isDown = e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
       const isUp = e.code === "KeyP" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
-      const isShiftDown = e.code === "KeyN" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey;
-      const isShiftUp = e.code === "KeyP" && e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey;
-      if (isDown || isUp || isShiftDown || isShiftUp) {
+      if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;
-        const goingDown = isDown || isShiftDown;
-        const extending = isShiftDown || isShiftUp;
 
         let nextId: string;
         if (cursorIdx === -1) {
-          nextId = goingDown ? ids[0] : ids[ids.length - 1];
+          nextId = isDown ? ids[0] : ids[ids.length - 1];
         } else {
-          nextId = goingDown
+          nextId = isDown
             ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
             : ids[Math.max(cursorIdx - 1, 0)];
         }
 
-        cursorRef.current = nextId;
-        setFocusedId(nextId);
+        setCursor(nextId);
         setSuppressHover(true);
         scrollWithMargin(nextId);
-
-        if (extending) {
-          // Enter bulk mode if needed, set anchor
-          if (!bulkMode) {
-            setBulkMode(true);
-            anchorRef.current = currentCursor ?? nextId;
-            baseSelectionRef.current = new Set(selectedIds);
-          }
-          // Extend selection: base + range from anchor to cursor
-          const anchor = anchorRef.current && ids.includes(anchorRef.current) ? anchorRef.current : nextId;
-          const anchorIdx = ids.indexOf(anchor);
-          const nextIdx = ids.indexOf(nextId);
-          const [start, end] = anchorIdx < nextIdx ? [anchorIdx, nextIdx] : [nextIdx, anchorIdx];
-          const newSelection = new Set(baseSelectionRef.current);
-          for (let i = start; i <= end; i++) newSelection.add(ids[i]);
-          setSelectedIds(newSelection);
-        } else if (bulkMode) {
-          // In bulk mode without shift: move cursor, lock in selection as base, set new anchor
-          anchorRef.current = nextId;
-          baseSelectionRef.current = new Set(selectedIds);
-        } else {
-          // Not in bulk mode: move cursor and select single item
-          anchorRef.current = nextId;
-          const newSelection = new Set([nextId]);
-          setSelectedIds(newSelection);
-          baseSelectionRef.current = newSelection;
-        }
+        setSelectedIds(new Set([nextId]));
         return;
       }
 
-      // Enter to edit (only if exactly one item selected)
+      // Enter to focus detail panel title
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedIds.size === 1) {
         e.preventDefault();
-        const [id] = selectedIds;
-        setEditingId(id);
+        const el = document.querySelector<HTMLInputElement>("[data-detail-title]");
+        if (el) {
+          el.focus();
+        } else {
+          const [id] = selectedIds;
+          setEditingId(id);
+        }
         return;
       }
 
@@ -312,25 +251,10 @@ export function useKeyboardNavigation({
         }
         return;
       }
-
-      // t — bulk tag (in bulk mode)
-      if (e.key === "t" && !e.metaKey && !e.ctrlKey && bulkMode && selectedIds.size >= 1) {
-        e.preventDefault();
-        setTagDialogInput("");
-        setTagDialogOpen(true);
-        return;
-      }
-
-      // m — bulk move to other list
-      if (e.key === "m" && !e.metaKey && !e.ctrlKey && bulkMode && selectedIds.size >= 1) {
-        e.preventDefault();
-        handleBulkMove();
-        return;
-      }
     }
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, bulkMode, handleBulkMove, tabType, store, setSelectedIds, setBulkMode, setEditingId, setTagDialogInput, setTagDialogOpen, setSuppressHover, setFocusedId, cursorRef, anchorRef, baseSelectionRef]);
+  }, [selectedIds, editingId, filteredItems, tabType, tabItems, setSelectedIds, setEditingId, setSuppressHover, cursorRef, setCursor, queryClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     suppressHover,

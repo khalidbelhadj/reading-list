@@ -1,6 +1,7 @@
 import React from "react";
 
 import { type Item, type DbTag, isReadingListItem } from "@/lib/types";
+import { fuzzyMatch } from "@/lib/trigram";
 
 export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
   const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
@@ -69,27 +70,23 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
     }
   }, [allTags, activeTags, setActiveTags]);
 
+  const FUZZY_THRESHOLD = 0.15;
+
   const filteredItems = React.useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return tabItems.filter((item) => {
-      if (isReadingListItem(item) && !showRead && item.read) {
-        return false;
-      }
-      if (
-        q &&
-        !item.title.toLowerCase().includes(q) &&
-        !item.url.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      if (
-        activeTags.size > 0 &&
-        !item.tags.some((t) => activeTags.has(t.name))
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const q = search.trim();
+    const scored = tabItems
+      .filter((item) => {
+        if (isReadingListItem(item) && !showRead && item.read) return false;
+        if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
+        return true;
+      })
+      .map((item) => ({ item, score: fuzzyMatch(item, q) }))
+      .filter(({ score }) => !q || score >= FUZZY_THRESHOLD);
+
+    // Sort by score when searching, preserve position order otherwise
+    if (q) scored.sort((a, b) => b.score - a.score);
+
+    return scored.map(({ item }) => item);
   }, [tabItems, showRead, search, activeTags]);
 
   const toggleTag = React.useCallback((tagName: string) => {

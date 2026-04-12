@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import * as React from "react";
@@ -48,7 +47,12 @@ function ResponsiveDialogContent({
   ...props
 }: React.ComponentProps<typeof DialogContent>) {
   const isMobile = useResponsive();
-  if (isMobile) return <DrawerContent className={className} {...(props as any)}>{children}</DrawerContent>;
+  if (isMobile) {
+    // DrawerContent doesn't accept showCloseButton — omit it
+    void showCloseButton;
+    const drawerClassName = typeof className === "function" ? undefined : className;
+    return <DrawerContent className={drawerClassName} {...props}>{children}</DrawerContent>;
+  }
   return <DialogContent className={className} showCloseButton={showCloseButton} {...props}>{children}</DialogContent>;
 }
 
@@ -66,29 +70,38 @@ function ResponsiveDialogFooter({ children, ...props }: React.ComponentProps<"di
 
 function ResponsiveDialogTitle({
   children,
-  ...props
-}: React.ComponentProps<typeof DialogTitle>) {
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const isMobile = useResponsive();
-  if (isMobile) return <DrawerTitle {...(props as any)}>{children}</DrawerTitle>;
-  return <DialogTitle {...props}>{children}</DialogTitle>;
+  if (isMobile) return <DrawerTitle className={className}>{children}</DrawerTitle>;
+  return <DialogTitle className={className}>{children}</DialogTitle>;
 }
 
 function ResponsiveDialogDescription({
   children,
-  ...props
-}: React.ComponentProps<typeof DialogDescription>) {
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const isMobile = useResponsive();
-  if (isMobile) return <DrawerDescription {...(props as any)}>{children}</DrawerDescription>;
-  return <DialogDescription {...props}>{children}</DialogDescription>;
+  if (isMobile) return <DrawerDescription className={className}>{children}</DrawerDescription>;
+  return <DialogDescription className={className}>{children}</DialogDescription>;
 }
 
 function ResponsiveDialogClose({
   children,
-  ...props
-}: React.ComponentProps<typeof DialogClose>) {
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const isMobile = useResponsive();
-  if (isMobile) return <DrawerClose {...(props as any)}>{children}</DrawerClose>;
-  return <DialogClose {...props}>{children}</DialogClose>;
+  if (isMobile) return <DrawerClose className={className}>{children}</DrawerClose>;
+  return <DialogClose className={className}>{children}</DialogClose>;
 }
 
 export {

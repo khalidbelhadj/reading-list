@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React from "react";
 import { IconGlobe, IconWand, IconX } from "@tabler/icons-react";
 
@@ -63,12 +64,13 @@ export function ItemFormDrawer({
         <div className="flex items-center gap-3">
           <div className="size-6 shrink-0 flex items-center justify-center">
             {faviconSrc ? (
-              <img
+              <Image
                 src={faviconSrc}
                 alt=""
                 width={24}
                 height={24}
                 className="size-6 rounded"
+                unoptimized
               />
             ) : (
               <IconGlobe className="size-6 text-muted-foreground" />

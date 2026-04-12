@@ -1,16 +1,14 @@
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { useStore } from "@/lib/store";
 import { importBookmarks } from "@/app/actions";
 import { logout } from "@/app/logout/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { Item } from "@/lib/types";
 
-export function Footer({
-  setHelpOpen,
-}: {
-  setHelpOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+export function Footer() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const store = useStore();
+  const queryClient = useQueryClient();
 
   return (
     <>
@@ -24,9 +22,8 @@ export function Footer({
           if (!file) return;
           const html = await file.text();
           e.target.value = "";
-          // Import is non-optimistic: call server action directly, then fullSync
           await importBookmarks(html);
-          await store.fullSync();
+          queryClient.invalidateQueries({ queryKey: ["items"] });
         }}
       />
 
@@ -42,8 +39,8 @@ export function Footer({
         <button
           type="button"
           onClick={() => {
-            const items = store.getAllItems();
-            if (items.length === 0) return;
+            const items = queryClient.getQueryData<Item[]>(["items"]);
+            if (!items || items.length === 0) return;
             const header = "type,title,url,tags,notes,read,created_at,updated_at";
             const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
             const rows = items.map((i) =>
@@ -65,19 +62,15 @@ export function Footer({
         <span>·</span>
         <button
           type="button"
-          onClick={() => setHelpOpen(true)}
-          className="hover:text-muted-foreground transition-colors cursor-pointer"
-        >
-          Shortcuts
-        </button>
-        <span>·</span>
-        <button
-          type="button"
           onClick={() => void logout()}
           className="hover:text-muted-foreground transition-colors cursor-pointer"
         >
           Log out
         </button>
+      </div>
+
+      <div className="fixed bottom-4 right-4">
+        <ThemeToggle />
       </div>
     </>
   );

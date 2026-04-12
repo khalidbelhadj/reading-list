@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { items, itemsTags, tags } from "@/db/schema";
-import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
+import { items, itemsTags, tags, flashcards } from "@/db/schema";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function deleteItem(itemId: string) {
@@ -477,4 +477,58 @@ export async function bulkMarkRead(itemIds: string[], read: boolean) {
     .where(inArray(items.id, itemIds));
 
   revalidatePath("/");
+}
+
+// Flashcard actions
+
+export async function getFlashcardCounts(): Promise<Map<string, number>> {
+  const rows = await db
+    .select({
+      itemId: flashcards.itemId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(flashcards)
+    .groupBy(flashcards.itemId);
+  return new Map(rows.filter((r) => r.itemId !== null).map((r) => [r.itemId!, r.count]));
+}
+
+export async function getFlashcards(itemId: string) {
+  return db
+    .select()
+    .from(flashcards)
+    .where(eq(flashcards.itemId, itemId))
+    .orderBy(desc(flashcards.createdAt));
+}
+
+export async function createFlashcard(
+  itemId: string,
+  front: string,
+  back: string,
+) {
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  await db.insert(flashcards).values({
+    id,
+    itemId,
+    front,
+    back,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { id, itemId, front, back, createdAt: now, updatedAt: now };
+}
+
+export async function updateFlashcard(
+  id: string,
+  fields: { front?: string; back?: string },
+) {
+  const now = new Date().toISOString();
+  const set: Record<string, unknown> = { updatedAt: now };
+  if (fields.front !== undefined) set.front = fields.front;
+  if (fields.back !== undefined) set.back = fields.back;
+  await db.update(flashcards).set(set).where(eq(flashcards.id, id));
+}
+
+export async function deleteFlashcard(id: string) {
+  await db.delete(flashcards).where(eq(flashcards.id, id));
 }

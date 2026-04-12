@@ -1,4 +1,5 @@
 import { type DbTag } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 
 export function TagFilters({
   allTags,
@@ -16,28 +17,24 @@ export function TagFilters({
       {allTags.map((tag) => {
         const isActive = activeTags.has(tag.name);
         return (
-          <button
+          <Badge
             key={tag.id}
-            type="button"
-            onClick={() => toggleTag(tag.name)}
-            className={`px-2.5 py-1.5 sm:px-1.5 sm:py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              isActive
-                ? "bg-foreground text-background"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
-            }`}
+            variant={isActive ? "default" : "secondary"}
+            className="cursor-pointer"
+            render={<button type="button" onClick={() => toggleTag(tag.name)} />}
           >
             {tag.name}
-          </button>
+          </Badge>
         );
       })}
       {activeTags.size > 0 && (
-        <button
-          type="button"
-          onClick={() => setActiveTags(() => new Set())}
-          className="px-2.5 py-1.5 sm:px-1.5 sm:py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        <Badge
+          variant="ghost"
+          className="cursor-pointer text-muted-foreground"
+          render={<button type="button" onClick={() => setActiveTags(() => new Set())} />}
         >
           clear
-        </button>
+        </Badge>
       )}
     </div>
   );

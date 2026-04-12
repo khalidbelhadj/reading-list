@@ -1,4 +1,4 @@
-import type { items, tags } from "@/db/schema";
+import type { items, tags, flashcards } from "@/db/schema";
 
 // DB-level types (source of truth)
 export type DbItem = typeof items.$inferSelect;
@@ -20,6 +20,9 @@ export type BookmarkItem = BaseItem & {
 };
 
 export type Item = ReadingListItem | BookmarkItem;
+
+// Flashcard type
+export type Flashcard = typeof flashcards.$inferSelect;
 
 // Type guard
 export function isReadingListItem(item: Item): item is ReadingListItem {

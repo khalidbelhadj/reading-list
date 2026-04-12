@@ -42,8 +42,22 @@ export const itemsTags = pgTable(
   (table) => [primaryKey({ columns: [table.itemId, table.tagId] })],
 );
 
+export const flashcards = pgTable("flashcards", {
+  id: text("id").primaryKey(),
+  itemId: text("item_id").references(() => items.id),
+  front: text("front").notNull(),
+  back: text("back").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
+});
+
 export const itemsRelations = relations(items, ({ many }) => ({
   itemsTags: many(itemsTags),
+  flashcards: many(flashcards),
+}));
+
+export const flashcardsRelations = relations(flashcards, ({ one }) => ({
+  item: one(items, { fields: [flashcards.itemId], references: [items.id] }),
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
