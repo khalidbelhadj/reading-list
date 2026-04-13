@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidToken } from "@/lib/auth";
+import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,37 +13,58 @@ export async function middleware(request: NextRequest) {
       });
     }
 
-    // Check API key or auth cookie
+    // Check API key first (for MCP / extension clients)
     const apiKey = process.env.API_KEY;
     if (apiKey) {
       const auth = request.headers.get("authorization");
-      const token = request.cookies.get("auth_token")?.value;
-      const hasApiKey = auth === `Bearer ${apiKey}`;
-      const hasCookie = token ? await isValidToken(token) : false;
-      if (!hasApiKey && !hasCookie) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders(request) });
+      if (auth === `Bearer ${apiKey}`) {
+        const response = NextResponse.next();
+        for (const [key, value] of Object.entries(corsHeaders(request))) {
+          response.headers.set(key, value);
+        }
+        return response;
       }
     }
 
+    // Fall back to Supabase session
     const response = NextResponse.next();
+    const { user } = await updateSession(request, response);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders(request) },
+      );
+    }
+
     for (const [key, value] of Object.entries(corsHeaders(request))) {
       response.headers.set(key, value);
     }
     return response;
   }
 
-  // Skip auth for login page
-  if (pathname === "/login") {
-    return NextResponse.next();
+  // Skip auth for login page and auth callback
+  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+    const response = NextResponse.next();
+    await updateSession(request, response);
+    return response;
   }
 
-  // Check auth cookie
-  const token = request.cookies.get("auth_token")?.value;
-  if (!token || !(await isValidToken(token))) {
+  // Skip auth for OAuth consent page (it handles its own auth check)
+  if (pathname === "/oauth/consent") {
+    const response = NextResponse.next();
+    await updateSession(request, response);
+    return response;
+  }
+
+  // Check Supabase session for all other pages
+  const response = NextResponse.next();
+  const { user } = await updateSession(request, response);
+
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 function corsHeaders(request: NextRequest): Record<string, string> {

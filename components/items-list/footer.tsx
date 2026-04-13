@@ -5,11 +5,20 @@ import { importBookmarks } from "@/app/actions";
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
 import type { Item } from "@/lib/types";
 
 export const Footer = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const [email, setEmail] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setEmail(user?.email ?? null);
+    });
+  }, []);
 
   const handleExport = React.useCallback(() => {
     const items = queryClient.getQueryData<Item[]>(["items"]);
@@ -72,7 +81,10 @@ export const Footer = () => {
         </Button>
       </div>
 
-      <div className="fixed bottom-4 right-4">
+      <div className="fixed bottom-4 right-4 flex items-center gap-3">
+        {email && (
+          <span className="text-xs text-muted-foreground/50">{email}</span>
+        )}
         <ThemeToggle />
       </div>
     </>

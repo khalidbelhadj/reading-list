@@ -1,16 +1,18 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isValidToken } from "@/lib/auth";
-import { login } from "./actions";
+import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; redirect?: string }>;
 }) {
-  const token = (await cookies()).get("auth_token")?.value;
-  if (token && (await isValidToken(token))) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
     redirect("/");
   }
 
@@ -18,7 +20,7 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <LoginForm action={login} error={!!error} />
+      <LoginForm error={!!error} />
     </div>
   );
 }
