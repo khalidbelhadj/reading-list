@@ -30,9 +30,11 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.next();
     const { user } = await updateSession(request, response);
     if (!user) {
+      const headers = corsHeaders(request);
+      headers["WWW-Authenticate"] = `Bearer resource_metadata="${request.nextUrl.origin}/.well-known/oauth-protected-resource"`;
       return NextResponse.json(
         { error: "Unauthorized" },
-        { status: 401, headers: corsHeaders(request) },
+        { status: 401, headers },
       );
     }
 
@@ -42,8 +44,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Skip auth for login page and auth callback
-  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+  // Skip auth for well-known endpoints, login page, and auth callback
+  if (pathname.startsWith("/.well-known") || pathname === "/login" || pathname.startsWith("/auth/")) {
     const response = NextResponse.next();
     await updateSession(request, response);
     return response;
