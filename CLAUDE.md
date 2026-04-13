@@ -47,7 +47,7 @@ If asked to run the dev server, run it in the background and read its output to 
 
 ## Architecture
 
-Single-page reading list app with a Chrome extension for quick saving, and an MCP server for AI integrations.
+Single-page reading list app with an MCP server for AI integrations.
 
 **Stack:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Drizzle ORM + Supabase (PostgreSQL), TanStack React Query, @base-ui/react (headless components)
 
@@ -85,15 +85,20 @@ Single-page reading list app with a Chrome extension for quick saving, and an MC
 
 ### MCP Server
 
-`app/api/mcp/route.ts` — Remote MCP server using `@modelcontextprotocol/sdk`. Exposes tools for reading list + flashcard CRUD. Auth via existing middleware (bearer token / cookie). Used by Claude Desktop, Claude Code, and Claude mobile.
+`app/api/mcp/route.ts` — Remote MCP server using `@modelcontextprotocol/sdk`. Exposes tools for reading list + flashcard CRUD. Auth via Supabase OAuth (Bearer JWT or cookie session). Used by Claude Desktop, Claude Code, and Claude mobile.
 
-### Chrome Extension
+### Auth
 
-`extension/` — Manifest V3 extension that talks to the app's API routes. Lets users save/edit/remove the current tab as a bookmark or reading list item. Uses `/api/items/lookup` to check existing URLs.
+Supabase Auth with Google OAuth. All authentication flows through Supabase — no static API keys or passwords.
+
+- **Web UI**: Google OAuth → Supabase cookie session
+- **MCP/API clients**: Supabase OAuth 2.1 Bearer token (verified via `getUser()`)
+- **OAuth consent**: `/oauth/consent` page for MCP client authorization
+- **Resource metadata**: `/.well-known/oauth-protected-resource` points to Supabase as the authorization server
 
 ### Middleware
 
-`middleware.ts` — Auth (bearer token or cookie) + CORS headers for all `/api/*` routes.
+`middleware.ts` — Supabase auth (OAuth Bearer token or cookie session) + CORS headers for all `/api/*` routes.
 
 ## Notes
 
