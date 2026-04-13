@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
@@ -13,11 +14,24 @@ export async function middleware(request: NextRequest) {
       });
     }
 
-    // Check API key first (for MCP / extension clients)
-    const apiKey = process.env.API_KEY;
-    if (apiKey) {
-      const auth = request.headers.get("authorization");
-      if (auth === `Bearer ${apiKey}`) {
+    // Check for Supabase OAuth Bearer token (MCP clients, extensions)
+    const authHeader = request.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll: () => [],
+            setAll: () => {},
+          },
+        },
+      );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser(token);
+      if (user) {
         const response = NextResponse.next();
         for (const [key, value] of Object.entries(corsHeaders(request))) {
           response.headers.set(key, value);
@@ -26,7 +40,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Fall back to Supabase session
+    // Fall back to Supabase cookie session
     const response = NextResponse.next();
     const { user } = await updateSession(request, response);
     if (!user) {
@@ -45,7 +59,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Skip auth for well-known endpoints, login page, and auth callback
-  if (pathname.startsWith("/.well-known") || pathname === "/login" || pathname.startsWith("/auth/")) {
+  if (
+    pathname.startsWith("/.well-known") ||
+    pathname === "/login" ||
+    pathname.startsWith("/auth/")
+  ) {
     const response = NextResponse.next();
     await updateSession(request, response);
     return response;
