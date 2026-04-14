@@ -2,6 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 
+const scopeDescriptions: Record<string, string> = {
+  openid: "verify your identity",
+  profile: "view your name and avatar",
+  email: "view your email address",
+  phone: "view your phone number",
+};
+
 export const ConsentForm = ({
   authorizationId,
   clientName,
@@ -30,7 +37,12 @@ export const ConsentForm = ({
             <span className="text-muted-foreground">Permissions: </span>
             <ul className="ml-4 list-disc">
               {scopes.map((scope) => (
-                <li key={scope}>{scope}</li>
+                <li key={scope}>
+                  {scope}
+                  {scopeDescriptions[scope] && (
+                    <span className="text-muted-foreground">, {scopeDescriptions[scope]}</span>
+                  )}
+                </li>
               ))}
             </ul>
           </div>
