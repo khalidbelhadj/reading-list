@@ -35,7 +35,7 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
   React.useEffect(() => { if (hydrated) localStorage.setItem("tagsOpen", String(tagsOpen)); }, [tagsOpen, hydrated]);
   React.useEffect(() => { if (hydrated) localStorage.setItem("showRead", String(showRead)); }, [showRead, hydrated]);
 
-  const tabType = activeTab === "bookmarks" ? "bookmark" : "reading-list";
+  const tabType = "reading-list";
 
   const tabItems = React.useMemo(
     () =>

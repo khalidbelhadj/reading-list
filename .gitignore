@@ -26,4 +26,3 @@ db/*.db-journal
 
 # claude
 .claude/
-bookmarks.html

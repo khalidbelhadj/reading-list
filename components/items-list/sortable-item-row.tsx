@@ -1,9 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  IconDots,
-  IconGlobe,
-} from "@tabler/icons-react";
+import { IconDots, IconFile } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 
@@ -11,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { type Item, isReadingListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
+import { ItemDropdown } from "./item-dropdown";
 import { type EditFields, getFaviconSrc } from "./utils";
 
 export function SortableItemRow({
@@ -21,10 +20,12 @@ export function SortableItemRow({
   isSelected,
   isMobile,
   suppressHover,
+  suppressTransition,
   isDragDisabled,
   onToggleRead,
   onSelect,
   onStartEdit,
+  onDelete,
   onOpenMenu,
 }: {
   item: Item;
@@ -33,6 +34,7 @@ export function SortableItemRow({
   isSelected: boolean;
   isMobile: boolean;
   suppressHover: boolean;
+  suppressTransition?: boolean;
   isDragDisabled: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
@@ -42,6 +44,8 @@ export function SortableItemRow({
   onCancelEdit?: () => void;
   onOpenMenu?: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = React.useState(false);
+
   const {
     attributes,
     listeners,
@@ -53,7 +57,9 @@ export function SortableItemRow({
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition: transition?.replace(/(\d+)ms/g, () => "100ms"),
+    transition: suppressTransition
+      ? "none"
+      : transition?.replace(/(\d+)ms/g, () => "100ms"),
     opacity: isDragging ? 0.5 : undefined,
     position: "relative",
     zIndex: isDragging ? 10 : undefined,
@@ -65,11 +71,13 @@ export function SortableItemRow({
       style={style}
       data-item-id={item.id}
       className={cn(
-        "group relative flex items-center gap-2 py-1 px-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-md",
-        isSelected && "bg-accent",
+        "group relative flex items-center gap-2 p-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
+        isSelected && "bg-secondary",
         !isSelected && !suppressHover && "hover:bg-card",
+        !isSelected && menuOpen && "bg-card",
         isReadingListItem(item) && item.read && "opacity-50",
       )}
+      data-menu-open={menuOpen || undefined}
       onClick={onSelect}
       onDoubleClick={(e) => {
         if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
@@ -93,7 +101,7 @@ export function SortableItemRow({
             unoptimized
           />
         ) : (
-          <IconGlobe
+          <IconFile
             className={cn(
               "size-4 text-muted-foreground",
               !isMobile && onToggleRead && "group-hover:invisible",
@@ -113,25 +121,36 @@ export function SortableItemRow({
           </div>
         )}
       </div>
-      <a
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-item-title
-        className={cn(
-          "font-content text-sm truncate min-w-0",
-          isReadingListItem(item) && item.read && "line-through",
-          !item.title && "text-muted-foreground",
-        )}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        onDoubleClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {item.title || "Untitled"}
-      </a>
-      {(item.tags.length > 0 || flashcardCount > 0) && (
+      {item.url && URL.canParse(item.url) ? (
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-item-title
+          className={cn(
+            "font-content text-sm truncate min-w-0 hover:underline",
+            isReadingListItem(item) && item.read && "line-through",
+            !item.title && "text-muted-foreground",
+          )}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {item.title || "Untitled"}
+        </a>
+      ) : (
+        <span
+          data-item-title
+          className={cn(
+            "font-content text-sm truncate min-w-0",
+            isReadingListItem(item) && item.read && "line-through",
+            !item.title && "text-muted-foreground",
+          )}
+        >
+          {item.title || "Untitled"}
+        </span>
+      )}
+      {item.tags.length > 0 || flashcardCount > 0 ? (
         <div className="hidden sm:flex items-center gap-1 ml-auto shrink-0 max-w-1/2 overflow-hidden">
           {item.tags.map((t) => (
             <Badge key={t.id} variant="secondary" className="shrink-0">
@@ -139,11 +158,11 @@ export function SortableItemRow({
             </Badge>
           ))}
           {flashcardCount > 0 && (
-            <Badge variant="secondary">
-              {flashcardCount}
-            </Badge>
+            <Badge variant="secondary">{flashcardCount}</Badge>
           )}
         </div>
+      ) : (
+        <div className="hidden sm:block w-4 shrink-0" />
       )}
       {isMobile && onOpenMenu && (
         <button
@@ -157,6 +176,35 @@ export function SortableItemRow({
         >
           <IconDots className="size-4" />
         </button>
+      )}
+      {!isMobile && (
+        <ItemDropdown
+          item={item}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          onToggleRead={onToggleRead}
+          onDelete={onDelete}
+        >
+          <div className="absolute inset-y-0 right-0 hidden group-hover:flex group-data-[menu-open]:flex items-center pl-12 pr-1 pointer-events-none">
+            <div
+              className={cn(
+                "absolute inset-0 bg-gradient-to-r from-transparent",
+                isSelected ? "via-secondary to-secondary" : "via-card to-card",
+              )}
+            />
+            <DropdownMenuTrigger
+              className={cn(
+                "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+                isSelected ? "bg-secondary" : "bg-card",
+              )}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <IconDots className="size-4" />
+            </DropdownMenuTrigger>
+          </div>
+        </ItemDropdown>
       )}
     </div>
   );

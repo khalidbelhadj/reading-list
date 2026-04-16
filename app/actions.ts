@@ -99,7 +99,7 @@ export async function createItem(
   url: string,
   tagNames: string[],
   faviconUrl?: string,
-  type: string = "bookmark",
+  type: string = "reading-list",
   notes?: string,
   id?: string,
   position?: number,
@@ -382,92 +382,6 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
   revalidatePath("/");
 }
 
-export async function importBookmarks(html: string) {
-  const { parseBookmarksHtml } = await import("@/lib/parse-bookmarks");
-  const parsed = parseBookmarksHtml(html);
-  if (parsed.length === 0) return { imported: 0 };
-
-  const imported = await db.transaction(async (tx) => {
-    // Get existing URLs to deduplicate
-    const existingItems = await tx.select({ url: items.url }).from(items);
-    const existingUrls = new Set(existingItems.map((i) => i.url));
-
-    // Filter to new bookmarks only
-    const newBookmarks = parsed.filter((b) => !existingUrls.has(b.url));
-    if (newBookmarks.length === 0) return 0;
-
-    // Get max positions per type
-    const maxPositions = await tx
-      .select({
-        type: items.type,
-        max: sql<number>`coalesce(max(${items.position}), -1)`,
-      })
-      .from(items)
-      .groupBy(items.type);
-    const nextPos: Record<string, number> = {
-      "reading-list": 0,
-      bookmark: 0,
-    };
-    for (const row of maxPositions) {
-      nextPos[row.type] = row.max + 1;
-    }
-
-    const now = new Date().toISOString();
-
-    // Batch insert all items
-    const itemRows = newBookmarks.map((b) => ({
-      id: crypto.randomUUID(),
-      title: b.title,
-      url: b.url,
-      faviconUrl: null,
-      type: b.type,
-      starred: false,
-      notes: null,
-      read: false,
-      position: nextPos[b.type]++,
-      createdAt: b.addedAt ?? now,
-      updatedAt: b.addedAt ?? now,
-    }));
-    await tx.insert(items).values(itemRows);
-
-    // Collect all unique tag names
-    const allTagNames = [...new Set(newBookmarks.flatMap((b) => b.tags))];
-
-    if (allTagNames.length > 0) {
-      // Batch upsert all tags
-      await tx
-        .insert(tags)
-        .values(allTagNames.map((name) => ({ name })))
-        .onConflictDoNothing();
-
-      // Fetch all tag IDs in one query
-      const tagRows = await tx
-        .select({ id: tags.id, name: tags.name })
-        .from(tags)
-        .where(inArray(tags.name, allTagNames));
-      const tagIdByName = new Map(tagRows.map((t) => [t.name, t.id]));
-
-      // Build all item-tag links
-      const linkRows: { itemId: string; tagId: number }[] = [];
-      for (let i = 0; i < newBookmarks.length; i++) {
-        for (const tagName of newBookmarks[i].tags) {
-          const tagId = tagIdByName.get(tagName);
-          if (tagId) linkRows.push({ itemId: itemRows[i].id, tagId });
-        }
-      }
-
-      if (linkRows.length > 0) {
-        await tx.insert(itemsTags).values(linkRows).onConflictDoNothing();
-      }
-    }
-
-    return newBookmarks.length;
-  });
-
-  revalidatePath("/");
-  return { imported };
-}
-
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
   if (itemIds.length === 0) return;
 
@@ -498,6 +412,24 @@ export async function getFlashcards(itemId: string) {
     .select()
     .from(flashcards)
     .where(eq(flashcards.itemId, itemId))
+    .orderBy(desc(flashcards.createdAt));
+}
+
+export async function getAllFlashcards() {
+  return db
+    .select({
+      id: flashcards.id,
+      front: flashcards.front,
+      back: flashcards.back,
+      itemId: flashcards.itemId,
+      itemTitle: items.title,
+      itemUrl: items.url,
+      itemFaviconUrl: items.faviconUrl,
+      createdAt: flashcards.createdAt,
+      updatedAt: flashcards.updatedAt,
+    })
+    .from(flashcards)
+    .leftJoin(items, eq(flashcards.itemId, items.id))
     .orderBy(desc(flashcards.createdAt));
 }
 

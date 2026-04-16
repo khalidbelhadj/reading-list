@@ -5,15 +5,14 @@ import {
   fetchPageTitle,
   createItem,
   updateItem,
-  deleteItem,
   reorderItem,
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
 
 export const useKeyboardNavigation = ({
   filteredItems,
-  selectedIds,
-  setSelectedIds,
+  selectedId,
+  setSelectedId,
   editingId,
   setEditingId,
   searchOpen,
@@ -27,10 +26,11 @@ export const useKeyboardNavigation = ({
   tabItems,
   cursorRef,
   setCursor,
+  onRequestDelete,
 }: {
   filteredItems: Item[];
-  selectedIds: Set<string>;
-  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  selectedId: string | null;
+  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
   editingId: string | null;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
   searchOpen: boolean;
@@ -44,6 +44,7 @@ export const useKeyboardNavigation = ({
   tabItems: Item[];
   cursorRef: React.RefObject<string | null>;
   setCursor: (id: string | null) => void;
+  onRequestDelete?: () => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
   const queryClient = useQueryClient();
@@ -65,11 +66,6 @@ export const useKeyboardNavigation = ({
         });
       }
     },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteItem(id),
-    onSuccess: invalidate,
   });
 
   const reorderMutation = useMutation({
@@ -121,7 +117,7 @@ export const useKeyboardNavigation = ({
           if (panel?.contains(e.target as Node)) {
             (e.target as HTMLElement)?.blur?.();
           } else {
-            setSelectedIds(new Set());
+            setSelectedId(null);
             setCursor(null);
           }
         }
@@ -136,7 +132,7 @@ export const useKeyboardNavigation = ({
         requestAnimationFrame(() => searchInputRef.current?.focus());
       }
       if (e.key === "1" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("reading-list");
-      if (e.key === "2" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("bookmarks");
+      if (e.key === "2" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("cards");
       if (e.key === "a" && !e.metaKey && !e.ctrlKey && !editingId) {
         e.preventDefault();
         setEditingId("new");
@@ -152,7 +148,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [editingId, searchOpen, setEditingId, setSearch, setSearchOpen, setSelectedIds, searchInputRef, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor]);
+  }, [editingId, searchOpen, setEditingId, setSearch, setSearchOpen, setSelectedId, searchInputRef, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor]);
 
   // Cmd+Backspace to delete selected item
   React.useEffect(() => {
@@ -161,16 +157,14 @@ export const useKeyboardNavigation = ({
       if (elementTag === "INPUT" || elementTag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
         return;
       }
-      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedIds.size === 1 && !editingId) {
+      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedId !== null && !editingId) {
         e.preventDefault();
-        const [id] = selectedIds;
-        setSelectedIds(new Set());
-        deleteMutation.mutate(id);
+        onRequestDelete?.();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, editingId, setSelectedIds, deleteMutation]);
+  }, [selectedId, editingId, onRequestDelete]);
 
   // Ctrl+N/P navigation, Alt+Ctrl+N/P to reorder
   React.useEffect(() => {
@@ -188,7 +182,14 @@ export const useKeyboardNavigation = ({
 
     const handleNav = (e: KeyboardEvent) => {
       const elementTag = (e.target as HTMLElement)?.tagName;
-      if (elementTag === "INPUT" || elementTag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (
+        elementTag === "INPUT" ||
+        elementTag === "TEXTAREA" ||
+        elementTag === "BUTTON" ||
+        elementTag === "A" ||
+        (e.target as HTMLElement)?.isContentEditable
+      )
+        return;
       if (editingId) return;
 
       const ids = filteredItems.map((i) => i.id);
@@ -200,8 +201,7 @@ export const useKeyboardNavigation = ({
       const isMoveUp = e.altKey && e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyP";
       if (isMoveDown || isMoveUp) {
         e.preventDefault();
-        if (selectedIds.size !== 1) return;
-        const [selectedId] = selectedIds;
+        if (selectedId === null) return;
         const sortedItems = [...tabItems].sort((a, b) => a.position - b.position);
         const currentIndex = sortedItems.findIndex((i) => i.id === selectedId);
         if (currentIndex === -1) return;
@@ -230,36 +230,35 @@ export const useKeyboardNavigation = ({
         setCursor(nextId);
         setSuppressHover(true);
         scrollWithMargin(nextId);
-        setSelectedIds(new Set([nextId]));
+        setSelectedId(nextId);
         return;
       }
 
       // Enter to focus detail panel title
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedIds.size === 1) {
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedId !== null) {
         e.preventDefault();
         const el = document.querySelector<HTMLInputElement>("[data-detail-title]");
         if (el) {
           el.focus();
         } else {
-          const [id] = selectedIds;
-          setEditingId(id);
+          setEditingId(selectedId);
         }
         return;
       }
 
       // Cmd+Enter to open in new tab
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedIds.size >= 1) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedId !== null) {
+        // Don't open URLs if a dialog is open
+        if (document.querySelector("[role=alertdialog], [role=dialog]")) return;
         e.preventDefault();
-        for (const id of selectedIds) {
-          const item = filteredItems.find((i) => i.id === id);
-          if (item) window.open(item.url, "_blank");
-        }
+        const item = filteredItems.find((i) => i.id === selectedId);
+        if (item?.url && URL.canParse(item.url)) window.open(item.url, "_blank");
         return;
       }
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedIds, editingId, filteredItems, tabType, tabItems, setSelectedIds, setEditingId, setSuppressHover, cursorRef, setCursor, reorderMutation]);
+  }, [selectedId, editingId, filteredItems, tabType, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, reorderMutation]);
 
   return {
     suppressHover,

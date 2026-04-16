@@ -14,13 +14,13 @@ const seedItems: { title: string; url: string; tags: string[]; type: string }[] 
     title: "Go Blog: Error handling and Go",
     url: "https://go.dev/blog/error-handling-and-go",
     tags: ["go", "errors"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "SQLite Documentation",
     url: "https://www.sqlite.org/docs.html",
     tags: ["database", "sqlite"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "React Query Overview",
@@ -32,7 +32,7 @@ const seedItems: { title: string; url: string; tags: string[]; type: string }[] 
     title: "Vite Guide",
     url: "https://vite.dev/guide/",
     tags: ["frontend", "tooling"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "REST API Design",
@@ -50,13 +50,13 @@ const seedItems: { title: string; url: string; tags: string[]; type: string }[] 
     title: "HTTP RFC 9110",
     url: "https://www.rfc-editor.org/rfc/rfc9110",
     tags: ["http", "standards"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "MDN: HTTP CORS",
     url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS",
     tags: ["http", "cors"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "SQLite Query Planner",
@@ -68,13 +68,13 @@ const seedItems: { title: string; url: string; tags: string[]; type: string }[] 
     title: "React Hooks Reference",
     url: "https://react.dev/reference/react",
     tags: ["react", "hooks"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "Vite Environment Variables",
     url: "https://vite.dev/guide/env-and-mode.html",
     tags: ["frontend", "config"],
-    type: "bookmark",
+    type: "reading-list",
   },
   {
     title: "SQL Style Guide",

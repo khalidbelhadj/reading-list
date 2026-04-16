@@ -13,6 +13,15 @@ import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
 import { Tabs } from "@/components/ui/tabs";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+import { SettingsMenu } from "./settings-dialog";
+
+
 export const Toolbar = ({
   activeTab,
   setActiveTabAndUrl,
@@ -57,117 +66,133 @@ export const Toolbar = ({
           variant="text"
           tabs={[
             { label: "Reading List", value: "reading-list" },
-            { label: "Bookmarks", value: "bookmarks" },
+            { label: "Cards", value: "cards" },
           ]}
         />
         <div className="flex-1" />
 
-        {/* Search toggle */}
-        {!isMobile && (
-          <div
-            className={cn(
-              "flex items-center h-7 overflow-hidden rounded-md border transition-all duration-200 ease-out",
-              searchOpen
-                ? "w-52 border-input bg-input/20"
-                : "w-7 border-transparent",
+        {activeTab !== "cards" && (
+          <>
+            {/* Search toggle */}
+            {!isMobile && (
+              <div
+                className={cn(
+                  "flex items-center h-7 overflow-hidden rounded-md border transition-all duration-200 ease-out",
+                  searchOpen
+                    ? "w-52 border-input bg-input/20"
+                    : "w-7 border-transparent",
+                )}
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground"
+                  onClick={() => {
+                    if (searchOpen) {
+                      setSearch("");
+                      setSearchOpen(false);
+                    } else {
+                      setSearchOpen(true);
+                      requestAnimationFrame(() =>
+                        searchInputRef.current?.focus(),
+                      );
+                    }
+                  }}
+                >
+                  <IconSearch />
+                </Button>
+                <input
+                  ref={isMobile ? undefined : searchInputRef}
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSearch("");
+                      setSearchOpen(false);
+                      searchInputRef.current?.blur();
+                    }
+                    if (e.key === "Enter") {
+                      searchInputRef.current?.blur();
+                    }
+                  }}
+                  className="flex-1 min-w-0 h-7 bg-transparent text-xs outline-none"
+                  tabIndex={searchOpen ? 0 : -1}
+                />
+              </div>
             )}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 text-muted-foreground"
-              onClick={() => {
-                if (searchOpen) {
-                  setSearch("");
-                  setSearchOpen(false);
-                } else {
-                  setSearchOpen(true);
-                  requestAnimationFrame(() =>
-                    searchInputRef.current?.focus(),
-                  );
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={
+                  searchOpen ? "text-foreground" : "text-muted-foreground"
                 }
-              }}
-            >
-              <IconSearch />
-            </Button>
-            <input
-              ref={isMobile ? undefined : searchInputRef}
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setSearch("");
-                  setSearchOpen(false);
-                  searchInputRef.current?.blur();
+                onClick={() => {
+                  setSearchOpen((v) => {
+                    if (v) setSearch("");
+                    return !v;
+                  });
+                }}
+              >
+                <IconSearch />
+              </Button>
+            )}
+
+            {/* Tags toggle */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-expanded={tagsOpen || activeTags.size > 0}
+                    className={
+                      tagsOpen || activeTags.size > 0
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }
+                    disabled={allTags.length === 0}
+                    onClick={() => setTagsOpen((v) => !v)}
+                  >
+                    <IconTag />
+                  </Button>
                 }
-                if (e.key === "Enter") {
-                  searchInputRef.current?.blur();
+              />
+              {allTags.length === 0 && (
+                <TooltipContent>No tags yet</TooltipContent>
+              )}
+            </Tooltip>
+
+            {/* Show read toggle */}
+            {tabType === "reading-list" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-expanded={showRead}
+                className={
+                  showRead ? "text-foreground" : "text-muted-foreground"
                 }
-              }}
-              className="flex-1 min-w-0 h-7 bg-transparent text-xs outline-none"
-              tabIndex={searchOpen ? 0 : -1}
-            />
-          </div>
-        )}
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={
-              searchOpen ? "text-foreground" : "text-muted-foreground"
-            }
-            onClick={() => {
-              setSearchOpen((v) => {
-                if (v) setSearch("");
-                return !v;
-              });
-            }}
-          >
-            <IconSearch />
-          </Button>
+                onClick={() => setShowRead((v) => !v)}
+                title={showRead ? "Hide read items" : "Show read items"}
+              >
+                {showRead ? <IconEye /> : <IconEyeOff />}
+              </Button>
+            )}
+          </>
         )}
 
-        {/* Tags toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-expanded={tagsOpen || activeTags.size > 0}
-          className={
-            tagsOpen || activeTags.size > 0
-              ? "text-foreground"
-              : "text-muted-foreground"
-          }
-          disabled={allTags.length === 0}
-          onClick={() => setTagsOpen((v) => !v)}
-        >
-          <IconTag />
-        </Button>
-
-        {/* Show read toggle */}
-        {tabType === "reading-list" && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-expanded={showRead}
-            className={
-              showRead ? "text-foreground" : "text-muted-foreground"
-            }
-            onClick={() => setShowRead((v) => !v)}
-            title={showRead ? "Hide read items" : "Show read items"}
-          >
-            {showRead ? <IconEye /> : <IconEyeOff />}
-          </Button>
-        )}
+        {/* Settings */}
+        <SettingsMenu />
 
         {/* Add */}
         <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground"
+          size="sm"
+          className="ml-1"
           onClick={() => setEditingId("new")}
         >
           <IconPlus />
+          Add
         </Button>
       </div>
 

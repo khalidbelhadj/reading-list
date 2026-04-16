@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const itemId = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  const itemType = type ?? "bookmark";
+  const itemType = type ?? "reading-list";
 
   await db.transaction(async (tx) => {
     await tx.update(items)

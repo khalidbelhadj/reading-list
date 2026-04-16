@@ -15,11 +15,7 @@ export type ReadingListItem = BaseItem & {
   readAt: string | null;
 };
 
-export type BookmarkItem = BaseItem & {
-  type: "bookmark";
-};
-
-export type Item = ReadingListItem | BookmarkItem;
+export type Item = ReadingListItem;
 
 // Flashcard type
 export type Flashcard = typeof flashcards.$inferSelect;

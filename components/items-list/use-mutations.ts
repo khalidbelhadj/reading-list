@@ -10,13 +10,13 @@ import { type Item } from "@/lib/types";
 
 export const useItemsMutations = ({
   filteredItems,
-  setSelectedIds,
+  setSelectedId,
   setEditingId,
   showRead,
   setCursor,
 }: {
   filteredItems: Item[];
-  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
   showRead: boolean;
   setCursor: (id: string | null) => void;
@@ -36,7 +36,24 @@ export const useItemsMutations = ({
   const toggleReadMutation = useMutation({
     mutationFn: ({ itemId, read }: { itemId: string; read: boolean }) =>
       toggleRead(itemId, read),
-    onSuccess: invalidate,
+    onMutate: async ({ itemId, read }) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((item) =>
+          item.id === itemId
+            ? { ...item, read, readAt: read ? new Date().toISOString() : null, updatedAt: new Date().toISOString() }
+            : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["items"], context.previous);
+      }
+    },
+    onSettled: invalidate,
   });
 
   const deleteMutation = useMutation({
@@ -57,33 +74,33 @@ export const useItemsMutations = ({
         const idx = filteredItems.findIndex((i) => i.id === itemId);
         const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
         if (nextItem) {
-          setSelectedIds(new Set([nextItem.id]));
+          setSelectedId(nextItem.id);
           setCursor(nextItem.id);
         } else {
-          setSelectedIds(new Set());
+          setSelectedId(null);
           setCursor(null);
         }
       }
       toggleReadMutation.mutate({ itemId, read });
     },
-    [filteredItems, showRead, setSelectedIds, setCursor, toggleReadMutation],
+    [filteredItems, showRead, setSelectedId, setCursor, toggleReadMutation],
   );
 
   const handleDeleteSingle = React.useCallback(
-    (itemId: string) => {
+    async (itemId: string) => {
+      await deleteMutation.mutateAsync(itemId);
       const idx = filteredItems.findIndex((i) => i.id === itemId);
       const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
       setEditingId(null);
       if (nextItem) {
-        setSelectedIds(new Set([nextItem.id]));
+        setSelectedId(nextItem.id);
         setCursor(nextItem.id);
       } else {
-        setSelectedIds(new Set());
+        setSelectedId(null);
         setCursor(null);
       }
-      deleteMutation.mutate(itemId);
     },
-    [filteredItems, setEditingId, setSelectedIds, setCursor, deleteMutation],
+    [filteredItems, setEditingId, setSelectedId, setCursor, deleteMutation],
   );
 
   return {

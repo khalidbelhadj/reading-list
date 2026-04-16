@@ -13,10 +13,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { cn } from "@/lib/utils";
 import { isReadingListItem, type Item } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+
+type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import useIsMobile from "@/lib/use-is-mobile";
 import { type EditFields } from "./items-list/utils";
@@ -27,10 +33,10 @@ import { useItemsFilters } from "./items-list/use-filters";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
-import { Footer } from "./items-list/footer";
 import { ItemFormDrawer } from "./items-list/item-form-drawer";
 import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 import { DetailPanel } from "./items-list/detail-panel";
+import { CardsList } from "./items-list/cards-list";
 
 export const ItemsList = () => {
   // Data
@@ -47,13 +53,18 @@ export const ItemsList = () => {
 
   // UI state
   const searchParams = useSearchParams();
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
-  const [activeTab, setActiveTab] = React.useState(() =>
-    searchParams.get("tab") === "bookmarks" ? "bookmarks" : "reading-list",
-  );
+  const [justDropped, setJustDropped] = React.useState(false);
+  const [liveFields, setLiveFields] = React.useState<LiveFields | null>(null);
+  const [activeTab, setActiveTab] = React.useState(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "cards") return tab;
+    return "reading-list";
+  });
 
   // Refs
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -83,6 +94,39 @@ export const ItemsList = () => {
     );
   }, []);
 
+  const [focusedId, setFocusedId] = React.useState<string | null>(() =>
+    searchParams.get("item"),
+  );
+
+  // Sync local state -> URL (so the page is shareable)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("item") === focusedId) return;
+    if (focusedId) params.set("item", focusedId);
+    else params.delete("item");
+    const queryString = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      queryString ? `?${queryString}` : window.location.pathname,
+    );
+  }, [focusedId]);
+
+  // popstate -> sync URL back into local state
+  React.useEffect(() => {
+    const handler = () => {
+      setFocusedId(new URLSearchParams(window.location.search).get("item"));
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  const handleExpandItem = React.useCallback(
+    (id: string) => setFocusedId(id),
+    [],
+  );
+  const handleCloseFocused = React.useCallback(() => setFocusedId(null), []);
+
   // Hooks
   const {
     tabType,
@@ -105,7 +149,7 @@ export const ItemsList = () => {
   const { handleReorder, handleToggleRead, handleDeleteSingle } =
     useItemsMutations({
       filteredItems,
-      setSelectedIds,
+      setSelectedId,
       setEditingId,
       showRead,
       setCursor,
@@ -113,8 +157,8 @@ export const ItemsList = () => {
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
-    selectedIds,
-    setSelectedIds,
+    selectedId,
+    setSelectedId,
     editingId,
     setEditingId,
     searchOpen,
@@ -128,19 +172,19 @@ export const ItemsList = () => {
     tabItems,
     cursorRef,
     setCursor,
+    onRequestDelete: React.useCallback(() => setDeleteDialogOpen(true), []),
   });
 
   // Mutations
   const createMutation = useMutation({
     mutationFn: (args: { title: string; url: string; tagNames: string[]; notes?: string }) =>
       createItem(args.title, args.url, args.tagNames, undefined, tabType, args.notes),
-    onSuccess: invalidate,
   });
 
   const updateMutation = useMutation({
     mutationFn: (args: { id: string; fields: { title?: string; url?: string; notes?: string; tagNames?: string[] } }) =>
       updateItem(args.id, args.fields),
-    onSuccess: invalidate,
+    onError: invalidate,
   });
 
   const handleSave = React.useCallback(
@@ -155,12 +199,15 @@ export const ItemsList = () => {
           setEditingId(null);
           return;
         }
-        createMutation.mutate({
-          title: fields.title.trim() || fields.url.trim(),
-          url: fields.url.trim(),
-          tagNames,
-          notes: fields.notes.trim() || undefined,
-        });
+        createMutation.mutate(
+          {
+            title: fields.title.trim() || fields.url.trim(),
+            url: fields.url.trim(),
+            tagNames,
+            notes: fields.notes.trim() || undefined,
+          },
+          { onSuccess: invalidate },
+        );
       } else {
         updateMutation.mutate({
           id: itemId,
@@ -170,7 +217,7 @@ export const ItemsList = () => {
 
       setEditingId(null);
     },
-    [createMutation, updateMutation],
+    [createMutation, updateMutation, invalidate],
   );
 
   const handleCreate = React.useCallback(
@@ -180,15 +227,25 @@ export const ItemsList = () => {
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean);
       if (!fields.title.trim() && !fields.url.trim()) return;
-      createMutation.mutate({
-        title: fields.title.trim() || fields.url.trim(),
-        url: fields.url.trim(),
-        tagNames,
-        notes: fields.notes.trim() || undefined,
-      });
-      setEditingId(null);
+      setSelectedId(null);
+      createMutation.mutate(
+        {
+          title: fields.title.trim() || fields.url.trim(),
+          url: fields.url.trim(),
+          tagNames,
+          notes: fields.notes.trim() || undefined,
+        },
+        {
+          onSuccess: async (newId) => {
+            await queryClient.invalidateQueries({ queryKey: ["items"] });
+            setEditingId(null);
+            setSelectedId(newId);
+          },
+          onError: () => setEditingId(null),
+        },
+      );
     },
-    [createMutation],
+    [createMutation, queryClient],
   );
 
   // Effects
@@ -201,15 +258,13 @@ export const ItemsList = () => {
 
   React.useEffect(() => {
     if (search.trim() && filteredItems.length > 0) {
-      const anyVisible = Array.from(selectedIds).some((id) =>
-        filteredItems.some((i) => i.id === id),
-      );
+      const anyVisible = selectedId !== null && filteredItems.some((i) => i.id === selectedId);
       if (!anyVisible) {
-        setSelectedIds(new Set([filteredItems[0].id]));
+        setSelectedId(filteredItems[0].id);
         setCursor(filteredItems[0].id);
       }
     }
-  }, [search, filteredItems, selectedIds, setCursor]);
+  }, [search, filteredItems, selectedId, setCursor]);
 
   // DnD
   const isDragDisabled =
@@ -225,18 +280,40 @@ export const ItemsList = () => {
       if (!over || active.id === over.id) return;
       const overIndex = tabItems.findIndex((i) => i.id === over.id);
       if (overIndex === -1) return;
+
+      setJustDropped(true);
+      queryClient.setQueryData<Item[]>(["items"], (old) => {
+        if (!old) return old;
+        const typeArr = old
+          .filter((i) => i.type === tabType)
+          .sort((a, b) => a.position - b.position);
+        const rest = old.filter((i) => i.type !== tabType);
+        const currentIndex = typeArr.findIndex((i) => i.id === active.id);
+        if (currentIndex === -1) return old;
+        const [moved] = typeArr.splice(currentIndex, 1);
+        const clamped = Math.max(0, Math.min(overIndex, typeArr.length));
+        typeArr.splice(clamped, 0, moved);
+        return [...typeArr.map((item, i) => ({ ...item, position: i })), ...rest];
+      });
+      requestAnimationFrame(() => setJustDropped(false));
+
       handleReorder(active.id as string, tabType, overIndex);
     },
-    [tabItems, tabType, handleReorder],
+    [tabItems, tabType, handleReorder, queryClient],
   );
 
   // Derived state
   const isNewItem = editingId === "new";
   const detailItem =
-    !isMobile && !isNewItem && selectedIds.size === 1
-      ? (filteredItems.find((i) => i.id === [...selectedIds][0]) ?? null)
+    !isMobile && !isNewItem && selectedId !== null
+      ? (filteredItems.find((i) => i.id === selectedId) ?? null)
       : null;
-  const showDetailPanel = !isMobile && (detailItem !== null || isNewItem);
+  const showDetailPanel = !isMobile && activeTab !== "cards" && (detailItem !== null || isNewItem);
+
+  const focusedItem =
+    !isMobile && focusedId
+      ? (items?.find((i) => i.id === focusedId) ?? null)
+      : null;
 
   // Empty state message
   const emptyMessage = React.useMemo(() => {
@@ -265,6 +342,13 @@ export const ItemsList = () => {
 
   return (
     <div className="relative">
+      <div
+        className={cn(
+          focusedItem &&
+            "fixed inset-0 opacity-0 pointer-events-none overflow-hidden",
+        )}
+        aria-hidden={focusedItem ? true : undefined}
+      >
       <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
@@ -301,8 +385,15 @@ export const ItemsList = () => {
           )}
         </div>
 
-        {/* Items list */}
-        {isLoading ? (
+        {/* Content */}
+        {activeTab === "cards" ? (
+          <CardsList
+            onOpenItem={(id) => {
+              setActiveTabAndUrl("reading-list");
+              setFocusedId(id);
+            }}
+          />
+        ) : isLoading ? (
           <div className="px-1 py-6 text-center text-muted-foreground text-xs">
             Loading...
           </div>
@@ -330,13 +421,16 @@ export const ItemsList = () => {
                 {filteredItems.map((item) => (
                   <SortableItemRow
                     key={item.id}
-                    item={item}
+                    item={selectedId === item.id && liveFields
+                      ? { ...item, title: liveFields.title, url: liveFields.url, notes: liveFields.notes, tags: liveFields.tags.map((name, i) => ({ id: i, name })) }
+                      : item}
                     flashcardCount={flashcardCounts.get(item.id) ?? 0}
                     isEditing={isMobile && editingId === item.id}
-                    isSelected={selectedIds.has(item.id)}
+                    isSelected={selectedId === item.id}
                     isMobile={isMobile}
                     suppressHover={suppressHover}
                     isDragDisabled={isDragDisabled}
+                    suppressTransition={justDropped}
                     onToggleRead={
                       isReadingListItem(item)
                         ? () => handleToggleRead(item.id, !item.read)
@@ -344,14 +438,20 @@ export const ItemsList = () => {
                     }
                     onSelect={() => {
                       if (editingId !== null) setEditingId(null);
-                      setSelectedIds(new Set([item.id]));
-                      setCursor(item.id);
+                      if (selectedId === item.id) {
+                        setSelectedId(null);
+                        setCursor(null);
+                      } else {
+                        setSelectedId(item.id);
+                        setCursor(item.id);
+                      }
+                      setLiveFields(null);
                     }}
                     onStartEdit={() => {
                       if (isMobile) {
                         setEditingId(item.id);
                       } else {
-                        setSelectedIds(new Set([item.id]));
+                        setSelectedId(item.id);
                         requestAnimationFrame(() => {
                           document
                             .querySelector<HTMLInputElement>(
@@ -364,17 +464,13 @@ export const ItemsList = () => {
                     onSave={(fields) => handleSave(item.id, fields)}
                     onCancelEdit={() => setEditingId(null)}
                     onDelete={() => handleDeleteSingle(item.id)}
-                    onOpenMenu={
-                      isMobile ? () => setMenuItemId(item.id) : undefined
-                    }
+                    onOpenMenu={() => setMenuItemId(item.id)}
                   />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
         )}
-
-        <Footer />
 
         {/* Mobile drawers */}
         {isMobile && (
@@ -426,8 +522,8 @@ export const ItemsList = () => {
         )}
       </div>
 
-      {/* Desktop detail panel */}
-      {showDetailPanel && (
+      {/* Desktop detail panel — unmounts in focused mode so layoutId can pair */}
+      {showDetailPanel && !focusedItem && (
         <DetailPanel
           item={detailItem}
           isNew={isNewItem}
@@ -436,11 +532,67 @@ export const ItemsList = () => {
             queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
           }
           onCreate={handleCreate}
+          onCancel={isNewItem ? () => setEditingId(null) : undefined}
+          deleteDialogOpen={deleteDialogOpen}
+          setDeleteDialogOpen={setDeleteDialogOpen}
           onDelete={
             detailItem ? () => handleDeleteSingle(detailItem.id) : undefined
           }
+          onToggleRead={
+            detailItem && isReadingListItem(detailItem)
+              ? () => handleToggleRead(detailItem.id, !detailItem.read)
+              : undefined
+          }
+          onExpand={detailItem ? () => handleExpandItem(detailItem.id) : undefined}
+          onFieldsChange={setLiveFields}
         />
       )}
+      </div>
+
+      {/* Focused item overlay */}
+      <AnimatePresence initial={false}>
+        {focusedItem && (
+          <div className="fixed inset-0 z-20 overflow-y-auto px-5 pb-5 pt-5">
+            <div className="mx-auto max-w-150 flex flex-col gap-3">
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ type: "spring", visualDuration: 0.18, bounce: 0.1 }}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={handleCloseFocused}
+                >
+                  <IconArrowLeft />
+                  Back
+                </Button>
+              </motion.div>
+              <DetailPanel
+                focused
+                item={focusedItem}
+                isNew={false}
+                onSave={(itemId, fields) => handleSave(itemId, fields)}
+                onFlashcardChange={() =>
+                  queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
+                }
+                onCreate={handleCreate}
+                deleteDialogOpen={deleteDialogOpen}
+                setDeleteDialogOpen={setDeleteDialogOpen}
+                onDelete={() => handleDeleteSingle(focusedItem.id)}
+                onToggleRead={
+                  isReadingListItem(focusedItem)
+                    ? () => handleToggleRead(focusedItem.id, !focusedItem.read)
+                    : undefined
+                }
+                onFieldsChange={setLiveFields}
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

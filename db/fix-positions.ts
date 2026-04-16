@@ -4,7 +4,7 @@ import { eq, asc, desc } from "drizzle-orm";
 
 async function fixPositions() {
   await db.transaction(async (tx) => {
-    for (const type of ["reading-list", "bookmark"]) {
+    for (const type of ["reading-list"]) {
       const rows = await tx
         .select({ id: items.id })
         .from(items)

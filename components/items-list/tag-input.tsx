@@ -1,4 +1,6 @@
+import { IconX } from "@tabler/icons-react";
 import React from "react";
+
 import { Badge } from "@/components/ui/badge";
 
 export function TagInput({
@@ -25,17 +27,23 @@ export function TagInput({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-1 cursor-text"
-      onClick={() => inputRef.current?.focus()}
+      className="flex flex-wrap items-center gap-1 min-h-5 cursor-text"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) inputRef.current?.focus();
+      }}
     >
       {value.map((tag) => (
-        <Badge
-          key={tag}
-          variant="secondary"
-          className="cursor-pointer gap-0"
-          render={<button type="button" onClick={() => removeTag(tag)} />}
-        >
+        <Badge key={tag} variant="secondary">
           {tag}
+          <button
+            type="button"
+            data-icon="inline-end"
+            onClick={() => removeTag(tag)}
+            aria-label={`Remove ${tag}`}
+            className="text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            <IconX className="size-2.5" />
+          </button>
         </Badge>
       ))}
       <input
@@ -59,7 +67,7 @@ export function TagInput({
           }
         }}
         placeholder={value.length === 0 ? "Tags..." : ""}
-        className="text-xs bg-transparent outline-none min-w-8 flex-1 placeholder:text-muted-foreground/30"
+        className="text-xs bg-transparent outline-none min-w-8 flex-1 h-5 placeholder:text-muted-foreground/30"
       />
     </div>
   );

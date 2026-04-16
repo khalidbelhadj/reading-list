@@ -14,13 +14,41 @@ import { revalidatePath } from "next/cache";
 const TOOLS = [
   {
     name: "get_items",
-    description: "List reading list items. Optionally filter by type, tag, or search query (matches title and URL).",
+    description:
+      "List reading list items. Optionally filter by type, tag, or search query. Supports sorting, limit, and offset for pagination.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        type: { type: "string", enum: ["reading-list", "bookmark"], description: "Filter by item type" },
+        type: {
+          type: "string",
+          description: "Filter by item type (currently only \"reading-list\")",
+        },
         tag: { type: "string", description: "Filter by tag name" },
-        search: { type: "string", description: "Search query to match against title and URL" },
+        search: {
+          type: "string",
+          description: "Search query to match against title and URL",
+        },
+        sort: {
+          type: "string",
+          enum: ["position", "created_at", "updated_at", "title"],
+          default: "position",
+          description: "Sort field",
+        },
+        order: {
+          type: "string",
+          enum: ["asc", "desc"],
+          default: "asc",
+          description: "Sort direction",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of items to return",
+        },
+        offset: {
+          type: "number",
+          default: 0,
+          description: "Number of items to skip (for pagination)",
+        },
       },
     },
   },
@@ -37,13 +65,16 @@ const TOOLS = [
   },
   {
     name: "create_item",
-    description: "Add a new item to the reading list or bookmarks.",
+    description: "Add a new item to the reading list.",
     inputSchema: {
       type: "object" as const,
       properties: {
         title: { type: "string" },
         url: { type: "string" },
-        type: { type: "string", enum: ["reading-list", "bookmark"], default: "reading-list" },
+        type: {
+          type: "string",
+          default: "reading-list",
+        },
         tagNames: { type: "array", items: { type: "string" }, default: [] },
         notes: { type: "string" },
       },
@@ -134,8 +165,16 @@ function text(content: string) {
 async function handleTool(name: string, args: any) {
   switch (name) {
     case "get_items": {
+      const dir = args.order === "desc" ? desc : asc;
+      const orderBy = {
+        position: dir(items.position),
+        created_at: dir(items.createdAt),
+        updated_at: dir(items.updatedAt),
+        title: dir(items.title),
+      }[args.sort as string] ?? dir(items.position);
+
       const allItems = await db.query.items.findMany({
-        orderBy: [asc(items.position)],
+        orderBy: [orderBy],
         with: { itemsTags: { with: { tag: true } } },
       });
       let result = allItems.map(({ itemsTags: it, ...item }) => ({
@@ -147,15 +186,24 @@ async function handleTool(name: string, args: any) {
       if (args.search) {
         const q = args.search.toLowerCase();
         const scored = result.map((i) => {
-          const exact = i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q);
-          return { item: i, score: exact ? 1 : trigramSimilarity(i.title.toLowerCase(), q) };
+          const exact =
+            i.title.toLowerCase().includes(q) ||
+            i.url.toLowerCase().includes(q);
+          return {
+            item: i,
+            score: exact ? 1 : trigramSimilarity(i.title.toLowerCase(), q),
+          };
         });
         result = scored
           .filter((s) => s.score >= 0.15)
           .sort((a, b) => b.score - a.score)
           .map((s) => s.item);
       }
-      return text(JSON.stringify(result, null, 2));
+      const total = result.length;
+      const offset = args.offset ?? 0;
+      if (offset > 0) result = result.slice(offset);
+      if (args.limit) result = result.slice(0, args.limit);
+      return text(JSON.stringify({ items: result, total, offset, limit: args.limit ?? null }, null, 2));
     }
 
     case "get_item_by_url": {
@@ -166,7 +214,9 @@ async function handleTool(name: string, args: any) {
       });
       if (!item) return text("Not found");
       const { itemsTags: it, ...rest } = item;
-      return text(JSON.stringify({ ...rest, tags: it.map((t) => t.tag.name) }, null, 2));
+      return text(
+        JSON.stringify({ ...rest, tags: it.map((t) => t.tag.name) }, null, 2),
+      );
     }
 
     case "create_item": {
@@ -176,15 +226,28 @@ async function handleTool(name: string, args: any) {
       const tagNames: string[] = args.tagNames ?? [];
 
       await db.transaction(async (tx) => {
-        await tx.update(items).set({ position: sql`${items.position} + 1` }).where(eq(items.type, type));
+        await tx
+          .update(items)
+          .set({ position: sql`${items.position} + 1` })
+          .where(eq(items.type, type));
         await tx.insert(items).values({
-          id: itemId, title: args.title, url: args.url, faviconUrl: null,
-          type, starred: false, notes: args.notes ?? null, position: 0,
-          createdAt: now, updatedAt: now,
+          id: itemId,
+          title: args.title,
+          url: args.url,
+          faviconUrl: null,
+          type,
+          starred: false,
+          notes: args.notes ?? null,
+          position: 0,
+          createdAt: now,
+          updatedAt: now,
         });
         for (const tagName of tagNames) {
           await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
-          const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
+          const [tag] = await tx
+            .select()
+            .from(tags)
+            .where(eq(tags.name, tagName));
           if (tag) await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
         }
       });
@@ -202,17 +265,33 @@ async function handleTool(name: string, args: any) {
         await tx.update(items).set(set).where(eq(items.id, args.id));
 
         if (args.tagNames !== undefined) {
-          const existingLinks = await tx.select({ tagId: itemsTags.tagId }).from(itemsTags).where(eq(itemsTags.itemId, args.id));
+          const existingLinks = await tx
+            .select({ tagId: itemsTags.tagId })
+            .from(itemsTags)
+            .where(eq(itemsTags.itemId, args.id));
           const existingTagIds = existingLinks.map((l) => l.tagId);
           const newTagIds: number[] = [];
           for (const tagName of args.tagNames) {
-            await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
-            const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
+            await tx
+              .insert(tags)
+              .values({ name: tagName })
+              .onConflictDoNothing();
+            const [tag] = await tx
+              .select()
+              .from(tags)
+              .where(eq(tags.name, tagName));
             if (tag) newTagIds.push(tag.id);
           }
           for (const tagId of existingTagIds) {
             if (!newTagIds.includes(tagId)) {
-              await tx.delete(itemsTags).where(and(eq(itemsTags.itemId, args.id), eq(itemsTags.tagId, tagId)));
+              await tx
+                .delete(itemsTags)
+                .where(
+                  and(
+                    eq(itemsTags.itemId, args.id),
+                    eq(itemsTags.tagId, tagId),
+                  ),
+                );
             }
           }
           for (const tagId of newTagIds) {
@@ -235,7 +314,9 @@ async function handleTool(name: string, args: any) {
     }
 
     case "get_flashcards": {
-      const cards = await db.select().from(flashcards)
+      const cards = await db
+        .select()
+        .from(flashcards)
         .where(eq(flashcards.itemId, args.itemId))
         .orderBy(desc(flashcards.createdAt));
       return text(JSON.stringify(cards, null, 2));
@@ -245,8 +326,12 @@ async function handleTool(name: string, args: any) {
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await db.insert(flashcards).values({
-        id, itemId: args.itemId, front: args.front, back: args.back,
-        createdAt: now, updatedAt: now,
+        id,
+        itemId: args.itemId,
+        front: args.front,
+        back: args.back,
+        createdAt: now,
+        updatedAt: now,
       });
       return text(JSON.stringify({ id }));
     }
@@ -266,7 +351,10 @@ async function handleTool(name: string, args: any) {
     }
 
     default:
-      return { content: [{ type: "text" as const, text: `Unknown tool: ${name}` }], isError: true };
+      return {
+        content: [{ type: "text" as const, text: `Unknown tool: ${name}` }],
+        isError: true,
+      };
   }
 }
 
@@ -276,7 +364,9 @@ function createServer() {
     { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: TOOLS,
+  }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return handleTool(request.params.name, request.params.arguments ?? {});

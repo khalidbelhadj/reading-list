@@ -14,7 +14,7 @@ export const items = pgTable("items", {
   title: text("title").notNull(),
   url: text("url").notNull(),
   faviconUrl: text("favicon_url"),
-  type: text("type").notNull().default("bookmark"),
+  type: text("type").notNull().default("reading-list"),
   starred: boolean("starred").notNull().default(false),
   notes: text("notes"),
   read: boolean("read").notNull().default(false),

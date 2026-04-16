@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import "@fontsource-variable/inter";
+import "@fontsource-variable/noto-sans";
 import "@fontsource-variable/lora";
 import "@fontsource-variable/crimson-pro";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "Reading List",
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body className="font-sans bg-background text-foreground">
         <Suspense>
           <QueryProvider>
-            {children}
+            <TooltipProvider>{children}</TooltipProvider>
           </QueryProvider>
         </Suspense>
         <Toaster />

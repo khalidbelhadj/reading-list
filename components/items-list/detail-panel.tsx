@@ -1,42 +1,76 @@
 import {
+  IconArrowsMaximize,
   IconCheck,
-  IconGlobe,
+  IconDots,
+  IconFile,
   IconPlus,
   IconTrash,
   IconWand,
+  IconX,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
+import { motion } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
   getFlashcards,
+  getFlashcardCounts,
   createFlashcard,
   updateFlashcard,
   deleteFlashcard,
 } from "@/app/actions";
 
-import { type EditFields, relativeTime, getFaviconSrc } from "./utils";
+import { type EditFields, getFaviconSrc } from "./utils";
 import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
+import { ItemDropdown } from "./item-dropdown";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const DetailPanel = ({
   item,
   isNew,
   onSave,
   onCreate,
+  onCancel,
   onFlashcardChange,
   onDelete,
+  onToggleRead,
+  onFieldsChange,
+  deleteDialogOpen,
+  setDeleteDialogOpen,
+  onExpand,
+  focused = false,
 }: {
   item: Item | null;
   isNew: boolean;
   onSave: (itemId: string, fields: EditFields) => void;
   onCreate: (fields: EditFields) => void;
+  onCancel?: () => void;
   onFlashcardChange: () => void;
-  onDelete?: () => void;
+  onDelete?: () => Promise<void> | void;
+  onToggleRead?: () => void;
+  onFieldsChange?: (fields: { title: string; url: string; notes: string; tags: string[] } | null) => void;
+  deleteDialogOpen: boolean;
+  setDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onExpand?: () => void;
+  focused?: boolean;
 }) => {
   // Form state
   const [title, setTitle] = React.useState("");
@@ -50,14 +84,26 @@ export const DetailPanel = ({
   const [editingCardId, setEditingCardId] = React.useState<string | null>(null);
   const [editFront, setEditFront] = React.useState("");
   const [editBack, setEditBack] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
+  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(null);
 
   // Refs
   const titleRef = React.useRef<HTMLInputElement>(null);
   const urlInputRef = React.useRef<HTMLInputElement>(null);
-  const notesRef = React.useRef<HTMLTextAreaElement>(null);
   const itemIdRef = React.useRef<string | null>(null);
-  const initFieldsRef = React.useRef({ title: "", url: "", tags: "", notes: "" });
-  const getFieldsRef = React.useRef(() => ({ title, url, tags: tags.join(", "), notes }));
+  const justSwitchedRef = React.useRef(false);
+  const initFieldsRef = React.useRef({
+    title: "",
+    url: "",
+    tags: "",
+    notes: "",
+  });
+  const getFieldsRef = React.useRef(() => ({
+    title,
+    url,
+    tags: tags.join(", "),
+    notes,
+  }));
   getFieldsRef.current = () => ({ title, url, tags: tags.join(", "), notes });
   const onSaveRef = React.useRef(onSave);
   onSaveRef.current = onSave;
@@ -65,30 +111,103 @@ export const DetailPanel = ({
   itemRef.current = item;
 
   // Hooks
-  const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(url, title, setTitle);
+  const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(
+    url,
+    title,
+    setTitle,
+  );
   const queryClient = useQueryClient();
   const currentId = item?.id ?? (isNew ? "new" : null);
 
-  const { data: cards = [], isLoading: loadingCards } = useQuery({
+  const { data: cards = [], isLoading: cardsLoading } = useQuery({
     queryKey: ["flashcards", item?.id],
     queryFn: () => getFlashcards(item!.id),
     enabled: !!item?.id,
   });
+  const { data: flashcardCounts, isLoading: countsLoading } = useQuery({
+    queryKey: ["flashcard-counts"],
+    queryFn: getFlashcardCounts,
+  });
+  const expectedCardCount = item
+    ? (flashcardCounts?.get(item.id) ?? 0)
+    : 0;
+  // If counts are still loading, fall back to 5; otherwise use the known count.
+  const skeletonCount = countsLoading ? 5 : expectedCardCount;
 
   const addCardMutation = useMutation({
-    mutationFn: ({ itemId, front, back }: { itemId: string; front: string; back: string }) =>
-      createFlashcard(itemId, front, back),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+    mutationFn: ({
+      itemId,
+      front,
+      back,
+    }: {
+      itemId: string;
+      front: string;
+      back: string;
+    }) => createFlashcard(itemId, front, back),
+    onMutate: async ({ front, back }) => {
+      await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
+      const previous = queryClient.getQueryData(["flashcards", item?.id]);
+      const tempId = `temp-${Date.now()}`;
+      const optimisticCard = {
+        id: tempId,
+        itemId: item?.id ?? null,
+        front,
+        back,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData(
+        ["flashcards", item?.id],
+        (old: typeof cards) => [optimisticCard, ...(old ?? [])],
+      );
       onFlashcardChange();
+      return { previous, tempId };
+    },
+    onSuccess: (realCard, _vars, context) => {
+      // Replace the temp card with the real one — no refetch needed
+      queryClient.setQueryData(
+        ["flashcards", item?.id],
+        (old: typeof cards) =>
+          (old ?? []).map((c) => (c.id === context?.tempId ? realCard : c)),
+      );
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["flashcards", item?.id], context.previous);
+        onFlashcardChange();
+      }
     },
   });
 
   const updateCardMutation = useMutation({
-    mutationFn: ({ id, front, back }: { id: string; front?: string; back?: string }) =>
-      updateFlashcard(id, { front, back }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+    mutationFn: ({
+      id,
+      front,
+      back,
+    }: {
+      id: string;
+      front?: string;
+      back?: string;
+    }) => updateFlashcard(id, { front, back }),
+    onMutate: async ({ id, front, back }) => {
+      await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
+      const previous = queryClient.getQueryData(["flashcards", item?.id]);
+      queryClient.setQueryData(
+        ["flashcards", item?.id],
+        (old: typeof cards) =>
+          (old ?? []).map((c) =>
+            c.id === id
+              ? { ...c, ...(front !== undefined && { front }), ...(back !== undefined && { back }), updatedAt: new Date().toISOString() }
+              : c,
+          ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["flashcards", item?.id], context.previous);
+      }
     },
   });
 
@@ -126,19 +245,69 @@ export const DetailPanel = ({
     setTags(initialTags);
     setNotes(initialNotes);
     setSaving(false);
-    initFieldsRef.current = { title: initialTitle, url: initialUrl, tags: initialTags.join(", "), notes: initialNotes };
+    initFieldsRef.current = {
+      title: initialTitle,
+      url: initialUrl,
+      tags: initialTags.join(", "),
+      notes: initialNotes,
+    };
     itemIdRef.current = currentId;
+    justSwitchedRef.current = true;
     setAddingCard(false);
     setNewFront("");
     setNewBack("");
     setEditingCardId(null);
-  }, [currentId]);
+    if (isNew) {
+      requestAnimationFrame(() => titleRef.current?.focus());
+    }
+  }, [currentId, isNew]);
+
+  // Debounced server save
+  const tagsString = tags.join(", ");
+  React.useEffect(() => {
+    if (justSwitchedRef.current) {
+      justSwitchedRef.current = false;
+      return;
+    }
+    if (isNew || !currentId || currentId === "new") return;
+    const fields = { title, url, tags: tagsString, notes };
+    const init = initFieldsRef.current;
+    const hasChanges =
+      fields.title !== init.title ||
+      fields.url !== init.url ||
+      fields.tags !== init.tags ||
+      fields.notes !== init.notes;
+    if (!hasChanges) return;
+
+    const timeout = setTimeout(() => {
+      onSaveRef.current(currentId, fields);
+      initFieldsRef.current = fields;
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [title, url, tagsString, notes, currentId, isNew]);
+
+  // Report live form state to parent for rendering overrides
+  const prevIdForFieldsRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!currentId || currentId === "new") {
+      onFieldsChange?.(null);
+      prevIdForFieldsRef.current = currentId;
+      return;
+    }
+    // Skip the first render after switching items — form state is stale
+    if (prevIdForFieldsRef.current !== currentId) {
+      prevIdForFieldsRef.current = currentId;
+      return;
+    }
+    onFieldsChange?.({ title, url, notes, tags });
+    return () => onFieldsChange?.(null);
+  }, [title, url, notes, tags, currentId, onFieldsChange]);
 
   // Save on unmount
   React.useEffect(() => {
     return () => {
       const id = itemIdRef.current;
-      if (!id) return;
+      if (!id || id === "new") return;
       const current = getFieldsRef.current();
       const init = initFieldsRef.current;
       const hasChanges =
@@ -152,88 +321,158 @@ export const DetailPanel = ({
     };
   }, []);
 
+  const confirmDelete = React.useCallback(async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  }, [onDelete, setDeleteDialogOpen]);
+
   // Keyboard shortcuts within the panel
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (saving) return;
+
+      // Confirm delete dialog with Cmd+Enter
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && deleteDialogOpen && onDelete && !deleting) {
+        e.preventDefault();
+        confirmDelete();
+        return;
+      }
+
       const panel = document.querySelector("[data-detail-panel]");
       if (!panel?.contains(e.target as Node)) return;
 
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
-        if (currentId) {
+        if (isNew) {
+          if (title.trim() || url.trim()) {
+            setSaving(true);
+            itemIdRef.current = null;
+            onCreate({ title, url, tags: tags.join(", "), notes });
+          }
+        } else if (currentId) {
           setSaving(true);
           onSave(currentId, { title, url, tags: tags.join(", "), notes });
         }
       }
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        const target = e.target as HTMLElement;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
         e.preventDefault();
-        onDelete();
+        setDeleteDialogOpen(true);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [title, url, tags, notes, onSave, onDelete, saving, currentId]);
+  }, [
+    title,
+    url,
+    tags,
+    notes,
+    onSave,
+    onCreate,
+    onDelete,
+    saving,
+    currentId,
+    isNew,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deleting,
+    confirmDelete,
+  ]);
 
   // Callbacks
+  const saveAndCloseCard = React.useCallback(
+    (cardId: string) => {
+      const front = editFront.trim();
+      const back = editBack.trim();
+      if (front) {
+        queryClient.setQueryData(
+          ["flashcards", item?.id],
+          (old: typeof cards) =>
+            (old ?? []).map((c) =>
+              c.id === cardId ? { ...c, front, back } : c,
+            ),
+        );
+        updateCardMutation.mutate({ id: cardId, front, back });
+      }
+      setEditingCardId(null);
+    },
+    [editFront, editBack, item?.id, queryClient, updateCardMutation],
+  );
+
   const handleCardFocusOut = React.useCallback(
     (e: React.FocusEvent) => {
       const card = e.currentTarget;
       if (card.contains(e.relatedTarget as Node)) return;
       if (!editingCardId) return;
-      const front = editFront.trim();
-      const back = editBack.trim();
-      if (!front || !back) return;
-      updateCardMutation.mutate({ id: editingCardId, front, back });
-      setEditingCardId(null);
+      saveAndCloseCard(editingCardId);
     },
-    [editingCardId, editFront, editBack, updateCardMutation],
+    [editingCardId, saveAndCloseCard],
   );
 
   const handleAddCard = React.useCallback(async () => {
-    if (!item?.id || !newFront.trim() || !newBack.trim()) return;
-    addCardMutation.mutate({ itemId: item.id, front: newFront.trim(), back: newBack.trim() });
+    if (!item?.id || !newFront.trim()) return;
+    addCardMutation.mutate({
+      itemId: item.id,
+      front: newFront.trim(),
+      back: newBack.trim(),
+    });
     setNewFront("");
     setNewBack("");
     setAddingCard(false);
   }, [item?.id, newFront, newBack, addCardMutation]);
 
   const handleDeleteCard = React.useCallback(
-    (cardId: string) => {
+    async (cardId: string) => {
       if (editingCardId === cardId) setEditingCardId(null);
-      deleteCardMutation.mutate(cardId);
+      setDeletingCardId(cardId);
+      try {
+        await deleteCardMutation.mutateAsync(cardId);
+      } finally {
+        setDeletingCardId(null);
+      }
     },
     [editingCardId, deleteCardMutation],
   );
 
   const startEditCard = React.useCallback(
-    (card: { id: string; front: string; back: string }) => {
+    (card: { id: string; front: string; back: string }, field?: "front" | "back") => {
       setEditingCardId(card.id);
       setEditFront(card.front);
       setEditBack(card.back);
+      if (field) {
+        requestAnimationFrame(() => {
+          const selector = field === "front" ? "[data-card-front]" : "[data-card-back]";
+          document.querySelector<HTMLTextAreaElement>(selector)?.focus();
+        });
+      }
     },
     [],
   );
 
-  const saveEditCard = async () => {
-    if (!editingCardId) return;
-    const front = editFront.trim();
-    const back = editBack.trim();
-    if (!front || !back) return;
-    updateCardMutation.mutate({ id: editingCardId, front, back });
-    setEditingCardId(null);
-  }
-
   const faviconSrc = item ? getFaviconSrc(item) : null;
 
   return (
-    <div
+    <motion.div
+      layoutId="item-card"
+      layoutDependency={focused ? "focused" : "side"}
+      transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
       data-detail-panel
-      className="w-80 fixed top-14 overflow-y-auto max-h-[calc(100vh-4.5rem)] flex flex-col gap-2 detail-panel-scroll"
-      style={{ left: "calc(50% + 19.5rem)" }}
+      className={cn(
+        "flex flex-col gap-2",
+        focused
+          ? "w-full"
+          : "w-80 fixed top-5 overflow-y-auto max-h-[calc(100vh-2.5rem)] detail-panel-scroll",
+      )}
+      style={focused ? undefined : { left: "calc(50% + 19.5rem)" }}
     >
       {/* Item form card */}
       <div className="rounded-lg bg-card px-3 py-3 flex flex-col gap-2">
@@ -250,7 +489,7 @@ export const DetailPanel = ({
                 unoptimized
               />
             ) : (
-              <IconGlobe className="size-5 text-muted-foreground" />
+              <IconFile className="size-5 text-muted-foreground" />
             )}
           </div>
           <input
@@ -273,6 +512,36 @@ export const DetailPanel = ({
               {fetching ? <Spinner className="size-3.5" /> : <IconWand />}
             </Button>
           )}
+          {!isNew && onExpand && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground/40 shrink-0"
+              onClick={onExpand}
+              title="Expand"
+            >
+              <IconArrowsMaximize />
+            </Button>
+          )}
+          {!isNew && item && (
+            <ItemDropdown
+              item={item}
+              onToggleRead={onToggleRead}
+              onDelete={onDelete ? () => setDeleteDialogOpen(true) : undefined}
+            >
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground/40 shrink-0 -ml-2"
+                  >
+                    <IconDots />
+                  </Button>
+                }
+              />
+            </ItemDropdown>
+          )}
         </div>
 
         {/* URL */}
@@ -289,57 +558,48 @@ export const DetailPanel = ({
         <TagInput value={tags} onChange={setTags} />
 
         {/* Notes */}
-        <textarea
-          ref={notesRef}
+        <MarkdownEditor
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={setNotes}
           placeholder="Notes..."
-          rows={3}
-          className="text-xs text-muted-foreground bg-transparent outline-none resize-none w-full placeholder:text-muted-foreground/40 field-sizing-content max-h-48 overflow-y-auto"
+          className={cn(
+            "text-xs text-muted-foreground",
+            focused ? "" : "max-h-48 overflow-y-auto",
+          )}
         />
 
-        {/* Meta + Actions */}
-        <div className="flex items-center justify-between mt-1">
-          {item?.updatedAt ? (
-            <span
-              className="text-[10px] text-muted-foreground/40"
-              title={new Date(item.updatedAt).toLocaleString()}
+        {/* Actions (new item only) */}
+        {isNew && (
+          <div className="flex items-center justify-end mt-1 gap-0.5">
+            {onCancel && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground/40 hover:text-foreground"
+                onClick={onCancel}
+                title="Cancel"
+              >
+                <IconX />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground/50 hover:text-foreground"
+              disabled={saving}
+              onClick={() => {
+                if (title.trim() || url.trim()) {
+                  setSaving(true);
+                  itemIdRef.current = null;
+                  onCreate({ title, url, tags: tags.join(", "), notes });
+                }
+              }}
+              title="Create item"
             >
-              {relativeTime(item.updatedAt)}
-            </span>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-0.5">
-            {isNew && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground/50 hover:text-foreground"
-                onClick={() => {
-                  if (title.trim() || url.trim()) {
-                    itemIdRef.current = null;
-                    onCreate({ title, url, tags: tags.join(", "), notes });
-                  }
-                }}
-                title="Create item"
-              >
-                <IconCheck />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground/40 hover:text-destructive"
-                onClick={onDelete}
-                title="Delete item"
-              >
-                <IconTrash />
-              </Button>
-            )}
+              {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
+            </Button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Flashcards */}
@@ -351,15 +611,15 @@ export const DetailPanel = ({
             onClick={() => setAddingCard(true)}
           >
             <IconPlus />
-            Add flashcard
+            Add card
           </Button>
 
           {addingCard && (
             <div
-              className="rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
+              className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
               onBlur={(e) => {
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                if (newFront.trim() && newBack.trim()) {
+                if (newFront.trim()) {
                   handleAddCard();
                 } else {
                   setAddingCard(false);
@@ -368,94 +628,176 @@ export const DetailPanel = ({
                 }
               }}
             >
-              <input
-                autoFocus
+              <MarkdownEditor
                 value={newFront}
-                onChange={(e) => setNewFront(e.target.value)}
-                placeholder="Front (question)"
-                className="text-xs bg-transparent outline-none placeholder:text-muted-foreground/40"
-              />
-              <input
-                value={newBack}
-                onChange={(e) => setNewBack(e.target.value)}
-                placeholder="Back (answer)"
-                className="text-xs bg-transparent outline-none placeholder:text-muted-foreground/40"
+                onChange={setNewFront}
+                placeholder="Front"
+                autoFocus
+                className="text-xs font-medium"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAddCard();
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    if (newFront.trim()) handleAddCard();
+                    return true;
+                  }
+                }}
+              />
+              <MarkdownEditor
+                value={newBack}
+                onChange={setNewBack}
+                placeholder="Back"
+                className="text-xs text-muted-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    if (newFront.trim()) handleAddCard();
+                    return true;
                   }
                 }}
               />
             </div>
           )}
 
-          {loadingCards && (
-            <span className="text-[11px] text-muted-foreground/40 px-1">
-              Loading...
-            </span>
-          )}
+          {cardsLoading &&
+            skeletonCount > 0 &&
+            Array.from({ length: skeletonCount }).map((_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}
+              >
+                <Skeleton className="h-22 rounded-lg" />
+              </div>
+            ))}
 
           {cards.map((card) => (
             <div
               key={card.id}
-              className="font-content group rounded-lg bg-card px-4 py-3 flex flex-col gap-0.5 cursor-pointer"
-              onClick={() => {
-                if (editingCardId !== card.id) startEditCard(card);
-              }}
-              onBlur={editingCardId === card.id ? handleCardFocusOut : undefined}
+              className="font-content group relative rounded-lg bg-card px-4 py-3"
+              onBlur={
+                editingCardId === card.id ? handleCardFocusOut : undefined
+              }
             >
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "absolute top-1 right-1 text-muted-foreground/30 hover:text-destructive",
+                  deletingCardId === card.id ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                )}
+                disabled={deletingCardId === card.id}
+                onClick={() => handleDeleteCard(card.id)}
+              >
+                {deletingCardId === card.id ? <Spinner className="size-3.5" /> : <IconTrash />}
+              </Button>
               {editingCardId === card.id ? (
-                <>
-                  <textarea
-                    autoFocus
+                <div className="flex flex-col gap-0.5">
+                  <MarkdownEditor
                     value={editFront}
-                    onChange={(e) => setEditFront(e.target.value)}
-                    rows={1}
-                    className="text-xs font-medium bg-transparent outline-none w-full resize-none field-sizing-content"
+                    onChange={setEditFront}
+                    autoFocus
+                    editorAttributes={{ "data-card-front": "" }}
+                    className="text-xs font-medium"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        saveEditCard();
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        saveAndCloseCard(card.id);
+                        return true;
                       }
                     }}
                   />
-                  <textarea
+                  <MarkdownEditor
                     value={editBack}
-                    onChange={(e) => setEditBack(e.target.value)}
-                    rows={1}
-                    className="text-xs text-muted-foreground bg-transparent outline-none w-full resize-none field-sizing-content"
+                    onChange={setEditBack}
+                    placeholder="Back"
+                    editorAttributes={{ "data-card-back": "" }}
+                    className="text-xs text-muted-foreground"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        saveEditCard();
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        saveAndCloseCard(card.id);
+                        return true;
                       }
                     }}
                   />
-                </>
+                </div>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-1">
-                    <span className="text-xs font-medium">{card.front}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      className="shrink-0 text-muted-foreground/30 hover:text-destructive opacity-0 group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCard(card.id);
-                      }}
-                    >
-                      <IconTrash />
-                    </Button>
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => startEditCard(card, "front")}
+                  >
+                    <MarkdownEditor
+                      value={card.front}
+                      editable={false}
+                      className="text-xs font-medium"
+                    />
                   </div>
-                  <span className="text-xs text-muted-foreground">{card.back}</span>
+                  <div
+                    className="grid transition-[grid-template-rows] duration-150"
+                    style={{ gridTemplateRows: card.back ? "1fr" : "0fr" }}
+                  >
+                    <div className="overflow-hidden">
+                      <div
+                        className="cursor-pointer mt-0.5"
+                        onClick={() => startEditCard(card, "back")}
+                      >
+                        <MarkdownEditor
+                          value={card.back}
+                          editable={false}
+                          className="text-xs text-muted-foreground"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
           ))}
         </div>
       )}
-    </div>
+      {onDelete && (
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete item</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this item? This action cannot be
+                undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {item && (
+              <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
+                <div className="size-5 shrink-0 flex items-center justify-center">
+                  {faviconSrc ? (
+                    <Image
+                      src={faviconSrc}
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="size-5 rounded"
+                      unoptimized
+                    />
+                  ) : (
+                    <IconFile className="size-5 text-muted-foreground" />
+                  )}
+                </div>
+                <span className="font-content text-sm truncate">
+                  {item.title || "Untitled"}
+                </span>
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={deleting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  confirmDelete();
+                }}
+              >
+                {deleting ? <Spinner className="size-3.5" /> : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </motion.div>
   );
-}
+};
