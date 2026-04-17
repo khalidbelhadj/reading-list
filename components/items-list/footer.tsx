@@ -1,22 +1,21 @@
 import React from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { createClient } from "@/lib/supabase/client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import type { Item } from "@/lib/types";
 
 export const Footer = () => {
   const queryClient = useQueryClient();
-  const [email, setEmail] = React.useState<string | null>(null);
+  const { data: user } = useCurrentUser();
+  const email = user?.email ?? null;
 
-  React.useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? null);
-    });
-  }, []);
+  const logoutMutation = useMutation({
+    mutationFn: () => logout(),
+    onSuccess: () => queryClient.clear(),
+  });
 
   const handleExport = React.useCallback(() => {
     const items = queryClient.getQueryData<Item[]>(["items"]);
@@ -50,7 +49,7 @@ export const Footer = () => {
         <Button
           variant="link"
           className="text-muted-foreground/50 hover:text-muted-foreground p-0 h-auto"
-          onClick={() => void logout()}
+          onClick={() => logoutMutation.mutate()}
         >
           Log out
         </Button>

@@ -21,16 +21,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import type { Item } from "@/lib/types";
 
 export const SettingsMenu = () => {
   const queryClient = useQueryClient();
-  const [email, setEmail] = React.useState<string | null>(null);
+  const { data: user } = useCurrentUser();
+  const email = user?.email ?? null;
   const [dark, setDark] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
 
-  const logoutMutation = useMutation({ mutationFn: () => logout() });
+  const logoutMutation = useMutation({
+    mutationFn: () => logout(),
+    onSuccess: () => queryClient.clear(),
+  });
 
   const toggleTheme = React.useCallback(() => {
     const next = !dark;
@@ -64,10 +68,6 @@ export const SettingsMenu = () => {
 
   React.useEffect(() => {
     setMounted(true);
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? null);
-    });
     setDark(document.documentElement.classList.contains("dark"));
   }, []);
 

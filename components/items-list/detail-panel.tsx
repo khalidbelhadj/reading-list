@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   getFlashcardCounts,
+  getFlashcards,
   createFlashcard,
   updateFlashcard,
   deleteFlashcard,
@@ -126,10 +127,7 @@ export const DetailPanel = ({
   const debouncedItemId = useDebounced(item?.id, 150);
   const { data: cards = [], isLoading: cardsLoading } = useQuery<Flashcard[]>({
     queryKey: ["flashcards", debouncedItemId],
-    queryFn: ({ signal }) =>
-      fetch(`/api/flashcards/${debouncedItemId}`, { signal }).then((r) =>
-        r.json(),
-      ),
+    queryFn: () => getFlashcards(debouncedItemId!),
     enabled: !!debouncedItemId,
     // Cached forever within the session — mutations invalidate explicitly.
     staleTime: Infinity,
@@ -222,9 +220,23 @@ export const DetailPanel = ({
 
   const deleteCardMutation = useMutation({
     mutationFn: (id: string) => deleteFlashcard(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["flashcards", item?.id] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
+      const previous = queryClient.getQueryData(["flashcards", item?.id]);
+      queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
+        (old ?? []).filter((c) => c.id !== id),
+      );
       onFlashcardChange();
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["flashcards", item?.id], context.previous);
+        onFlashcardChange();
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
   });
 
