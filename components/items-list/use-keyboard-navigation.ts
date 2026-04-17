@@ -27,6 +27,7 @@ export const useKeyboardNavigation = ({
   cursorRef,
   setCursor,
   onRequestDelete,
+  activeTags,
 }: {
   filteredItems: Item[];
   selectedId: string | null;
@@ -45,6 +46,7 @@ export const useKeyboardNavigation = ({
   cursorRef: React.RefObject<string | null>;
   setCursor: (id: string | null) => void;
   onRequestDelete?: () => void;
+  activeTags: Set<string>;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
   const queryClient = useQueryClient();
@@ -54,8 +56,8 @@ export const useKeyboardNavigation = ({
   );
 
   const createMutation = useMutation({
-    mutationFn: (args: { title: string; url: string; type: string }) =>
-      createItem(args.title, args.url, [], undefined, args.type),
+    mutationFn: (args: { title: string; url: string; type: string; tagNames: string[] }) =>
+      createItem(args.title, args.url, args.tagNames, undefined, args.type),
     onSuccess: (itemId, vars) => {
       invalidate();
       if (itemId) {
@@ -77,14 +79,14 @@ export const useKeyboardNavigation = ({
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      const elementTag = (e.target as HTMLElement)?.tagName;
-      if (
-        elementTag === "INPUT" ||
-        elementTag === "TEXTAREA" ||
-        (e.target as HTMLElement)?.isContentEditable
-      ) {
-        return;
-      }
+      const isEditable = (el: HTMLElement | null | undefined): boolean =>
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable);
+      const path = e.composedPath() as HTMLElement[];
+      const active = document.activeElement as HTMLElement | null;
+      if (path.some(isEditable) || isEditable(active)) return;
       const text = e.clipboardData?.getData("text/plain")?.trim();
       if (!text) return;
       try {
@@ -92,7 +94,7 @@ export const useKeyboardNavigation = ({
         if (url.protocol === "http:" || url.protocol === "https:") {
           e.preventDefault();
           const domain = url.hostname.replace(/^www\./, "");
-          createMutation.mutate({ title: domain, url: text, type: tabType });
+          createMutation.mutate({ title: domain, url: text, type: tabType, tagNames: [...activeTags] });
         }
       } catch {
         // not a valid URL, ignore
@@ -100,7 +102,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [tabType, createMutation]);
+  }, [tabType, createMutation, activeTags]);
 
   // Global keyboard shortcuts
   React.useEffect(() => {

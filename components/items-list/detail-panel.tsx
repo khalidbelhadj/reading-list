@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const DetailPanel = ({
   item,
   isNew,
+  defaultTags,
   onSave,
   onCreate,
   onCancel,
@@ -47,6 +48,7 @@ export const DetailPanel = ({
 }: {
   item: Item | null;
   isNew: boolean;
+  defaultTags?: string[];
   onSave: (itemId: string, fields: EditFields) => void;
   onCreate: (fields: EditFields) => void;
   onCancel?: () => void;
@@ -69,7 +71,7 @@ export const DetailPanel = ({
   const [title, setTitle] = React.useState(() => item?.title ?? "");
   const [url, setUrl] = React.useState(() => item?.url ?? "");
   const [tags, setTags] = React.useState<string[]>(
-    () => item?.tags.map((t) => t.name) ?? [],
+    () => item?.tags.map((t) => t.name) ?? (isNew ? (defaultTags ?? []) : []),
   );
   const [notes, setNotes] = React.useState(() => item?.notes ?? "");
   const [saving, setSaving] = React.useState(false);
@@ -241,7 +243,9 @@ export const DetailPanel = ({
     const currentItem = itemRef.current;
     const initialTitle = currentItem?.title ?? "";
     const initialUrl = currentItem?.url ?? "";
-    const initialTags = currentItem?.tags.map((tag) => tag.name) ?? [];
+    const initialTags =
+      currentItem?.tags.map((tag) => tag.name) ??
+      (isNew ? (defaultTags ?? []) : []);
     const initialNotes = currentItem?.notes ?? "";
     setTitle(initialTitle);
     setUrl(initialUrl);

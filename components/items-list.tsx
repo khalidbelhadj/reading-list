@@ -245,6 +245,7 @@ export const ItemsList = () => {
     onRequestDelete: React.useCallback(() => {
       if (selectedId) setPendingDeleteId(selectedId);
     }, [selectedId]),
+    activeTags,
   });
 
   // Mutations
@@ -256,7 +257,32 @@ export const ItemsList = () => {
   const updateMutation = useMutation({
     mutationFn: (args: { id: string; fields: { title?: string; url?: string; notes?: string; tagNames?: string[] } }) =>
       updateItem(args.id, args.fields),
-    onError: invalidate,
+    onMutate: async ({ id, fields }) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((item) => {
+          if (item.id !== id) return item;
+          const next = { ...item, updatedAt: new Date().toISOString() };
+          if (fields.title !== undefined) next.title = fields.title;
+          if (fields.url !== undefined) next.url = fields.url;
+          if (fields.notes !== undefined) next.notes = fields.notes;
+          if (fields.tagNames !== undefined) {
+            const byName = new Map(item.tags.map((t) => [t.name, t]));
+            next.tags = fields.tagNames.map(
+              (name, i) =>
+                byName.get(name) ?? { id: -(i + 1), userId: item.userId, name },
+            );
+          }
+          return next;
+        }),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(["items"], context.previous);
+    },
+    onSettled: invalidate,
   });
 
   const handleSave = React.useCallback(
@@ -625,6 +651,7 @@ export const ItemsList = () => {
           <DetailPanel
             item={detailItem}
             isNew={isNewItem}
+            defaultTags={[...activeTags]}
             onSave={(itemId, fields) => handleSave(itemId, fields)}
             onFlashcardChange={() =>
               queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
