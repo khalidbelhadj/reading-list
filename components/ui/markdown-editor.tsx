@@ -29,13 +29,19 @@ export const MarkdownEditor = ({
   editorAttributes?: Record<string, string>;
   onKeyDown?: (event: KeyboardEvent) => boolean | void;
 }) => {
-  const isInternalUpdate = React.useRef(false);
   const onChangeRef = React.useRef(onChange);
   const onKeyDownRef = React.useRef(onKeyDown);
   React.useEffect(() => {
     onChangeRef.current = onChange;
     onKeyDownRef.current = onKeyDown;
   });
+
+  // ProseMirror adds a mandatory trailing paragraph, so getMarkdown() has a
+  // trailing newline that the stored value does not. Normalize both sides
+  // when comparing or emitting.
+  const normalize = (md: string) => md.replace(/\s+$/, "");
+  const getMarkdown = (e: NonNullable<typeof editor>) =>
+    normalize((e.storage as unknown as MarkdownStorage).markdown.getMarkdown());
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -52,11 +58,7 @@ export const MarkdownEditor = ({
     ],
     content: value,
     onUpdate: ({ editor }) => {
-      isInternalUpdate.current = true;
-      const md = (editor.storage as unknown as MarkdownStorage).markdown.getMarkdown();
-      // Strip trailing whitespace that ProseMirror's mandatory trailing
-      // paragraph adds (e.g. after a list at the end of the doc).
-      onChangeRef.current?.(md.replace(/\s+$/, ""));
+      onChangeRef.current?.(getMarkdown(editor));
     },
     editorProps: {
       attributes: editorAttributes ?? {},
@@ -68,12 +70,7 @@ export const MarkdownEditor = ({
 
   React.useEffect(() => {
     if (!editor) return;
-    if (isInternalUpdate.current) {
-      isInternalUpdate.current = false;
-      return;
-    }
-    const current = (editor.storage as unknown as MarkdownStorage).markdown.getMarkdown();
-    if (current !== value) {
+    if (getMarkdown(editor) !== value) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
