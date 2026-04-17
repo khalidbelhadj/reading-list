@@ -32,44 +32,67 @@ export const ItemDropdown = ({
   children: React.ReactNode;
 }) => {
   const [copied, setCopied] = React.useState(false);
-  const copyTriggeredRef = React.useRef(false);
-  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [copyTriggered, setCopyTriggered] = React.useState(false);
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
   });
 
-  const cancelCloseTimer = React.useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }, []);
-
-  const startCloseTimer = React.useCallback(() => {
-    cancelCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      onOpenChangeRef.current?.(false);
-      closeTimerRef.current = null;
-    }, AUTO_CLOSE_MS);
-  }, [cancelCloseTimer]);
-
-  // Reset on close + cleanup on unmount
+  // Reset copy-triggered when the menu closes.
   React.useEffect(() => {
-    if (!open) {
-      copyTriggeredRef.current = false;
-      cancelCloseTimer();
-    }
-  }, [open, cancelCloseTimer]);
-  React.useEffect(() => () => cancelCloseTimer(), [cancelCloseTimer]);
+    if (!open) setCopyTriggered(false);
+  }, [open]);
+
+  // Once copy has been clicked, watch the cursor globally. Start a 3s timer
+  // when the cursor is outside the popup's bounding rect; cancel when inside.
+  // Using global mousemove + hit-testing is more reliable than mouseenter/leave
+  // which fire on every wobble across the popup boundary.
+  React.useEffect(() => {
+    if (!open || !copyTriggered) return;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    const cancel = () => {
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    };
+    const start = () => {
+      cancel();
+      timerId = setTimeout(() => {
+        onOpenChangeRef.current?.(false);
+      }, AUTO_CLOSE_MS);
+    };
+
+    const handleMove = (e: MouseEvent) => {
+      const popup = document.querySelector<HTMLElement>(
+        '[data-slot="dropdown-menu-content"]',
+      );
+      if (!popup) return;
+      const rect = popup.getBoundingClientRect();
+      const inside =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+      if (inside) cancel();
+      else if (!timerId) start();
+    };
+
+    // Kick off the timer assuming cursor is currently inside (it just clicked).
+    // The next mousemove will either confirm inside (cancel) or detect outside
+    // (start a fresh timer).
+    document.addEventListener("mousemove", handleMove);
+    return () => {
+      document.removeEventListener("mousemove", handleMove);
+      cancel();
+    };
+  }, [open, copyTriggered]);
 
   const handleCopyMarkdown = React.useCallback(() => {
     navigator.clipboard.writeText(`[${item.title}](${item.url})`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-    copyTriggeredRef.current = true;
+    setCopyTriggered(true);
   }, [item.title, item.url]);
 
   const isRead = isReadingListItem(item) && item.read;
@@ -81,10 +104,6 @@ export const ItemDropdown = ({
         align="end"
         sideOffset={4}
         onClick={(e) => e.stopPropagation()}
-        onMouseEnter={cancelCloseTimer}
-        onMouseLeave={() => {
-          if (copyTriggeredRef.current) startCloseTimer();
-        }}
       >
         <DropdownMenuItem closeOnClick={false} onClick={handleCopyMarkdown}>
           {copied ? <IconCheck /> : <IconCopy />}
