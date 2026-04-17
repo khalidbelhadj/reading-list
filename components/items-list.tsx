@@ -208,19 +208,6 @@ export const ItemsList = () => {
     }
   }, [pendingDeleteId, handleDeleteSingle]);
 
-  // Cmd+Enter confirms delete when the dialog is open.
-  React.useEffect(() => {
-    if (!pendingDeleteId) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !deleting) {
-        e.preventDefault();
-        confirmDelete();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [pendingDeleteId, deleting, confirmDelete]);
-
   const pendingFaviconSrc = pendingDeleteItem
     ? getFaviconSrc(pendingDeleteItem)
     : null;
@@ -737,7 +724,14 @@ export const ItemsList = () => {
           if (!open) setPendingDeleteId(null);
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !deleting) {
+              e.preventDefault();
+              confirmDelete();
+            }
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete item</AlertDialogTitle>
             <AlertDialogDescription>

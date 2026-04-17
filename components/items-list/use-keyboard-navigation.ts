@@ -8,6 +8,7 @@ import {
   reorderItem,
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
+import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
 
 export const useKeyboardNavigation = ({
   filteredItems,
@@ -79,14 +80,7 @@ export const useKeyboardNavigation = ({
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      const isEditable = (el: HTMLElement | null | undefined): boolean =>
-        !!el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable);
-      const path = e.composedPath() as HTMLElement[];
-      const active = document.activeElement as HTMLElement | null;
-      if (path.some(isEditable) || isEditable(active)) return;
+      if (isTypingContext(e) || isOverlayOpen()) return;
       const text = e.clipboardData?.getData("text/plain")?.trim();
       if (!text) return;
       try {
@@ -107,8 +101,9 @@ export const useKeyboardNavigation = ({
   // Global keyboard shortcuts
   React.useEffect(() => {
     const handleGlobal = (e: KeyboardEvent) => {
-      const elementTag = (e.target as HTMLElement)?.tagName;
       if (e.key === "Escape") {
+        // Let dialogs / drawers / dropdowns handle their own Escape first.
+        if (isOverlayOpen()) return;
         if (editingId) {
           setEditingId(null);
         } else if (searchOpen) {
@@ -125,9 +120,7 @@ export const useKeyboardNavigation = ({
         }
         return;
       }
-      if (elementTag === "INPUT" || elementTag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
-        return;
-      }
+      if (isTypingContext(e)) return;
       if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         setSearchOpen(true);
@@ -155,10 +148,7 @@ export const useKeyboardNavigation = ({
   // Cmd+Backspace to delete selected item
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const elementTag = (e.target as HTMLElement)?.tagName;
-      if (elementTag === "INPUT" || elementTag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
-        return;
-      }
+      if (isTypingContext(e) || isOverlayOpen()) return;
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && selectedId !== null && !editingId) {
         e.preventDefault();
         onRequestDelete?.();
@@ -183,15 +173,9 @@ export const useKeyboardNavigation = ({
     };
 
     const handleNav = (e: KeyboardEvent) => {
+      if (isTypingContext(e)) return;
       const elementTag = (e.target as HTMLElement)?.tagName;
-      if (
-        elementTag === "INPUT" ||
-        elementTag === "TEXTAREA" ||
-        elementTag === "BUTTON" ||
-        elementTag === "A" ||
-        (e.target as HTMLElement)?.isContentEditable
-      )
-        return;
+      if (elementTag === "BUTTON" || elementTag === "A") return;
       if (editingId) return;
 
       const ids = filteredItems.map((i) => i.id);
@@ -238,6 +222,7 @@ export const useKeyboardNavigation = ({
 
       // Enter to focus detail panel title
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedId !== null) {
+        if (isOverlayOpen()) return;
         e.preventDefault();
         const el = document.querySelector<HTMLInputElement>("[data-detail-title]");
         if (el) {
@@ -250,8 +235,7 @@ export const useKeyboardNavigation = ({
 
       // Cmd+Enter to open in new tab
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && selectedId !== null) {
-        // Don't open URLs if a dialog is open
-        if (document.querySelector("[role=alertdialog], [role=dialog]")) return;
+        if (isOverlayOpen()) return;
         e.preventDefault();
         const item = filteredItems.find((i) => i.id === selectedId);
         if (item?.url && URL.canParse(item.url)) window.open(item.url, "_blank");

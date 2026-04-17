@@ -25,6 +25,8 @@ import {
   deleteFlashcard,
 } from "@/app/actions";
 
+import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
+
 import { type EditFields, getFaviconSrc } from "./utils";
 import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
@@ -332,6 +334,7 @@ export const DetailPanel = ({
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (saving) return;
+      if (isOverlayOpen()) return;
 
       const panel = document.querySelector("[data-detail-panel]");
       if (!panel?.contains(e.target as Node)) return;
@@ -351,11 +354,9 @@ export const DetailPanel = ({
         }
       }
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
-        const target = e.target as HTMLElement;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
-          return;
+        if (isTypingContext(e)) return;
         e.preventDefault();
+        e.stopPropagation();
         onDelete();
       }
     };
