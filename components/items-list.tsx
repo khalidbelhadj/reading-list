@@ -636,6 +636,7 @@ export const ItemsList = () => {
           style={{ left: "calc(50% + 19.5rem)" }}
         >
           <DetailPanel
+            key={detailItem?.id ?? "new"}
             item={detailItem}
             isNew={isNewItem}
             defaultTags={[...activeTags]}
@@ -690,6 +691,7 @@ export const ItemsList = () => {
               >
                 {focusedItem ? (
                   <DetailPanel
+                    key={focusedItem.id}
                     focused
                     item={focusedItem}
                     isNew={false}

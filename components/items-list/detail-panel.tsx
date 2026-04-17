@@ -90,25 +90,27 @@ export const DetailPanel = ({
   // Refs
   const titleRef = React.useRef<HTMLInputElement>(null);
   const urlInputRef = React.useRef<HTMLInputElement>(null);
-  const itemIdRef = React.useRef<string | null>(null);
-  const justSwitchedRef = React.useRef(false);
-  const initFieldsRef = React.useRef({
-    title: "",
-    url: "",
-    tags: "",
-    notes: "",
+
+  // Last-saved snapshot, for dirty detection. Initialized to the item's
+  // persisted values (or seeded defaults for a new item) and updated after
+  // each save.
+  const lastSavedRef = React.useRef({
+    title: item?.title ?? "",
+    url: item?.url ?? "",
+    tags: (
+      item?.tags.map((t) => t.name) ??
+      (isNew ? (defaultTags ?? []) : [])
+    ).join(", "),
+    notes: item?.notes ?? "",
   });
-  const getFieldsRef = React.useRef(() => ({
-    title,
-    url,
-    tags: tags.join(", "),
-    notes,
-  }));
-  getFieldsRef.current = () => ({ title, url, tags: tags.join(", "), notes });
+
+  // Latest state, for reading in the unmount cleanup.
+  const liveRef = React.useRef({ title, url, tags, notes });
+  liveRef.current = { title, url, tags, notes };
+
+  // Latest save callback, for reading in the unmount cleanup.
   const onSaveRef = React.useRef(onSave);
   onSaveRef.current = onSave;
-  const itemRef = React.useRef(item);
-  itemRef.current = item;
 
   // Hooks
   const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(
@@ -226,109 +228,65 @@ export const DetailPanel = ({
     },
   });
 
-  // Initialize fields when item changes
+  // Focus the title when a new item's form first mounts.
   React.useEffect(() => {
-    const prevId = itemIdRef.current;
-    if (prevId !== null && prevId !== currentId) {
-      const prev = getFieldsRef.current();
-      const init = initFieldsRef.current;
-      const hasChanges =
-        prev.title !== init.title ||
-        prev.url !== init.url ||
-        prev.tags !== init.tags ||
-        prev.notes !== init.notes;
-      if (hasChanges && (prev.title.trim() || prev.url.trim())) {
-        onSaveRef.current(prevId, prev);
-      }
-    }
-
-    const currentItem = itemRef.current;
-    const initialTitle = currentItem?.title ?? "";
-    const initialUrl = currentItem?.url ?? "";
-    const initialTags =
-      currentItem?.tags.map((tag) => tag.name) ??
-      (isNew ? (defaultTags ?? []) : []);
-    const initialNotes = currentItem?.notes ?? "";
-    setTitle(initialTitle);
-    setUrl(initialUrl);
-    setTags(initialTags);
-    setNotes(initialNotes);
-    setSaving(false);
-    initFieldsRef.current = {
-      title: initialTitle,
-      url: initialUrl,
-      tags: initialTags.join(", "),
-      notes: initialNotes,
-    };
-    itemIdRef.current = currentId;
-    justSwitchedRef.current = true;
-    setAddingCard(false);
-    setNewFront("");
-    setNewBack("");
-    setEditingCardId(null);
-    if (isNew) {
-      requestAnimationFrame(() => titleRef.current?.focus());
-    }
-  }, [currentId, isNew]);
+    if (isNew) requestAnimationFrame(() => titleRef.current?.focus());
+  }, [isNew]);
 
   // Debounced server save
   const tagsString = tags.join(", ");
   React.useEffect(() => {
-    if (justSwitchedRef.current) {
-      justSwitchedRef.current = false;
+    if (isNew || !currentId || currentId === "new") return;
+    const saved = lastSavedRef.current;
+    if (
+      title === saved.title &&
+      url === saved.url &&
+      tagsString === saved.tags &&
+      notes === saved.notes
+    ) {
       return;
     }
-    if (isNew || !currentId || currentId === "new") return;
-    const fields = { title, url, tags: tagsString, notes };
-    const init = initFieldsRef.current;
-    const hasChanges =
-      fields.title !== init.title ||
-      fields.url !== init.url ||
-      fields.tags !== init.tags ||
-      fields.notes !== init.notes;
-    if (!hasChanges) return;
-
     const timeout = setTimeout(() => {
-      onSaveRef.current(currentId, fields);
-      initFieldsRef.current = fields;
+      onSaveRef.current(currentId, { title, url, tags: tagsString, notes });
+      lastSavedRef.current = { title, url, tags: tagsString, notes };
     }, 1000);
     return () => clearTimeout(timeout);
   }, [title, url, tagsString, notes, currentId, isNew]);
 
-  // Report live form state to parent for rendering overrides
-  const prevIdForFieldsRef = React.useRef<string | null>(null);
+  // Report live form state to parent for rendering overrides.
   React.useEffect(() => {
     if (!currentId || currentId === "new") {
       onFieldsChange?.(null);
-      prevIdForFieldsRef.current = currentId;
-      return;
-    }
-    // Skip the first render after switching items — form state is stale
-    if (prevIdForFieldsRef.current !== currentId) {
-      prevIdForFieldsRef.current = currentId;
       return;
     }
     onFieldsChange?.({ title, url, notes, tags });
     return () => onFieldsChange?.(null);
   }, [title, url, notes, tags, currentId, onFieldsChange]);
 
-  // Save on unmount
+  // Save on unmount if there are unflushed changes.
   React.useEffect(() => {
     return () => {
-      const id = itemIdRef.current;
-      if (!id || id === "new") return;
-      const current = getFieldsRef.current();
-      const init = initFieldsRef.current;
-      const hasChanges =
-        current.title !== init.title ||
-        current.url !== init.url ||
-        current.tags !== init.tags ||
-        current.notes !== init.notes;
-      if (hasChanges && (current.title.trim() || current.url.trim())) {
-        onSaveRef.current(id, current);
+      if (!currentId || currentId === "new") return;
+      const live = liveRef.current;
+      const saved = lastSavedRef.current;
+      const liveTags = live.tags.join(", ");
+      if (
+        live.title === saved.title &&
+        live.url === saved.url &&
+        liveTags === saved.tags &&
+        live.notes === saved.notes
+      ) {
+        return;
       }
+      if (!live.title.trim() && !live.url.trim()) return;
+      onSaveRef.current(currentId, {
+        title: live.title,
+        url: live.url,
+        tags: liveTags,
+        notes: live.notes,
+      });
     };
-  }, []);
+  }, [currentId]);
 
   // Keyboard shortcuts within the panel
   React.useEffect(() => {
@@ -342,15 +300,16 @@ export const DetailPanel = ({
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
+        const tagsString = tags.join(", ");
         if (isNew) {
           if (title.trim() || url.trim()) {
             setSaving(true);
-            itemIdRef.current = null;
-            onCreate({ title, url, tags: tags.join(", "), notes });
+            onCreate({ title, url, tags: tagsString, notes });
           }
         } else if (currentId) {
           setSaving(true);
-          onSave(currentId, { title, url, tags: tags.join(", "), notes });
+          onSave(currentId, { title, url, tags: tagsString, notes });
+          lastSavedRef.current = { title, url, tags: tagsString, notes };
         }
       }
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
@@ -569,7 +528,6 @@ export const DetailPanel = ({
               onClick={() => {
                 if (title.trim() || url.trim()) {
                   setSaving(true);
-                  itemIdRef.current = null;
                   onCreate({ title, url, tags: tags.join(", "), notes });
                 }
               }}
