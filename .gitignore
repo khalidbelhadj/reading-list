@@ -26,3 +26,8 @@ db/*.db-journal
 
 # claude
 .claude/
+
+# agents
+.agents/
+/skills-lock.json
+/tmp
