@@ -11,7 +11,7 @@ export const DetailPanelSkeleton = () => (
       {/* Title row: favicon + title + actions */}
       <div className="flex items-center gap-2">
         <Skeleton className="size-5 rounded shrink-0" />
-        <Skeleton className="h-3.5 flex-1 rounded" />
+        <Skeleton className="h-5 flex-1 rounded" />
       </div>
       {/* URL */}
       <Skeleton className="h-3 w-2/3 rounded" />
@@ -24,9 +24,6 @@ export const DetailPanelSkeleton = () => (
         <Skeleton className="h-3 w-3/4 rounded" />
       </div>
     </div>
-
-    {/* Add card placeholder */}
-    <Skeleton className="h-9 rounded-lg" />
 
     {/* Flashcard placeholders */}
     {Array.from({ length: 3 }).map((_, i) => (
