@@ -185,7 +185,7 @@ export function SortableItemRow({
           onToggleRead={onToggleRead}
           onDelete={onDelete}
         >
-          <div className="absolute inset-y-0 right-0 hidden group-hover:flex group-data-[menu-open]:flex items-center pl-12 pr-1 pointer-events-none">
+          <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
             <div
               className={cn(
                 "absolute inset-0 bg-gradient-to-r from-transparent",

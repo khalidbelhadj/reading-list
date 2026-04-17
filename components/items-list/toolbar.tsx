@@ -154,6 +154,7 @@ export const Toolbar = ({
                     }
                     disabled={allTags.length === 0}
                     onClick={() => setTagsOpen((v) => !v)}
+                    suppressHydrationWarning
                   >
                     <IconTag />
                   </Button>
@@ -175,8 +176,11 @@ export const Toolbar = ({
                 }
                 onClick={() => setShowRead((v) => !v)}
                 title={showRead ? "Hide read items" : "Show read items"}
+                suppressHydrationWarning
               >
-                {showRead ? <IconEye /> : <IconEyeOff />}
+                <span suppressHydrationWarning className="contents">
+                  {showRead ? <IconEye /> : <IconEyeOff />}
+                </span>
               </Button>
             )}
           </>

@@ -14,6 +14,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+const AUTO_CLOSE_MS = 3000;
+
 export const ItemDropdown = ({
   item,
   open,
@@ -30,11 +32,44 @@ export const ItemDropdown = ({
   children: React.ReactNode;
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const copyTriggeredRef = React.useRef(false);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
+
+  const cancelCloseTimer = React.useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const startCloseTimer = React.useCallback(() => {
+    cancelCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      onOpenChangeRef.current?.(false);
+      closeTimerRef.current = null;
+    }, AUTO_CLOSE_MS);
+  }, [cancelCloseTimer]);
+
+  // Reset on close + cleanup on unmount
+  React.useEffect(() => {
+    if (!open) {
+      copyTriggeredRef.current = false;
+      cancelCloseTimer();
+    }
+  }, [open, cancelCloseTimer]);
+  React.useEffect(() => () => cancelCloseTimer(), [cancelCloseTimer]);
 
   const handleCopyMarkdown = React.useCallback(() => {
     navigator.clipboard.writeText(`[${item.title}](${item.url})`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+    copyTriggeredRef.current = true;
   }, [item.title, item.url]);
 
   const isRead = isReadingListItem(item) && item.read;
@@ -46,6 +81,10 @@ export const ItemDropdown = ({
         align="end"
         sideOffset={4}
         onClick={(e) => e.stopPropagation()}
+        onMouseEnter={cancelCloseTimer}
+        onMouseLeave={() => {
+          if (copyTriggeredRef.current) startCloseTimer();
+        }}
       >
         <DropdownMenuItem closeOnClick={false} onClick={handleCopyMarkdown}>
           {copied ? <IconCheck /> : <IconCopy />}

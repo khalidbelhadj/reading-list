@@ -1,31 +1,49 @@
 "use server";
 
-import { db } from "@/db";
+import { withUser } from "@/db";
 import { items, itemsTags, tags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function deleteItem(itemId: string) {
-  await db.transaction(async (tx) => {
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
     const [item] = await tx
       .select({ type: items.type, position: items.position })
       .from(items)
-      .where(eq(items.id, itemId));
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
-    await tx.delete(itemsTags).where(eq(itemsTags.itemId, itemId));
-    await tx.delete(items).where(eq(items.id, itemId));
+    if (!item) return;
 
-    if (item) {
-      // Decrement positions for items that were after the deleted one (single query)
-      await tx
-        .update(items)
-        .set({ position: sql`${items.position} - 1` })
-        .where(
-          and(eq(items.type, item.type), gte(items.position, item.position)),
-        );
-    }
+    await tx
+      .delete(itemsTags)
+      .where(
+        inArray(
+          itemsTags.itemId,
+          tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, itemId), eq(items.userId, userId))),
+        ),
+      );
+    await tx
+      .delete(flashcards)
+      .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)));
+    await tx
+      .delete(items)
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+
+    await tx
+      .update(items)
+      .set({ position: sql`${items.position} - 1` })
+      .where(
+        and(
+          eq(items.userId, userId),
+          eq(items.type, item.type),
+          gte(items.position, item.position),
+        ),
+      );
   });
-  revalidatePath("/");
 }
 
 async function fetchOembedTitle(url: string): Promise<string | null> {
@@ -104,19 +122,27 @@ export async function createItem(
   id?: string,
   position?: number,
 ) {
+  const userId = await getCurrentUserId();
   const itemId = id ?? crypto.randomUUID();
   const now = new Date().toISOString();
   const insertAt = position ?? 0;
 
-  await db.transaction(async (tx) => {
-    // Shift items at or after the insertion point down by 1
+  await withUser(userId, async (tx) => {
+    // Shift items at or after the insertion point down by 1 — scoped to this user's items.
     await tx
       .update(items)
       .set({ position: sql`${items.position} + 1` })
-      .where(and(eq(items.type, type), gte(items.position, insertAt)));
+      .where(
+        and(
+          eq(items.userId, userId),
+          eq(items.type, type),
+          gte(items.position, insertAt),
+        ),
+      );
 
     await tx.insert(items).values({
       id: itemId,
+      userId,
       title,
       url,
       faviconUrl: faviconUrl ?? null,
@@ -129,9 +155,15 @@ export async function createItem(
     });
 
     for (const tagName of tagNames) {
-      await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
+      await tx
+        .insert(tags)
+        .values({ userId, name: tagName })
+        .onConflictDoNothing();
 
-      const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
+      const [tag] = await tx
+        .select()
+        .from(tags)
+        .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
 
       if (tag) {
         await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
@@ -139,7 +171,6 @@ export async function createItem(
     }
   });
 
-  revalidatePath("/");
   return itemId;
 }
 
@@ -156,9 +187,10 @@ export async function updateItem(
     tagNames?: string[];
   },
 ) {
+  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
 
-  await db.transaction(async (tx) => {
+  await withUser(userId, async (tx) => {
     const set: Record<string, unknown> = { updatedAt: now };
     if (fields.title !== undefined) set.title = fields.title;
     if (fields.url !== undefined) set.url = fields.url;
@@ -172,41 +204,58 @@ export async function updateItem(
       const [current] = await tx
         .select({ type: items.type })
         .from(items)
-        .where(eq(items.id, itemId));
+        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
       if (current && fields.type !== current.type) {
-        // Shift items in new type down
+        // Shift items in new type down — user-scoped.
         await tx
           .update(items)
           .set({ position: sql`${items.position} + 1` })
-          .where(eq(items.type, fields.type));
+          .where(and(eq(items.userId, userId), eq(items.type, fields.type)));
         set.position = 0;
         set.type = fields.type;
 
-        // Update the item first so it's out of the old type
-        await tx.update(items).set(set).where(eq(items.id, itemId));
+        await tx
+          .update(items)
+          .set(set)
+          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
-        // Renumber old type
+        // Renumber old type — user-scoped.
         const oldTypeItems = await tx
           .select({ id: items.id })
           .from(items)
-          .where(eq(items.type, current.type))
+          .where(and(eq(items.userId, userId), eq(items.type, current.type)))
           .orderBy(asc(items.position));
         for (let i = 0; i < oldTypeItems.length; i++) {
           await tx
             .update(items)
             .set({ position: i })
-            .where(eq(items.id, oldTypeItems[i].id));
+            .where(
+              and(eq(items.id, oldTypeItems[i].id), eq(items.userId, userId)),
+            );
         }
       } else {
         set.type = fields.type;
-        await tx.update(items).set(set).where(eq(items.id, itemId));
+        await tx
+          .update(items)
+          .set(set)
+          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
       }
     } else {
-      await tx.update(items).set(set).where(eq(items.id, itemId));
+      await tx
+        .update(items)
+        .set(set)
+        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
     }
 
     if (fields.tagNames !== undefined) {
+      // Verify ownership of the item before mutating tag links.
+      const [owned] = await tx
+        .select({ id: items.id })
+        .from(items)
+        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+      if (!owned) return;
+
       const existingLinks = await tx
         .select({ tagId: itemsTags.tagId })
         .from(itemsTags)
@@ -215,11 +264,14 @@ export async function updateItem(
 
       const newTagIds: number[] = [];
       for (const tagName of fields.tagNames) {
-        await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
+        await tx
+          .insert(tags)
+          .values({ userId, name: tagName })
+          .onConflictDoNothing();
         const [tag] = await tx
           .select()
           .from(tags)
-          .where(eq(tags.name, tagName));
+          .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
         if (tag) newTagIds.push(tag.id);
       }
 
@@ -241,7 +293,6 @@ export async function updateItem(
     }
   });
 
-  revalidatePath("/");
 }
 
 export async function reorderItem(
@@ -249,11 +300,12 @@ export async function reorderItem(
   type: string,
   newPosition: number,
 ) {
-  await db.transaction(async (tx) => {
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
     const typeItems = await tx
       .select({ id: items.id, position: items.position })
       .from(items)
-      .where(eq(items.type, type))
+      .where(and(eq(items.userId, userId), eq(items.type, type)))
       .orderBy(asc(items.position));
 
     const currentIndex = typeItems.findIndex((i) => i.id === itemId);
@@ -268,109 +320,138 @@ export async function reorderItem(
         await tx
           .update(items)
           .set({ position: i })
-          .where(eq(items.id, typeItems[i].id));
+          .where(
+            and(eq(items.id, typeItems[i].id), eq(items.userId, userId)),
+          );
       }
     }
   });
 
-  revalidatePath("/");
 }
 
 export async function toggleRead(itemId: string, read: boolean) {
+  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  await db
-    .update(items)
-    .set({ read, readAt: read ? now : null, updatedAt: now })
-    .where(eq(items.id, itemId));
-  revalidatePath("/");
+  await withUser(userId, async (tx) => {
+    await tx
+      .update(items)
+      .set({ read, readAt: read ? now : null, updatedAt: now })
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+  });
 }
 
 export async function bulkDeleteItems(itemIds: string[]) {
   if (itemIds.length === 0) return;
 
-  await db.transaction(async (tx) => {
-    // Find affected types before deleting
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
+    // Find affected types, ownership-filtered.
     const affectedItems = await tx
-      .select({ type: items.type })
+      .select({ id: items.id, type: items.type })
       .from(items)
-      .where(inArray(items.id, itemIds));
+      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
+    const ownedIds = affectedItems.map((i) => i.id);
+    if (ownedIds.length === 0) return;
     const affectedTypes = Array.from(new Set(affectedItems.map((i) => i.type)));
 
-    // Delete tag links and items
-    await tx.delete(itemsTags).where(inArray(itemsTags.itemId, itemIds));
-    await tx.delete(items).where(inArray(items.id, itemIds));
+    await tx.delete(itemsTags).where(inArray(itemsTags.itemId, ownedIds));
+    await tx
+      .delete(flashcards)
+      .where(
+        and(
+          inArray(flashcards.itemId, ownedIds),
+          eq(flashcards.userId, userId),
+        ),
+      );
+    await tx
+      .delete(items)
+      .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
 
-    // Renumber positions per affected type (single query each)
     for (const type of affectedTypes) {
       await tx.execute(sql`
         UPDATE ${items} SET position = sub.new_pos
         FROM (
           SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
-          FROM ${items} WHERE type = ${type}
+          FROM ${items}
+          WHERE type = ${type} AND user_id = ${userId}
         ) sub
         WHERE ${items}.id = sub.id
       `);
     }
   });
 
-  revalidatePath("/");
 }
 
 export async function bulkMoveItems(itemIds: string[], newType: string) {
   if (itemIds.length === 0) return;
 
-  await db.transaction(async (tx) => {
-    // Find source types
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
+    // Ownership-filtered source items.
     const sourceItems = await tx
       .select({ id: items.id, type: items.type })
       .from(items)
-      .where(inArray(items.id, itemIds));
+      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
+    const ownedIds = sourceItems.map((i) => i.id);
+    if (ownedIds.length === 0) return;
     const sourceTypes = Array.from(new Set(sourceItems.map((i) => i.type)));
 
-    // Shift existing items in target type to make room
+    // Shift existing items in target type — user-scoped.
     await tx
       .update(items)
-      .set({ position: sql`${items.position} + ${itemIds.length}` })
-      .where(eq(items.type, newType));
+      .set({ position: sql`${items.position} + ${ownedIds.length}` })
+      .where(and(eq(items.userId, userId), eq(items.type, newType)));
 
-    // Move items to new type with positions 0..n-1
     const now = new Date().toISOString();
-    for (let i = 0; i < itemIds.length; i++) {
+    for (let i = 0; i < ownedIds.length; i++) {
       await tx
         .update(items)
         .set({ type: newType, position: i, updatedAt: now })
-        .where(eq(items.id, itemIds[i]));
+        .where(and(eq(items.id, ownedIds[i]), eq(items.userId, userId)));
     }
 
-    // Renumber source types
     for (const type of sourceTypes) {
       if (type === newType) continue;
       const remaining = await tx
         .select({ id: items.id })
         .from(items)
-        .where(eq(items.type, type))
+        .where(and(eq(items.userId, userId), eq(items.type, type)))
         .orderBy(asc(items.position));
       for (let i = 0; i < remaining.length; i++) {
         await tx
           .update(items)
           .set({ position: i })
-          .where(eq(items.id, remaining[i].id));
+          .where(and(eq(items.id, remaining[i].id), eq(items.userId, userId)));
       }
     }
   });
 
-  revalidatePath("/");
 }
 
 export async function bulkTag(itemIds: string[], tagNames: string[]) {
   if (itemIds.length === 0 || tagNames.length === 0) return;
 
-  await db.transaction(async (tx) => {
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
+    // Filter to owned items only.
+    const owned = await tx
+      .select({ id: items.id })
+      .from(items)
+      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
+    const ownedIds = owned.map((i) => i.id);
+    if (ownedIds.length === 0) return;
+
     for (const tagName of tagNames) {
-      await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
-      const [tag] = await tx.select().from(tags).where(eq(tags.name, tagName));
+      await tx
+        .insert(tags)
+        .values({ userId, name: tagName })
+        .onConflictDoNothing();
+      const [tag] = await tx
+        .select()
+        .from(tags)
+        .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
       if (!tag) continue;
-      for (const itemId of itemIds) {
+      for (const itemId of ownedIds) {
         await tx
           .insert(itemsTags)
           .values({ itemId, tagId: tag.id })
@@ -379,58 +460,77 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
     }
   });
 
-  revalidatePath("/");
 }
 
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
   if (itemIds.length === 0) return;
 
+  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  await db
-    .update(items)
-    .set({ read, readAt: read ? now : null, updatedAt: now })
-    .where(inArray(items.id, itemIds));
+  await withUser(userId, async (tx) => {
+    await tx
+      .update(items)
+      .set({ read, readAt: read ? now : null, updatedAt: now })
+      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
+  });
 
-  revalidatePath("/");
 }
 
 // Flashcard actions
 
 export async function getFlashcardCounts(): Promise<Map<string, number>> {
-  const rows = await db
-    .select({
-      itemId: flashcards.itemId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(flashcards)
-    .groupBy(flashcards.itemId);
-  return new Map(rows.filter((r) => r.itemId !== null).map((r) => [r.itemId!, r.count]));
+  const userId = await getCurrentUserId();
+  const rows = await withUser(userId, (tx) =>
+    tx
+      .select({
+        itemId: flashcards.itemId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(flashcards)
+      .where(eq(flashcards.userId, userId))
+      .groupBy(flashcards.itemId),
+  );
+  return new Map(
+    rows.filter((r) => r.itemId !== null).map((r) => [r.itemId!, r.count]),
+  );
 }
 
 export async function getFlashcards(itemId: string) {
-  return db
-    .select()
-    .from(flashcards)
-    .where(eq(flashcards.itemId, itemId))
-    .orderBy(desc(flashcards.createdAt));
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) =>
+    tx
+      .select()
+      .from(flashcards)
+      .where(
+        and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)),
+      )
+      .orderBy(desc(flashcards.createdAt)),
+  );
 }
 
 export async function getAllFlashcards() {
-  return db
-    .select({
-      id: flashcards.id,
-      front: flashcards.front,
-      back: flashcards.back,
-      itemId: flashcards.itemId,
-      itemTitle: items.title,
-      itemUrl: items.url,
-      itemFaviconUrl: items.faviconUrl,
-      createdAt: flashcards.createdAt,
-      updatedAt: flashcards.updatedAt,
-    })
-    .from(flashcards)
-    .leftJoin(items, eq(flashcards.itemId, items.id))
-    .orderBy(desc(flashcards.createdAt));
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) =>
+    tx
+      .select({
+        id: flashcards.id,
+        front: flashcards.front,
+        back: flashcards.back,
+        itemId: flashcards.itemId,
+        itemTitle: items.title,
+        itemUrl: items.url,
+        itemFaviconUrl: items.faviconUrl,
+        createdAt: flashcards.createdAt,
+        updatedAt: flashcards.updatedAt,
+      })
+      .from(flashcards)
+      .leftJoin(
+        items,
+        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+      )
+      .where(eq(flashcards.userId, userId))
+      .orderBy(desc(flashcards.createdAt)),
+  );
 }
 
 export async function createFlashcard(
@@ -438,30 +538,52 @@ export async function createFlashcard(
   front: string,
   back: string,
 ) {
+  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  await db.insert(flashcards).values({
-    id,
-    itemId,
-    front,
-    back,
-    createdAt: now,
-    updatedAt: now,
+  return withUser(userId, async (tx) => {
+    // Verify the item belongs to this user before linking a flashcard to it.
+    const [owned] = await tx
+      .select({ id: items.id })
+      .from(items)
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+    if (!owned) throw new Error("Item not found");
+
+    await tx.insert(flashcards).values({
+      id,
+      userId,
+      itemId,
+      front,
+      back,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { id, itemId, front, back, createdAt: now, updatedAt: now };
   });
-  return { id, itemId, front, back, createdAt: now, updatedAt: now };
 }
 
 export async function updateFlashcard(
   id: string,
   fields: { front?: string; back?: string },
 ) {
+  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   const set: Record<string, unknown> = { updatedAt: now };
   if (fields.front !== undefined) set.front = fields.front;
   if (fields.back !== undefined) set.back = fields.back;
-  await db.update(flashcards).set(set).where(eq(flashcards.id, id));
+  await withUser(userId, (tx) =>
+    tx
+      .update(flashcards)
+      .set(set)
+      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId))),
+  );
 }
 
 export async function deleteFlashcard(id: string) {
-  await db.delete(flashcards).where(eq(flashcards.id, id));
+  const userId = await getCurrentUserId();
+  await withUser(userId, (tx) =>
+    tx
+      .delete(flashcards)
+      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId))),
+  );
 }

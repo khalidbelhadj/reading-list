@@ -1,21 +1,29 @@
 import { db } from "./index";
 import { items } from "./schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 
 async function fixPositions() {
+  const userId = process.env.FIX_USER_ID;
+  if (!userId) {
+    console.error(
+      "Set FIX_USER_ID to the Supabase auth.users.id whose positions should be renumbered.",
+    );
+    process.exit(1);
+  }
+
   await db.transaction(async (tx) => {
     for (const type of ["reading-list"]) {
       const rows = await tx
         .select({ id: items.id })
         .from(items)
-        .where(eq(items.type, type))
+        .where(and(eq(items.userId, userId), eq(items.type, type)))
         .orderBy(desc(items.createdAt));
 
       for (let i = 0; i < rows.length; i++) {
         await tx
           .update(items)
           .set({ position: i })
-          .where(eq(items.id, rows[i].id));
+          .where(and(eq(items.id, rows[i].id), eq(items.userId, userId)));
       }
 
       console.log(`${type}: renumbered ${rows.length} items (newest first)`);

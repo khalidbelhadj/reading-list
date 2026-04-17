@@ -14,26 +14,40 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
     });
   }, [activeTab]);
 
-  const [tagsOpen, setTagsOpen] = React.useState(false);
-  const [showRead, setShowRead] = React.useState(false);
+  // Read preferences synchronously on first client render so filters apply
+  // from frame 1. On the server `window` is undefined and we use defaults;
+  // the toolbar elements that reflect these values wrap their mismatching
+  // content in `<span suppressHydrationWarning>` to silence the structural
+  // mismatch warning.
+  const [tagsOpen, setTagsOpen] = React.useState(() =>
+    typeof window === "undefined"
+      ? false
+      : localStorage.getItem("tagsOpen") === "true",
+  );
+  const [showRead, setShowRead] = React.useState(() =>
+    typeof window === "undefined"
+      ? false
+      : localStorage.getItem("showRead") === "true",
+  );
   const [search, setSearch] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [hydrated, setHydrated] = React.useState(false);
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch
   React.useEffect(() => {
     try {
       const stored = localStorage.getItem("activeTagsMap");
       if (stored) setActiveTagsMap(JSON.parse(stored));
     } catch {}
-    setTagsOpen(localStorage.getItem("tagsOpen") === "true");
-    setShowRead(localStorage.getItem("showRead") === "true");
-    setHydrated(true);
   }, []);
 
-  React.useEffect(() => { if (hydrated) localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap)); }, [activeTagsMap, hydrated]);
-  React.useEffect(() => { if (hydrated) localStorage.setItem("tagsOpen", String(tagsOpen)); }, [tagsOpen, hydrated]);
-  React.useEffect(() => { if (hydrated) localStorage.setItem("showRead", String(showRead)); }, [showRead, hydrated]);
+  React.useEffect(() => {
+    localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap));
+  }, [activeTagsMap]);
+  React.useEffect(() => {
+    localStorage.setItem("tagsOpen", String(tagsOpen));
+  }, [tagsOpen]);
+  React.useEffect(() => {
+    localStorage.setItem("showRead", String(showRead));
+  }, [showRead]);
 
   const tabType = "reading-list";
 

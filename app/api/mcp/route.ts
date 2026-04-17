@@ -6,10 +6,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { similarity as trigramSimilarity } from "@/lib/trigram";
-import { db } from "@/db";
+import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { getCurrentUserIdFromRequest } from "@/lib/auth";
 
 const TOOLS = [
   {
@@ -162,7 +162,7 @@ function text(content: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleTool(name: string, args: any) {
+async function handleTool(name: string, args: any, userId: string) {
   switch (name) {
     case "get_items": {
       const dir = args.order === "desc" ? desc : asc;
@@ -173,10 +173,13 @@ async function handleTool(name: string, args: any) {
         title: dir(items.title),
       }[args.sort as string] ?? dir(items.position);
 
-      const allItems = await db.query.items.findMany({
-        orderBy: [orderBy],
-        with: { itemsTags: { with: { tag: true } } },
-      });
+      const allItems = await withUser(userId, (tx) =>
+        tx.query.items.findMany({
+          where: eq(items.userId, userId),
+          orderBy: [orderBy],
+          with: { itemsTags: { with: { tag: true } } },
+        }),
+      );
       let result = allItems.map(({ itemsTags: it, ...item }) => ({
         ...item,
         tags: it.map((t) => t.tag.name),
@@ -203,15 +206,23 @@ async function handleTool(name: string, args: any) {
       const offset = args.offset ?? 0;
       if (offset > 0) result = result.slice(offset);
       if (args.limit) result = result.slice(0, args.limit);
-      return text(JSON.stringify({ items: result, total, offset, limit: args.limit ?? null }, null, 2));
+      return text(
+        JSON.stringify(
+          { items: result, total, offset, limit: args.limit ?? null },
+          null,
+          2,
+        ),
+      );
     }
 
     case "get_item_by_url": {
-      const [item] = await db.query.items.findMany({
-        where: eq(items.url, args.url),
-        with: { itemsTags: { with: { tag: true } } },
-        limit: 1,
-      });
+      const [item] = await withUser(userId, (tx) =>
+        tx.query.items.findMany({
+          where: and(eq(items.url, args.url), eq(items.userId, userId)),
+          with: { itemsTags: { with: { tag: true } } },
+          limit: 1,
+        }),
+      );
       if (!item) return text("Not found");
       const { itemsTags: it, ...rest } = item;
       return text(
@@ -225,13 +236,14 @@ async function handleTool(name: string, args: any) {
       const type = args.type ?? "reading-list";
       const tagNames: string[] = args.tagNames ?? [];
 
-      await db.transaction(async (tx) => {
+      await withUser(userId, async (tx) => {
         await tx
           .update(items)
           .set({ position: sql`${items.position} + 1` })
-          .where(eq(items.type, type));
+          .where(and(eq(items.userId, userId), eq(items.type, type)));
         await tx.insert(items).values({
           id: itemId,
+          userId,
           title: args.title,
           url: args.url,
           faviconUrl: null,
@@ -243,26 +255,37 @@ async function handleTool(name: string, args: any) {
           updatedAt: now,
         });
         for (const tagName of tagNames) {
-          await tx.insert(tags).values({ name: tagName }).onConflictDoNothing();
+          await tx
+            .insert(tags)
+            .values({ userId, name: tagName })
+            .onConflictDoNothing();
           const [tag] = await tx
             .select()
             .from(tags)
-            .where(eq(tags.name, tagName));
+            .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
           if (tag) await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
         }
       });
-      revalidatePath("/");
       return text(JSON.stringify({ id: itemId }));
     }
 
     case "update_item": {
       const now = new Date().toISOString();
-      await db.transaction(async (tx) => {
+      const result = await withUser(userId, async (tx) => {
+        const [owned] = await tx
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
+        if (!owned) return { ok: false };
+
         const set: Record<string, unknown> = { updatedAt: now };
         if (args.title !== undefined) set.title = args.title;
         if (args.url !== undefined) set.url = args.url;
         if (args.notes !== undefined) set.notes = args.notes;
-        await tx.update(items).set(set).where(eq(items.id, args.id));
+        await tx
+          .update(items)
+          .set(set)
+          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
 
         if (args.tagNames !== undefined) {
           const existingLinks = await tx
@@ -274,12 +297,12 @@ async function handleTool(name: string, args: any) {
           for (const tagName of args.tagNames) {
             await tx
               .insert(tags)
-              .values({ name: tagName })
+              .values({ userId, name: tagName })
               .onConflictDoNothing();
             const [tag] = await tx
               .select()
               .from(tags)
-              .where(eq(tags.name, tagName));
+              .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
             if (tag) newTagIds.push(tag.id);
           }
           for (const tagId of existingTagIds) {
@@ -300,39 +323,74 @@ async function handleTool(name: string, args: any) {
             }
           }
         }
+        return { ok: true };
       });
-      revalidatePath("/");
+      if (!result.ok) return text("Not found");
       return text("Updated");
     }
 
     case "delete_item": {
-      await db.delete(itemsTags).where(eq(itemsTags.itemId, args.id));
-      await db.delete(flashcards).where(eq(flashcards.itemId, args.id));
-      await db.delete(items).where(eq(items.id, args.id));
-      revalidatePath("/");
+      const deleted = await withUser(userId, async (tx) => {
+        const [owned] = await tx
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
+        if (!owned) return false;
+        await tx.delete(itemsTags).where(eq(itemsTags.itemId, args.id));
+        await tx
+          .delete(flashcards)
+          .where(
+            and(
+              eq(flashcards.itemId, args.id),
+              eq(flashcards.userId, userId),
+            ),
+          );
+        await tx
+          .delete(items)
+          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
+        return true;
+      });
+      if (!deleted) return text("Not found");
       return text("Deleted");
     }
 
     case "get_flashcards": {
-      const cards = await db
-        .select()
-        .from(flashcards)
-        .where(eq(flashcards.itemId, args.itemId))
-        .orderBy(desc(flashcards.createdAt));
+      const cards = await withUser(userId, (tx) =>
+        tx
+          .select()
+          .from(flashcards)
+          .where(
+            and(
+              eq(flashcards.itemId, args.itemId),
+              eq(flashcards.userId, userId),
+            ),
+          )
+          .orderBy(desc(flashcards.createdAt)),
+      );
       return text(JSON.stringify(cards, null, 2));
     }
 
     case "create_flashcard": {
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
-      await db.insert(flashcards).values({
-        id,
-        itemId: args.itemId,
-        front: args.front,
-        back: args.back,
-        createdAt: now,
-        updatedAt: now,
+      const result = await withUser(userId, async (tx) => {
+        const [owned] = await tx
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, args.itemId), eq(items.userId, userId)));
+        if (!owned) return { ok: false };
+        await tx.insert(flashcards).values({
+          id,
+          userId,
+          itemId: args.itemId,
+          front: args.front,
+          back: args.back,
+          createdAt: now,
+          updatedAt: now,
+        });
+        return { ok: true };
       });
+      if (!result.ok) return text("Item not found");
       return text(JSON.stringify({ id }));
     }
 
@@ -341,12 +399,25 @@ async function handleTool(name: string, args: any) {
       const set: Record<string, unknown> = { updatedAt: now };
       if (args.front !== undefined) set.front = args.front;
       if (args.back !== undefined) set.back = args.back;
-      await db.update(flashcards).set(set).where(eq(flashcards.id, args.id));
+      await withUser(userId, (tx) =>
+        tx
+          .update(flashcards)
+          .set(set)
+          .where(
+            and(eq(flashcards.id, args.id), eq(flashcards.userId, userId)),
+          ),
+      );
       return text("Updated");
     }
 
     case "delete_flashcard": {
-      await db.delete(flashcards).where(eq(flashcards.id, args.id));
+      await withUser(userId, (tx) =>
+        tx
+          .delete(flashcards)
+          .where(
+            and(eq(flashcards.id, args.id), eq(flashcards.userId, userId)),
+          ),
+      );
       return text("Deleted");
     }
 
@@ -358,7 +429,7 @@ async function handleTool(name: string, args: any) {
   }
 }
 
-function createServer() {
+function createServer(userId: string) {
   const server = new Server(
     { name: "reading-list", version: "1.0.0" },
     { capabilities: { tools: {} } },
@@ -369,14 +440,19 @@ function createServer() {
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    return handleTool(request.params.name, request.params.arguments ?? {});
+    return handleTool(
+      request.params.name,
+      request.params.arguments ?? {},
+      userId,
+    );
   });
 
   return server;
 }
 
 async function handleMcpRequest(request: Request): Promise<Response> {
-  const server = createServer();
+  const userId = await getCurrentUserIdFromRequest(request);
+  const server = createServer(userId);
   const transport = new WebStandardStreamableHTTPServerTransport();
   await server.connect(transport);
   return transport.handleRequest(request);

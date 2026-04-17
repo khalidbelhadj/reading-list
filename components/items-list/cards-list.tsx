@@ -6,12 +6,13 @@ import { useQuery } from "@tanstack/react-query";
 import { IconFile } from "@tabler/icons-react";
 
 import { getAllFlashcards } from "@/app/actions";
+import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { fetchItems, getFaviconSrc } from "./utils";
+import { getFaviconSrc } from "./utils";
 
 export const CardsList = ({
   onOpenItem,

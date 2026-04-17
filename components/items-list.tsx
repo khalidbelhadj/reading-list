@@ -14,13 +14,27 @@ import {
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft, IconFile } from "@tabler/icons-react";
+import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { isReadingListItem, type Item } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import { getFaviconSrc } from "./items-list/utils";
 
 type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
@@ -36,7 +50,9 @@ import { TagFilters } from "./items-list/tag-filters";
 import { ItemFormDrawer } from "./items-list/item-form-drawer";
 import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 import { DetailPanel } from "./items-list/detail-panel";
+import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList } from "./items-list/cards-list";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const ItemsList = () => {
   // Data
@@ -55,7 +71,10 @@ export const ItemsList = () => {
   const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
+    null,
+  );
+  const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
   const [justDropped, setJustDropped] = React.useState(false);
@@ -121,11 +140,28 @@ export const ItemsList = () => {
     return () => window.removeEventListener("popstate", handler);
   }, []);
 
+  // Remember which tab the user opened the focused view from, so Back returns
+  // them to that tab (e.g. open from Cards → back to Cards).
+  const focusedFromTabRef = React.useRef<string | null>(null);
+
   const handleExpandItem = React.useCallback(
-    (id: string) => setFocusedId(id),
-    [],
+    (id: string) => {
+      focusedFromTabRef.current = activeTab;
+      setFocusedId(id);
+    },
+    [activeTab],
   );
-  const handleCloseFocused = React.useCallback(() => setFocusedId(null), []);
+  const handleCloseFocused = React.useCallback(() => {
+    const fromTab = focusedFromTabRef.current;
+    if (fromTab && fromTab !== activeTab) {
+      setActiveTabAndUrl(fromTab);
+    }
+    focusedFromTabRef.current = null;
+    // Select the item we were focused on, so the side panel renders at the
+    // morph target position (otherwise the back morph has nowhere to land).
+    if (focusedId) setSelectedId(focusedId);
+    setFocusedId(null);
+  }, [activeTab, focusedId, setActiveTabAndUrl]);
 
   // Hooks
   const {
@@ -155,6 +191,40 @@ export const ItemsList = () => {
       setCursor,
     });
 
+  const requestDeleteItem = React.useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+  const pendingDeleteItem = pendingDeleteId
+    ? items?.find((i) => i.id === pendingDeleteId) ?? null
+    : null;
+  const confirmDelete = React.useCallback(async () => {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    try {
+      await handleDeleteSingle(pendingDeleteId);
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, handleDeleteSingle]);
+
+  // Cmd+Enter confirms delete when the dialog is open.
+  React.useEffect(() => {
+    if (!pendingDeleteId) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !deleting) {
+        e.preventDefault();
+        confirmDelete();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [pendingDeleteId, deleting, confirmDelete]);
+
+  const pendingFaviconSrc = pendingDeleteItem
+    ? getFaviconSrc(pendingDeleteItem)
+    : null;
+
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
     selectedId,
@@ -172,7 +242,9 @@ export const ItemsList = () => {
     tabItems,
     cursorRef,
     setCursor,
-    onRequestDelete: React.useCallback(() => setDeleteDialogOpen(true), []),
+    onRequestDelete: React.useCallback(() => {
+      if (selectedId) setPendingDeleteId(selectedId);
+    }, [selectedId]),
   });
 
   // Mutations
@@ -344,6 +416,7 @@ export const ItemsList = () => {
     <div className="relative">
       <div
         className={cn(
+          "transition-opacity duration-200",
           focusedItem &&
             "fixed inset-0 opacity-0 pointer-events-none overflow-hidden",
         )}
@@ -389,13 +462,30 @@ export const ItemsList = () => {
         {activeTab === "cards" ? (
           <CardsList
             onOpenItem={(id) => {
+              focusedFromTabRef.current = activeTab;
               setActiveTabAndUrl("reading-list");
               setFocusedId(id);
             }}
           />
         ) : isLoading ? (
-          <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-            Loading...
+          <div className="flex flex-col">
+            {Array.from({ length: 15 }).map((_, i) => {
+              // Pseudo-random-but-stable widths so rows don't look uniform.
+              const titleWidth = 30 + ((i * 17) % 55);
+              return (
+                <div
+                  key={i}
+                  style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
+                  className="flex items-center gap-2 p-1 h-7"
+                >
+                  <Skeleton className="size-4 rounded-[3px] shrink-0" />
+                  <Skeleton
+                    className="h-3 rounded-md"
+                    style={{ width: `${titleWidth}%` }}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <DndContext
@@ -422,7 +512,7 @@ export const ItemsList = () => {
                   <SortableItemRow
                     key={item.id}
                     item={selectedId === item.id && liveFields
-                      ? { ...item, title: liveFields.title, url: liveFields.url, notes: liveFields.notes, tags: liveFields.tags.map((name, i) => ({ id: i, name })) }
+                      ? { ...item, title: liveFields.title, url: liveFields.url, notes: liveFields.notes, tags: liveFields.tags.map((name, i) => ({ id: i, name, userId: item.userId })) }
                       : item}
                     flashcardCount={flashcardCounts.get(item.id) ?? 0}
                     isEditing={isMobile && editingId === item.id}
@@ -463,7 +553,7 @@ export const ItemsList = () => {
                     }}
                     onSave={(fields) => handleSave(item.id, fields)}
                     onCancelEdit={() => setEditingId(null)}
-                    onDelete={() => handleDeleteSingle(item.id)}
+                    onDelete={() => requestDeleteItem(item.id)}
                     onOpenMenu={() => setMenuItemId(item.id)}
                   />
                 ))}
@@ -487,7 +577,7 @@ export const ItemsList = () => {
               onCancel={() => setEditingId(null)}
               onDelete={
                 editingId && editingId !== "new"
-                  ? () => handleDeleteSingle(editingId)
+                  ? () => requestDeleteItem(editingId)
                   : undefined
               }
             />
@@ -512,7 +602,7 @@ export const ItemsList = () => {
                       : undefined
                   }
                   onDelete={() => {
-                    if (menuItemId) handleDeleteSingle(menuItemId);
+                    if (menuItemId) requestDeleteItem(menuItemId);
                     setMenuItemId(null);
                   }}
                 />
@@ -523,35 +613,42 @@ export const ItemsList = () => {
       </div>
 
       {/* Desktop detail panel — unmounts in focused mode so layoutId can pair */}
-      {showDetailPanel && !focusedItem && (
-        <DetailPanel
-          item={detailItem}
-          isNew={isNewItem}
-          onSave={(itemId, fields) => handleSave(itemId, fields)}
-          onFlashcardChange={() =>
-            queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
-          }
-          onCreate={handleCreate}
-          onCancel={isNewItem ? () => setEditingId(null) : undefined}
-          deleteDialogOpen={deleteDialogOpen}
-          setDeleteDialogOpen={setDeleteDialogOpen}
-          onDelete={
-            detailItem ? () => handleDeleteSingle(detailItem.id) : undefined
-          }
-          onToggleRead={
-            detailItem && isReadingListItem(detailItem)
-              ? () => handleToggleRead(detailItem.id, !detailItem.read)
-              : undefined
-          }
-          onExpand={detailItem ? () => handleExpandItem(detailItem.id) : undefined}
-          onFieldsChange={setLiveFields}
-        />
+      {showDetailPanel && !focusedId && (
+        <motion.div
+          layoutId="item-card"
+          layoutDependency="side"
+          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
+          data-detail-panel
+          className="w-80 fixed top-5 max-h-[calc(100vh-2.5rem)] overflow-y-auto detail-panel-scroll"
+          style={{ left: "calc(50% + 19.5rem)" }}
+        >
+          <DetailPanel
+            item={detailItem}
+            isNew={isNewItem}
+            onSave={(itemId, fields) => handleSave(itemId, fields)}
+            onFlashcardChange={() =>
+              queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
+            }
+            onCreate={handleCreate}
+            onCancel={isNewItem ? () => setEditingId(null) : undefined}
+            onDelete={
+              detailItem ? () => requestDeleteItem(detailItem.id) : undefined
+            }
+            onToggleRead={
+              detailItem && isReadingListItem(detailItem)
+                ? () => handleToggleRead(detailItem.id, !detailItem.read)
+                : undefined
+            }
+            onExpand={detailItem ? () => handleExpandItem(detailItem.id) : undefined}
+            onFieldsChange={setLiveFields}
+          />
+        </motion.div>
       )}
       </div>
 
       {/* Focused item overlay */}
       <AnimatePresence initial={false}>
-        {focusedItem && (
+        {focusedId && (
           <div className="fixed inset-0 z-20 overflow-y-auto px-5 pb-5 pt-5">
             <div className="mx-auto max-w-150 flex flex-col gap-3">
               <motion.div
@@ -570,29 +667,93 @@ export const ItemsList = () => {
                   Back
                 </Button>
               </motion.div>
-              <DetailPanel
-                focused
-                item={focusedItem}
-                isNew={false}
-                onSave={(itemId, fields) => handleSave(itemId, fields)}
-                onFlashcardChange={() =>
-                  queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
-                }
-                onCreate={handleCreate}
-                deleteDialogOpen={deleteDialogOpen}
-                setDeleteDialogOpen={setDeleteDialogOpen}
-                onDelete={() => handleDeleteSingle(focusedItem.id)}
-                onToggleRead={
-                  isReadingListItem(focusedItem)
-                    ? () => handleToggleRead(focusedItem.id, !focusedItem.read)
-                    : undefined
-                }
-                onFieldsChange={setLiveFields}
-              />
+              <motion.div
+                layoutId="item-card"
+                layoutDependency="focused"
+                transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
+                data-detail-panel
+                className="w-full"
+              >
+                {focusedItem ? (
+                  <DetailPanel
+                    focused
+                    item={focusedItem}
+                    isNew={false}
+                    onSave={(itemId, fields) => handleSave(itemId, fields)}
+                    onFlashcardChange={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ["flashcard-counts"],
+                      })
+                    }
+                    onCreate={handleCreate}
+                    onDelete={() => requestDeleteItem(focusedItem.id)}
+                    onToggleRead={
+                      isReadingListItem(focusedItem)
+                        ? () =>
+                            handleToggleRead(focusedItem.id, !focusedItem.read)
+                        : undefined
+                    }
+                    onFieldsChange={setLiveFields}
+                  />
+                ) : (
+                  <DetailPanelSkeleton />
+                )}
+              </motion.div>
             </div>
           </div>
         )}
       </AnimatePresence>
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete item</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this item? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingDeleteItem && (
+            <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
+              <div className="size-5 shrink-0 flex items-center justify-center">
+                {pendingFaviconSrc ? (
+                  <Image
+                    src={pendingFaviconSrc}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="size-5 rounded"
+                    unoptimized
+                  />
+                ) : (
+                  <IconFile className="size-5 text-muted-foreground" />
+                )}
+              </div>
+              <span className="font-content text-sm truncate">
+                {pendingDeleteItem.title || "Untitled"}
+              </span>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+            >
+              {deleting ? <Spinner className="size-3.5" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

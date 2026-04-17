@@ -10,26 +10,15 @@ import {
 } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
-import { motion } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { type Item } from "@/lib/types";
+import { type Flashcard, type Item } from "@/lib/types";
+import { useDebounced } from "@/lib/use-debounced";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  getFlashcards,
   getFlashcardCounts,
   createFlashcard,
   updateFlashcard,
@@ -53,8 +42,6 @@ export const DetailPanel = ({
   onDelete,
   onToggleRead,
   onFieldsChange,
-  deleteDialogOpen,
-  setDeleteDialogOpen,
   onExpand,
   focused = false,
 }: {
@@ -64,19 +51,27 @@ export const DetailPanel = ({
   onCreate: (fields: EditFields) => void;
   onCancel?: () => void;
   onFlashcardChange: () => void;
-  onDelete?: () => Promise<void> | void;
+  onDelete?: () => void;
   onToggleRead?: () => void;
-  onFieldsChange?: (fields: { title: string; url: string; notes: string; tags: string[] } | null) => void;
-  deleteDialogOpen: boolean;
-  setDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onFieldsChange?: (
+    fields: {
+      title: string;
+      url: string;
+      notes: string;
+      tags: string[];
+    } | null,
+  ) => void;
   onExpand?: () => void;
   focused?: boolean;
 }) => {
-  // Form state
-  const [title, setTitle] = React.useState("");
-  const [url, setUrl] = React.useState("");
-  const [tags, setTags] = React.useState<string[]>([]);
-  const [notes, setNotes] = React.useState("");
+  // Form state — initialize from item synchronously so the first paint
+  // already has the populated values (avoids a layout shift on mount).
+  const [title, setTitle] = React.useState(() => item?.title ?? "");
+  const [url, setUrl] = React.useState(() => item?.url ?? "");
+  const [tags, setTags] = React.useState<string[]>(
+    () => item?.tags.map((t) => t.name) ?? [],
+  );
+  const [notes, setNotes] = React.useState(() => item?.notes ?? "");
   const [saving, setSaving] = React.useState(false);
   const [newFront, setNewFront] = React.useState("");
   const [newBack, setNewBack] = React.useState("");
@@ -84,8 +79,9 @@ export const DetailPanel = ({
   const [editingCardId, setEditingCardId] = React.useState<string | null>(null);
   const [editFront, setEditFront] = React.useState("");
   const [editBack, setEditBack] = React.useState("");
-  const [deleting, setDeleting] = React.useState(false);
-  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(null);
+  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
+    null,
+  );
 
   // Refs
   const titleRef = React.useRef<HTMLInputElement>(null);
@@ -119,18 +115,24 @@ export const DetailPanel = ({
   const queryClient = useQueryClient();
   const currentId = item?.id ?? (isNew ? "new" : null);
 
-  const { data: cards = [], isLoading: cardsLoading } = useQuery({
-    queryKey: ["flashcards", item?.id],
-    queryFn: () => getFlashcards(item!.id),
-    enabled: !!item?.id,
+  // Debounce the id used for fetching so rapid Ctrl+N/P doesn't fire a request
+  // for every item the user passes through — only the one they settle on.
+  const debouncedItemId = useDebounced(item?.id, 150);
+  const { data: cards = [], isLoading: cardsLoading } = useQuery<Flashcard[]>({
+    queryKey: ["flashcards", debouncedItemId],
+    queryFn: ({ signal }) =>
+      fetch(`/api/flashcards/${debouncedItemId}`, { signal }).then((r) =>
+        r.json(),
+      ),
+    enabled: !!debouncedItemId,
+    // Cached forever within the session — mutations invalidate explicitly.
+    staleTime: Infinity,
   });
   const { data: flashcardCounts, isLoading: countsLoading } = useQuery({
     queryKey: ["flashcard-counts"],
     queryFn: getFlashcardCounts,
   });
-  const expectedCardCount = item
-    ? (flashcardCounts?.get(item.id) ?? 0)
-    : 0;
+  const expectedCardCount = item ? (flashcardCounts?.get(item.id) ?? 0) : 0;
   // If counts are still loading, fall back to 5; otherwise use the known count.
   const skeletonCount = countsLoading ? 5 : expectedCardCount;
 
@@ -165,10 +167,8 @@ export const DetailPanel = ({
     },
     onSuccess: (realCard, _vars, context) => {
       // Replace the temp card with the real one — no refetch needed
-      queryClient.setQueryData(
-        ["flashcards", item?.id],
-        (old: typeof cards) =>
-          (old ?? []).map((c) => (c.id === context?.tempId ? realCard : c)),
+      queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
+        (old ?? []).map((c) => (c.id === context?.tempId ? realCard : c)),
       );
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
@@ -193,14 +193,17 @@ export const DetailPanel = ({
     onMutate: async ({ id, front, back }) => {
       await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
       const previous = queryClient.getQueryData(["flashcards", item?.id]);
-      queryClient.setQueryData(
-        ["flashcards", item?.id],
-        (old: typeof cards) =>
-          (old ?? []).map((c) =>
-            c.id === id
-              ? { ...c, ...(front !== undefined && { front }), ...(back !== undefined && { back }), updatedAt: new Date().toISOString() }
-              : c,
-          ),
+      queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
+        (old ?? []).map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                ...(front !== undefined && { front }),
+                ...(back !== undefined && { back }),
+                updatedAt: new Date().toISOString(),
+              }
+            : c,
+        ),
       );
       return { previous };
     },
@@ -321,28 +324,10 @@ export const DetailPanel = ({
     };
   }, []);
 
-  const confirmDelete = React.useCallback(async () => {
-    if (!onDelete) return;
-    setDeleting(true);
-    try {
-      await onDelete();
-    } finally {
-      setDeleting(false);
-      setDeleteDialogOpen(false);
-    }
-  }, [onDelete, setDeleteDialogOpen]);
-
   // Keyboard shortcuts within the panel
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (saving) return;
-
-      // Confirm delete dialog with Cmd+Enter
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && deleteDialogOpen && onDelete && !deleting) {
-        e.preventDefault();
-        confirmDelete();
-        return;
-      }
 
       const panel = document.querySelector("[data-detail-panel]");
       if (!panel?.contains(e.target as Node)) return;
@@ -364,9 +349,10 @@ export const DetailPanel = ({
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
         const target = e.target as HTMLElement;
         const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
+          return;
         e.preventDefault();
-        setDeleteDialogOpen(true);
+        onDelete();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -382,10 +368,6 @@ export const DetailPanel = ({
     saving,
     currentId,
     isNew,
-    deleteDialogOpen,
-    setDeleteDialogOpen,
-    deleting,
-    confirmDelete,
   ]);
 
   // Callbacks
@@ -444,13 +426,17 @@ export const DetailPanel = ({
   );
 
   const startEditCard = React.useCallback(
-    (card: { id: string; front: string; back: string }, field?: "front" | "back") => {
+    (
+      card: { id: string; front: string; back: string },
+      field?: "front" | "back",
+    ) => {
       setEditingCardId(card.id);
       setEditFront(card.front);
       setEditBack(card.back);
       if (field) {
         requestAnimationFrame(() => {
-          const selector = field === "front" ? "[data-card-front]" : "[data-card-back]";
+          const selector =
+            field === "front" ? "[data-card-front]" : "[data-card-back]";
           document.querySelector<HTMLTextAreaElement>(selector)?.focus();
         });
       }
@@ -461,19 +447,7 @@ export const DetailPanel = ({
   const faviconSrc = item ? getFaviconSrc(item) : null;
 
   return (
-    <motion.div
-      layoutId="item-card"
-      layoutDependency={focused ? "focused" : "side"}
-      transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-      data-detail-panel
-      className={cn(
-        "flex flex-col gap-2",
-        focused
-          ? "w-full"
-          : "w-80 fixed top-5 overflow-y-auto max-h-[calc(100vh-2.5rem)] detail-panel-scroll",
-      )}
-      style={focused ? undefined : { left: "calc(50% + 19.5rem)" }}
-    >
+    <div className="flex flex-col gap-2 w-full">
       {/* Item form card */}
       <div className="rounded-lg bg-card px-3 py-3 flex flex-col gap-2">
         {/* Favicon + Title */}
@@ -527,7 +501,7 @@ export const DetailPanel = ({
             <ItemDropdown
               item={item}
               onToggleRead={onToggleRead}
-              onDelete={onDelete ? () => setDeleteDialogOpen(true) : undefined}
+              onDelete={onDelete}
             >
               <DropdownMenuTrigger
                 render={
@@ -680,12 +654,18 @@ export const DetailPanel = ({
                 size="icon"
                 className={cn(
                   "absolute top-1 right-1 text-muted-foreground/30 hover:text-destructive",
-                  deletingCardId === card.id ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                  deletingCardId === card.id
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100",
                 )}
                 disabled={deletingCardId === card.id}
                 onClick={() => handleDeleteCard(card.id)}
               >
-                {deletingCardId === card.id ? <Spinner className="size-3.5" /> : <IconTrash />}
+                {deletingCardId === card.id ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <IconTrash />
+                )}
               </Button>
               {editingCardId === card.id ? (
                 <div className="flex flex-col gap-0.5">
@@ -751,53 +731,6 @@ export const DetailPanel = ({
           ))}
         </div>
       )}
-      {onDelete && (
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete item</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete this item? This action cannot be
-                undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {item && (
-              <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
-                <div className="size-5 shrink-0 flex items-center justify-center">
-                  {faviconSrc ? (
-                    <Image
-                      src={faviconSrc}
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="size-5 rounded"
-                      unoptimized
-                    />
-                  ) : (
-                    <IconFile className="size-5 text-muted-foreground" />
-                  )}
-                </div>
-                <span className="font-content text-sm truncate">
-                  {item.title || "Untitled"}
-                </span>
-              </div>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                disabled={deleting}
-                onClick={(e) => {
-                  e.preventDefault();
-                  confirmDelete();
-                }}
-              >
-                {deleting ? <Spinner className="size-3.5" /> : "Delete"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </motion.div>
+    </div>
   );
 };

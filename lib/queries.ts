@@ -1,15 +1,20 @@
 "use server";
 
-import { db } from "@/db";
+import { withUser } from "@/db";
 import { items } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
+import { getCurrentUserId } from "@/lib/auth";
 import type { Item } from "@/lib/types";
 
 export async function fetchItems(): Promise<Item[]> {
-  const allItems = await db.query.items.findMany({
-    orderBy: [asc(items.position)],
-    with: { itemsTags: { with: { tag: true } } },
-  });
+  const userId = await getCurrentUserId();
+  const allItems = await withUser(userId, (tx) =>
+    tx.query.items.findMany({
+      where: eq(items.userId, userId),
+      orderBy: [asc(items.position)],
+      with: { itemsTags: { with: { tag: true } } },
+    }),
+  );
 
   return allItems.map(({ itemsTags, ...item }) => ({
     ...item,

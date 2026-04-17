@@ -24,11 +24,6 @@ export function relativeTime(dateStr: string): string {
   return `${years} ${years === 1 ? "year" : "years"} ago`;
 }
 
-export async function fetchItems(): Promise<Item[]> {
-  const res = await fetch("/api/items");
-  return res.json();
-}
-
 export function getFaviconSrc(item: Pick<Item, "faviconUrl" | "url">): string | null {
   if (item.faviconUrl) return item.faviconUrl;
   try {

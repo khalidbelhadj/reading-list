@@ -1,13 +1,21 @@
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import * as schema from "./schema";
 
 config({ path: ".env.local" });
 
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client, { schema });
+
+const userId = process.env.SEED_USER_ID;
+if (!userId) {
+  console.error(
+    "Set SEED_USER_ID to the Supabase auth.users.id to seed under (required).",
+  );
+  process.exit(1);
+}
 
 const seedItems: { title: string; url: string; tags: string[]; type: string }[] = [
   {
@@ -90,6 +98,7 @@ for (const item of seedItems) {
 
   await db.insert(schema.items).values({
     id: itemId,
+    userId,
     title: item.title,
     url: item.url,
     type: item.type,
@@ -99,14 +108,17 @@ for (const item of seedItems) {
   });
 
   for (const tagName of item.tags) {
-    await db.insert(schema.tags)
-      .values({ name: tagName })
+    await db
+      .insert(schema.tags)
+      .values({ userId, name: tagName })
       .onConflictDoNothing();
 
     const [tag] = await db
       .select()
       .from(schema.tags)
-      .where(eq(schema.tags.name, tagName));
+      .where(
+        and(eq(schema.tags.userId, userId), eq(schema.tags.name, tagName)),
+      );
 
     if (tag) {
       await db.insert(schema.itemsTags)
