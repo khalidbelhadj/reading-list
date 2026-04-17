@@ -417,10 +417,10 @@ export const ItemsList = () => {
       <div
         className={cn(
           "transition-opacity duration-200",
-          focusedItem &&
+          focusedId &&
             "fixed inset-0 opacity-0 pointer-events-none overflow-hidden",
         )}
-        aria-hidden={focusedItem ? true : undefined}
+        aria-hidden={focusedId ? true : undefined}
       >
       <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
