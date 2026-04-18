@@ -478,6 +478,52 @@ export async function bulkMarkRead(itemIds: string[], read: boolean) {
 
 // Flashcard actions
 
+export async function renameTag(tagId: number, newName: string) {
+  const userId = await getCurrentUserId();
+  const trimmed = newName.trim().toLowerCase();
+  if (!trimmed) return;
+  await withUser(userId, async (tx) => {
+    const [tag] = await tx
+      .select({ id: tags.id, name: tags.name })
+      .from(tags)
+      .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+    if (!tag || tag.name === trimmed) return;
+
+    const [existing] = await tx
+      .select({ id: tags.id })
+      .from(tags)
+      .where(and(eq(tags.userId, userId), eq(tags.name, trimmed)));
+
+    if (existing) {
+      // Merge: move items_tags rows onto the existing tag, then drop the
+      // source. ON CONFLICT DO NOTHING handles items already tagged with
+      // both names.
+      await tx.execute(sql`
+        INSERT INTO items_tags (item_id, tag_id)
+        SELECT item_id, ${existing.id}
+        FROM items_tags
+        WHERE tag_id = ${tagId}
+        ON CONFLICT DO NOTHING
+      `);
+      await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
+      await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+    } else {
+      await tx
+        .update(tags)
+        .set({ name: trimmed })
+        .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+    }
+  });
+}
+
+export async function deleteTag(tagId: number) {
+  const userId = await getCurrentUserId();
+  await withUser(userId, async (tx) => {
+    await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
+    await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+  });
+}
+
 export async function getFlashcardCounts(): Promise<Map<string, number>> {
   const userId = await getCurrentUserId();
   const rows = await withUser(userId, (tx) =>

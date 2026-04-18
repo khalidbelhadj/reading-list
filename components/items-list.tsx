@@ -461,6 +461,7 @@ export const ItemsList = () => {
             <TagFilters
               allTags={allTags}
               activeTags={activeTags}
+              items={tabItems}
               toggleTag={toggleTag}
               setActiveTags={setActiveTags}
             />
