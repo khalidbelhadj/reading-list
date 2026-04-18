@@ -457,7 +457,7 @@ export const ItemsList = () => {
             isMobile={isMobile}
           />
 
-          {tagsOpen && allTags.length > 0 && (
+          {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
             <TagFilters
               allTags={allTags}
               activeTags={activeTags}

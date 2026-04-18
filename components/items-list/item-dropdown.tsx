@@ -3,6 +3,7 @@ import {
   IconCopy,
   IconEye,
   IconEyeOff,
+  IconMessage,
   IconTrash,
 } from "@tabler/icons-react";
 import React from "react";
@@ -32,6 +33,7 @@ export const ItemDropdown = ({
   children: React.ReactNode;
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [copiedPrompt, setCopiedPrompt] = React.useState(false);
   const [copyTriggered, setCopyTriggered] = React.useState(false);
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
@@ -95,6 +97,29 @@ export const ItemDropdown = ({
     setCopyTriggered(true);
   }, [item.title, item.url]);
 
+  const handleCopyPrompt = React.useCallback(() => {
+    const lines = [
+      `We're going to focus on this item from my reading list:`,
+      ``,
+      `- Title: ${item.title}`,
+    ];
+    if (item.url.trim()) lines.push(`- URL: ${item.url}`);
+    lines.push(`- Item ID: ${item.id}`);
+    if (item.notes?.trim()) {
+      lines.push(``, `Existing notes:`, item.notes.trim());
+    }
+    lines.push(
+      ``,
+      `Start by reading the URL and (if possible) giving me a quick, concise summary of the key ideas — keep it brief. From there we'll have a discussion — asking questions, extracting information, structuring thoughts — to round out my understanding of this item.`,
+      ``,
+      `Whenever we hit a key point, a revelation, or reach a solid understanding of something worth remembering, propose a flashcard and (with my go-ahead) save it via create_flashcard using the item ID above. You can also append anything worth keeping to the item's notes via update_item.`,
+    );
+    navigator.clipboard.writeText(lines.join("\n"));
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 1500);
+    setCopyTriggered(true);
+  }, [item.id, item.title, item.url, item.notes]);
+
   const isRead = isReadingListItem(item) && item.read;
 
   return (
@@ -108,6 +133,10 @@ export const ItemDropdown = ({
         <DropdownMenuItem closeOnClick={false} onClick={handleCopyMarkdown}>
           {copied ? <IconCheck /> : <IconCopy />}
           Copy as Markdown link
+        </DropdownMenuItem>
+        <DropdownMenuItem closeOnClick={false} onClick={handleCopyPrompt}>
+          {copiedPrompt ? <IconCheck /> : <IconMessage />}
+          Copy prompt
         </DropdownMenuItem>
         {onToggleRead && isReadingListItem(item) && (
           <DropdownMenuItem onClick={() => onToggleRead()}>
