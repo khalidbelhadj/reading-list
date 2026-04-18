@@ -50,7 +50,25 @@ export const TagFilters = ({
   const renameMutation = useMutation({
     mutationFn: ({ tagId, newName }: { tagId: number; newName: string }) =>
       renameTag(tagId, newName),
-    onSuccess: invalidateItems,
+    onMutate: async ({ tagId, newName }) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((item) => ({
+          ...item,
+          tags: item.tags.map((t) =>
+            t.id === tagId ? { ...t, name: newName } : t,
+          ),
+        })),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["items"], context.previous);
+      }
+    },
+    onSettled: invalidateItems,
   });
 
   const deleteMutation = useMutation({
