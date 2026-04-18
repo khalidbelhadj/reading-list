@@ -134,7 +134,8 @@ export const TagFilters = ({
                     cancelRename();
                   }
                 }}
-                className="h-5 rounded-md bg-badge px-2 text-xs text-badge-foreground outline-none ring-1 ring-foreground/20 min-w-16"
+                size={Math.max(renameDraft.length, 1)}
+                className="h-5 rounded-md bg-badge px-2 text-[0.625rem] font-medium text-badge-foreground outline-none ring-1 ring-foreground/20 field-sizing-content"
               />
             );
           }
