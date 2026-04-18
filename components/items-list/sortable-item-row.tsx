@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconDots, IconFile } from "@tabler/icons-react";
+import { IconDots, IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 
@@ -101,7 +101,7 @@ export function SortableItemRow({
             unoptimized
           />
         ) : (
-          <IconFile
+          <IconFileFilled
             className={cn(
               "size-4 text-muted-foreground",
               !isMobile && onToggleRead && "group-hover:invisible",

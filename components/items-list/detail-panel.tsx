@@ -2,7 +2,7 @@ import {
   IconArrowsMaximize,
   IconCheck,
   IconDots,
-  IconFile,
+  IconFileFilled,
   IconPlus,
   IconTrash,
   IconWand,
@@ -439,7 +439,7 @@ export const DetailPanel = ({
                 unoptimized
               />
             ) : (
-              <IconFile className="size-5 text-muted-foreground" />
+              <IconFileFilled className="size-5 text-muted-foreground" />
             )}
           </div>
           <input

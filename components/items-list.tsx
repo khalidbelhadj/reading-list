@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { IconArrowLeft, IconFile } from "@tabler/icons-react";
+import { IconArrowLeft, IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -755,7 +755,7 @@ export const ItemsList = () => {
                     unoptimized
                   />
                 ) : (
-                  <IconFile className="size-5 text-muted-foreground" />
+                  <IconFileFilled className="size-5 text-muted-foreground" />
                 )}
               </div>
               <span className="font-content text-sm truncate">

@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { IconFile } from "@tabler/icons-react";
+import { IconFileFilled } from "@tabler/icons-react";
 
 import { getAllFlashcards } from "@/app/actions";
 import { fetchItems } from "@/lib/queries";
@@ -91,7 +91,7 @@ export const CardsList = ({
                     unoptimized
                   />
                 ) : (
-                  <IconFile className="size-3.5 shrink-0" />
+                  <IconFileFilled className="size-3.5 shrink-0" />
                 )}
                 <span className="truncate min-w-0">{card.itemTitle}</span>
                 {item && item.tags.length > 0 && (
