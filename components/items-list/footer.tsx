@@ -5,7 +5,7 @@ import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentUser } from "@/lib/use-current-user";
-import type { Item } from "@/lib/types";
+import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
 
 export const Footer = () => {
   const queryClient = useQueryClient();
@@ -18,21 +18,7 @@ export const Footer = () => {
   });
 
   const handleExport = React.useCallback(() => {
-    const items = queryClient.getQueryData<Item[]>(["items"]);
-    if (!items || items.length === 0) return;
-    const header = "type,title,url,tags,notes,read,created_at,updated_at";
-    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const rows = items.map((i) =>
-      [esc(i.type), esc(i.title), esc(i.url), esc(i.tags.map((t) => t.name).join("; ")), esc(i.notes ?? ""), i.read ? "true" : "false", i.createdAt, i.updatedAt].join(","),
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `reading-list-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadItemsCsv(queryClient, defaultCsvFilename());
   }, [queryClient]);
 
   return (

@@ -13,6 +13,13 @@ import {
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -22,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/lib/use-current-user";
-import type { Item } from "@/lib/types";
+import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
 
 export const SettingsMenu = () => {
   const queryClient = useQueryClient();
@@ -30,6 +37,10 @@ export const SettingsMenu = () => {
   const email = user?.email ?? null;
   const [dark, setDark] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [exportFilename, setExportFilename] = React.useState(
+    defaultCsvFilename(),
+  );
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
@@ -48,23 +59,17 @@ export const SettingsMenu = () => {
     }
   }, [dark]);
 
+  const openExport = React.useCallback(() => {
+    setExportFilename(defaultCsvFilename());
+    setExportOpen(true);
+  }, []);
+
   const handleExport = React.useCallback(() => {
-    const items = queryClient.getQueryData<Item[]>(["items"]);
-    if (!items || items.length === 0) return;
-    const header = "type,title,url,tags,notes,read,created_at,updated_at";
-    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const rows = items.map((i) =>
-      [esc(i.type), esc(i.title), esc(i.url), esc(i.tags.map((t) => t.name).join("; ")), esc(i.notes ?? ""), i.read ? "true" : "false", i.createdAt, i.updatedAt].join(","),
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `reading-list-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }, [queryClient]);
+    const trimmed = exportFilename.trim();
+    if (!trimmed) return;
+    downloadItemsCsv(queryClient, trimmed);
+    setExportOpen(false);
+  }, [queryClient, exportFilename]);
 
   React.useEffect(() => {
     setMounted(true);
@@ -97,7 +102,7 @@ export const SettingsMenu = () => {
           {dark ? <IconSun /> : <IconMoon />}
           {dark ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleExport}>
+        <DropdownMenuItem onClick={openExport}>
           <IconDownload />
           Export as CSV
         </DropdownMenuItem>
@@ -108,6 +113,34 @@ export const SettingsMenu = () => {
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export as CSV</DialogTitle>
+          </DialogHeader>
+          <input
+            autoFocus
+            value={exportFilename}
+            onChange={(e) => setExportFilename(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleExport();
+              }
+            }}
+            className="h-8 rounded-md bg-card px-2 text-xs outline-none ring-1 ring-foreground/10 focus:ring-foreground/25"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExport} disabled={!exportFilename.trim()}>
+              Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DropdownMenu>
   );
 };
