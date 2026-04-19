@@ -15,6 +15,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/crimson-pro": "^5.2.8",
+    "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/figtree": "^5.2.10",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/lora": "^5.2.8",
@@ -56,6 +57,7 @@
     "eslint": "9",
     "eslint-config-next": "15.5.12",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "typescript": "~5.9.3",
     "zod-validation-error": "^5.0.0"
   }

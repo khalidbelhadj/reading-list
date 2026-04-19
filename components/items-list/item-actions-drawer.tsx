@@ -1,7 +1,8 @@
+import React from "react";
 import {
   IconEdit,
-  IconEye,
-  IconEyeOff,
+  IconCircle,
+  IconCircleCheckFilled,
   IconTrash,
 } from "@tabler/icons-react";
 
@@ -28,9 +29,24 @@ export function ItemActionsDrawer({
   onToggleRead?: (read: boolean) => void;
   onDelete: () => void;
 }) {
-  if (!item) return null;
+  const isRead = item && isReadingListItem(item) && item.read;
 
-  const isRead = isReadingListItem(item) && item.read;
+  const handleEdit = React.useCallback(() => {
+    onOpenChange(false);
+    onEdit();
+  }, [onOpenChange, onEdit]);
+
+  const handleToggleReadClick = React.useCallback(() => {
+    onOpenChange(false);
+    if (onToggleRead) onToggleRead(!isRead);
+  }, [onOpenChange, onToggleRead, isRead]);
+
+  const handleDelete = React.useCallback(() => {
+    onOpenChange(false);
+    onDelete();
+  }, [onOpenChange, onDelete]);
+
+  if (!item) return null;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -42,10 +58,7 @@ export function ItemActionsDrawer({
           <button
             type="button"
             className="flex items-center gap-3 px-4 py-3 text-sm text-foreground rounded-md active:bg-accent"
-            onClick={() => {
-              onOpenChange(false);
-              onEdit();
-            }}
+            onClick={handleEdit}
           >
             <IconEdit className="size-4 text-muted-foreground" />
             Edit
@@ -54,15 +67,12 @@ export function ItemActionsDrawer({
             <button
               type="button"
               className="flex items-center gap-3 px-4 py-3 text-sm text-foreground rounded-md active:bg-accent"
-              onClick={() => {
-                onOpenChange(false);
-                onToggleRead(!isRead);
-              }}
+              onClick={handleToggleReadClick}
             >
               {isRead ? (
-                <IconEyeOff className="size-4 text-muted-foreground" />
+                <IconCircleCheckFilled className="size-4 text-muted-foreground" />
               ) : (
-                <IconEye className="size-4 text-muted-foreground" />
+                <IconCircle className="size-4 text-muted-foreground" />
               )}
               {isRead ? "Mark as unread" : "Mark as read"}
             </button>
@@ -70,10 +80,7 @@ export function ItemActionsDrawer({
           <button
             type="button"
             className="flex items-center gap-3 px-4 py-3 text-sm text-destructive rounded-md active:bg-accent"
-            onClick={() => {
-              onOpenChange(false);
-              onDelete();
-            }}
+            onClick={handleDelete}
           >
             <IconTrash className="size-4" />
             Delete

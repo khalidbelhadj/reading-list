@@ -11,7 +11,6 @@ import React from "react";
 
 import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
-import { Tabs } from "@/components/ui/tabs";
 
 import {
   Tooltip,
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { SettingsMenu } from "./settings-dialog";
-
+import { AppTabs } from "@/components/items-list/app-tabs";
 
 export const Toolbar = ({
   activeTab,
@@ -57,10 +56,65 @@ export const Toolbar = ({
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
   isMobile: boolean;
 }) => {
+  const handleSearchToggle = React.useCallback(() => {
+    if (searchOpen) {
+      setSearch("");
+      setSearchOpen(false);
+    } else {
+      setSearchOpen(true);
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    }
+  }, [searchOpen, setSearch, setSearchOpen, searchInputRef]);
+
+  const handleSearchInputChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+    },
+    [setSearch],
+  );
+
+  const handleSearchKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Escape") {
+        setSearch("");
+        setSearchOpen(false);
+        searchInputRef.current?.blur();
+      }
+      if (e.key === "Enter") {
+        searchInputRef.current?.blur();
+      }
+    },
+    [setSearch, setSearchOpen, searchInputRef],
+  );
+
+  const handleMobileSearchToggle = React.useCallback(() => {
+    setSearchOpen((v) => {
+      if (v) setSearch("");
+      return !v;
+    });
+  }, [setSearch, setSearchOpen]);
+
+  const handleTagsToggle = React.useCallback(() => {
+    setTagsOpen((v) => !v);
+  }, [setTagsOpen]);
+
+  const handleShowReadToggle = React.useCallback(() => {
+    setShowRead((v) => !v);
+  }, [setShowRead]);
+
+  const handleAddClick = React.useCallback(() => {
+    setEditingId("new");
+  }, [setEditingId]);
+
+  const handleMobileSearchClear = React.useCallback(() => {
+    setSearch("");
+    setSearchOpen(false);
+  }, [setSearch, setSearchOpen]);
+
   return (
     <>
       <div className="flex items-center relative">
-        <Tabs
+        <AppTabs
           value={activeTab}
           onValueChange={setActiveTabAndUrl}
           variant="text"
@@ -69,6 +123,8 @@ export const Toolbar = ({
             { label: "Cards", value: "cards" },
           ]}
         />
+
+        {/* Spacer between the tabs and toolbar */}
         <div className="flex-1" />
 
         {activeTab !== "cards" && (
@@ -87,17 +143,7 @@ export const Toolbar = ({
                   variant="ghost"
                   size="icon"
                   className="shrink-0 text-muted-foreground"
-                  onClick={() => {
-                    if (searchOpen) {
-                      setSearch("");
-                      setSearchOpen(false);
-                    } else {
-                      setSearchOpen(true);
-                      requestAnimationFrame(() =>
-                        searchInputRef.current?.focus(),
-                      );
-                    }
-                  }}
+                  onClick={handleSearchToggle}
                 >
                   <IconSearch />
                 </Button>
@@ -105,17 +151,8 @@ export const Toolbar = ({
                   ref={isMobile ? undefined : searchInputRef}
                   placeholder="Search..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearch("");
-                      setSearchOpen(false);
-                      searchInputRef.current?.blur();
-                    }
-                    if (e.key === "Enter") {
-                      searchInputRef.current?.blur();
-                    }
-                  }}
+                  onChange={handleSearchInputChange}
+                  onKeyDown={handleSearchKeyDown}
                   className="flex-1 min-w-0 h-7 bg-transparent text-xs outline-none"
                   tabIndex={searchOpen ? 0 : -1}
                 />
@@ -128,12 +165,7 @@ export const Toolbar = ({
                 className={
                   searchOpen ? "text-foreground" : "text-muted-foreground"
                 }
-                onClick={() => {
-                  setSearchOpen((v) => {
-                    if (v) setSearch("");
-                    return !v;
-                  });
-                }}
+                onClick={handleMobileSearchToggle}
               >
                 <IconSearch />
               </Button>
@@ -153,7 +185,7 @@ export const Toolbar = ({
                         : "text-muted-foreground"
                     }
                     disabled={allTags.length === 0}
-                    onClick={() => setTagsOpen((v) => !v)}
+                    onClick={handleTagsToggle}
                     suppressHydrationWarning
                   >
                     <IconTag />
@@ -174,7 +206,7 @@ export const Toolbar = ({
                 className={
                   showRead ? "text-foreground" : "text-muted-foreground"
                 }
-                onClick={() => setShowRead((v) => !v)}
+                onClick={handleShowReadToggle}
                 title={showRead ? "Hide read items" : "Show read items"}
                 suppressHydrationWarning
               >
@@ -190,11 +222,7 @@ export const Toolbar = ({
         <SettingsMenu />
 
         {/* Add */}
-        <Button
-          size="sm"
-          className="ml-1"
-          onClick={() => setEditingId("new")}
-        >
+        <Button size="sm" className="ml-1" onClick={handleAddClick}>
           <IconPlus />
           Add
         </Button>
@@ -209,17 +237,14 @@ export const Toolbar = ({
             autoFocus
             placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={handleSearchInputChange}
             className="flex-1 min-w-0 h-8 bg-transparent text-sm outline-none"
           />
           <Button
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground shrink-0"
-            onClick={() => {
-              setSearch("");
-              setSearchOpen(false);
-            }}
+            onClick={handleMobileSearchClear}
           >
             <IconX />
           </Button>
@@ -227,4 +252,4 @@ export const Toolbar = ({
       )}
     </>
   );
-}
+};

@@ -71,9 +71,8 @@ export const ItemsList = () => {
   const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
-    null,
-  );
+  const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
@@ -163,6 +162,14 @@ export const ItemsList = () => {
     setFocusedId(null);
   }, [activeTab, focusedId, setActiveTabAndUrl]);
 
+  const handleBackMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      handleCloseFocused();
+    },
+    [handleCloseFocused],
+  );
+
   // Hooks
   const {
     tabType,
@@ -191,26 +198,27 @@ export const ItemsList = () => {
       setCursor,
     });
 
-  const requestDeleteItem = React.useCallback((id: string) => {
-    setPendingDeleteId(id);
-  }, []);
-  const pendingDeleteItem = pendingDeleteId
-    ? items?.find((i) => i.id === pendingDeleteId) ?? null
-    : null;
+  const requestDeleteItem = React.useCallback(
+    (id: string) => {
+      const item = items?.find((i) => i.id === id) ?? null;
+      if (!item) return;
+      setItemToDelete(item);
+      setDeleteOpen(true);
+    },
+    [items],
+  );
   const confirmDelete = React.useCallback(async () => {
-    if (!pendingDeleteId) return;
+    if (!itemToDelete) return;
     setDeleting(true);
     try {
-      await handleDeleteSingle(pendingDeleteId);
+      await handleDeleteSingle(itemToDelete.id);
     } finally {
       setDeleting(false);
-      setPendingDeleteId(null);
+      setDeleteOpen(false);
     }
-  }, [pendingDeleteId, handleDeleteSingle]);
+  }, [itemToDelete, handleDeleteSingle]);
 
-  const pendingFaviconSrc = pendingDeleteItem
-    ? getFaviconSrc(pendingDeleteItem)
-    : null;
+  const pendingFaviconSrc = itemToDelete ? getFaviconSrc(itemToDelete) : null;
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
@@ -230,8 +238,8 @@ export const ItemsList = () => {
     cursorRef,
     setCursor,
     onRequestDelete: React.useCallback(() => {
-      if (selectedId) setPendingDeleteId(selectedId);
-    }, [selectedId]),
+      if (selectedId) requestDeleteItem(selectedId);
+    }, [selectedId, requestDeleteItem]),
     activeTags,
   });
 
@@ -477,7 +485,6 @@ export const ItemsList = () => {
           <CardsList
             onOpenItem={(id) => {
               focusedFromTabRef.current = activeTab;
-              setActiveTabAndUrl("reading-list");
               setFocusedId(id);
             }}
           />
@@ -550,20 +557,6 @@ export const ItemsList = () => {
                         setCursor(item.id);
                       }
                       setLiveFields(null);
-                    }}
-                    onStartEdit={() => {
-                      if (isMobile) {
-                        setEditingId(item.id);
-                      } else {
-                        setSelectedId(item.id);
-                        requestAnimationFrame(() => {
-                          document
-                            .querySelector<HTMLInputElement>(
-                              "[data-detail-title]",
-                            )
-                            ?.focus();
-                        });
-                      }
                     }}
                     onSave={(fields) => handleSave(item.id, fields)}
                     onCancelEdit={() => setEditingId(null)}
@@ -665,7 +658,12 @@ export const ItemsList = () => {
       {/* Focused item overlay */}
       <AnimatePresence initial={false}>
         {focusedId && (
-          <div className="fixed inset-0 z-20 overflow-y-auto px-5 pb-5 pt-5">
+          <motion.div
+            key="focused"
+            className="fixed inset-0 z-20 overflow-y-auto px-5 pb-5 pt-5"
+            exit={activeTab === "cards" ? { opacity: 0 } : undefined}
+            transition={{ duration: 0.2 }}
+          >
             <div className="mx-auto max-w-150 flex flex-col gap-3">
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
@@ -677,7 +675,7 @@ export const ItemsList = () => {
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground"
-                  onClick={handleCloseFocused}
+                  onMouseDown={handleBackMouseDown}
                 >
                   <IconArrowLeft />
                   Back
@@ -717,14 +715,14 @@ export const ItemsList = () => {
                 )}
               </motion.div>
             </div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
       <AlertDialog
-        open={pendingDeleteId !== null}
+        open={deleteOpen}
         onOpenChange={(open) => {
-          if (!open) setPendingDeleteId(null);
+          if (!open) setDeleteOpen(false);
         }}
       >
         <AlertDialogContent
@@ -742,7 +740,7 @@ export const ItemsList = () => {
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {pendingDeleteItem && (
+          {itemToDelete && (
             <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
               <div className="size-5 shrink-0 flex items-center justify-center">
                 {pendingFaviconSrc ? (
@@ -759,7 +757,7 @@ export const ItemsList = () => {
                 )}
               </div>
               <span className="font-content text-sm truncate">
-                {pendingDeleteItem.title || "Untitled"}
+                {itemToDelete.title || "Untitled"}
               </span>
             </div>
           )}

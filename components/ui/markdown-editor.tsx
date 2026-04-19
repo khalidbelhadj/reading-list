@@ -40,8 +40,13 @@ export const MarkdownEditor = ({
   // trailing newline that the stored value does not. Normalize both sides
   // when comparing or emitting.
   const normalize = (md: string) => md.replace(/\s+$/, "");
-  const getMarkdown = (e: NonNullable<typeof editor>) =>
-    normalize((e.storage as unknown as MarkdownStorage).markdown.getMarkdown());
+  const getMarkdown = React.useCallback(
+    (e: NonNullable<typeof editor>) =>
+      normalize(
+        (e.storage as unknown as MarkdownStorage).markdown.getMarkdown(),
+      ),
+    [],
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -73,7 +78,7 @@ export const MarkdownEditor = ({
     if (getMarkdown(editor) !== value) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
-  }, [value, editor]);
+  }, [value, editor, getMarkdown]);
 
   React.useEffect(() => {
     if (editor && editor.isEditable !== editable) {

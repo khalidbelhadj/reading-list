@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { IconSun, IconMoon } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,7 +11,10 @@ export function ThemeToggle() {
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("theme");
-    if (stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    if (
+      stored === "dark" ||
+      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    ) {
       setDark(true);
       document.documentElement.classList.add("dark");
     }
@@ -27,7 +30,7 @@ export function ThemeToggle() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const toggle = () => {
+  const toggle = useCallback(() => {
     const next = !dark;
     setDark(next);
     if (next) {
@@ -37,7 +40,7 @@ export function ThemeToggle() {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
     }
-  };
+  }, [dark]);
 
   if (!mounted) return null;
 

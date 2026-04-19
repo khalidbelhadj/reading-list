@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  getFlashcardCounts,
   getFlashcards,
   createFlashcard,
   updateFlashcard,
@@ -34,6 +33,11 @@ import { TagInput } from "./tag-input";
 import { ItemDropdown } from "./item-dropdown";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Order-independent key for dirty-tracking tag lists. Tags can change shape
+// from outside the panel (rename/delete via the filter bar) and the server
+// may return them in any order — compare as a sorted set, not a sequence.
+const tagsKey = (names: string[]) => [...names].sort().join(", ");
 
 export const DetailPanel = ({
   item,
@@ -98,10 +102,9 @@ export const DetailPanel = ({
   const lastSavedRef = React.useRef({
     title: item?.title ?? "",
     url: item?.url ?? "",
-    tags: (
-      item?.tags.map((t) => t.name) ??
-      (isNew ? (defaultTags ?? []) : [])
-    ).join(", "),
+    tags: tagsKey(
+      item?.tags.map((t) => t.name) ?? (isNew ? (defaultTags ?? []) : []),
+    ),
     notes: item?.notes ?? "",
   });
 
@@ -132,13 +135,6 @@ export const DetailPanel = ({
     // Cached forever within the session — mutations invalidate explicitly.
     staleTime: Infinity,
   });
-  const { data: flashcardCounts, isLoading: countsLoading } = useQuery({
-    queryKey: ["flashcard-counts"],
-    queryFn: getFlashcardCounts,
-  });
-  const expectedCardCount = item ? (flashcardCounts?.get(item.id) ?? 0) : 0;
-  // If counts are still loading, fall back to 5; otherwise use the known count.
-  const skeletonCount = countsLoading ? 5 : expectedCardCount;
 
   const addCardMutation = useMutation({
     mutationFn: ({
@@ -245,25 +241,39 @@ export const DetailPanel = ({
     if (isNew) requestAnimationFrame(() => titleRef.current?.focus());
   }, [isNew]);
 
+  const tagsPayload = tags.join(", ");
+  const localTagsKey = tagsKey(tags);
+  const serverTagsKey = tagsKey(item?.tags.map((t) => t.name) ?? []);
+
+  // Sync local tags when the server-side list changes externally (rename or
+  // delete from the tag filter bar). Skipped when the user has unsaved local
+  // edits — the pending edit wins and goes out with the next save.
+  React.useEffect(() => {
+    if (isNew) return;
+    if (serverTagsKey === lastSavedRef.current.tags) return;
+    if (localTagsKey !== lastSavedRef.current.tags) return;
+    setTags(item?.tags.map((t) => t.name) ?? []);
+    lastSavedRef.current = { ...lastSavedRef.current, tags: serverTagsKey };
+  }, [serverTagsKey, localTagsKey, isNew, item?.tags]);
+
   // Debounced server save
-  const tagsString = tags.join(", ");
   React.useEffect(() => {
     if (isNew || !currentId || currentId === "new") return;
     const saved = lastSavedRef.current;
     if (
       title === saved.title &&
       url === saved.url &&
-      tagsString === saved.tags &&
+      localTagsKey === saved.tags &&
       notes === saved.notes
     ) {
       return;
     }
     const timeout = setTimeout(() => {
-      onSaveRef.current(currentId, { title, url, tags: tagsString, notes });
-      lastSavedRef.current = { title, url, tags: tagsString, notes };
+      onSaveRef.current(currentId, { title, url, tags: tagsPayload, notes });
+      lastSavedRef.current = { title, url, tags: localTagsKey, notes };
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [title, url, tagsString, notes, currentId, isNew]);
+  }, [title, url, localTagsKey, tagsPayload, notes, currentId, isNew]);
 
   // Report live form state to parent for rendering overrides.
   React.useEffect(() => {
@@ -281,11 +291,12 @@ export const DetailPanel = ({
       if (!currentId || currentId === "new") return;
       const live = liveRef.current;
       const saved = lastSavedRef.current;
-      const liveTags = live.tags.join(", ");
+      const livePayload = live.tags.join(", ");
+      const liveKey = tagsKey(live.tags);
       if (
         live.title === saved.title &&
         live.url === saved.url &&
-        liveTags === saved.tags &&
+        liveKey === saved.tags &&
         live.notes === saved.notes
       ) {
         return;
@@ -294,7 +305,7 @@ export const DetailPanel = ({
       onSaveRef.current(currentId, {
         title: live.title,
         url: live.url,
-        tags: liveTags,
+        tags: livePayload,
         notes: live.notes,
       });
     };
@@ -312,16 +323,16 @@ export const DetailPanel = ({
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
-        const tagsString = tags.join(", ");
+        const payload = tags.join(", ");
         if (isNew) {
           if (title.trim() || url.trim()) {
             setSaving(true);
-            onCreate({ title, url, tags: tagsString, notes });
+            onCreate({ title, url, tags: payload, notes });
           }
         } else if (currentId) {
           setSaving(true);
-          onSave(currentId, { title, url, tags: tagsString, notes });
-          lastSavedRef.current = { title, url, tags: tagsString, notes };
+          onSave(currentId, { title, url, tags: payload, notes });
+          lastSavedRef.current = { title, url, tags: tagsKey(tags), notes };
         }
       }
       if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
@@ -420,6 +431,14 @@ export const DetailPanel = ({
     [],
   );
 
+  const handleExpandMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      onExpand?.();
+    },
+    [onExpand],
+  );
+
   const faviconSrc = item ? getFaviconSrc(item) : null;
 
   return (
@@ -467,7 +486,7 @@ export const DetailPanel = ({
               variant="ghost"
               size="icon"
               className="text-muted-foreground/40 shrink-0"
-              onClick={onExpand}
+              onMouseDown={handleExpandMouseDown}
               title="Expand"
             >
               <IconArrowsMaximize />
@@ -606,8 +625,7 @@ export const DetailPanel = ({
           )}
 
           {cardsLoading &&
-            skeletonCount > 0 &&
-            Array.from({ length: skeletonCount }).map((_, i) => (
+            Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={`skeleton-${i}`}
                 style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}

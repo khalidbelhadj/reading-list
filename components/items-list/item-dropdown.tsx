@@ -1,9 +1,7 @@
 import {
-  IconCheck,
+  IconCircleCheck,
+  IconCircleCheckFilled,
   IconCopy,
-  IconEye,
-  IconEyeOff,
-  IconMessage,
   IconTrash,
 } from "@tabler/icons-react";
 import React from "react";
@@ -13,7 +11,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  applyTemplate,
+  type CopyPrompt,
+  useCopyPrompts,
+} from "@/lib/copy-prompts";
 
 const AUTO_CLOSE_MS = 3000;
 
@@ -32,15 +43,14 @@ export const ItemDropdown = ({
   onDelete?: () => void;
   children: React.ReactNode;
 }) => {
-  const [copied, setCopied] = React.useState(false);
-  const [copiedPrompt, setCopiedPrompt] = React.useState(false);
+  const [prompts] = useCopyPrompts();
+  const [lastCopied, setLastCopied] = React.useState<string | null>(null);
   const [copyTriggered, setCopyTriggered] = React.useState(false);
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
   });
 
-  // Reset copy-triggered when the menu closes.
   React.useEffect(() => {
     if (!open) setCopyTriggered(false);
   }, [open]);
@@ -66,23 +76,23 @@ export const ItemDropdown = ({
     };
 
     const handleMove = (e: MouseEvent) => {
-      const popup = document.querySelector<HTMLElement>(
-        '[data-slot="dropdown-menu-content"]',
+      const popups = document.querySelectorAll<HTMLElement>(
+        '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]',
       );
-      if (!popup) return;
-      const rect = popup.getBoundingClientRect();
-      const inside =
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom;
+      if (popups.length === 0) return;
+      const inside = Array.from(popups).some((popup) => {
+        const rect = popup.getBoundingClientRect();
+        return (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+      });
       if (inside) cancel();
       else if (!timerId) start();
     };
 
-    // Kick off the timer assuming cursor is currently inside (it just clicked).
-    // The next mousemove will either confirm inside (cancel) or detect outside
-    // (start a fresh timer).
     document.addEventListener("mousemove", handleMove);
     return () => {
       document.removeEventListener("mousemove", handleMove);
@@ -90,37 +100,35 @@ export const ItemDropdown = ({
     };
   }, [open, copyTriggered]);
 
-  const handleCopyMarkdown = React.useCallback(() => {
-    navigator.clipboard.writeText(`[${item.title}](${item.url})`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-    setCopyTriggered(true);
-  }, [item.title, item.url]);
-
-  const handleCopyPrompt = React.useCallback(() => {
-    const lines = [
-      `We're going to focus on this item from my reading list:`,
-      ``,
-      `- Title: ${item.title}`,
-    ];
-    if (item.url.trim()) lines.push(`- URL: ${item.url}`);
-    lines.push(`- Item ID: ${item.id}`);
-    if (item.notes?.trim()) {
-      lines.push(``, `Existing notes:`, item.notes.trim());
-    }
-    lines.push(
-      ``,
-      `Start by reading the URL and (if possible) giving me a quick, concise summary of the key ideas — keep it brief. From there we'll have a discussion — asking questions, extracting information, structuring thoughts — to round out my understanding of this item.`,
-      ``,
-      `Whenever we hit a key point, a revelation, or reach a solid understanding of something worth remembering, propose a flashcard and (with my go-ahead) save it via create_flashcard using the item ID above. You can also append anything worth keeping to the item's notes via update_item.`,
-    );
-    navigator.clipboard.writeText(lines.join("\n"));
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 1500);
-    setCopyTriggered(true);
-  }, [item.id, item.title, item.url, item.notes]);
+  const handleCopy = React.useCallback(
+    (promptId: string, template: string) => {
+      const output = applyTemplate(template, {
+        title: item.title,
+        url: item.url,
+        id: item.id,
+        notes: item.notes ?? "",
+      });
+      navigator.clipboard.writeText(output);
+      setLastCopied(promptId);
+      setTimeout(() => setLastCopied(null), 1500);
+      setCopyTriggered(true);
+    },
+    [item.id, item.title, item.url, item.notes],
+  );
 
   const isRead = isReadingListItem(item) && item.read;
+
+  const handleStopPropagation = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const handleToggleRead = React.useCallback(() => {
+    if (onToggleRead) onToggleRead();
+  }, [onToggleRead]);
+
+  const handleDelete = React.useCallback(() => {
+    if (onDelete) onDelete();
+  }, [onDelete]);
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -128,29 +136,82 @@ export const ItemDropdown = ({
       <DropdownMenuContent
         align="end"
         sideOffset={4}
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleStopPropagation}
       >
-        <DropdownMenuItem closeOnClick={false} onClick={handleCopyMarkdown}>
-          {copied ? <IconCheck /> : <IconCopy />}
-          Copy as Markdown link
-        </DropdownMenuItem>
-        <DropdownMenuItem closeOnClick={false} onClick={handleCopyPrompt}>
-          {copiedPrompt ? <IconCheck /> : <IconMessage />}
-          Copy prompt
-        </DropdownMenuItem>
+        {prompts.length > 0 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <IconCopy />
+              Copy
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-w-72">
+              {prompts.map((prompt) => (
+                <PromptMenuItem
+                  key={prompt.id}
+                  prompt={prompt}
+                  isCopied={lastCopied === prompt.id}
+                  onCopy={handleCopy}
+                />
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         {onToggleRead && isReadingListItem(item) && (
-          <DropdownMenuItem onClick={() => onToggleRead()}>
-            {isRead ? <IconEyeOff /> : <IconEye />}
+          <DropdownMenuItem onClick={handleToggleRead}>
+            {isRead ? <IconCircleCheckFilled /> : <IconCircleCheck />}
             {isRead ? "Mark as unread" : "Mark as read"}
           </DropdownMenuItem>
         )}
         {onDelete && (
-          <DropdownMenuItem variant="destructive" onClick={() => onDelete()}>
+          <DropdownMenuItem variant="destructive" onClick={handleDelete}>
             <IconTrash />
             Delete
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+};
+
+const PromptMenuItem = ({
+  prompt,
+  isCopied,
+  onCopy,
+}: {
+  prompt: CopyPrompt;
+  isCopied: boolean;
+  onCopy: (id: string, template: string) => void;
+}) => {
+  const handleClick = React.useCallback(() => {
+    onCopy(prompt.id, prompt.template);
+  }, [onCopy, prompt.id, prompt.template]);
+
+  const description = prompt.description ?? "";
+  const hasDescription = description.trim().length > 0;
+
+  return (
+    <Tooltip open={isCopied}>
+      <TooltipTrigger
+        render={
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={handleClick}
+            className={hasDescription ? "items-start" : undefined}
+          >
+            {hasDescription ? (
+              <div className="flex flex-col">
+                <span>{prompt.name}</span>
+                <span className="text-[0.65rem] text-muted-foreground/70">
+                  {description}
+                </span>
+              </div>
+            ) : (
+              prompt.name
+            )}
+          </DropdownMenuItem>
+        }
+      />
+      <TooltipContent side="right">Copied</TooltipContent>
+    </Tooltip>
   );
 };

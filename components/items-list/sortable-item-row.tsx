@@ -24,7 +24,6 @@ export function SortableItemRow({
   isDragDisabled,
   onToggleRead,
   onSelect,
-  onStartEdit,
   onDelete,
   onOpenMenu,
 }: {
@@ -38,7 +37,6 @@ export function SortableItemRow({
   isDragDisabled: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
-  onStartEdit: () => void;
   onSave?: (fields: EditFields) => void;
   onDelete?: () => void;
   onCancelEdit?: () => void;
@@ -65,6 +63,20 @@ export function SortableItemRow({
     zIndex: isDragging ? 10 : undefined,
   };
 
+  const handleCheckedChange = React.useCallback(() => {
+    onToggleRead?.();
+  }, [onToggleRead]);
+
+  const handleOpenMenu = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onOpenMenu?.();
+    },
+    [onOpenMenu],
+  );
+
+  const isRead = isReadingListItem(item) && item.read;
+
   return (
     <div
       ref={setNodeRef}
@@ -75,15 +87,10 @@ export function SortableItemRow({
         isSelected && "bg-secondary",
         !isSelected && !suppressHover && "hover:bg-card",
         !isSelected && menuOpen && "bg-card",
-        isReadingListItem(item) && item.read && "opacity-50",
+        isRead && "opacity-50",
       )}
       data-menu-open={menuOpen || undefined}
       onClick={onSelect}
-      onDoubleClick={(e) => {
-        if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
-          onStartEdit();
-        }
-      }}
       {...attributes}
       {...listeners}
     >
@@ -109,14 +116,15 @@ export function SortableItemRow({
           />
         )}
         {!isMobile && onToggleRead && (
-          <div className="absolute inset-0 invisible group-hover:visible flex items-center justify-center">
+          <div
+            className="absolute inset-0 invisible group-hover:visible flex items-center justify-center"
+            onClick={stopPropagation}
+            onPointerDown={stopPropagation}
+          >
             <Checkbox
-              checked={isReadingListItem(item) && item.read}
-              onCheckedChange={() => onToggleRead()}
-              onClick={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="size-3.5"
+              checked={isRead}
+              onCheckedChange={handleCheckedChange}
+              className="size-4 rounded-full"
             />
           </div>
         )}
@@ -129,25 +137,26 @@ export function SortableItemRow({
           data-item-title
           className={cn(
             "font-content text-sm truncate min-w-0 hover:underline",
-            isReadingListItem(item) && item.read && "line-through",
             !item.title && "text-muted-foreground",
           )}
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+          onClick={stopPropagation}
+          onPointerDown={stopPropagation}
         >
-          {item.title || "Untitled"}
+          <span className="title-strike" data-read={isRead ? "true" : undefined}>
+            {item.title || "Untitled"}
+          </span>
         </a>
       ) : (
         <span
           data-item-title
           className={cn(
             "font-content text-sm truncate min-w-0",
-            isReadingListItem(item) && item.read && "line-through",
             !item.title && "text-muted-foreground",
           )}
         >
-          {item.title || "Untitled"}
+          <span className="title-strike" data-read={isRead ? "true" : undefined}>
+            {item.title || "Untitled"}
+          </span>
         </span>
       )}
       {item.tags.length > 0 || flashcardCount > 0 ? (
@@ -168,11 +177,8 @@ export function SortableItemRow({
         <button
           type="button"
           className="ml-auto shrink-0 text-muted-foreground p-1 -mr-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenMenu();
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleOpenMenu}
+          onPointerDown={stopPropagation}
         >
           <IconDots className="size-4" />
         </button>
@@ -197,9 +203,8 @@ export function SortableItemRow({
                 "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
                 isSelected ? "bg-secondary" : "bg-card",
               )}
-              onClick={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={stopPropagation}
+              onPointerDown={stopPropagation}
             >
               <IconDots className="size-4" />
             </DropdownMenuTrigger>
@@ -208,4 +213,8 @@ export function SortableItemRow({
       )}
     </div>
   );
+}
+
+function stopPropagation(e: React.SyntheticEvent) {
+  e.stopPropagation();
 }

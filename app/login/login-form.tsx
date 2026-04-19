@@ -3,12 +3,12 @@
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 export const LoginForm = ({ error }: { error: boolean }) => {
   const [loading, setLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
@@ -17,7 +17,7 @@ export const LoginForm = ({ error }: { error: boolean }) => {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-  };
+  }, []);
 
   return (
     <div className="flex w-full max-w-xs flex-col gap-4">

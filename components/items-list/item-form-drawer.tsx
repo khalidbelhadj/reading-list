@@ -39,6 +39,42 @@ export function ItemFormDrawer({
     }
   }, [open, item]);
 
+  const handleTitleChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setTitle(e.target.value);
+    },
+    [],
+  );
+
+  const handleUrlChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setUrl(e.target.value);
+    },
+    [],
+  );
+
+  const handleTagsChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setTagsInput(e.target.value);
+    },
+    [],
+  );
+
+  const handleNotesChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setNotes(e.target.value);
+    },
+    [],
+  );
+
+  const handleSave = React.useCallback(() => {
+    onSave({ title, url, tags: tagsInput, notes });
+  }, [onSave, title, url, tagsInput, notes]);
+
+  const handleDelete = React.useCallback(() => {
+    if (onDelete) onDelete();
+  }, [onDelete]);
+
   if (!open) return null;
 
   const faviconSrc = item ? getFaviconSrc(item) : null;
@@ -53,7 +89,7 @@ export function ItemFormDrawer({
         <span className="text-sm font-medium">{isNew ? "Add item" : "Edit item"}</span>
         <Button
           size="sm"
-          onClick={() => onSave({ title, url, tags: tagsInput, notes })}
+          onClick={handleSave}
         >
           Save
         </Button>
@@ -79,7 +115,7 @@ export function ItemFormDrawer({
           <input
             autoFocus
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={handleTitleChange}
             placeholder="Title"
             className="flex-1 min-w-0 text-base bg-transparent outline-none placeholder:text-muted-foreground"
           />
@@ -96,20 +132,20 @@ export function ItemFormDrawer({
         </div>
         <input
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={handleUrlChange}
           onPaste={onUrlPaste}
           placeholder="https://example.com"
           className="text-base text-muted-foreground/70 bg-transparent outline-none placeholder:text-muted-foreground/40"
         />
         <input
           value={tagsInput}
-          onChange={(e) => setTagsInput(e.target.value)}
+          onChange={handleTagsChange}
           placeholder="Tags (comma-separated)"
           className="text-sm text-muted-foreground/50 bg-transparent outline-none placeholder:text-muted-foreground/30"
         />
         <textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={handleNotesChange}
           placeholder="Add notes..."
           rows={4}
           className="text-base text-muted-foreground bg-transparent outline-none resize-none placeholder:text-muted-foreground/40"
@@ -118,7 +154,7 @@ export function ItemFormDrawer({
           <Button
             variant="destructive"
             className="mt-auto"
-            onClick={() => onDelete()}
+            onClick={handleDelete}
           >
             Delete
           </Button>

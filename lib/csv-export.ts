@@ -8,7 +8,7 @@ const ensureCsvExtension = (name: string) =>
   name.toLowerCase().endsWith(".csv") ? name : `${name}.csv`;
 
 export const defaultCsvFilename = () =>
-  `reading-list-${new Date().toISOString().slice(0, 10)}.csv`;
+  `reading-list-${new Date().toISOString().slice(0, 10)}`;
 
 export const itemsToCsv = (items: Item[]): string => {
   const header = "type,title,url,tags,notes,read,created_at,updated_at";
