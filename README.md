@@ -8,4 +8,5 @@ bun run db:push
 bun dev   # needs DATABASE_URL in .env.local
 ```
 
+<img width="1298" height="910" alt="Screenshot 2026-04-19 at 3 18 15 am" src="https://github.com/user-attachments/assets/058abd73-a21d-4d4d-9c15-791079c7fea2" />
 
