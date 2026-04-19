@@ -2,6 +2,7 @@ import {
   IconCircleCheck,
   IconCircleCheckFilled,
   IconCopy,
+  IconMessage,
   IconTrash,
 } from "@tabler/icons-react";
 import React from "react";
@@ -110,11 +111,18 @@ export const ItemDropdown = ({
       });
       navigator.clipboard.writeText(output);
       setLastCopied(promptId);
-      setTimeout(() => setLastCopied(null), 1500);
+      setTimeout(() => setLastCopied(null), 2000);
       setCopyTriggered(true);
     },
     [item.id, item.title, item.url, item.notes],
   );
+
+  const handleCopyId = React.useCallback(() => {
+    navigator.clipboard.writeText(item.id);
+    setLastCopied("__id__");
+    setTimeout(() => setLastCopied(null), 2000);
+    setCopyTriggered(true);
+  }, [item.id]);
 
   const isRead = isReadingListItem(item) && item.read;
 
@@ -138,11 +146,22 @@ export const ItemDropdown = ({
         sideOffset={4}
         onClick={handleStopPropagation}
       >
+        <Tooltip open={lastCopied === "__id__"}>
+          <TooltipTrigger
+            render={
+              <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
+                <IconCopy />
+                Copy ID
+              </DropdownMenuItem>
+            }
+          />
+          <TooltipContent side="right">Copied</TooltipContent>
+        </Tooltip>
         {prompts.length > 0 && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <IconCopy />
-              Copy
+              <IconMessage />
+              Prompts
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-w-72">
               {prompts.map((prompt) => (

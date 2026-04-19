@@ -1,5 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Spinner } from "@/components/ui/spinner";
 import {
+  IconChevronDown,
   IconEye,
   IconEyeOff,
   IconPlus,
@@ -8,10 +11,18 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import React from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { type DbTag } from "@/lib/types";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +31,11 @@ import {
 
 import { SettingsMenu } from "./settings-dialog";
 import { AppTabs } from "@/components/items-list/app-tabs";
+import {
+  getDueCardCount,
+  startReviewSession,
+  type ReviewMode,
+} from "@/app/actions";
 
 export const Toolbar = ({
   activeTab,
@@ -105,6 +121,37 @@ export const Toolbar = ({
   const handleAddClick = React.useCallback(() => {
     setEditingId("new");
   }, [setEditingId]);
+
+  const router = useRouter();
+  const { data: dueCount = 0, isLoading: dueLoading } = useQuery({
+    queryKey: ["due-card-count"],
+    queryFn: getDueCardCount,
+  });
+  const [startingMode, setStartingMode] = React.useState<ReviewMode | null>(
+    null,
+  );
+  const startReviewMutation = useMutation({
+    mutationFn: (mode: ReviewMode) => startReviewSession({ mode, limit: 5 }),
+    onSuccess: ({ sessionId, cardCount }) => {
+      if (cardCount === 0) {
+        setStartingMode(null);
+        return;
+      }
+      router.push(`/review/${sessionId}`);
+    },
+    onError: () => setStartingMode(null),
+  });
+  const isStarting = startingMode !== null;
+  const handleReviewClick = React.useCallback(() => {
+    if (dueCount === 0 || isStarting) return;
+    setStartingMode("due");
+    startReviewMutation.mutate("due");
+  }, [dueCount, isStarting, startReviewMutation]);
+  const handleCramClick = React.useCallback(() => {
+    if (isStarting) return;
+    setStartingMode("cram");
+    startReviewMutation.mutate("cram");
+  }, [isStarting, startReviewMutation]);
 
   const handleMobileSearchClear = React.useCallback(() => {
     setSearch("");
@@ -220,6 +267,51 @@ export const Toolbar = ({
 
         {/* Settings */}
         <SettingsMenu />
+
+        {/* Review (cards tab only) */}
+        {activeTab === "cards" && (
+          <ButtonGroup className="ml-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={dueLoading || dueCount === 0 || isStarting}
+              onClick={handleReviewClick}
+              suppressHydrationWarning
+            >
+              Review
+              {startingMode === "due" ? (
+                <Spinner className="size-3" />
+              ) : dueLoading ? null : (
+                <div className="text-muted-foreground">{dueCount}</div>
+              )}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    disabled={dueLoading || isStarting}
+                    aria-label="More review options"
+                  >
+                    {startingMode === "cram" ? (
+                      <Spinner className="size-3" />
+                    ) : (
+                      <IconChevronDown />
+                    )}
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCramClick}>
+                  Cram
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
+        )}
 
         {/* Add */}
         <Button size="sm" className="ml-1" onClick={handleAddClick}>

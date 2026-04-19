@@ -1,9 +1,18 @@
 "use server";
 
 import { withUser } from "@/db";
-import { items, itemsTags, tags, flashcards } from "@/db/schema";
-import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import {
+  items,
+  itemsTags,
+  tags,
+  flashcards,
+  reviewSessions,
+  cardReviews,
+} from "@/db/schema";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
+import { schedule, type Rating } from "@/lib/srs";
+import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
 
 export async function deleteItem(itemId: string) {
   const userId = await getCurrentUserId();
@@ -633,3 +642,539 @@ export async function deleteFlashcard(id: string) {
       .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId))),
   );
 }
+
+// Review actions
+
+export type ReviewMode = "due" | "cram" | "item" | "new" | "filter";
+
+export type ReviewScope = {
+  itemId?: string;
+  tagIds?: number[];
+};
+
+type QueueCard = {
+  id: string;
+  itemId: string | null;
+  front: string;
+  back: string;
+  state: string;
+  due: string;
+  interval: number;
+  easeFactor: number;
+  reps: number;
+  lapses: number;
+  itemTitle: string | null;
+  itemUrl: string | null;
+  itemFaviconUrl: string | null;
+};
+
+const selectQueueCard = {
+  id: flashcards.id,
+  itemId: flashcards.itemId,
+  front: flashcards.front,
+  back: flashcards.back,
+  state: flashcards.state,
+  due: flashcards.due,
+  interval: flashcards.interval,
+  easeFactor: flashcards.easeFactor,
+  reps: flashcards.reps,
+  lapses: flashcards.lapses,
+  itemTitle: items.title,
+  itemUrl: items.url,
+  itemFaviconUrl: items.faviconUrl,
+};
+
+export async function getDueCards(limit = 5): Promise<QueueCard[]> {
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+  return withUser(userId, (tx) =>
+    tx
+      .select(selectQueueCard)
+      .from(flashcards)
+      .leftJoin(
+        items,
+        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+      )
+      .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
+      .orderBy(asc(flashcards.due))
+      .limit(limit),
+  );
+}
+
+export async function getNewCards(limit = 5): Promise<QueueCard[]> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) =>
+    tx
+      .select(selectQueueCard)
+      .from(flashcards)
+      .leftJoin(
+        items,
+        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+      )
+      .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
+      .orderBy(asc(flashcards.createdAt))
+      .limit(limit),
+  );
+}
+
+export async function getCardsForItem(itemId: string): Promise<QueueCard[]> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) =>
+    tx
+      .select(selectQueueCard)
+      .from(flashcards)
+      .leftJoin(
+        items,
+        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+      )
+      .where(
+        and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)),
+      )
+      .orderBy(asc(flashcards.createdAt)),
+  );
+}
+
+export async function getAllCardsForCram(): Promise<QueueCard[]> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) =>
+    tx
+      .select(selectQueueCard)
+      .from(flashcards)
+      .leftJoin(
+        items,
+        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+      )
+      .where(eq(flashcards.userId, userId))
+      .orderBy(asc(flashcards.createdAt)),
+  );
+}
+
+export async function startReviewSession(args: {
+  mode: ReviewMode;
+  scope?: ReviewScope;
+  limit?: number;
+}): Promise<{ sessionId: string; cardCount: number }> {
+  const userId = await getCurrentUserId();
+  const sessionId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const affectsSchedule = args.mode !== "cram";
+  const limit = args.limit ?? 5;
+
+  return withUser(userId, async (tx) => {
+    let cardIds: string[] = [];
+
+    if (args.mode === "due") {
+      const rows = await tx
+        .select({ id: flashcards.id })
+        .from(flashcards)
+        .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
+        .orderBy(asc(flashcards.due))
+        .limit(limit);
+      cardIds = rows.map((r) => r.id);
+    } else if (args.mode === "new") {
+      const rows = await tx
+        .select({ id: flashcards.id })
+        .from(flashcards)
+        .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
+        .orderBy(asc(flashcards.createdAt))
+        .limit(limit);
+      cardIds = rows.map((r) => r.id);
+    } else if (args.mode === "item") {
+      if (!args.scope?.itemId) throw new Error("item mode requires scope.itemId");
+      const rows = await tx
+        .select({ id: flashcards.id })
+        .from(flashcards)
+        .where(
+          and(
+            eq(flashcards.userId, userId),
+            eq(flashcards.itemId, args.scope.itemId),
+          ),
+        )
+        .orderBy(asc(flashcards.createdAt));
+      cardIds = rows.map((r) => r.id);
+    } else if (args.mode === "cram") {
+      const rows = await tx
+        .select({ id: flashcards.id })
+        .from(flashcards)
+        .where(eq(flashcards.userId, userId))
+        .orderBy(asc(flashcards.createdAt));
+      cardIds = rows.map((r) => r.id);
+    }
+
+    await tx.insert(reviewSessions).values({
+      id: sessionId,
+      userId,
+      mode: args.mode,
+      scope: args.scope ?? null,
+      cardIds,
+      cardsPlanned: cardIds.length,
+      cardsCompleted: 0,
+      affectsSchedule,
+      startedAt: now,
+    });
+
+    return { sessionId, cardCount: cardIds.length };
+  });
+}
+
+export type ReviewSessionCard = {
+  id: string;
+  itemId: string | null;
+  front: string;
+  back: string;
+  state: string;
+  interval: number;
+  easeFactor: number;
+  reps: number;
+  lapses: number;
+  due: string;
+  itemTitle: string | null;
+  itemUrl: string | null;
+  itemFaviconUrl: string | null;
+};
+
+export type ReviewSessionData = {
+  session: {
+    id: string;
+    mode: string;
+    cardsPlanned: number;
+    cardsCompleted: number;
+    affectsSchedule: boolean;
+    startedAt: string;
+    endedAt: string | null;
+  };
+  cards: ReviewSessionCard[];
+  completedCardIds: string[];
+};
+
+export async function getReviewSession(
+  sessionId: string,
+): Promise<ReviewSessionData | null> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, async (tx) => {
+    const [session] = await tx
+      .select()
+      .from(reviewSessions)
+      .where(
+        and(
+          eq(reviewSessions.id, sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
+    if (!session) return null;
+
+    const ids = (session.cardIds ?? []) as string[];
+    const cards: ReviewSessionCard[] = ids.length
+      ? await tx
+          .select({
+            id: flashcards.id,
+            itemId: flashcards.itemId,
+            front: flashcards.front,
+            back: flashcards.back,
+            state: flashcards.state,
+            interval: flashcards.interval,
+            easeFactor: flashcards.easeFactor,
+            reps: flashcards.reps,
+            lapses: flashcards.lapses,
+            due: flashcards.due,
+            itemTitle: items.title,
+            itemUrl: items.url,
+            itemFaviconUrl: items.faviconUrl,
+          })
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(
+            and(eq(flashcards.userId, userId), inArray(flashcards.id, ids)),
+          )
+      : [];
+
+    const cardsById = new Map(cards.map((c) => [c.id, c]));
+    const orderedCards = ids
+      .map((id) => cardsById.get(id))
+      .filter((c): c is ReviewSessionCard => Boolean(c));
+
+    const completed = await tx
+      .select({ flashcardId: cardReviews.flashcardId })
+      .from(cardReviews)
+      .where(
+        and(
+          eq(cardReviews.sessionId, sessionId),
+          eq(cardReviews.userId, userId),
+        ),
+      )
+      .orderBy(asc(cardReviews.reviewedAt));
+
+    return {
+      session: {
+        id: session.id,
+        mode: session.mode,
+        cardsPlanned: session.cardsPlanned,
+        cardsCompleted: session.cardsCompleted,
+        affectsSchedule: session.affectsSchedule,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+      },
+      cards: orderedCards,
+      completedCardIds: completed.map((c) => c.flashcardId),
+    };
+  });
+}
+
+export type SessionSummary = {
+  mode: string;
+  totalCards: number;
+  ratedCards: number;
+  ratings: { again: number; hard: number; good: number; easy: number };
+  totalActiveMs: number;
+  wallClockMs: number;
+  avgTimeToRevealMs: number | null;
+};
+
+export async function getSessionSummary(
+  sessionId: string,
+): Promise<SessionSummary | null> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, async (tx) => {
+    const [session] = await tx
+      .select()
+      .from(reviewSessions)
+      .where(
+        and(
+          eq(reviewSessions.id, sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
+    if (!session) return null;
+
+    const reviews = await tx
+      .select({
+        rating: cardReviews.rating,
+        durationMs: cardReviews.durationMs,
+        timeToRevealMs: cardReviews.timeToRevealMs,
+      })
+      .from(cardReviews)
+      .where(
+        and(
+          eq(cardReviews.sessionId, sessionId),
+          eq(cardReviews.userId, userId),
+        ),
+      );
+
+    const ratings = { again: 0, hard: 0, good: 0, easy: 0 };
+    let totalActiveMs = 0;
+    let revealCount = 0;
+    let revealSum = 0;
+
+    for (const r of reviews) {
+      if (r.rating === "again") ratings.again++;
+      else if (r.rating === "hard") ratings.hard++;
+      else if (r.rating === "good") ratings.good++;
+      else if (r.rating === "easy") ratings.easy++;
+      totalActiveMs += r.durationMs ?? 0;
+      if (r.timeToRevealMs != null) {
+        revealCount++;
+        revealSum += r.timeToRevealMs;
+      }
+    }
+
+    const endedAt = session.endedAt ?? new Date().toISOString();
+    const wallClockMs =
+      new Date(endedAt).getTime() - new Date(session.startedAt).getTime();
+
+    return {
+      mode: session.mode,
+      totalCards: (session.cardIds as string[]).length,
+      ratedCards: reviews.length,
+      ratings,
+      totalActiveMs,
+      wallClockMs,
+      avgTimeToRevealMs: revealCount > 0 ? Math.round(revealSum / revealCount) : null,
+    };
+  });
+}
+
+export async function rateCard(args: {
+  sessionId: string;
+  flashcardId: string;
+  rating: Rating;
+  durationMs: number;
+  timeToRevealMs: number | null;
+}): Promise<void> {
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+
+  await withUser(userId, async (tx) => {
+    const [session] = await tx
+      .select({
+        id: reviewSessions.id,
+        affectsSchedule: reviewSessions.affectsSchedule,
+        endedAt: reviewSessions.endedAt,
+      })
+      .from(reviewSessions)
+      .where(
+        and(
+          eq(reviewSessions.id, args.sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
+    if (!session) throw new Error("Review session not found");
+    if (session.endedAt) throw new Error("Review session already ended");
+
+    const [card] = await tx
+      .select()
+      .from(flashcards)
+      .where(
+        and(
+          eq(flashcards.id, args.flashcardId),
+          eq(flashcards.userId, userId),
+        ),
+      );
+    if (!card) throw new Error("Flashcard not found");
+
+    const next = schedule(
+      {
+        state: card.state as "new" | "learning" | "review" | "relearning",
+        interval: card.interval,
+        easeFactor: card.easeFactor,
+        reps: card.reps,
+        lapses: card.lapses,
+        due: card.due,
+      },
+      args.rating,
+      now,
+    );
+
+    await tx.insert(cardReviews).values({
+      id: crypto.randomUUID(),
+      userId,
+      sessionId: args.sessionId,
+      flashcardId: args.flashcardId,
+      rating: args.rating,
+      durationMs: args.durationMs,
+      timeToRevealMs: args.timeToRevealMs,
+      prevState: card.state,
+      prevInterval: card.interval,
+      prevEaseFactor: card.easeFactor,
+      prevReps: card.reps,
+      nextState: session.affectsSchedule ? next.state : card.state,
+      nextInterval: session.affectsSchedule ? next.interval : card.interval,
+      nextEaseFactor: session.affectsSchedule
+        ? next.easeFactor
+        : card.easeFactor,
+      nextDue: session.affectsSchedule ? next.due : card.due,
+      reviewedAt: now,
+    });
+
+    if (session.affectsSchedule) {
+      await tx
+        .update(flashcards)
+        .set({
+          state: next.state,
+          interval: next.interval,
+          easeFactor: next.easeFactor,
+          reps: next.reps,
+          lapses: next.lapses,
+          due: next.due,
+          lastReviewedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(flashcards.id, args.flashcardId),
+            eq(flashcards.userId, userId),
+          ),
+        );
+    } else {
+      await tx
+        .update(flashcards)
+        .set({ lastReviewedAt: now })
+        .where(
+          and(
+            eq(flashcards.id, args.flashcardId),
+            eq(flashcards.userId, userId),
+          ),
+        );
+    }
+
+    await tx
+      .update(reviewSessions)
+      .set({ cardsCompleted: sql`${reviewSessions.cardsCompleted} + 1` })
+      .where(eq(reviewSessions.id, args.sessionId));
+  });
+}
+
+export async function logSessionEvent(
+  sessionId: string,
+  event: ReviewEvent,
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  await logReviewEvent(userId, sessionId, event);
+}
+
+export async function skipCard(args: {
+  sessionId: string;
+  flashcardId: string;
+  afterReveal: boolean;
+  durationMs: number;
+}): Promise<void> {
+  const userId = await getCurrentUserId();
+  await logReviewEvent(userId, args.sessionId, {
+    type: "card_skipped",
+    flashcardId: args.flashcardId,
+    data: { afterReveal: args.afterReveal, durationMs: args.durationMs },
+  });
+}
+
+export async function endReviewSession(args: {
+  sessionId: string;
+  reason: "completed" | "user_ended";
+}): Promise<void> {
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+
+  await withUser(userId, async (tx) => {
+    const [session] = await tx
+      .select({ endedAt: reviewSessions.endedAt })
+      .from(reviewSessions)
+      .where(
+        and(
+          eq(reviewSessions.id, args.sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
+    if (!session) throw new Error("Review session not found");
+    if (session.endedAt) return;
+
+    await tx
+      .update(reviewSessions)
+      .set({ endedAt: now })
+      .where(
+        and(
+          eq(reviewSessions.id, args.sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
+  });
+
+  await logReviewEvent(userId, args.sessionId, {
+    type: "session_ended",
+    flashcardId: null,
+    data: { reason: args.reason },
+  });
+}
+
+export async function getDueCardCount(): Promise<number> {
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+  const [row] = await withUser(userId, (tx) =>
+    tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(flashcards)
+      .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
+  );
+  return row?.count ?? 0;
+}
+

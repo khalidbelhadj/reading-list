@@ -4,7 +4,6 @@ import {
   IconDots,
   IconFileFilled,
   IconPlus,
-  IconTrash,
   IconWand,
   IconX,
 } from "@tabler/icons-react";
@@ -18,6 +17,7 @@ import { useDebounced } from "@/lib/use-debounced";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   getFlashcards,
   createFlashcard,
@@ -85,9 +85,6 @@ export const DetailPanel = ({
   const [newFront, setNewFront] = React.useState("");
   const [newBack, setNewBack] = React.useState("");
   const [addingCard, setAddingCard] = React.useState(false);
-  const [editingCardId, setEditingCardId] = React.useState<string | null>(null);
-  const [editFront, setEditFront] = React.useState("");
-  const [editBack, setEditBack] = React.useState("");
   const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
     null,
   );
@@ -206,6 +203,9 @@ export const DetailPanel = ({
         ),
       );
       return { previous };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
@@ -358,33 +358,11 @@ export const DetailPanel = ({
   ]);
 
   // Callbacks
-  const saveAndCloseCard = React.useCallback(
-    (cardId: string) => {
-      const front = editFront.trim();
-      const back = editBack.trim();
-      if (front) {
-        queryClient.setQueryData(
-          ["flashcards", item?.id],
-          (old: typeof cards) =>
-            (old ?? []).map((c) =>
-              c.id === cardId ? { ...c, front, back } : c,
-            ),
-        );
-        updateCardMutation.mutate({ id: cardId, front, back });
-      }
-      setEditingCardId(null);
+  const handleUpdateCard = React.useCallback(
+    (id: string, fields: { front?: string; back?: string }) => {
+      updateCardMutation.mutate({ id, ...fields });
     },
-    [editFront, editBack, item?.id, queryClient, updateCardMutation],
-  );
-
-  const handleCardFocusOut = React.useCallback(
-    (e: React.FocusEvent) => {
-      const card = e.currentTarget;
-      if (card.contains(e.relatedTarget as Node)) return;
-      if (!editingCardId) return;
-      saveAndCloseCard(editingCardId);
-    },
-    [editingCardId, saveAndCloseCard],
+    [updateCardMutation],
   );
 
   const handleAddCard = React.useCallback(async () => {
@@ -401,7 +379,6 @@ export const DetailPanel = ({
 
   const handleDeleteCard = React.useCallback(
     async (cardId: string) => {
-      if (editingCardId === cardId) setEditingCardId(null);
       setDeletingCardId(cardId);
       try {
         await deleteCardMutation.mutateAsync(cardId);
@@ -409,26 +386,7 @@ export const DetailPanel = ({
         setDeletingCardId(null);
       }
     },
-    [editingCardId, deleteCardMutation],
-  );
-
-  const startEditCard = React.useCallback(
-    (
-      card: { id: string; front: string; back: string },
-      field?: "front" | "back",
-    ) => {
-      setEditingCardId(card.id);
-      setEditFront(card.front);
-      setEditBack(card.back);
-      if (field) {
-        requestAnimationFrame(() => {
-          const selector =
-            field === "front" ? "[data-card-front]" : "[data-card-back]";
-          document.querySelector<HTMLTextAreaElement>(selector)?.focus();
-        });
-      }
-    },
-    [],
+    [deleteCardMutation],
   );
 
   const handleExpandMouseDown = React.useCallback(
@@ -574,8 +532,8 @@ export const DetailPanel = ({
       {item && !isNew && (
         <div className="flex flex-col gap-2">
           <Button
-            variant="ghost"
-            className="rounded-lg bg-card text-muted-foreground/50"
+            variant="secondary"
+            className="bg-card"
             onClick={() => setAddingCard(true)}
           >
             <IconPlus />
@@ -635,95 +593,17 @@ export const DetailPanel = ({
             ))}
 
           {cards.map((card) => (
-            <div
+            <FlashcardCard
               key={card.id}
-              className="font-content group relative rounded-lg bg-card px-4 py-3"
-              onBlur={
-                editingCardId === card.id ? handleCardFocusOut : undefined
-              }
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "absolute top-1 right-1 text-muted-foreground/30 hover:text-destructive",
-                  deletingCardId === card.id
-                    ? "opacity-100"
-                    : "opacity-0 group-hover:opacity-100",
-                )}
-                disabled={deletingCardId === card.id}
-                onClick={() => handleDeleteCard(card.id)}
-              >
-                {deletingCardId === card.id ? (
-                  <Spinner className="size-3.5" />
-                ) : (
-                  <IconTrash />
-                )}
-              </Button>
-              {editingCardId === card.id ? (
-                <div className="flex flex-col gap-0.5">
-                  <MarkdownEditor
-                    value={editFront}
-                    onChange={setEditFront}
-                    autoFocus
-                    editorAttributes={{ "data-card-front": "" }}
-                    className="text-xs font-medium"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        saveAndCloseCard(card.id);
-                        return true;
-                      }
-                    }}
-                  />
-                  <MarkdownEditor
-                    value={editBack}
-                    onChange={setEditBack}
-                    placeholder="Back"
-                    editorAttributes={{ "data-card-back": "" }}
-                    className="text-xs text-muted-foreground"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        saveAndCloseCard(card.id);
-                        return true;
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <>
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => startEditCard(card, "front")}
-                  >
-                    <MarkdownEditor
-                      value={card.front}
-                      editable={false}
-                      className="text-xs font-medium"
-                    />
-                  </div>
-                  <div
-                    className="grid transition-[grid-template-rows] duration-150"
-                    style={{ gridTemplateRows: card.back ? "1fr" : "0fr" }}
-                  >
-                    <div className="overflow-hidden">
-                      <div
-                        className="cursor-pointer mt-0.5"
-                        onClick={() => startEditCard(card, "back")}
-                      >
-                        <MarkdownEditor
-                          value={card.back}
-                          editable={false}
-                          className="text-xs text-muted-foreground"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+              card={card}
+              onUpdate={handleUpdateCard}
+              onDelete={handleDeleteCard}
+              deleting={deletingCardId === card.id}
+            />
           ))}
         </div>
       )}
     </div>
   );
 };
+

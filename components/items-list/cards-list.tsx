@@ -2,23 +2,30 @@
 
 import React from "react";
 import Image from "next/image";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconFileFilled } from "@tabler/icons-react";
 
-import { getAllFlashcards } from "@/app/actions";
+import {
+  deleteFlashcard,
+  getAllFlashcards,
+  updateFlashcard,
+} from "@/app/actions";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 
 import { getFaviconSrc } from "./utils";
+
+type AllFlashcard = Awaited<ReturnType<typeof getAllFlashcards>>[number];
 
 export const CardsList = ({
   onOpenItem,
 }: {
   onOpenItem?: (itemId: string) => void;
 }) => {
+  const queryClient = useQueryClient();
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["all-flashcards"],
     queryFn: getAllFlashcards,
@@ -33,6 +40,97 @@ export const CardsList = ({
     items?.forEach((it) => map.set(it.id, it));
     return map;
   }, [items]);
+
+  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
+    null,
+  );
+
+  const updateCardMutation = useMutation({
+    mutationFn: ({
+      id,
+      front,
+      back,
+    }: {
+      id: string;
+      front?: string;
+      back?: string;
+    }) => updateFlashcard(id, { front, back }),
+    onMutate: async ({ id, front, back }) => {
+      await queryClient.cancelQueries({ queryKey: ["all-flashcards"] });
+      const previous = queryClient.getQueryData(["all-flashcards"]);
+      queryClient.setQueryData<AllFlashcard[]>(["all-flashcards"], (old) =>
+        (old ?? []).map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                ...(front !== undefined && { front }),
+                ...(back !== undefined && { back }),
+                updatedAt: new Date().toISOString(),
+              }
+            : c,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["all-flashcards"], context.previous);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      const card = cards.find((c) => c.id === vars.id);
+      if (card?.itemId) {
+        queryClient.invalidateQueries({
+          queryKey: ["flashcards", card.itemId],
+        });
+      }
+    },
+  });
+
+  const deleteCardMutation = useMutation({
+    mutationFn: (id: string) => deleteFlashcard(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["all-flashcards"] });
+      const previous = queryClient.getQueryData(["all-flashcards"]);
+      queryClient.setQueryData<AllFlashcard[]>(["all-flashcards"], (old) =>
+        (old ?? []).filter((c) => c.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["all-flashcards"], context.previous);
+      }
+    },
+    onSettled: (_data, _err, id) => {
+      const card = cards.find((c) => c.id === id);
+      if (card?.itemId) {
+        queryClient.invalidateQueries({
+          queryKey: ["flashcards", card.itemId],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] });
+    },
+  });
+
+  const handleUpdateCard = React.useCallback(
+    (id: string, fields: { front?: string; back?: string }) => {
+      updateCardMutation.mutate({ id, ...fields });
+    },
+    [updateCardMutation],
+  );
+
+  const handleDeleteCard = React.useCallback(
+    async (cardId: string) => {
+      setDeletingCardId(cardId);
+      try {
+        await deleteCardMutation.mutateAsync(cardId);
+      } finally {
+        setDeletingCardId(null);
+      }
+    },
+    [deleteCardMutation],
+  );
 
   if (isLoading) {
     return (
@@ -64,38 +162,32 @@ export const CardsList = ({
               faviconUrl: card.itemFaviconUrl ?? null,
             })
           : null;
+        const footer =
+          card.itemTitle && card.itemId ? (
+            <ItemFooter
+              itemId={card.itemId}
+              itemTitle={card.itemTitle}
+              favicon={favicon}
+              item={item}
+              onOpenItem={onOpenItem}
+            />
+          ) : null;
         return (
-          <div
+          <FlashcardCard
             key={card.id}
-            className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-0.5"
-          >
-            <MarkdownEditor
-              value={card.front}
-              editable={false}
-              className="text-sm"
-            />
-            <MarkdownEditor
-              value={card.back}
-              editable={false}
-              className="text-sm text-muted-foreground"
-            />
-            {card.itemTitle && card.itemId && (
-              <CardButton
-                itemId={card.itemId}
-                itemTitle={card.itemTitle}
-                favicon={favicon}
-                item={item}
-                onOpenItem={onOpenItem}
-              />
-            )}
-          </div>
+            card={card}
+            onUpdate={handleUpdateCard}
+            onDelete={handleDeleteCard}
+            deleting={deletingCardId === card.id}
+            footer={footer}
+          />
         );
       })}
     </div>
   );
 };
 
-function CardButton({
+const ItemFooter = ({
   itemId,
   itemTitle,
   favicon,
@@ -107,7 +199,7 @@ function CardButton({
   favicon: string | null;
   item: Item | undefined;
   onOpenItem?: (itemId: string) => void;
-}) {
+}) => {
   const handleClick = React.useCallback(() => {
     onOpenItem?.(itemId);
   }, [itemId, onOpenItem]);
@@ -116,7 +208,7 @@ function CardButton({
     <button
       type="button"
       onClick={handleClick}
-      className="mt-0.5 -mx-1 p-1 rounded-md flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:bg-accent hover:text-muted-foreground transition-colors min-w-0"
+      className="mt-1 -mx-1 p-1 rounded-md flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:bg-accent hover:text-muted-foreground transition-colors min-w-0 w-[calc(100%+0.5rem)]"
     >
       {favicon ? (
         <Image
@@ -142,4 +234,4 @@ function CardButton({
       )}
     </button>
   );
-}
+};
