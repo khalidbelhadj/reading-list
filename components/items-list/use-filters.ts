@@ -3,7 +3,9 @@ import React from "react";
 import { type Item, type DbTag, isReadingListItem } from "@/lib/types";
 import { fuzzyMatch } from "@/lib/trigram";
 
-export function useItemsFilters(items: Item[] | undefined, activeTab: string) {
+export type TabId = "reading-list" | "cards";
+
+export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
   const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
   const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
   const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {

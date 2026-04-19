@@ -24,17 +24,15 @@ export async function deleteItem(itemId: string) {
 
     if (!item) return;
 
-    await tx
-      .delete(itemsTags)
-      .where(
-        inArray(
-          itemsTags.itemId,
-          tx
-            .select({ id: items.id })
-            .from(items)
-            .where(and(eq(items.id, itemId), eq(items.userId, userId))),
-        ),
-      );
+    await tx.delete(itemsTags).where(
+      inArray(
+        itemsTags.itemId,
+        tx
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, itemId), eq(items.userId, userId))),
+      ),
+    );
     await tx
       .delete(flashcards)
       .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)));
@@ -200,6 +198,7 @@ export async function updateItem(
   const now = new Date().toISOString();
 
   await withUser(userId, async (tx) => {
+    // TODO: I'm curious, why do we need this `set`, why not use fields directly?
     const set: Record<string, unknown> = { updatedAt: now };
     if (fields.title !== undefined) set.title = fields.title;
     if (fields.url !== undefined) set.url = fields.url;
@@ -301,7 +300,6 @@ export async function updateItem(
       }
     }
   });
-
 }
 
 export async function reorderItem(
@@ -329,13 +327,10 @@ export async function reorderItem(
         await tx
           .update(items)
           .set({ position: i })
-          .where(
-            and(eq(items.id, typeItems[i].id), eq(items.userId, userId)),
-          );
+          .where(and(eq(items.id, typeItems[i].id), eq(items.userId, userId)));
       }
     }
   });
-
 }
 
 export async function toggleRead(itemId: string, read: boolean) {
@@ -388,7 +383,6 @@ export async function bulkDeleteItems(itemIds: string[]) {
       `);
     }
   });
-
 }
 
 export async function bulkMoveItems(itemIds: string[], newType: string) {
@@ -434,7 +428,6 @@ export async function bulkMoveItems(itemIds: string[], newType: string) {
       }
     }
   });
-
 }
 
 export async function bulkTag(itemIds: string[], tagNames: string[]) {
@@ -468,7 +461,6 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
       }
     }
   });
-
 }
 
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
@@ -482,7 +474,6 @@ export async function bulkMarkRead(itemIds: string[], read: boolean) {
       .set({ read, readAt: read ? now : null, updatedAt: now })
       .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
   });
-
 }
 
 // Flashcard actions
@@ -515,7 +506,9 @@ export async function renameTag(tagId: number, newName: string) {
         ON CONFLICT DO NOTHING
       `);
       await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
-      await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+      await tx
+        .delete(tags)
+        .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
     } else {
       await tx
         .update(tags)
@@ -529,7 +522,9 @@ export async function deleteTag(tagId: number) {
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
     await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
-    await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+    await tx
+      .delete(tags)
+      .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
   });
 }
 
@@ -556,9 +551,7 @@ export async function getFlashcards(itemId: string) {
     tx
       .select()
       .from(flashcards)
-      .where(
-        and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)),
-      )
+      .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)))
       .orderBy(desc(flashcards.createdAt)),
   );
 }
@@ -727,9 +720,7 @@ export async function getCardsForItem(itemId: string): Promise<QueueCard[]> {
         items,
         and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
       )
-      .where(
-        and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)),
-      )
+      .where(and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)))
       .orderBy(asc(flashcards.createdAt)),
   );
 }
@@ -780,7 +771,8 @@ export async function startReviewSession(args: {
         .limit(limit);
       cardIds = rows.map((r) => r.id);
     } else if (args.mode === "item") {
-      if (!args.scope?.itemId) throw new Error("item mode requires scope.itemId");
+      if (!args.scope?.itemId)
+        throw new Error("item mode requires scope.itemId");
       const rows = await tx
         .select({ id: flashcards.id })
         .from(flashcards)
@@ -991,7 +983,8 @@ export async function getSessionSummary(
       ratings,
       totalActiveMs,
       wallClockMs,
-      avgTimeToRevealMs: revealCount > 0 ? Math.round(revealSum / revealCount) : null,
+      avgTimeToRevealMs:
+        revealCount > 0 ? Math.round(revealSum / revealCount) : null,
     };
   });
 }
@@ -1027,10 +1020,7 @@ export async function rateCard(args: {
       .select()
       .from(flashcards)
       .where(
-        and(
-          eq(flashcards.id, args.flashcardId),
-          eq(flashcards.userId, userId),
-        ),
+        and(eq(flashcards.id, args.flashcardId), eq(flashcards.userId, userId)),
       );
     if (!card) throw new Error("Flashcard not found");
 
@@ -1177,4 +1167,3 @@ export async function getDueCardCount(): Promise<number> {
   );
   return row?.count ?? 0;
 }
-

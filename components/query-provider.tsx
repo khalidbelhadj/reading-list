@@ -1,8 +1,13 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import React from "react";
+import { toast } from "sonner";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -11,6 +16,11 @@ function makeQueryClient() {
         staleTime: 30_000,
       },
     },
+    mutationCache: new MutationCache({
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : "Something went wrong");
+      },
+    }),
   });
 }
 

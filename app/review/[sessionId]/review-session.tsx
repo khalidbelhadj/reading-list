@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconFileFilled, IconInfoCircle } from "@tabler/icons-react";
@@ -77,7 +76,6 @@ export const ReviewSession = ({
   initialData: ReviewSessionData;
   sessionId: string;
 }) => {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const logEvent = useEventLogger(sessionId);
 
@@ -192,6 +190,10 @@ export const ReviewSession = ({
     [currentCard, currentIndex, cards.length, rateMutation, endMutation],
   );
 
+  const createRateHandler = (rating: Rating) => () => {
+    handleRate(rating);
+  };
+
   const handleSkip = React.useCallback(() => {
     if (!currentCard) return;
     const now = performance.now();
@@ -202,6 +204,7 @@ export const ReviewSession = ({
       flashcardId: currentCard.id,
       afterReveal: revealed,
       durationMs,
+      // TODO: What is this catch doing??
     }).catch(() => {});
 
     const isLast = currentIndex >= cards.length - 1;
@@ -278,6 +281,7 @@ export const ReviewSession = ({
             variant="ghost"
             size="lg"
             className="w-fit"
+            nativeButton={false}
             render={<Link href="/" />}
           >
             Back to list
@@ -414,7 +418,7 @@ export const ReviewSession = ({
                   key={r.value}
                   size="lg"
                   variant={r.value === "again" ? "destructive" : "outline"}
-                  onClick={() => handleRate(r.value)}
+                  onClick={createRateHandler(r.value)}
                   disabled={rateMutation.isPending}
                   className="gap-2"
                 >
@@ -486,9 +490,7 @@ const SessionSummaryView = ({
                 ? "Session complete"
                 : "Session ended"}
             </span>
-            {summary.mode === "cram" && (
-              <Badge variant="secondary">Cram</Badge>
-            )}
+            {summary.mode === "cram" && <Badge variant="secondary">Cram</Badge>}
           </div>
           <div className="text-sm text-muted-foreground">
             {summary.ratedCards} of {cardCount} cards reviewed
@@ -562,6 +564,7 @@ const SessionSummaryView = ({
           variant="ghost"
           size="lg"
           className="w-fit mx-auto"
+          nativeButton={false}
           render={<Link href="/" />}
         >
           Back to list

@@ -1,12 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  IconCopy,
-  IconDots,
-  IconMarkdown,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconDots } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -95,7 +90,7 @@ export const FlashcardCard = ({
 
   return (
     <div
-      className="font-content group relative rounded-lg bg-card px-4 py-3"
+      className="font-content group relative rounded-lg bg-card px-4 py-3 flex flex-col"
       onBlur={editing ? handleFocusOut : undefined}
     >
       <FlashcardDropdown card={card} deleting={deleting} onDelete={onDelete} />
@@ -206,7 +201,6 @@ const FlashcardDropdown = ({
           <TooltipTrigger
             render={
               <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
-                <IconCopy />
                 Copy ID
               </DropdownMenuItem>
             }
@@ -220,7 +214,6 @@ const FlashcardDropdown = ({
                 closeOnClick={false}
                 onClick={handleCopyMarkdown}
               >
-                <IconMarkdown />
                 Copy as markdown
               </DropdownMenuItem>
             }
@@ -228,7 +221,6 @@ const FlashcardDropdown = ({
           <TooltipContent side="right">Copied</TooltipContent>
         </Tooltip>
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-          <IconTrash />
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>

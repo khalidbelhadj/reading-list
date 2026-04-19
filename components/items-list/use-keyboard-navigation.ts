@@ -9,6 +9,7 @@ import {
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
+import { type TabId } from "@/components/items-list/use-filters";
 
 export const useKeyboardNavigation = ({
   filteredItems,
@@ -39,7 +40,7 @@ export const useKeyboardNavigation = ({
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
-  setActiveTabAndUrl: (tab: string) => void;
+  setActiveTabAndUrl: (tab: TabId) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   tabType: string;

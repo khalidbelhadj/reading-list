@@ -26,7 +26,7 @@ export const CardsList = ({
   onOpenItem?: (itemId: string) => void;
 }) => {
   const queryClient = useQueryClient();
-  const { data: cards = [], isLoading } = useQuery({
+  const { data: cards = [], isLoading, isError } = useQuery({
     queryKey: ["all-flashcards"],
     queryFn: getAllFlashcards,
   });
@@ -140,6 +140,14 @@ export const CardsList = ({
             <Skeleton className="h-22 rounded-lg" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="px-1 py-6 text-center text-destructive text-xs">
+        Failed to load cards
       </div>
     );
   }

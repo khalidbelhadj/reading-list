@@ -31,6 +31,7 @@ import {
 
 import { SettingsMenu } from "./settings-dialog";
 import { AppTabs } from "@/components/items-list/app-tabs";
+import { type TabId } from "@/components/items-list/use-filters";
 import {
   getDueCardCount,
   startReviewSession,
@@ -55,8 +56,8 @@ export const Toolbar = ({
   setEditingId,
   isMobile,
 }: {
-  activeTab: string;
-  setActiveTabAndUrl: (tab: string) => void;
+  activeTab: TabId;
+  setActiveTabAndUrl: (tab: TabId) => void;
   tabType: string;
   searchOpen: boolean;
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -122,8 +123,20 @@ export const Toolbar = ({
     setEditingId("new");
   }, [setEditingId]);
 
+  // showRead is hydrated from localStorage, so SSR and the first client render
+  // can disagree about which eye icon to show. Gate the swap on `mounted` so
+  // both sides render the same icon, then flip after hydration.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const router = useRouter();
-  const { data: dueCount = 0, isLoading: dueLoading } = useQuery({
+  const {
+    data: dueCount = 0,
+    isLoading: dueLoading,
+    isError: dueError,
+  } = useQuery({
     queryKey: ["due-card-count"],
     queryFn: getDueCardCount,
   });
@@ -255,11 +268,8 @@ export const Toolbar = ({
                 }
                 onClick={handleShowReadToggle}
                 title={showRead ? "Hide read items" : "Show read items"}
-                suppressHydrationWarning
               >
-                <span suppressHydrationWarning className="contents">
-                  {showRead ? <IconEye /> : <IconEyeOff />}
-                </span>
+                {mounted && showRead ? <IconEye /> : <IconEyeOff />}
               </Button>
             )}
           </>
@@ -268,21 +278,20 @@ export const Toolbar = ({
         {/* Settings */}
         <SettingsMenu />
 
-        {/* Review (cards tab only) */}
-        {activeTab === "cards" && (
-          <ButtonGroup className="ml-1">
+        {/* Review */}
+        <ButtonGroup className="ml-1">
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5"
-              disabled={dueLoading || dueCount === 0 || isStarting}
+              disabled={isStarting}
               onClick={handleReviewClick}
               suppressHydrationWarning
             >
               Review
               {startingMode === "due" ? (
                 <Spinner className="size-3" />
-              ) : dueLoading ? null : (
+              ) : dueLoading || dueError ? null : (
                 <div className="text-muted-foreground">{dueCount}</div>
               )}
             </Button>
@@ -293,7 +302,7 @@ export const Toolbar = ({
                     variant="outline"
                     size="icon-sm"
                     className="text-muted-foreground"
-                    disabled={dueLoading || isStarting}
+                    disabled={isStarting}
                     aria-label="More review options"
                   >
                     {startingMode === "cram" ? (
@@ -305,13 +314,10 @@ export const Toolbar = ({
                 }
               />
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleCramClick}>
-                  Cram
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCramClick}>Cram</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </ButtonGroup>
-        )}
 
         {/* Add */}
         <Button size="sm" className="ml-1" onClick={handleAddClick}>

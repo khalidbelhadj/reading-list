@@ -22,13 +22,13 @@ const config = [
     rules: {
       "react-compiler/react-compiler": "error",
       "react-hooks/exhaustive-deps": "error",
-      "react/no-unstable-nested-components": ["error", { "allowAsProps": true }],
+      "react/no-unstable-nested-components": ["error", { allowAsProps: true }],
       "react/jsx-no-bind": [
         "warn",
         {
           allowArrowFunctions: false,
           allowFunctions: false,
-          allowBind: false,
+          allowBind: true,
           ignoreRefs: true,
         },
       ],

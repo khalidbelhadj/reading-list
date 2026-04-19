@@ -43,7 +43,7 @@ import { type EditFields } from "./items-list/utils";
 import { createItem, updateItem, getFlashcardCounts } from "@/app/actions";
 import { SortableItemRow } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
-import { useItemsFilters } from "./items-list/use-filters";
+import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
@@ -57,7 +57,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const ItemsList = () => {
   // Data
   const queryClient = useQueryClient();
-  const { data: items, isLoading } = useQuery<Item[]>({
+  const {
+    data: items,
+    isLoading,
+    isError: itemsError,
+  } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
   });
@@ -78,9 +82,9 @@ export const ItemsList = () => {
   const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
   const [justDropped, setJustDropped] = React.useState(false);
   const [liveFields, setLiveFields] = React.useState<LiveFields | null>(null);
-  const [activeTab, setActiveTab] = React.useState(() => {
+  const [activeTab, setActiveTab] = React.useState<TabId>(() => {
     const tab = searchParams.get("tab");
-    if (tab === "cards") return tab;
+    if (tab === "cards") return "cards";
     return "reading-list";
   });
 
@@ -96,7 +100,7 @@ export const ItemsList = () => {
     queryClient.invalidateQueries({ queryKey: ["items"] });
   }, [queryClient]);
 
-  const setActiveTabAndUrl = React.useCallback((tab: string) => {
+  const setActiveTabAndUrl = React.useCallback((tab: TabId) => {
     setActiveTab(tab);
     const params = new URLSearchParams(window.location.search);
     if (tab === "reading-list") {
@@ -141,7 +145,7 @@ export const ItemsList = () => {
 
   // Remember which tab the user opened the focused view from, so Back returns
   // them to that tab (e.g. open from Cards → back to Cards).
-  const focusedFromTabRef = React.useRef<string | null>(null);
+  const focusedFromTabRef = React.useRef<TabId | null>(null);
 
   const handleExpandItem = React.useCallback(
     (id: string) => {
@@ -245,13 +249,32 @@ export const ItemsList = () => {
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: (args: { title: string; url: string; tagNames: string[]; notes?: string }) =>
-      createItem(args.title, args.url, args.tagNames, undefined, tabType, args.notes),
+    mutationFn: (args: {
+      title: string;
+      url: string;
+      tagNames: string[];
+      notes?: string;
+    }) =>
+      createItem(
+        args.title,
+        args.url,
+        args.tagNames,
+        undefined,
+        tabType,
+        args.notes,
+      ),
   });
 
   const updateMutation = useMutation({
-    mutationFn: (args: { id: string; fields: { title?: string; url?: string; notes?: string; tagNames?: string[] } }) =>
-      updateItem(args.id, args.fields),
+    mutationFn: (args: {
+      id: string;
+      fields: {
+        title?: string;
+        url?: string;
+        notes?: string;
+        tagNames?: string[];
+      };
+    }) => updateItem(args.id, args.fields),
     onMutate: async ({ id, fields }) => {
       await queryClient.cancelQueries({ queryKey: ["items"] });
       const previous = queryClient.getQueryData<Item[]>(["items"]);
@@ -275,7 +298,8 @@ export const ItemsList = () => {
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(["items"], context.previous);
+      if (context?.previous)
+        queryClient.setQueryData(["items"], context.previous);
     },
     onSettled: invalidate,
   });
@@ -304,7 +328,12 @@ export const ItemsList = () => {
       } else {
         updateMutation.mutate({
           id: itemId,
-          fields: { title: fields.title, url: fields.url, notes: fields.notes, tagNames },
+          fields: {
+            title: fields.title,
+            url: fields.url,
+            notes: fields.notes,
+            tagNames,
+          },
         });
       }
 
@@ -351,7 +380,8 @@ export const ItemsList = () => {
 
   React.useEffect(() => {
     if (search.trim() && filteredItems.length > 0) {
-      const anyVisible = selectedId !== null && filteredItems.some((i) => i.id === selectedId);
+      const anyVisible =
+        selectedId !== null && filteredItems.some((i) => i.id === selectedId);
       if (!anyVisible) {
         setSelectedId(filteredItems[0].id);
         setCursor(filteredItems[0].id);
@@ -386,7 +416,10 @@ export const ItemsList = () => {
         const [moved] = typeArr.splice(currentIndex, 1);
         const clamped = Math.max(0, Math.min(overIndex, typeArr.length));
         typeArr.splice(clamped, 0, moved);
-        return [...typeArr.map((item, i) => ({ ...item, position: i })), ...rest];
+        return [
+          ...typeArr.map((item, i) => ({ ...item, position: i })),
+          ...rest,
+        ];
       });
       requestAnimationFrame(() => setJustDropped(false));
 
@@ -401,12 +434,17 @@ export const ItemsList = () => {
     !isMobile && !isNewItem && selectedId !== null
       ? (filteredItems.find((i) => i.id === selectedId) ?? null)
       : null;
-  const showDetailPanel = !isMobile && activeTab !== "cards" && (detailItem !== null || isNewItem);
+  const showDetailPanel =
+    !isMobile && activeTab !== "cards" && (detailItem !== null || isNewItem);
 
   const focusedItem =
     !isMobile && focusedId
       ? (items?.find((i) => i.id === focusedId) ?? null)
       : null;
+
+  const isFocused = !!focusedId;
+  const panelItem = isFocused ? focusedItem : detailItem;
+  const panelVisible = showDetailPanel || isFocused;
 
   // Empty state message
   const emptyMessage = React.useMemo(() => {
@@ -443,278 +481,273 @@ export const ItemsList = () => {
         )}
         aria-hidden={focusedId ? true : undefined}
       >
-      <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
-          <Toolbar
-            activeTab={activeTab}
-            setActiveTabAndUrl={setActiveTabAndUrl}
-            tabType={tabType}
-            searchOpen={searchOpen}
-            setSearchOpen={setSearchOpen}
-            search={search}
-            setSearch={setSearch}
-            searchInputRef={searchInputRef}
-            allTags={allTags}
-            tagsOpen={tagsOpen}
-            setTagsOpen={setTagsOpen}
-            activeTags={activeTags}
-            showRead={showRead}
-            setShowRead={setShowRead}
-            setEditingId={setEditingId}
-            isMobile={isMobile}
-          />
-
-          {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
-            <TagFilters
+        <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
+          {/* Sticky header */}
+          <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
+            <Toolbar
+              activeTab={activeTab}
+              setActiveTabAndUrl={setActiveTabAndUrl}
+              tabType={tabType}
+              searchOpen={searchOpen}
+              setSearchOpen={setSearchOpen}
+              search={search}
+              setSearch={setSearch}
+              searchInputRef={searchInputRef}
               allTags={allTags}
+              tagsOpen={tagsOpen}
+              setTagsOpen={setTagsOpen}
               activeTags={activeTags}
-              items={tabItems}
-              toggleTag={toggleTag}
-              setActiveTags={setActiveTags}
+              showRead={showRead}
+              setShowRead={setShowRead}
+              setEditingId={setEditingId}
+              isMobile={isMobile}
             />
+
+            {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
+              <TagFilters
+                allTags={allTags}
+                activeTags={activeTags}
+                items={tabItems}
+                toggleTag={toggleTag}
+                setActiveTags={setActiveTags}
+              />
+            )}
+
+            {scrolled && (
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
+            )}
+          </div>
+
+          {/* Content */}
+          {activeTab === "cards" ? (
+            <CardsList
+              onOpenItem={(id) => {
+                focusedFromTabRef.current = activeTab;
+                setFocusedId(id);
+              }}
+            />
+          ) : isLoading ? (
+            <div className="flex flex-col">
+              {Array.from({ length: 15 }).map((_, i) => {
+                // Pseudo-random-but-stable widths so rows don't look uniform.
+                const titleWidth = 30 + ((i * 17) % 55);
+                return (
+                  <div
+                    key={i}
+                    style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
+                    className="flex items-center gap-2 p-1 h-7"
+                  >
+                    <Skeleton className="size-4 rounded-[3px] shrink-0" />
+                    <Skeleton
+                      className="h-3 rounded-md"
+                      style={{ width: `${titleWidth}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <DndContext
+              id="items-list-dnd"
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={filteredItems.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div
+                  onMouseMove={
+                    suppressHover ? () => setSuppressHover(false) : undefined
+                  }
+                >
+                  {itemsError ? (
+                    <div className="px-1 py-6 text-center text-destructive text-xs">
+                      Failed to load items
+                    </div>
+                  ) : (
+                    emptyMessage && (
+                      <div className="px-1 py-6 text-center text-muted-foreground text-xs">
+                        {emptyMessage}
+                      </div>
+                    )
+                  )}
+                  {filteredItems.map((item) => (
+                    <SortableItemRow
+                      key={item.id}
+                      item={
+                        selectedId === item.id && liveFields
+                          ? {
+                              ...item,
+                              title: liveFields.title,
+                              url: liveFields.url,
+                              notes: liveFields.notes,
+                              tags: liveFields.tags.map((name, i) => ({
+                                id: i,
+                                name,
+                                userId: item.userId,
+                              })),
+                            }
+                          : item
+                      }
+                      flashcardCount={flashcardCounts.get(item.id) ?? 0}
+                      isEditing={isMobile && editingId === item.id}
+                      isSelected={selectedId === item.id}
+                      isMobile={isMobile}
+                      suppressHover={suppressHover}
+                      isDragDisabled={isDragDisabled}
+                      suppressTransition={justDropped}
+                      onToggleRead={
+                        isReadingListItem(item)
+                          ? () => handleToggleRead(item.id, !item.read)
+                          : undefined
+                      }
+                      onSelect={() => {
+                        if (editingId !== null) setEditingId(null);
+                        if (selectedId === item.id) {
+                          setSelectedId(null);
+                          setCursor(null);
+                        } else {
+                          setSelectedId(item.id);
+                          setCursor(item.id);
+                        }
+                        setLiveFields(null);
+                      }}
+                      onSave={(fields) => handleSave(item.id, fields)}
+                      onCancelEdit={() => setEditingId(null)}
+                      onDelete={() => requestDeleteItem(item.id)}
+                      onOpenMenu={() => setMenuItemId(item.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
 
-          {scrolled && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
+          {/* Mobile drawers */}
+          {isMobile && (
+            <>
+              <ItemFormDrawer
+                open={editingId !== null}
+                isNew={isNewItem}
+                item={
+                  editingId && editingId !== "new"
+                    ? (items?.find((i) => i.id === editingId) ?? null)
+                    : null
+                }
+                onSave={(fields) => handleSave(editingId!, fields)}
+                onCancel={() => setEditingId(null)}
+                onDelete={
+                  editingId && editingId !== "new"
+                    ? () => requestDeleteItem(editingId)
+                    : undefined
+                }
+              />
+              {(() => {
+                const menuItem = menuItemId
+                  ? (items?.find((i) => i.id === menuItemId) ?? null)
+                  : null;
+                return (
+                  <ItemActionsDrawer
+                    item={menuItem}
+                    open={menuItemId !== null}
+                    onOpenChange={(open) => {
+                      if (!open) setMenuItemId(null);
+                    }}
+                    onEdit={() => {
+                      setEditingId(menuItemId);
+                      setMenuItemId(null);
+                    }}
+                    onToggleRead={
+                      menuItem && isReadingListItem(menuItem)
+                        ? (read: boolean) => handleToggleRead(menuItemId!, read)
+                        : undefined
+                    }
+                    onDelete={() => {
+                      if (menuItemId) requestDeleteItem(menuItemId);
+                      setMenuItemId(null);
+                    }}
+                  />
+                );
+              })()}
+            </>
           )}
         </div>
 
-        {/* Content */}
-        {activeTab === "cards" ? (
-          <CardsList
-            onOpenItem={(id) => {
-              focusedFromTabRef.current = activeTab;
-              setFocusedId(id);
-            }}
-          />
-        ) : isLoading ? (
-          <div className="flex flex-col">
-            {Array.from({ length: 15 }).map((_, i) => {
-              // Pseudo-random-but-stable widths so rows don't look uniform.
-              const titleWidth = 30 + ((i * 17) % 55);
-              return (
-                <div
-                  key={i}
-                  style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
-                  className="flex items-center gap-2 p-1 h-7"
-                >
-                  <Skeleton className="size-4 rounded-[3px] shrink-0" />
-                  <Skeleton
-                    className="h-3 rounded-md"
-                    style={{ width: `${titleWidth}%` }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <DndContext
-            id="items-list-dnd"
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={filteredItems.map((i) => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div
-                onMouseMove={
-                  suppressHover ? () => setSuppressHover(false) : undefined
-                }
-              >
-                {emptyMessage && (
-                  <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-                    {emptyMessage}
-                  </div>
-                )}
-                {filteredItems.map((item) => (
-                  <SortableItemRow
-                    key={item.id}
-                    item={selectedId === item.id && liveFields
-                      ? { ...item, title: liveFields.title, url: liveFields.url, notes: liveFields.notes, tags: liveFields.tags.map((name, i) => ({ id: i, name, userId: item.userId })) }
-                      : item}
-                    flashcardCount={flashcardCounts.get(item.id) ?? 0}
-                    isEditing={isMobile && editingId === item.id}
-                    isSelected={selectedId === item.id}
-                    isMobile={isMobile}
-                    suppressHover={suppressHover}
-                    isDragDisabled={isDragDisabled}
-                    suppressTransition={justDropped}
-                    onToggleRead={
-                      isReadingListItem(item)
-                        ? () => handleToggleRead(item.id, !item.read)
-                        : undefined
-                    }
-                    onSelect={() => {
-                      if (editingId !== null) setEditingId(null);
-                      if (selectedId === item.id) {
-                        setSelectedId(null);
-                        setCursor(null);
-                      } else {
-                        setSelectedId(item.id);
-                        setCursor(item.id);
-                      }
-                      setLiveFields(null);
-                    }}
-                    onSave={(fields) => handleSave(item.id, fields)}
-                    onCancelEdit={() => setEditingId(null)}
-                    onDelete={() => requestDeleteItem(item.id)}
-                    onOpenMenu={() => setMenuItemId(item.id)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
+      </div>
 
-        {/* Mobile drawers */}
-        {isMobile && (
-          <>
-            <ItemFormDrawer
-              open={editingId !== null}
-              isNew={isNewItem}
-              item={
-                editingId && editingId !== "new"
-                  ? (items?.find((i) => i.id === editingId) ?? null)
-                  : null
+      {panelVisible && (
+        <motion.div
+          data-detail-panel
+          initial={false}
+          animate={{
+            x: isFocused ? -612 : 0,
+            y: isFocused ? 40 : 0,
+            width: isFocused ? 600 : 320,
+          }}
+          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
+          style={{ top: 20, left: "calc(50% + 19.5rem)" }}
+          className="fixed z-20 max-h-[calc(100vh-5rem)] overflow-y-auto detail-panel-scroll"
+        >
+          {isFocused && !focusedItem ? (
+            <DetailPanelSkeleton />
+          ) : (
+            <DetailPanel
+              key={panelItem?.id ?? "new"}
+              focused={isFocused}
+              item={panelItem}
+              isNew={!isFocused && isNewItem}
+              defaultTags={!isFocused && isNewItem ? [...activeTags] : undefined}
+              onSave={(itemId, fields) => handleSave(itemId, fields)}
+              onFlashcardChange={() =>
+                queryClient.invalidateQueries({
+                  queryKey: ["flashcard-counts"],
+                })
               }
-              onSave={(fields) => handleSave(editingId!, fields)}
-              onCancel={() => setEditingId(null)}
+              onCreate={handleCreate}
+              onCancel={
+                !isFocused && isNewItem ? () => setEditingId(null) : undefined
+              }
               onDelete={
-                editingId && editingId !== "new"
-                  ? () => requestDeleteItem(editingId)
+                panelItem ? () => requestDeleteItem(panelItem.id) : undefined
+              }
+              onToggleRead={
+                panelItem && isReadingListItem(panelItem)
+                  ? () => handleToggleRead(panelItem.id, !panelItem.read)
                   : undefined
               }
+              onExpand={
+                !isFocused && detailItem
+                  ? () => handleExpandItem(detailItem.id)
+                  : undefined
+              }
+              onFieldsChange={setLiveFields}
             />
-            {(() => {
-              const menuItem = menuItemId
-                ? (items?.find((i) => i.id === menuItemId) ?? null)
-                : null;
-              return (
-                <ItemActionsDrawer
-                  item={menuItem}
-                  open={menuItemId !== null}
-                  onOpenChange={(open) => {
-                    if (!open) setMenuItemId(null);
-                  }}
-                  onEdit={() => {
-                    setEditingId(menuItemId);
-                    setMenuItemId(null);
-                  }}
-                  onToggleRead={
-                    menuItem && isReadingListItem(menuItem)
-                      ? (read: boolean) => handleToggleRead(menuItemId!, read)
-                      : undefined
-                  }
-                  onDelete={() => {
-                    if (menuItemId) requestDeleteItem(menuItemId);
-                    setMenuItemId(null);
-                  }}
-                />
-              );
-            })()}
-          </>
-        )}
-      </div>
-
-      {/* Desktop detail panel — unmounts in focused mode so layoutId can pair */}
-      {showDetailPanel && !focusedId && (
-        <motion.div
-          layoutId="item-card"
-          layoutDependency="side"
-          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-          data-detail-panel
-          className="w-80 fixed top-5 max-h-[calc(100vh-2.5rem)] overflow-y-auto detail-panel-scroll"
-          style={{ left: "calc(50% + 19.5rem)" }}
-        >
-          <DetailPanel
-            key={detailItem?.id ?? "new"}
-            item={detailItem}
-            isNew={isNewItem}
-            defaultTags={[...activeTags]}
-            onSave={(itemId, fields) => handleSave(itemId, fields)}
-            onFlashcardChange={() =>
-              queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] })
-            }
-            onCreate={handleCreate}
-            onCancel={isNewItem ? () => setEditingId(null) : undefined}
-            onDelete={
-              detailItem ? () => requestDeleteItem(detailItem.id) : undefined
-            }
-            onToggleRead={
-              detailItem && isReadingListItem(detailItem)
-                ? () => handleToggleRead(detailItem.id, !detailItem.read)
-                : undefined
-            }
-            onExpand={detailItem ? () => handleExpandItem(detailItem.id) : undefined}
-            onFieldsChange={setLiveFields}
-          />
+          )}
         </motion.div>
       )}
-      </div>
 
-      {/* Focused item overlay */}
-      <AnimatePresence initial={false}>
-        {focusedId && (
+      <AnimatePresence>
+        {isFocused && (
           <motion.div
-            key="focused"
-            className="fixed inset-0 z-20 overflow-y-auto px-5 pb-5 pt-5"
-            exit={activeTab === "cards" ? { opacity: 0 } : undefined}
-            transition={{ duration: 0.2 }}
+            key="back-button"
+            className="fixed z-20"
+            style={{ top: 20, left: "calc(50vw - 300px)" }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ type: "spring", visualDuration: 0.18, bounce: 0.1 }}
           >
-            <div className="mx-auto max-w-150 flex flex-col gap-3">
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ type: "spring", visualDuration: 0.18, bounce: 0.1 }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onMouseDown={handleBackMouseDown}
-                >
-                  <IconArrowLeft />
-                  Back
-                </Button>
-              </motion.div>
-              <motion.div
-                layoutId="item-card"
-                layoutDependency="focused"
-                transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-                data-detail-panel
-                className="w-full"
-              >
-                {focusedItem ? (
-                  <DetailPanel
-                    key={focusedItem.id}
-                    focused
-                    item={focusedItem}
-                    isNew={false}
-                    onSave={(itemId, fields) => handleSave(itemId, fields)}
-                    onFlashcardChange={() =>
-                      queryClient.invalidateQueries({
-                        queryKey: ["flashcard-counts"],
-                      })
-                    }
-                    onCreate={handleCreate}
-                    onDelete={() => requestDeleteItem(focusedItem.id)}
-                    onToggleRead={
-                      isReadingListItem(focusedItem)
-                        ? () =>
-                            handleToggleRead(focusedItem.id, !focusedItem.read)
-                        : undefined
-                    }
-                    onFieldsChange={setLiveFields}
-                  />
-                ) : (
-                  <DetailPanelSkeleton />
-                )}
-              </motion.div>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onMouseDown={handleBackMouseDown}
+            >
+              <IconArrowLeft />
+              Back
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -778,4 +811,4 @@ export const ItemsList = () => {
       </AlertDialog>
     </div>
   );
-}
+};

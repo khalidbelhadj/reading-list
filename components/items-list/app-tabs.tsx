@@ -3,14 +3,14 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-type AppTabsProps = {
-  value: string;
-  onValueChange: (value: string) => void;
-  tabs: { label: string; value: string }[];
+type AppTabsProps<T extends string> = {
+  value: T;
+  onValueChange: (value: T) => void;
+  tabs: { label: string; value: T }[];
   variant?: "inline" | "text";
 };
 
-export function AppTabs({ value, onValueChange, tabs, variant }: AppTabsProps) {
+export function AppTabs<T extends string>({ value, onValueChange, tabs, variant }: AppTabsProps<T>) {
   if (variant === "text") {
     return (
       <div className="flex gap-3 text-sm">
@@ -54,13 +54,13 @@ export function AppTabs({ value, onValueChange, tabs, variant }: AppTabsProps) {
   return null;
 }
 
-function TabButton({
+function TabButton<T extends string>({
   tab,
   onValueChange,
   className,
 }: {
-  tab: { label: string; value: string };
-  onValueChange: (value: string) => void;
+  tab: { label: string; value: T };
+  onValueChange: (value: T) => void;
   className: string;
 }) {
   const handleClick = React.useCallback(() => {

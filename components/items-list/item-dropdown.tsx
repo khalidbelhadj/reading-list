@@ -1,10 +1,3 @@
-import {
-  IconCircleCheck,
-  IconCircleCheckFilled,
-  IconCopy,
-  IconMessage,
-  IconTrash,
-} from "@tabler/icons-react";
 import React from "react";
 
 import { type Item, isReadingListItem } from "@/lib/types";
@@ -150,7 +143,6 @@ export const ItemDropdown = ({
           <TooltipTrigger
             render={
               <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
-                <IconCopy />
                 Copy ID
               </DropdownMenuItem>
             }
@@ -159,10 +151,7 @@ export const ItemDropdown = ({
         </Tooltip>
         {prompts.length > 0 && (
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <IconMessage />
-              Prompts
-            </DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>Prompts</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-w-72">
               {prompts.map((prompt) => (
                 <PromptMenuItem
@@ -177,13 +166,11 @@ export const ItemDropdown = ({
         )}
         {onToggleRead && isReadingListItem(item) && (
           <DropdownMenuItem onClick={handleToggleRead}>
-            {isRead ? <IconCircleCheckFilled /> : <IconCircleCheck />}
             {isRead ? "Mark as unread" : "Mark as read"}
           </DropdownMenuItem>
         )}
         {onDelete && (
           <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-            <IconTrash />
             Delete
           </DropdownMenuItem>
         )}

@@ -2,15 +2,7 @@
 
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  IconDownload,
-  IconEdit,
-  IconLogout,
-  IconMoon,
-  IconSettings,
-  IconSun,
-  IconTypography,
-} from "@tabler/icons-react";
+import { IconSettings } from "@tabler/icons-react";
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
@@ -40,6 +32,21 @@ import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
 import { CopyPromptsDialog } from "./copy-prompts-dialog";
 
 type FontKey = "dm-sans" | "noto-sans" | "source-serif-4";
+type ThemeKey = "system" | "light" | "dark";
+
+const THEME_LABELS: Record<ThemeKey, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
+
+const applyTheme = (theme: ThemeKey) => {
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", isDark);
+};
 
 const FONT_VALUES: Record<FontKey, string> = {
   "dm-sans": '"DM Sans Variable", sans-serif',
@@ -57,12 +64,11 @@ export const SettingsMenu = () => {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const email = user?.email ?? null;
-  const [dark, setDark] = React.useState(false);
+  const [theme, setTheme] = React.useState<ThemeKey>("system");
   const [mounted, setMounted] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
-  const [exportFilename, setExportFilename] = React.useState(
-    defaultCsvFilename(),
-  );
+  const [exportFilename, setExportFilename] =
+    React.useState(defaultCsvFilename());
   const [sansFont, setSansFont] = React.useState<FontKey>("dm-sans");
   const [contentFont, setContentFont] = React.useState<FontKey>("dm-sans");
   const [promptsOpen, setPromptsOpen] = React.useState(false);
@@ -72,17 +78,16 @@ export const SettingsMenu = () => {
     onSuccess: () => queryClient.clear(),
   });
 
-  const toggleTheme = React.useCallback(() => {
-    const next = !dark;
-    setDark(next);
-    if (next) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
+  const handleThemeChange = React.useCallback((value: string) => {
+    const key = value as ThemeKey;
+    setTheme(key);
+    if (key === "system") {
+      localStorage.removeItem("theme");
     } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
+      localStorage.setItem("theme", key);
     }
-  }, [dark]);
+    applyTheme(key);
+  }, []);
 
   const openExport = React.useCallback(() => {
     setExportFilename(defaultCsvFilename());
@@ -131,10 +136,7 @@ export const SettingsMenu = () => {
     const key = value as FontKey;
     setSansFont(key);
     localStorage.setItem("font-sans", key);
-    document.documentElement.style.setProperty(
-      "--font-sans",
-      FONT_VALUES[key],
-    );
+    document.documentElement.style.setProperty("--font-sans", FONT_VALUES[key]);
   }, []);
 
   const handleContentFontChange = React.useCallback((value: string) => {
@@ -149,22 +151,32 @@ export const SettingsMenu = () => {
 
   React.useEffect(() => {
     setMounted(true);
-    setDark(document.documentElement.classList.contains("dark"));
+    const stored = localStorage.getItem("theme");
+    const initialTheme: ThemeKey =
+      stored === "dark" || stored === "light" ? stored : "system";
+    setTheme(initialTheme);
     const storedSans = localStorage.getItem("font-sans") as FontKey | null;
-    const storedContent = localStorage.getItem("font-content") as FontKey | null;
+    const storedContent = localStorage.getItem(
+      "font-content",
+    ) as FontKey | null;
     if (storedSans && storedSans in FONT_VALUES) setSansFont(storedSans);
-    if (storedContent && storedContent in FONT_VALUES) setContentFont(storedContent);
+    if (storedContent && storedContent in FONT_VALUES)
+      setContentFont(storedContent);
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => {
+      if (localStorage.getItem("theme")) return;
+      applyTheme("system");
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, []);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground"
-          >
+          <Button variant="ghost" size="icon" className="text-muted-foreground">
             <IconSettings />
           </Button>
         }
@@ -173,28 +185,32 @@ export const SettingsMenu = () => {
         {mounted && email && (
           <>
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
+              <DropdownMenuLabel className="truncate">
+                {email}
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem closeOnClick={false} onClick={toggleTheme}>
-          {dark ? <IconSun /> : <IconMoon />}
-          {dark ? "Light mode" : "Dark mode"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={openExport}>
-          <IconDownload />
-          Export as CSV
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={openPrompts}>
-          <IconEdit />
-          Edit copy prompts
-        </DropdownMenuItem>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <IconTypography />
-            Body font
-          </DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={theme}
+              onValueChange={handleThemeChange}
+            >
+              {(Object.keys(THEME_LABELS) as ThemeKey[]).map((key) => (
+                <DropdownMenuRadioItem key={key} value={key}>
+                  {THEME_LABELS[key]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Body font</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
               value={sansFont}
@@ -209,10 +225,7 @@ export const SettingsMenu = () => {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <IconTypography />
-            Content font
-          </DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>Content font</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
               value={contentFont}
@@ -227,10 +240,7 @@ export const SettingsMenu = () => {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         {mounted && email && (
-          <DropdownMenuItem onClick={handleLogout}>
-            <IconLogout />
-            Log out
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
         )}
       </DropdownMenuContent>
 

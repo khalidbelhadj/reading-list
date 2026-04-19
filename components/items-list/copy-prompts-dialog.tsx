@@ -190,7 +190,7 @@ export const CopyPromptsDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl gap-3">
         <DialogHeader>
-          <DialogTitle>Copy prompts</DialogTitle>
+          <DialogTitle>Prompts</DialogTitle>
         </DialogHeader>
 
         <div

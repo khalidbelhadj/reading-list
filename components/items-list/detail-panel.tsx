@@ -125,7 +125,11 @@ export const DetailPanel = ({
   // Debounce the id used for fetching so rapid Ctrl+N/P doesn't fire a request
   // for every item the user passes through — only the one they settle on.
   const debouncedItemId = useDebounced(item?.id, 150);
-  const { data: cards = [], isLoading: cardsLoading } = useQuery<Flashcard[]>({
+  const {
+    data: cards = [],
+    isLoading: cardsLoading,
+    isError: cardsError,
+  } = useQuery<Flashcard[]>({
     queryKey: ["flashcards", debouncedItemId],
     queryFn: () => getFlashcards(debouncedItemId!),
     enabled: !!debouncedItemId,
@@ -397,6 +401,51 @@ export const DetailPanel = ({
     [onExpand],
   );
 
+  const handleSetTitle = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value),
+    [],
+  );
+
+  const handleSetUrl = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value),
+    [],
+  );
+
+  const handleSave = React.useCallback(() => {
+    if (title.trim() || url.trim()) {
+      setSaving(true);
+      onCreate({ title, url, tags: tags.join(", "), notes });
+    }
+  }, [notes, onCreate, tags, title, url]);
+
+  const handleAddingCard = React.useCallback(() => {
+    setAddingCard(true);
+  }, [setAddingCard]);
+
+  const handleAddingCardBlur = React.useCallback(
+    (e: React.FocusEvent) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+      if (newFront.trim()) {
+        handleAddCard();
+      } else {
+        setAddingCard(false);
+        setNewFront("");
+        setNewBack("");
+      }
+    },
+    [handleAddCard, newFront],
+  );
+
+  const handleAddingCardKeyDown = React.useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        if (newFront.trim()) handleAddCard();
+        return true;
+      }
+    },
+    [handleAddCard, newFront],
+  );
+
   const faviconSrc = item ? getFaviconSrc(item) : null;
 
   return (
@@ -423,7 +472,7 @@ export const DetailPanel = ({
             ref={titleRef}
             data-detail-title
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={handleSetTitle}
             placeholder="Title"
             className="font-content flex-1 min-w-0 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
           />
@@ -475,7 +524,7 @@ export const DetailPanel = ({
         <input
           ref={urlInputRef}
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={handleSetUrl}
           onPaste={onUrlPaste}
           placeholder="https://example.com"
           className="text-xs text-muted-foreground/70 bg-transparent outline-none placeholder:text-muted-foreground/40"
@@ -514,12 +563,7 @@ export const DetailPanel = ({
               size="icon"
               className="text-muted-foreground/50 hover:text-foreground"
               disabled={saving}
-              onClick={() => {
-                if (title.trim() || url.trim()) {
-                  setSaving(true);
-                  onCreate({ title, url, tags: tags.join(", "), notes });
-                }
-              }}
+              onClick={handleSave}
               title="Create item"
             >
               {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
@@ -534,7 +578,7 @@ export const DetailPanel = ({
           <Button
             variant="secondary"
             className="bg-card"
-            onClick={() => setAddingCard(true)}
+            onClick={handleAddingCard}
           >
             <IconPlus />
             Add card
@@ -543,16 +587,7 @@ export const DetailPanel = ({
           {addingCard && (
             <div
               className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
-              onBlur={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                if (newFront.trim()) {
-                  handleAddCard();
-                } else {
-                  setAddingCard(false);
-                  setNewFront("");
-                  setNewBack("");
-                }
-              }}
+              onBlur={handleAddingCardBlur}
             >
               <MarkdownEditor
                 value={newFront}
@@ -560,24 +595,14 @@ export const DetailPanel = ({
                 placeholder="Front"
                 autoFocus
                 className="text-xs font-medium"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    if (newFront.trim()) handleAddCard();
-                    return true;
-                  }
-                }}
+                onKeyDown={handleAddingCardKeyDown}
               />
               <MarkdownEditor
                 value={newBack}
                 onChange={setNewBack}
                 placeholder="Back"
                 className="text-xs text-muted-foreground"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    if (newFront.trim()) handleAddCard();
-                    return true;
-                  }
-                }}
+                onKeyDown={handleAddingCardKeyDown}
               />
             </div>
           )}
@@ -591,6 +616,12 @@ export const DetailPanel = ({
                 <Skeleton className="h-22 rounded-lg" />
               </div>
             ))}
+
+          {cardsError && (
+            <div className="px-1 py-6 text-center text-destructive text-xs">
+              Failed to load flashcards
+            </div>
+          )}
 
           {cards.map((card) => (
             <FlashcardCard
@@ -606,4 +637,3 @@ export const DetailPanel = ({
     </div>
   );
 };
-
