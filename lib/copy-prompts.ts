@@ -51,7 +51,7 @@ Whenever we hit a key point, a revelation, or reach a solid understanding of som
 Existing notes:
 {{notes}}
 
-Read the URL (and notes above, if any), then propose a focused set of flashcards that cover the key ideas. One idea per card — fronts should read like questions or prompts, backs should be concise answers. Once I've approved the set, save each using the reading-list MCP tools — create_flashcard with the item ID above.`,
+Read the URL (and notes above, if any), then create a focused set of flashcards that cover the key ideas. One idea per card — fronts should read like questions or prompts, backs should be concise answers. Save each directly using the reading-list MCP tools — create_flashcard with the item ID above.`,
   },
   {
     id: "tidy",

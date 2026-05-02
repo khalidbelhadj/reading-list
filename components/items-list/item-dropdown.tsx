@@ -117,6 +117,12 @@ export const ItemDropdown = ({
     setCopyTriggered(true);
   }, [item.id]);
 
+  const handleOpenInNewTab = React.useCallback(() => {
+    window.open(item.url, "_blank", "noopener,noreferrer");
+  }, [item.url]);
+
+  const canOpenUrl = !!item.url && URL.canParse(item.url);
+
   const isRead = isReadingListItem(item) && item.read;
 
   const handleStopPropagation = React.useCallback((e: React.MouseEvent) => {
@@ -139,6 +145,11 @@ export const ItemDropdown = ({
         sideOffset={4}
         onClick={handleStopPropagation}
       >
+        {canOpenUrl && (
+          <DropdownMenuItem onClick={handleOpenInNewTab}>
+            Open in new tab
+          </DropdownMenuItem>
+        )}
         <Tooltip open={lastCopied === "__id__"}>
           <TooltipTrigger
             render={

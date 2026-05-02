@@ -37,7 +37,6 @@ import { getFaviconSrc } from "./items-list/utils";
 
 type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
-import useIsMobile from "@/lib/use-is-mobile";
 import { type EditFields } from "./items-list/utils";
 import { createItem, updateItem } from "@/app/actions";
 import { SortableItemRow } from "./items-list/sortable-item-row";
@@ -47,8 +46,6 @@ import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
 import { ReviewNudge } from "./items-list/review-nudge";
-import { ItemFormDrawer } from "./items-list/item-form-drawer";
-import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 import { DetailPanel } from "./items-list/detail-panel";
 import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList } from "./items-list/cards-list";
@@ -65,7 +62,6 @@ export const ItemsList = () => {
     queryKey: ["items"],
     queryFn: fetchItems,
   });
-  const { isMobile } = useIsMobile();
 
   // UI state
   const searchParams = useSearchParams();
@@ -75,9 +71,11 @@ export const ItemsList = () => {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
-  const [menuItemId, setMenuItemId] = React.useState<string | null>(null);
   const [justDropped, setJustDropped] = React.useState(false);
   const [liveFields, setLiveFields] = React.useState<LiveFields | null>(null);
+  const [typingTitles, setTypingTitles] = React.useState<
+    Record<string, string>
+  >({});
   const [activeTab, setActiveTab] = React.useState<TabId>(() => {
     const tab = searchParams.get("tab");
     if (tab === "cards") return "cards";
@@ -224,6 +222,7 @@ export const ItemsList = () => {
       if (selectedId) requestDeleteItem(selectedId);
     }, [selectedId, requestDeleteItem]),
     activeTags,
+    setTypingTitles,
   });
 
   // Mutations
@@ -398,16 +397,15 @@ export const ItemsList = () => {
   // Derived state
   const isNewItem = editingId === "new";
   const detailItem =
-    !isMobile && !isNewItem && selectedId !== null
+    !isNewItem && selectedId !== null
       ? (filteredItems.find((i) => i.id === selectedId) ?? null)
       : null;
   const showDetailPanel =
-    !isMobile && activeTab !== "cards" && (detailItem !== null || isNewItem);
+    activeTab !== "cards" && (detailItem !== null || isNewItem);
 
-  const focusedItem =
-    !isMobile && focusedId
-      ? (items?.find((i) => i.id === focusedId) ?? null)
-      : null;
+  const focusedItem = focusedId
+    ? (items?.find((i) => i.id === focusedId) ?? null)
+    : null;
 
   const isFocused = !!focusedId;
   const panelItem = isFocused ? focusedItem : detailItem;
@@ -531,11 +529,12 @@ export const ItemsList = () => {
                       </div>
                     )
                   )}
-                  {filteredItems.map((item) => (
-                    <SortableItemRow
-                      key={item.id}
-                      item={
-                        selectedId === item.id && liveFields
+                  {filteredItems.map((item) => {
+                    const typingTitle = typingTitles[item.id];
+                    const rowItem =
+                      typingTitle !== undefined
+                        ? { ...item, title: typingTitle }
+                        : selectedId === item.id && liveFields
                           ? {
                               ...item,
                               title: liveFields.title,
@@ -547,14 +546,17 @@ export const ItemsList = () => {
                                 userId: item.userId,
                               })),
                             }
-                          : item
-                      }
+                          : item;
+                    return (
+                    <SortableItemRow
+                      key={item.id}
+                      item={rowItem}
                       flashcardCount={item.flashcardCount}
-                      isEditing={isMobile && editingId === item.id}
+                      isEditing={false}
                       isSelected={selectedId === item.id}
-                      isMobile={isMobile}
                       suppressHover={suppressHover}
                       isDragDisabled={isDragDisabled}
+                      isTyping={typingTitle !== undefined}
                       suppressTransition={justDropped}
                       onToggleRead={
                         isReadingListItem(item)
@@ -575,61 +577,12 @@ export const ItemsList = () => {
                       onSave={(fields) => handleSave(item.id, fields)}
                       onCancelEdit={() => setEditingId(null)}
                       onDelete={() => requestDeleteItem(item.id)}
-                      onOpenMenu={() => setMenuItemId(item.id)}
                     />
-                  ))}
+                    );
+                  })}
                 </div>
               </SortableContext>
             </DndContext>
-          )}
-
-          {/* Mobile drawers */}
-          {isMobile && (
-            <>
-              <ItemFormDrawer
-                open={editingId !== null}
-                isNew={isNewItem}
-                item={
-                  editingId && editingId !== "new"
-                    ? (items?.find((i) => i.id === editingId) ?? null)
-                    : null
-                }
-                onSave={(fields) => handleSave(editingId!, fields)}
-                onCancel={() => setEditingId(null)}
-                onDelete={
-                  editingId && editingId !== "new"
-                    ? () => requestDeleteItem(editingId)
-                    : undefined
-                }
-              />
-              {(() => {
-                const menuItem = menuItemId
-                  ? (items?.find((i) => i.id === menuItemId) ?? null)
-                  : null;
-                return (
-                  <ItemActionsDrawer
-                    item={menuItem}
-                    open={menuItemId !== null}
-                    onOpenChange={(open) => {
-                      if (!open) setMenuItemId(null);
-                    }}
-                    onEdit={() => {
-                      setEditingId(menuItemId);
-                      setMenuItemId(null);
-                    }}
-                    onToggleRead={
-                      menuItem && isReadingListItem(menuItem)
-                        ? (read: boolean) => handleToggleRead(menuItemId!, read)
-                        : undefined
-                    }
-                    onDelete={() => {
-                      if (menuItemId) requestDeleteItem(menuItemId);
-                      setMenuItemId(null);
-                    }}
-                  />
-                );
-              })()}
-            </>
           )}
         </div>
       </div>

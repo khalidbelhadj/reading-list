@@ -7,7 +7,6 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { type Item, isReadingListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { ItemDropdown } from "./item-dropdown";
@@ -18,29 +17,27 @@ export function SortableItemRow({
   flashcardCount,
   isEditing,
   isSelected,
-  isMobile,
   suppressHover,
   suppressTransition,
   isDragDisabled,
+  isTyping,
   onToggleRead,
   onSelect,
   onDelete,
-  onOpenMenu,
 }: {
   item: Item;
   flashcardCount: number;
   isEditing: boolean;
   isSelected: boolean;
-  isMobile: boolean;
   suppressHover: boolean;
   suppressTransition?: boolean;
   isDragDisabled: boolean;
+  isTyping?: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
   onSave?: (fields: EditFields) => void;
   onDelete?: () => void;
   onCancelEdit?: () => void;
-  onOpenMenu?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -62,18 +59,6 @@ export function SortableItemRow({
     position: "relative",
     zIndex: isDragging ? 10 : undefined,
   };
-
-  const handleCheckedChange = React.useCallback(() => {
-    onToggleRead?.();
-  }, [onToggleRead]);
-
-  const handleOpenMenu = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onOpenMenu?.();
-    },
-    [onOpenMenu],
-  );
 
   const isRead = isReadingListItem(item) && item.read;
 
@@ -101,64 +86,24 @@ export function SortableItemRow({
             alt=""
             width={16}
             height={16}
-            className={cn(
-              "size-4 rounded-[3px]",
-              !isMobile && onToggleRead && "group-hover:invisible",
-            )}
+            className="size-4 rounded-[3px]"
             unoptimized
           />
         ) : (
-          <IconFileFilled
-            className={cn(
-              "size-4 text-muted-foreground",
-              !isMobile && onToggleRead && "group-hover:invisible",
-            )}
-          />
-        )}
-        {!isMobile && onToggleRead && (
-          <div
-            className="absolute inset-0 invisible group-hover:visible flex items-center justify-center"
-            onClick={stopPropagation}
-            onPointerDown={stopPropagation}
-          >
-            <Checkbox
-              checked={isRead}
-              onCheckedChange={handleCheckedChange}
-              className="size-4 rounded-full"
-            />
-          </div>
+          <IconFileFilled className="size-4 text-muted-foreground" />
         )}
       </div>
-      {item.url && URL.canParse(item.url) ? (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-item-title
-          className={cn(
-            "font-content text-sm truncate min-w-0 hover:underline",
-            !item.title && "text-muted-foreground",
-          )}
-          onClick={stopPropagation}
-          onPointerDown={stopPropagation}
-        >
-          <span className="title-strike" data-read={isRead ? "true" : undefined}>
-            {item.title || "Untitled"}
-          </span>
-        </a>
-      ) : (
-        <span
-          data-item-title
-          className={cn(
-            "font-content text-sm truncate min-w-0",
-            !item.title && "text-muted-foreground",
-          )}
-        >
-          <span className="title-strike" data-read={isRead ? "true" : undefined}>
-            {item.title || "Untitled"}
-          </span>
+      <span
+        data-item-title
+        className={cn(
+          "font-content text-sm truncate min-w-0",
+          !item.title && !isTyping && "text-muted-foreground",
+        )}
+      >
+        <span className="title-strike" data-read={isRead ? "true" : undefined}>
+          {item.title || (isTyping ? " " : "Untitled")}
         </span>
-      )}
+      </span>
       {item.tags.length > 0 || flashcardCount > 0 ? (
         <div className="hidden sm:flex items-center gap-1 ml-auto shrink-0 max-w-1/2 overflow-hidden">
           {item.tags.map((t) => (
@@ -173,44 +118,32 @@ export function SortableItemRow({
       ) : (
         <div className="hidden sm:block w-4 shrink-0" />
       )}
-      {isMobile && onOpenMenu && (
-        <button
-          type="button"
-          className="ml-auto shrink-0 text-muted-foreground p-1 -mr-1"
-          onClick={handleOpenMenu}
-          onPointerDown={stopPropagation}
-        >
-          <IconDots className="size-4" />
-        </button>
-      )}
-      {!isMobile && (
-        <ItemDropdown
-          item={item}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-          onToggleRead={onToggleRead}
-          onDelete={onDelete}
-        >
-          <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
-            <div
-              className={cn(
-                "absolute inset-0 bg-gradient-to-r from-transparent",
-                isSelected ? "via-secondary to-secondary" : "via-card to-card",
-              )}
-            />
-            <DropdownMenuTrigger
-              className={cn(
-                "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-                isSelected ? "bg-secondary" : "bg-card",
-              )}
-              onClick={stopPropagation}
-              onPointerDown={stopPropagation}
-            >
-              <IconDots className="size-4" />
-            </DropdownMenuTrigger>
-          </div>
-        </ItemDropdown>
-      )}
+      <ItemDropdown
+        item={item}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onToggleRead={onToggleRead}
+        onDelete={onDelete}
+      >
+        <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
+          <div
+            className={cn(
+              "absolute inset-0 bg-gradient-to-r from-transparent",
+              isSelected ? "via-secondary to-secondary" : "via-card to-card",
+            )}
+          />
+          <DropdownMenuTrigger
+            className={cn(
+              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+              isSelected ? "bg-secondary" : "bg-card",
+            )}
+            onClick={stopPropagation}
+            onPointerDown={stopPropagation}
+          >
+            <IconDots className="size-4" />
+          </DropdownMenuTrigger>
+        </div>
+      </ItemDropdown>
     </div>
   );
 }

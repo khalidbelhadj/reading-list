@@ -89,6 +89,7 @@ export const SettingsMenu = ({
   const [sansFont, setSansFont] = React.useState<FontKey>("dm-sans");
   const [contentFont, setContentFont] = React.useState<FontKey>("dm-sans");
   const [promptsOpen, setPromptsOpen] = React.useState(false);
+  const [debugEnabled, setDebugEnabled] = React.useState(false);
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
@@ -189,6 +190,7 @@ export const SettingsMenu = ({
     if (storedSans && storedSans in FONT_VALUES) setSansFont(storedSans);
     if (storedContent && storedContent in FONT_VALUES)
       setContentFont(storedContent);
+    setDebugEnabled(localStorage.getItem("reading-list-debug") === "true");
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
@@ -256,38 +258,48 @@ export const SettingsMenu = ({
         </DropdownMenuSub>
         <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
         <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Body font</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup
-              value={sansFont}
-              onValueChange={handleSansFontChange}
-            >
-              {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {FONT_LABELS[key]}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Content font</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup
-              value={contentFont}
-              onValueChange={handleContentFontChange}
-            >
-              {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {FONT_LABELS[key]}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
         {mounted && email && (
           <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+        )}
+        {debugEnabled && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Debug</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Body font</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={sansFont}
+                      onValueChange={handleSansFontChange}
+                    >
+                      {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
+                        <DropdownMenuRadioItem key={key} value={key}>
+                          {FONT_LABELS[key]}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Content font</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={contentFont}
+                      onValueChange={handleContentFontChange}
+                    >
+                      {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
+                        <DropdownMenuRadioItem key={key} value={key}>
+                          {FONT_LABELS[key]}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
         )}
       </DropdownMenuContent>
 

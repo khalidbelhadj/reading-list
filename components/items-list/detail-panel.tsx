@@ -12,12 +12,20 @@ import Image from "next/image";
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { cn } from "@/lib/utils";
 import { type Flashcard, type Item } from "@/lib/types";
 import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  TOOLTIP_DELAY_MS,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   createFlashcard,
@@ -441,12 +449,20 @@ export const DetailPanel = ({
     [handleAddCard, newFront],
   );
 
-  const faviconSrc = item ? getFaviconSrc(item) : null;
+  const faviconSrc = getFaviconSrc({
+    faviconUrl: item?.faviconUrl ?? null,
+    url,
+  });
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div
+      className={cn(
+        "flex flex-col gap-2 w-full",
+        !focused && "border-l-2 border-border pl-3",
+      )}
+    >
       {/* Item form card */}
-      <div className="rounded-lg bg-card px-3 py-3 flex flex-col gap-2">
+      <div className="px-3 py-3 flex flex-col gap-2">
         {/* Favicon + Title */}
         <div className="flex items-center gap-2">
           <div className="size-5 shrink-0 flex items-center justify-center">
@@ -484,15 +500,25 @@ export const DetailPanel = ({
             </Button>
           )}
           {!isNew && onExpand && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground/40 shrink-0"
-              onMouseDown={handleExpandMouseDown}
-              title={focused ? "Minimize" : "Expand"}
-            >
-              {focused ? <IconMinimize /> : <IconMaximize />}
-            </Button>
+            <TooltipProvider delay={TOOLTIP_DELAY_MS}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground/40 shrink-0"
+                      onMouseDown={handleExpandMouseDown}
+                    >
+                      {focused ? <IconMinimize /> : <IconMaximize />}
+                    </Button>
+                  }
+                />
+                <TooltipContent>
+                  {focused ? "Minimize" : "Expand"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           {!isNew && item && (
             <ItemDropdown
@@ -565,22 +591,19 @@ export const DetailPanel = ({
 
       {/* Flashcards: collapsed shows count line, expanded shows full management. */}
       {item && !isNew && !focused && item.flashcardCount > 0 && (
-        <Button
-          variant="ghost"
-          className="justify-start px-3 text-muted-foreground"
-          onClick={onExpand}
-        >
+        <span className="text-xs text-muted-foreground px-3">
           {item.flashcardCount}{" "}
           {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
-        </Button>
+        </span>
       )}
 
       {item && !isNew && focused && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-3">
             <span className="text-xs text-muted-foreground">
-              {item.flashcardCount}{" "}
-              {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
+              {item.flashcardCount === 0
+                ? "No flashcards"
+                : `${item.flashcardCount} ${item.flashcardCount === 1 ? "flashcard" : "flashcards"}`}
             </span>
             <Button variant="ghost" onClick={handleAddingCard}>
               <IconPlus />
