@@ -117,7 +117,7 @@ export const cardReviews = pgTable(
       .references(() => reviewSessions.id),
     flashcardId: text("flashcard_id")
       .notNull()
-      .references(() => flashcards.id),
+      .references(() => flashcards.id, { onDelete: "cascade" }),
     rating: text("rating").notNull(),
     durationMs: integer("duration_ms").notNull(),
     timeToRevealMs: integer("time_to_reveal_ms"),
@@ -146,7 +146,9 @@ export const reviewEvents = pgTable(
     sessionId: text("session_id")
       .notNull()
       .references(() => reviewSessions.id),
-    flashcardId: text("flashcard_id").references(() => flashcards.id),
+    flashcardId: text("flashcard_id").references(() => flashcards.id, {
+      onDelete: "set null",
+    }),
     type: text("type").notNull(),
     data: jsonb("data"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
