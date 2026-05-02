@@ -528,23 +528,6 @@ export async function deleteTag(tagId: number) {
   });
 }
 
-export async function getFlashcardCounts(): Promise<Map<string, number>> {
-  const userId = await getCurrentUserId();
-  const rows = await withUser(userId, (tx) =>
-    tx
-      .select({
-        itemId: flashcards.itemId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(flashcards)
-      .where(eq(flashcards.userId, userId))
-      .groupBy(flashcards.itemId),
-  );
-  return new Map(
-    rows.filter((r) => r.itemId !== null).map((r) => [r.itemId!, r.count]),
-  );
-}
-
 export async function getFlashcards(itemId: string) {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -1156,14 +1139,48 @@ export async function endReviewSession(args: {
   });
 }
 
-export async function getDueCardCount(): Promise<number> {
+export async function getReviewStatus(): Promise<{
+  dueCount: number;
+  dueItemCount: number;
+  totalCardCount: number;
+  totalItemCount: number;
+  lastReviewedAt: string | null;
+}> {
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  const [row] = await withUser(userId, (tx) =>
-    tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(flashcards)
-      .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
-  );
-  return row?.count ?? 0;
+  const [dueRows, totalRows, lastRows] = await Promise.all([
+    withUser(userId, (tx) =>
+      tx
+        .select({
+          cards: sql<number>`count(*)::int`,
+          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
+        })
+        .from(flashcards)
+        .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
+    ),
+    withUser(userId, (tx) =>
+      tx
+        .select({
+          cards: sql<number>`count(*)::int`,
+          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
+        })
+        .from(flashcards)
+        .where(eq(flashcards.userId, userId)),
+    ),
+    withUser(userId, (tx) =>
+      tx
+        .select({ reviewedAt: cardReviews.reviewedAt })
+        .from(cardReviews)
+        .where(eq(cardReviews.userId, userId))
+        .orderBy(desc(cardReviews.reviewedAt))
+        .limit(1),
+    ),
+  ]);
+  return {
+    dueCount: dueRows[0]?.cards ?? 0,
+    dueItemCount: dueRows[0]?.items ?? 0,
+    totalCardCount: totalRows[0]?.cards ?? 0,
+    totalItemCount: totalRows[0]?.items ?? 0,
+    lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
+  };
 }

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconSettings } from "@tabler/icons-react";
+import { IconAdjustments } from "@tabler/icons-react";
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -60,7 +61,23 @@ const FONT_LABELS: Record<FontKey, string> = {
   "source-serif-4": "Source Serif 4",
 };
 
-export const SettingsMenu = () => {
+export const SettingsMenu = ({
+  showFilters,
+  showReadingListFilters,
+  hasTags,
+  tagsOpen,
+  setTagsOpen,
+  showRead,
+  setShowRead,
+}: {
+  showFilters: boolean;
+  showReadingListFilters: boolean;
+  hasTags: boolean;
+  tagsOpen: boolean;
+  setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  showRead: boolean;
+  setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const email = user?.email ?? null;
@@ -132,6 +149,16 @@ export const SettingsMenu = () => {
 
   const openPrompts = React.useCallback(() => setPromptsOpen(true), []);
 
+  const handleTagsOpenChange = React.useCallback(
+    (checked: boolean) => setTagsOpen(checked),
+    [setTagsOpen],
+  );
+
+  const handleShowReadChange = React.useCallback(
+    (checked: boolean) => setShowRead(checked),
+    [setShowRead],
+  );
+
   const handleSansFontChange = React.useCallback((value: string) => {
     const key = value as FontKey;
     setSansFont(key);
@@ -177,7 +204,7 @@ export const SettingsMenu = () => {
       <DropdownMenuTrigger
         render={
           <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <IconSettings />
+            <IconAdjustments />
           </Button>
         }
       />
@@ -189,6 +216,26 @@ export const SettingsMenu = () => {
                 {email}
               </DropdownMenuLabel>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {showFilters && (
+          <>
+            {showReadingListFilters && (
+              <DropdownMenuCheckboxItem
+                checked={showRead}
+                onCheckedChange={handleShowReadChange}
+                >
+                Show read items
+              </DropdownMenuCheckboxItem>
+            )}
+            <DropdownMenuCheckboxItem
+              checked={tagsOpen}
+              onCheckedChange={handleTagsOpenChange}
+              disabled={!hasTags}
+            >
+              Filter by tags
+            </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
           </>
         )}

@@ -7,6 +7,7 @@ export type DbTag = typeof tags.$inferSelect;
 // App-level types with joined tags
 type BaseItem = Omit<DbItem, "type" | "read"> & {
   tags: DbTag[];
+  flashcardCount: number;
 };
 
 export type ReadingListItem = BaseItem & {

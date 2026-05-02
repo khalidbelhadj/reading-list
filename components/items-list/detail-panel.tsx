@@ -1,28 +1,29 @@
 import {
-  IconArrowsMaximize,
   IconCheck,
   IconDots,
   IconFileFilled,
+  IconMaximize,
+  IconMinimize,
   IconPlus,
   IconWand,
   IconX,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { cn } from "@/lib/utils";
 import { type Flashcard, type Item } from "@/lib/types";
-import { useDebounced } from "@/lib/use-debounced";
+import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
-  getFlashcards,
   createFlashcard,
-  updateFlashcard,
   deleteFlashcard,
+  getFlashcards,
+  updateFlashcard,
 } from "@/app/actions";
 
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
@@ -32,7 +33,6 @@ import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
 import { ItemDropdown } from "./item-dropdown";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
 // from outside the panel (rename/delete via the filter bar) and the server
@@ -46,7 +46,6 @@ export const DetailPanel = ({
   onSave,
   onCreate,
   onCancel,
-  onFlashcardChange,
   onDelete,
   onToggleRead,
   onFieldsChange,
@@ -59,7 +58,6 @@ export const DetailPanel = ({
   onSave: (itemId: string, fields: EditFields) => void;
   onCreate: (fields: EditFields) => void;
   onCancel?: () => void;
-  onFlashcardChange: () => void;
   onDelete?: () => void;
   onToggleRead?: () => void;
   onFieldsChange?: (
@@ -122,18 +120,16 @@ export const DetailPanel = ({
   const queryClient = useQueryClient();
   const currentId = item?.id ?? (isNew ? "new" : null);
 
-  // Debounce the id used for fetching so rapid Ctrl+N/P doesn't fire a request
-  // for every item the user passes through — only the one they settle on.
-  const debouncedItemId = useDebounced(item?.id, 150);
+  // Cards only fetched when the user enters the focused/expanded view —
+  // the side panel just shows the count.
   const {
     data: cards = [],
     isLoading: cardsLoading,
     isError: cardsError,
   } = useQuery<Flashcard[]>({
-    queryKey: ["flashcards", debouncedItemId],
-    queryFn: () => getFlashcards(debouncedItemId!),
-    enabled: !!debouncedItemId,
-    // Cached forever within the session — mutations invalidate explicitly.
+    queryKey: ["flashcards", item?.id],
+    queryFn: () => getFlashcards(item!.id),
+    enabled: focused && !!item?.id,
     staleTime: Infinity,
   });
 
@@ -163,11 +159,10 @@ export const DetailPanel = ({
         ["flashcards", item?.id],
         (old: typeof cards) => [optimisticCard, ...(old ?? [])],
       );
-      onFlashcardChange();
+      if (item?.id) bumpItemFlashcardCount(queryClient, item.id, 1);
       return { previous, tempId };
     },
     onSuccess: (realCard, _vars, context) => {
-      // Replace the temp card with the real one — no refetch needed
       queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
         (old ?? []).map((c) => (c.id === context?.tempId ? realCard : c)),
       );
@@ -176,7 +171,7 @@ export const DetailPanel = ({
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["flashcards", item?.id], context.previous);
-        onFlashcardChange();
+        if (item?.id) bumpItemFlashcardCount(queryClient, item.id, -1);
       }
     },
   });
@@ -226,13 +221,13 @@ export const DetailPanel = ({
       queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
         (old ?? []).filter((c) => c.id !== id),
       );
-      onFlashcardChange();
+      if (item?.id) bumpItemFlashcardCount(queryClient, item.id, -1);
       return { previous };
     },
     onError: (_err, _id, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["flashcards", item?.id], context.previous);
-        onFlashcardChange();
+        if (item?.id) bumpItemFlashcardCount(queryClient, item.id, 1);
       }
     },
     onSettled: () => {
@@ -420,7 +415,7 @@ export const DetailPanel = ({
 
   const handleAddingCard = React.useCallback(() => {
     setAddingCard(true);
-  }, [setAddingCard]);
+  }, []);
 
   const handleAddingCardBlur = React.useCallback(
     (e: React.FocusEvent) => {
@@ -494,9 +489,9 @@ export const DetailPanel = ({
               size="icon"
               className="text-muted-foreground/40 shrink-0"
               onMouseDown={handleExpandMouseDown}
-              title="Expand"
+              title={focused ? "Minimize" : "Expand"}
             >
-              <IconArrowsMaximize />
+              {focused ? <IconMinimize /> : <IconMaximize />}
             </Button>
           )}
           {!isNew && item && (
@@ -518,6 +513,31 @@ export const DetailPanel = ({
               />
             </ItemDropdown>
           )}
+          {isNew && (
+            <>
+              {onCancel && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground/40 shrink-0 hover:text-foreground"
+                  onClick={onCancel}
+                  title="Cancel"
+                >
+                  <IconX />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground/50 shrink-0 -ml-2 hover:text-foreground"
+                disabled={saving}
+                onClick={handleSave}
+                title="Create item"
+              >
+                {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
+              </Button>
+            </>
+          )}
         </div>
 
         {/* URL */}
@@ -538,51 +558,35 @@ export const DetailPanel = ({
           value={notes}
           onChange={setNotes}
           placeholder="Notes..."
-          className={cn(
-            "text-xs text-muted-foreground",
-            focused ? "" : "max-h-48 overflow-y-auto",
-          )}
+          className="text-xs text-muted-foreground [&_.ProseMirror]:min-h-8!"
         />
 
-        {/* Actions (new item only) */}
-        {isNew && (
-          <div className="flex items-center justify-end mt-1 gap-0.5">
-            {onCancel && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground/40 hover:text-foreground"
-                onClick={onCancel}
-                title="Cancel"
-              >
-                <IconX />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground/50 hover:text-foreground"
-              disabled={saving}
-              onClick={handleSave}
-              title="Create item"
-            >
-              {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
-            </Button>
-          </div>
-        )}
       </div>
 
-      {/* Flashcards */}
-      {item && !isNew && (
+      {/* Flashcards: collapsed shows count line, expanded shows full management. */}
+      {item && !isNew && !focused && item.flashcardCount > 0 && (
+        <Button
+          variant="ghost"
+          className="justify-start px-3 text-muted-foreground"
+          onClick={onExpand}
+        >
+          {item.flashcardCount}{" "}
+          {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
+        </Button>
+      )}
+
+      {item && !isNew && focused && (
         <div className="flex flex-col gap-2">
-          <Button
-            variant="secondary"
-            className="bg-card"
-            onClick={handleAddingCard}
-          >
-            <IconPlus />
-            Add card
-          </Button>
+          <div className="flex items-center justify-between px-3">
+            <span className="text-xs text-muted-foreground">
+              {item.flashcardCount}{" "}
+              {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
+            </span>
+            <Button variant="ghost" onClick={handleAddingCard}>
+              <IconPlus />
+              Add card
+            </Button>
+          </div>
 
           {addingCard && (
             <div
@@ -608,14 +612,16 @@ export const DetailPanel = ({
           )}
 
           {cardsLoading &&
-            Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={`skeleton-${i}`}
-                style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}
-              >
-                <Skeleton className="h-22 rounded-lg" />
-              </div>
-            ))}
+            Array.from({ length: Math.min(item.flashcardCount, 5) || 1 }).map(
+              (_, i) => (
+                <div
+                  key={`skeleton-${i}`}
+                  style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}
+                >
+                  <Skeleton className="h-22 rounded-lg" />
+                </div>
+              ),
+            )}
 
           {cardsError && (
             <div className="px-1 py-6 text-center text-destructive text-xs">

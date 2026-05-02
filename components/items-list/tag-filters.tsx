@@ -358,7 +358,8 @@ export const TagFilters = ({
               disabled={deleting}
               onClick={handleDeleteClick}
             >
-              {deleting ? <Spinner className="size-3.5" /> : "Delete"}
+              {deleting && <Spinner className="size-3.5" />}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

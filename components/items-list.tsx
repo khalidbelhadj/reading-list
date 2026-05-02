@@ -13,15 +13,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { IconArrowLeft, IconFileFilled } from "@tabler/icons-react";
+import { motion } from "motion/react";
+import { IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { isReadingListItem, type Item } from "@/lib/types";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
@@ -40,13 +39,14 @@ type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import useIsMobile from "@/lib/use-is-mobile";
 import { type EditFields } from "./items-list/utils";
-import { createItem, updateItem, getFlashcardCounts } from "@/app/actions";
+import { createItem, updateItem } from "@/app/actions";
 import { SortableItemRow } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
+import { ReviewNudge } from "./items-list/review-nudge";
 import { ItemFormDrawer } from "./items-list/item-form-drawer";
 import { ItemActionsDrawer } from "./items-list/item-actions-drawer";
 import { DetailPanel } from "./items-list/detail-panel";
@@ -64,10 +64,6 @@ export const ItemsList = () => {
   } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
-  });
-  const { data: flashcardCounts = new Map() } = useQuery({
-    queryKey: ["flashcard-counts"],
-    queryFn: getFlashcardCounts,
   });
   const { isMobile } = useIsMobile();
 
@@ -89,7 +85,6 @@ export const ItemsList = () => {
   });
 
   // Refs
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const cursorRef = React.useRef<string | null>(null);
   const setCursor = React.useCallback((id: string | null) => {
     cursorRef.current = id;
@@ -166,14 +161,6 @@ export const ItemsList = () => {
     setFocusedId(null);
   }, [activeTab, focusedId, setActiveTabAndUrl]);
 
-  const handleBackMouseDown = React.useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      handleCloseFocused();
-    },
-    [handleCloseFocused],
-  );
-
   // Hooks
   const {
     tabType,
@@ -187,10 +174,6 @@ export const ItemsList = () => {
     setTagsOpen,
     showRead,
     setShowRead,
-    search,
-    setSearch,
-    searchOpen,
-    setSearchOpen,
   } = useItemsFilters(items, activeTab);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle } =
@@ -230,10 +213,6 @@ export const ItemsList = () => {
     setSelectedId,
     editingId,
     setEditingId,
-    searchOpen,
-    setSearch,
-    setSearchOpen,
-    searchInputRef,
     setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
@@ -378,20 +357,8 @@ export const ItemsList = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  React.useEffect(() => {
-    if (search.trim() && filteredItems.length > 0) {
-      const anyVisible =
-        selectedId !== null && filteredItems.some((i) => i.id === selectedId);
-      if (!anyVisible) {
-        setSelectedId(filteredItems[0].id);
-        setCursor(filteredItems[0].id);
-      }
-    }
-  }, [search, filteredItems, selectedId, setCursor]);
-
   // DnD
-  const isDragDisabled =
-    search.trim().length > 0 || activeTags.size > 0 || editingId !== null;
+  const isDragDisabled = activeTags.size > 0 || editingId !== null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -451,15 +418,11 @@ export const ItemsList = () => {
     if (filteredItems.length > 0 || isNewItem) return null;
     if (tabItems.length === 0) return "Nothing here yet";
 
-    const searchQuery = search.toLowerCase().trim();
     const hiddenReadCount = !showRead
       ? tabItems.filter(
           (item) =>
             isReadingListItem(item) &&
             item.read &&
-            (!searchQuery ||
-              item.title.toLowerCase().includes(searchQuery) ||
-              item.url.toLowerCase().includes(searchQuery)) &&
             (activeTags.size === 0 ||
               item.tags.some((t) => activeTags.has(t.name))),
         ).length
@@ -469,7 +432,7 @@ export const ItemsList = () => {
       return `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`;
     }
     return "No items match your filters";
-  }, [filteredItems, isNewItem, tabItems, search, showRead, activeTags]);
+  }, [filteredItems, isNewItem, tabItems, showRead, activeTags]);
 
   return (
     <div className="relative">
@@ -488,20 +451,15 @@ export const ItemsList = () => {
               activeTab={activeTab}
               setActiveTabAndUrl={setActiveTabAndUrl}
               tabType={tabType}
-              searchOpen={searchOpen}
-              setSearchOpen={setSearchOpen}
-              search={search}
-              setSearch={setSearch}
-              searchInputRef={searchInputRef}
-              allTags={allTags}
+              hasTags={allTags.length > 0}
               tagsOpen={tagsOpen}
               setTagsOpen={setTagsOpen}
-              activeTags={activeTags}
               showRead={showRead}
               setShowRead={setShowRead}
               setEditingId={setEditingId}
-              isMobile={isMobile}
             />
+
+            <ReviewNudge />
 
             {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
               <TagFilters
@@ -591,7 +549,7 @@ export const ItemsList = () => {
                             }
                           : item
                       }
-                      flashcardCount={flashcardCounts.get(item.id) ?? 0}
+                      flashcardCount={item.flashcardCount}
                       isEditing={isMobile && editingId === item.id}
                       isSelected={selectedId === item.id}
                       isMobile={isMobile}
@@ -674,7 +632,6 @@ export const ItemsList = () => {
             </>
           )}
         </div>
-
       </div>
 
       {panelVisible && (
@@ -683,8 +640,8 @@ export const ItemsList = () => {
           initial={false}
           animate={{
             x: isFocused ? -612 : 0,
-            y: isFocused ? 40 : 0,
-            width: isFocused ? 600 : 320,
+            y: 0,
+            width: isFocused ? 600 : 380,
           }}
           transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
           style={{ top: 20, left: "calc(50% + 19.5rem)" }}
@@ -698,13 +655,10 @@ export const ItemsList = () => {
               focused={isFocused}
               item={panelItem}
               isNew={!isFocused && isNewItem}
-              defaultTags={!isFocused && isNewItem ? [...activeTags] : undefined}
-              onSave={(itemId, fields) => handleSave(itemId, fields)}
-              onFlashcardChange={() =>
-                queryClient.invalidateQueries({
-                  queryKey: ["flashcard-counts"],
-                })
+              defaultTags={
+                !isFocused && isNewItem ? [...activeTags] : undefined
               }
+              onSave={(itemId, fields) => handleSave(itemId, fields)}
               onCreate={handleCreate}
               onCancel={
                 !isFocused && isNewItem ? () => setEditingId(null) : undefined
@@ -718,39 +672,17 @@ export const ItemsList = () => {
                   : undefined
               }
               onExpand={
-                !isFocused && detailItem
-                  ? () => handleExpandItem(detailItem.id)
-                  : undefined
+                isFocused
+                  ? handleCloseFocused
+                  : detailItem
+                    ? () => handleExpandItem(detailItem.id)
+                    : undefined
               }
               onFieldsChange={setLiveFields}
             />
           )}
         </motion.div>
       )}
-
-      <AnimatePresence>
-        {isFocused && (
-          <motion.div
-            key="back-button"
-            className="fixed z-20"
-            style={{ top: 20, left: "calc(50vw - 300px)" }}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ type: "spring", visualDuration: 0.18, bounce: 0.1 }}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onMouseDown={handleBackMouseDown}
-            >
-              <IconArrowLeft />
-              Back
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AlertDialog
         open={deleteOpen}
@@ -804,7 +736,8 @@ export const ItemsList = () => {
                 confirmDelete();
               }}
             >
-              {deleting ? <Spinner className="size-3.5" /> : "Delete"}
+              {deleting && <Spinner className="size-3.5" />}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

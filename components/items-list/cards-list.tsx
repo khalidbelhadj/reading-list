@@ -109,7 +109,7 @@ export const CardsList = ({
           queryKey: ["flashcards", card.itemId],
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["flashcard-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
 

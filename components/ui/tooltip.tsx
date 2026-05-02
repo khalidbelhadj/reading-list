@@ -4,6 +4,11 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/lib/utils"
 
+// Shared delay (ms) for tooltips that should appear after a hover hold.
+// Default tooltips appear immediately; opt in by wrapping the trigger in a
+// `<TooltipProvider delay={TOOLTIP_DELAY_MS}>`.
+export const TOOLTIP_DELAY_MS = 1500
+
 function TooltipProvider({
   delay = 0,
   ...props

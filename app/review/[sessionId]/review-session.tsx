@@ -16,6 +16,16 @@ import {
   type ReviewSessionCard,
   type ReviewSessionData,
 } from "@/app/actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
@@ -104,6 +114,7 @@ export const ReviewSession = ({
 
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [revealed, setRevealed] = React.useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = React.useState(false);
 
   const cardShownAtRef = React.useRef<number | null>(null);
   const revealedAtRef = React.useRef<number | null>(null);
@@ -220,10 +231,20 @@ export const ReviewSession = ({
     endMutation,
   ]);
 
-  const handleEnd = React.useCallback(() => {
+  const handleRequestEnd = React.useCallback(() => {
+    if (endMutation.isPending || sessionEnded) return;
+    setEndConfirmOpen(true);
+  }, [endMutation.isPending, sessionEnded]);
+  const handleConfirmEnd = React.useCallback(() => {
     if (endMutation.isPending || sessionEnded) return;
     endMutation.mutate("user_ended");
   }, [endMutation, sessionEnded]);
+  const handleRequestEndOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open && !endMutation.isPending) setEndConfirmOpen(false);
+    },
+    [endMutation.isPending],
+  );
 
   React.useEffect(() => {
     if (sessionEnded) return;
@@ -245,7 +266,7 @@ export const ReviewSession = ({
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        handleEnd();
+        handleRequestEnd();
         return;
       }
       if (e.key === "s" || e.key === "S") {
@@ -262,7 +283,7 @@ export const ReviewSession = ({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sessionEnded, revealed, handleReveal, handleRate, handleSkip, handleEnd]);
+  }, [sessionEnded, revealed, handleReveal, handleRate, handleSkip, handleRequestEnd]);
 
   if (sessionEnded || currentIndex >= cards.length) {
     return (
@@ -327,7 +348,7 @@ export const ReviewSession = ({
         </div>
         <button
           type="button"
-          onClick={handleEnd}
+          onClick={handleRequestEnd}
           disabled={endMutation.isPending}
           className="flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-60"
         >
@@ -439,6 +460,35 @@ export const ReviewSession = ({
           </Button>
         )}
       </footer>
+
+      <AlertDialog
+        open={endConfirmOpen}
+        onOpenChange={handleRequestEndOpenChange}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End this session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&rsquo;ve reviewed {currentIndex} of {cards.length} cards.
+              You can&rsquo;t resume this session — ending it now will finish
+              it for good.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={endMutation.isPending}>
+              Keep going
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmEnd}
+              disabled={endMutation.isPending}
+            >
+              {endMutation.isPending && <Spinner className="size-3" />}
+              End session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

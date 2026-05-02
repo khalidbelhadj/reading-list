@@ -17,16 +17,3 @@ export function similarity(a: string, b: string): number {
   const union = ta.size + tb.size - intersection;
   return union === 0 ? 0 : intersection / union;
 }
-
-export function fuzzyMatch(item: { title: string; url: string }, query: string): number {
-  if (!query) return 1;
-  const q = query.toLowerCase();
-
-  // Exact substring match gets a boost
-  if (item.title.toLowerCase().includes(q) || item.url.toLowerCase().includes(q)) {
-    return 1;
-  }
-
-  // Trigram similarity on title
-  return similarity(item.title, query);
-}

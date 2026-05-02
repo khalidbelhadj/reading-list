@@ -23,7 +23,8 @@ export const LoginForm = ({ error }: { error: boolean }) => {
     <div className="flex w-full max-w-xs flex-col gap-4">
       <h1 className="text-lg font-medium">Reading List</h1>
       <Button onClick={handleGoogleLogin} disabled={loading}>
-        {loading ? <Spinner className="mx-auto size-4" /> : "Sign in with Google"}
+        {loading && <Spinner className="size-4" />}
+        Sign in with Google
       </Button>
       {error && <p className="text-sm text-destructive">Authentication failed.</p>}
     </div>

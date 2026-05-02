@@ -17,10 +17,6 @@ export const useKeyboardNavigation = ({
   setSelectedId,
   editingId,
   setEditingId,
-  searchOpen,
-  setSearch,
-  setSearchOpen,
-  searchInputRef,
   setActiveTabAndUrl,
   setTagsOpen,
   setShowRead,
@@ -36,10 +32,6 @@ export const useKeyboardNavigation = ({
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
   editingId: string | null;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
-  searchOpen: boolean;
-  setSearch: React.Dispatch<React.SetStateAction<string>>;
-  setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
   setActiveTabAndUrl: (tab: TabId) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
@@ -107,9 +99,6 @@ export const useKeyboardNavigation = ({
         if (isOverlayOpen()) return;
         if (editingId) {
           setEditingId(null);
-        } else if (searchOpen) {
-          setSearch("");
-          setSearchOpen(false);
         } else {
           const panel = document.querySelector("[data-detail-panel]");
           if (panel?.contains(e.target as Node)) {
@@ -122,11 +111,6 @@ export const useKeyboardNavigation = ({
         return;
       }
       if (isTypingContext(e)) return;
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        setSearchOpen(true);
-        requestAnimationFrame(() => searchInputRef.current?.focus());
-      }
       if (e.key === "1" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("reading-list");
       if (e.key === "2" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("cards");
       if (e.key === "a" && !e.metaKey && !e.ctrlKey && !editingId) {
@@ -144,7 +128,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [editingId, searchOpen, setEditingId, setSearch, setSearchOpen, setSelectedId, searchInputRef, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor]);
+  }, [editingId, setEditingId, setSelectedId, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor]);
 
   // Cmd+Backspace to delete selected item
   React.useEffect(() => {

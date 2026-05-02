@@ -65,16 +65,16 @@ Single-page reading list app with an MCP server for AI integrations.
 - Flashcards have `front`/`back` text, linked to items via `itemId` (nullable FK)
 - Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`
 - Config in `drizzle.config.ts` (dialect: postgresql)
-- Fuzzy search via `pg_trgm` extension (enabled) + client-side trigram matching in `lib/trigram.ts`
+- MCP search uses the `pg_trgm` extension + trigram similarity in `lib/trigram.ts`
 
 ### UI Components
 
 - `components/ui/` — shadcn-style wrappers around @base-ui/react primitives, styled with CVA + Tailwind
-- `components/items-list.tsx` — Main client component: tabs, search, tag filters, drag-and-drop (@dnd-kit)
+- `components/items-list.tsx` — Main client component: tabs, tag filters, drag-and-drop (@dnd-kit)
 - `components/items-list/detail-panel.tsx` — Fixed right-side panel showing item edit form + flashcards when an item is selected
 - `components/items-list/use-keyboard-navigation.ts` — Keyboard navigation (Ctrl+N/P, Enter, Escape, Cmd+V paste, etc.)
 - `components/items-list/tag-input.tsx` — Inline tag input with badges
-- `components/items-list/use-filters.ts` — Client-side filtering with trigram fuzzy search
+- `components/items-list/use-filters.ts` — Client-side filtering by read state and tags
 - `components/items-list/use-mutations.ts` — React Query mutation wrappers for item CRUD
 
 ### Fonts
