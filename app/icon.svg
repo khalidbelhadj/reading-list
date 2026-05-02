@@ -1,6 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0a0a0a">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <style>
-    @media (prefers-color-scheme: dark) { svg { fill: #fafafa; } }
+    .bg { fill: oklch(0.65 0.09 150); }
+    .fg { fill: #fafafa; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: oklch(0.7 0.1 150); }
+      .fg { fill: oklch(0.3 0.008 85); }
+    }
   </style>
-  <path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4z" />
+  <rect class="bg" width="24" height="24" rx="4" />
+  <g transform="translate(3 3) scale(0.75)">
+    <path class="fg" d="M14 2a5 5 0 0 1 5 5v14a1 1 0 0 1 -1.555 .832l-5.445 -3.63l-5.444 3.63a1 1 0 0 1 -1.55 -.72l-.006 -.112v-14a5 5 0 0 1 5 -5h4z" />
+  </g>
 </svg>
