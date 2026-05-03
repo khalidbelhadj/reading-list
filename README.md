@@ -1,4 +1,3 @@
-![Uploading Screenshot 2026-05-03 at 1.42.01 pm.png…]()
 # Reading list application with spaced repetition
 
 https://reading-list.khalidbelhadj.com/
