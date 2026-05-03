@@ -1,12 +1,7 @@
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-  fetchPageTitle,
-  createItem,
-  updateItem,
-  reorderItem,
-} from "@/app/actions";
+import { reorderItem } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
 import { type TabId } from "@/components/items-list/use-filters";
@@ -26,7 +21,7 @@ export const useKeyboardNavigation = ({
   setCursor,
   onRequestDelete,
   activeTags,
-  setTypingTitles,
+  onPasteCreate,
 }: {
   filteredItems: Item[];
   selectedId: string | null;
@@ -42,9 +37,7 @@ export const useKeyboardNavigation = ({
   setCursor: (id: string | null) => void;
   onRequestDelete?: () => void;
   activeTags: Set<string>;
-  setTypingTitles: React.Dispatch<
-    React.SetStateAction<Record<string, string>>
-  >;
+  onPasteCreate: (url: string, tagNames: string[]) => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
   const queryClient = useQueryClient();
@@ -52,65 +45,6 @@ export const useKeyboardNavigation = ({
     () => queryClient.invalidateQueries({ queryKey: ["items"] }),
     [queryClient],
   );
-
-  const animateTypingTitle = React.useCallback(
-    (itemId: string, target: string) =>
-      new Promise<void>((resolve) => {
-        if (!target) {
-          resolve();
-          return;
-        }
-        let i = 0;
-        setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
-        const interval = setInterval(() => {
-          i++;
-          const partial = target.slice(0, i);
-          setTypingTitles((prev) => ({ ...prev, [itemId]: partial }));
-          if (i >= target.length) {
-            clearInterval(interval);
-            setTypingTitles((prev) => {
-              const next = { ...prev };
-              delete next[itemId];
-              return next;
-            });
-            resolve();
-          }
-        }, 15);
-      }),
-    [setTypingTitles],
-  );
-
-  const createMutation = useMutation({
-    mutationFn: (args: { title: string; url: string; type: string; tagNames: string[] }) =>
-      createItem(args.title, args.url, args.tagNames, undefined, args.type),
-    onSuccess: async (itemId, vars) => {
-      invalidate();
-      if (!itemId) return;
-      // Mark the row as "typing" up-front so it skips the "Untitled" fallback
-      // while we wait for fetchPageTitle to resolve.
-      setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
-      const fetched = await fetchPageTitle(vars.url);
-      const fallback = (() => {
-        try {
-          return new URL(vars.url).hostname.replace(/^www\./, "");
-        } catch {
-          return vars.url;
-        }
-      })();
-      const target = fetched?.trim() || fallback;
-      // Set the full title in the items cache so the detail panel
-      // shows the complete title if the user clicks the row mid-animation.
-      queryClient.setQueryData<Item[]>(["items"], (old) =>
-        (old ?? []).map((it) =>
-          it.id === itemId ? { ...it, title: target } : it,
-        ),
-      );
-      // Animation is purely visual — writes to a separate typing map
-      // that the list row consults instead of item.title.
-      await animateTypingTitle(itemId, target);
-      await updateItem(itemId, { title: target });
-    },
-  });
 
   const reorderMutation = useMutation({
     mutationFn: (args: { id: string; type: string; newPosition: number }) =>
@@ -128,7 +62,7 @@ export const useKeyboardNavigation = ({
         const url = new URL(text);
         if (url.protocol === "http:" || url.protocol === "https:") {
           e.preventDefault();
-          createMutation.mutate({ title: "", url: text, type: tabType, tagNames: [...activeTags] });
+          onPasteCreate(text, [...activeTags]);
         }
       } catch {
         // not a valid URL, ignore
@@ -136,7 +70,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [tabType, createMutation, activeTags]);
+  }, [onPasteCreate, activeTags]);
 
   // Global keyboard shortcuts
   React.useEffect(() => {
