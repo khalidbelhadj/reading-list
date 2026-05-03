@@ -772,7 +772,8 @@ export async function startReviewSession(args: {
         .select({ id: flashcards.id })
         .from(flashcards)
         .where(eq(flashcards.userId, userId))
-        .orderBy(asc(flashcards.createdAt));
+        .orderBy(asc(flashcards.createdAt))
+        .limit(limit);
       cardIds = rows.map((r) => r.id);
     }
 

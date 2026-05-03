@@ -59,9 +59,12 @@ export const ReviewNudge = () => {
   const handleReview = React.useCallback(() => {
     setConfirmOpen(true);
   }, []);
-  const handleConfirm = React.useCallback(() => {
-    startReview("due");
-  }, [startReview]);
+  const handleConfirm = React.useCallback(
+    (limit: number) => {
+      startReview("due", limit);
+    },
+    [startReview],
+  );
   const handleConfirmOpenChange = React.useCallback(
     (open: boolean) => {
       if (!open && !isStarting) setConfirmOpen(false);

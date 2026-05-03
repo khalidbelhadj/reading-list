@@ -12,12 +12,10 @@ import Image from "next/image";
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { cn } from "@/lib/utils";
 import { type Flashcard, type Item } from "@/lib/types";
 import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   TOOLTIP_DELAY_MS,
@@ -132,7 +130,6 @@ export const DetailPanel = ({
   // the side panel just shows the count.
   const {
     data: cards = [],
-    isLoading: cardsLoading,
     isError: cardsError,
   } = useQuery<Flashcard[]>({
     queryKey: ["flashcards", item?.id],
@@ -456,13 +453,10 @@ export const DetailPanel = ({
 
   return (
     <div
-      className={cn(
-        "flex flex-col gap-2 w-full",
-        !focused && "border-l-2 border-border pl-3",
-      )}
+      className="flex flex-col gap-2 w-full"
     >
       {/* Item form card */}
-      <div className="px-3 py-3 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {/* Favicon + Title */}
         <div className="flex items-center gap-2">
           <div className="size-5 shrink-0 flex items-center justify-center">
@@ -591,7 +585,7 @@ export const DetailPanel = ({
 
       {/* Flashcards: collapsed shows count line, expanded shows full management. */}
       {item && !isNew && !focused && item.flashcardCount > 0 && (
-        <span className="text-xs text-muted-foreground px-3">
+        <span className="text-xs text-muted-foreground">
           {item.flashcardCount}{" "}
           {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
         </span>
@@ -599,7 +593,7 @@ export const DetailPanel = ({
 
       {item && !isNew && focused && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-3">
+          <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {item.flashcardCount === 0
                 ? "No flashcards"
@@ -633,18 +627,6 @@ export const DetailPanel = ({
               />
             </div>
           )}
-
-          {cardsLoading &&
-            Array.from({ length: Math.min(item.flashcardCount, 5) || 1 }).map(
-              (_, i) => (
-                <div
-                  key={`skeleton-${i}`}
-                  style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}
-                >
-                  <Skeleton className="h-22 rounded-lg" />
-                </div>
-              ),
-            )}
 
           {cardsError && (
             <div className="px-1 py-6 text-center text-destructive text-xs">

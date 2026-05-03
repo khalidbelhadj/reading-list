@@ -592,13 +592,13 @@ export const ItemsList = () => {
           data-detail-panel
           initial={false}
           animate={{
-            x: isFocused ? -612 : 0,
+            x: isFocused ? -600 : 0,
             y: 0,
             width: isFocused ? 600 : 380,
           }}
           transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-          style={{ top: 20, left: "calc(50% + 19.5rem)" }}
-          className="fixed z-20 max-h-[calc(100vh-5rem)] overflow-y-auto detail-panel-scroll"
+          style={{ top: 20, left: "calc(50% + 18.75rem)" }}
+          className="fixed z-20 max-h-[calc(100vh-5rem)] overflow-y-auto detail-panel-scroll bg-background"
         >
           {isFocused && !focusedItem ? (
             <DetailPanelSkeleton />

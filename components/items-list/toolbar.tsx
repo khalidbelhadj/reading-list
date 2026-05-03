@@ -70,10 +70,13 @@ export const Toolbar = ({
     },
     [isStarting],
   );
-  const handleConfirm = React.useCallback(() => {
-    if (!pendingMode) return;
-    startReview(pendingMode);
-  }, [pendingMode, startReview]);
+  const handleConfirm = React.useCallback(
+    (limit: number) => {
+      if (!pendingMode) return;
+      startReview(pendingMode, limit);
+    },
+    [pendingMode, startReview],
+  );
   const wasStartingRef = React.useRef(false);
   React.useEffect(() => {
     if (wasStartingRef.current && !isStarting && pendingMode !== null) {

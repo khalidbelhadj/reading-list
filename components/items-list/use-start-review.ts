@@ -10,7 +10,8 @@ export const useStartReview = () => {
     null,
   );
   const mutation = useMutation({
-    mutationFn: (mode: ReviewMode) => startReviewSession({ mode, limit: 5 }),
+    mutationFn: (args: { mode: ReviewMode; limit: number }) =>
+      startReviewSession(args),
     onSuccess: ({ sessionId, cardCount }) => {
       if (cardCount === 0) {
         setStartingMode(null);
@@ -22,9 +23,9 @@ export const useStartReview = () => {
   });
 
   const startReview = React.useCallback(
-    (mode: ReviewMode) => {
+    (mode: ReviewMode, limit: number) => {
       setStartingMode(mode);
-      mutation.mutate(mode);
+      mutation.mutate({ mode, limit });
     },
     [mutation],
   );
