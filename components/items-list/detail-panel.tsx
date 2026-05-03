@@ -567,7 +567,7 @@ export const DetailPanel = ({
           onChange={handleSetUrl}
           onPaste={onUrlPaste}
           placeholder="https://example.com"
-          className="text-xs text-muted-foreground/70 bg-transparent outline-none placeholder:text-muted-foreground/40"
+          className="text-sm text-muted-foreground/70 bg-transparent outline-none placeholder:text-muted-foreground/40"
         />
 
         {/* Tags */}
@@ -578,7 +578,7 @@ export const DetailPanel = ({
           value={notes}
           onChange={setNotes}
           placeholder="Notes..."
-          className="text-xs text-muted-foreground [&_.ProseMirror]:min-h-8!"
+          className="text-sm text-muted-foreground [&_.ProseMirror]:min-h-8!"
         />
 
       </div>
