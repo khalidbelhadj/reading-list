@@ -1,3 +1,4 @@
+![Uploading Screenshot 2026-05-03 at 1.42.01 pm.png…]()
 # Reading list application with spaced repetition
 
 https://reading-list.khalidbelhadj.com/
@@ -9,6 +10,4 @@ bun install
 bun run db:push
 bun dev   # needs DATABASE_URL in .env.local
 ```
-
-<img width="1298" height="910" alt="Screenshot 2026-04-19 at 3 18 15 am" src="https://github.com/user-attachments/assets/058abd73-a21d-4d4d-9c15-791079c7fea2" />
-
+<img width="1824" height="1246" alt="Screenshot 2026-05-03 at 1 42 01 pm" src="https://github.com/user-attachments/assets/851ee094-238c-41b0-815d-82d606766828" />
