@@ -11,8 +11,46 @@ import StarterKit from "@tiptap/starter-kit";
 import CodeBlock from "@tiptap/extension-code-block";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
+import { toast } from "sonner";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
 import { cn } from "@/lib/utils";
+import { uploadNoteImage } from "@/app/actions-storage";
+import { ImageUpload } from "@/lib/tiptap-image-upload";
+
+const ImageLightbox = ({
+  src,
+  onOpenChange,
+}: {
+  src: string | null;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const handlePopupClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.target === event.currentTarget) onOpenChange(false);
+    },
+    [onOpenChange],
+  );
+  return (
+    <DialogPrimitive.Root open={src !== null} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/85 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-100" />
+        <DialogPrimitive.Popup
+          onClick={handlePopupClick}
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-100"
+        >
+          {src && (
+            <img
+              src={src}
+              alt=""
+              className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+            />
+          )}
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+};
 
 type MarkdownStorage = { markdown: { getMarkdown: () => string } };
 
@@ -104,16 +142,47 @@ export const MarkdownEditor = ({
 }) => {
   const onChangeRef = React.useRef(onChange);
   const onKeyDownRef = React.useRef(onKeyDown);
+  const [lightboxSrc, setLightboxSrc] = React.useState<string | null>(null);
   React.useEffect(() => {
     onChangeRef.current = onChange;
     onKeyDownRef.current = onKeyDown;
   });
+
+  const handleEditorClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName !== "IMG") return;
+      const img = target as HTMLImageElement;
+      if (img.dataset.uploading === "true") return;
+      if (!img.src) return;
+      event.preventDefault();
+      setLightboxSrc(img.src);
+    },
+    [],
+  );
+
+  const handleLightboxOpenChange = React.useCallback((open: boolean) => {
+    if (!open) setLightboxSrc(null);
+  }, []);
 
   const getMarkdown = React.useCallback(
     (e: NonNullable<typeof editor>) =>
       (e.storage as unknown as MarkdownStorage).markdown.getMarkdown(),
     [],
   );
+
+  const hasInflightUpload = React.useCallback((e: NonNullable<typeof editor>) => {
+    let uploading = false;
+    e.state.doc.descendants((node) => {
+      if (uploading) return false;
+      if (node.type.name === "image" && node.attrs.uploading) {
+        uploading = true;
+        return false;
+      }
+      return true;
+    });
+    return uploading;
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -123,6 +192,15 @@ export const MarkdownEditor = ({
       StarterKit.configure({ codeBlock: false }),
       CodeBlockWithLineNav,
       DeleteEmptyFirstBlock,
+      ImageUpload.configure({
+        upload: async (file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          const { url } = await uploadNoteImage(formData);
+          return url;
+        },
+        onUploadError: (message) => toast.error(message),
+      }),
       Markdown.configure({
         html: false,
         breaks: true,
@@ -132,6 +210,7 @@ export const MarkdownEditor = ({
     ],
     content: value,
     onUpdate: ({ editor }) => {
+      if (hasInflightUpload(editor)) return;
       onChangeRef.current?.(getMarkdown(editor));
     },
     editorProps: {
@@ -156,8 +235,12 @@ export const MarkdownEditor = ({
   }, [editable, editor]);
 
   return (
-    <div className={cn("markdown-editor w-full", className)}>
+    <div
+      className={cn("markdown-editor w-full", className)}
+      onClick={handleEditorClick}
+    >
       <EditorContent editor={editor} />
+      <ImageLightbox src={lightboxSrc} onOpenChange={handleLightboxOpenChange} />
     </div>
   );
 };
