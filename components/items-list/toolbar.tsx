@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { SettingsMenu } from "./settings-dialog";
-import { AppTabs } from "@/components/items-list/app-tabs";
 import { type TabId } from "@/components/items-list/use-filters";
 import { getReviewStatus, type ReviewMode } from "@/app/actions";
 import { useStartReview } from "./use-start-review";
@@ -97,19 +96,9 @@ export const Toolbar = ({
 
   return (
     <div className="flex items-center relative">
-      <AppTabs
-        value={activeTab}
-        onValueChange={setActiveTabAndUrl}
-        variant="text"
-        tabs={[
-          { label: "Reading List", value: "reading-list" },
-          { label: "Cards", value: "cards" },
-        ]}
-      />
-
-      <div className="flex-1" />
-
       <SettingsMenu
+        activeTab={activeTab}
+        setActiveTabAndUrl={setActiveTabAndUrl}
         showFilters={showFilters}
         showReadingListFilters={showFilters && tabType === "reading-list"}
         hasTags={hasTags}
@@ -118,6 +107,8 @@ export const Toolbar = ({
         showRead={showRead}
         setShowRead={setShowRead}
       />
+
+      <div className="flex-1" />
 
       <ButtonGroup className="ml-1">
         <Button

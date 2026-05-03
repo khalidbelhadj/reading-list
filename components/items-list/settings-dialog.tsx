@@ -2,10 +2,12 @@
 
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconAdjustments } from "@tabler/icons-react";
+import { IconChevronDown } from "@tabler/icons-react";
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { type TabId } from "@/components/items-list/use-filters";
 import {
   Dialog,
   DialogContent,
@@ -61,7 +63,14 @@ const FONT_LABELS: Record<FontKey, string> = {
   "source-serif-4": "Source Serif 4",
 };
 
+const TAB_LABELS: Record<TabId, string> = {
+  "reading-list": "Reading List",
+  cards: "Cards",
+};
+
 export const SettingsMenu = ({
+  activeTab,
+  setActiveTabAndUrl,
   showFilters,
   showReadingListFilters,
   hasTags,
@@ -70,6 +79,8 @@ export const SettingsMenu = ({
   showRead,
   setShowRead,
 }: {
+  activeTab: TabId;
+  setActiveTabAndUrl: (tab: TabId) => void;
   showFilters: boolean;
   showReadingListFilters: boolean;
   hasTags: boolean;
@@ -201,16 +212,33 @@ export const SettingsMenu = ({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <IconAdjustments />
-          </Button>
+          <button
+            type="button"
+            className="font-content text-sm font-medium flex items-center gap-1 cursor-pointer outline-none"
+          >
+            {TAB_LABELS[activeTab]}
+            <IconChevronDown className="size-3.5 text-muted-foreground/60" />
+          </button>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={4} className="min-w-48">
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
+        {(Object.keys(TAB_LABELS) as TabId[]).map((key) => (
+          <DropdownMenuItem
+            key={key}
+            onClick={() => setActiveTabAndUrl(key)}
+            className={cn(
+              activeTab === key && "bg-secondary",
+            )}
+          >
+            {TAB_LABELS[key]}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
         {mounted && email && (
           <>
             <DropdownMenuGroup>

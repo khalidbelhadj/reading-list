@@ -711,7 +711,7 @@ export const ItemsList = () => {
           animate={{
             x: isFocused ? -600 : 0,
             y: 0,
-            width: isFocused ? 600 : 380,
+            width: isFocused ? 600 : 440,
           }}
           transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
           style={{ top: 20, left: "calc(50% + 18.75rem)" }}
