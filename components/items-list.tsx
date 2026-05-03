@@ -50,7 +50,7 @@ import { TagFilters } from "./items-list/tag-filters";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { DetailPanel } from "./items-list/detail-panel";
 import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
-import { CardsList } from "./items-list/cards-list";
+import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const ItemsList = () => {
@@ -585,6 +585,8 @@ export const ItemsList = () => {
                 setActiveTags={setActiveTags}
               />
             )}
+
+            {activeTab === "cards" && <CardsStateBar />}
 
             {scrolled && (
               <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />

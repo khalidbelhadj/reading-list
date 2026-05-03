@@ -338,9 +338,9 @@ export const ReviewSession = ({
               className={cn(
                 "h-0.5 flex-1 rounded-full",
                 i < currentIndex
-                  ? "bg-foreground"
+                  ? "bg-primary"
                   : i === currentIndex
-                    ? "bg-foreground/60 animate-pulse"
+                    ? "bg-primary/60 animate-pulse"
                     : "bg-border",
               )}
             />
@@ -597,8 +597,8 @@ const SessionSummaryView = ({
                         r.value === "again"
                           ? "bg-destructive"
                           : r.value === "hard"
-                            ? "bg-foreground/40"
-                            : "bg-foreground",
+                            ? "bg-primary/40"
+                            : "bg-primary",
                       )}
                       style={{ width: `${pct}%` }}
                     />

@@ -40,7 +40,6 @@ If asked to run the dev server, run it in the background and read its output to 
 
 ## Colors
 
-- When adding new color tokens, propose oklch values in chat before writing them
 - Match chroma and hue angle to the nearest existing token (background uses hue 85, chroma 0.005)
 - Always show both light and dark mode values for confirmation
 - Existing custom tokens: `--badge` / `--badge-foreground` for badge backgrounds, `--font-content` for serif font

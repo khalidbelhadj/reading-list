@@ -15,6 +15,7 @@ import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
+import { cn } from "@/lib/utils";
 
 import { getFaviconSrc } from "./utils";
 
@@ -241,5 +242,91 @@ const ItemFooter = ({
         </span>
       )}
     </button>
+  );
+};
+
+const STATE_SEGMENTS: Array<{
+  key: "new" | "learning" | "review" | "relearning";
+  label: string;
+  className: string;
+  barClassName: string;
+}> = [
+  {
+    key: "new",
+    label: "New",
+    className:
+      "text-[oklch(0.55_0.06_250)] dark:text-[oklch(0.82_0.05_250)]",
+    barClassName: "bg-[oklch(0.82_0.05_250)]",
+  },
+  {
+    key: "learning",
+    label: "Learning",
+    className:
+      "text-[oklch(0.55_0.09_80)] dark:text-[oklch(0.85_0.08_80)]",
+    barClassName: "bg-[oklch(0.85_0.08_80)]",
+  },
+  {
+    key: "review",
+    label: "Review",
+    className:
+      "text-[oklch(0.55_0.06_150)] dark:text-[oklch(0.82_0.05_150)]",
+    barClassName: "bg-[oklch(0.82_0.05_150)]",
+  },
+  {
+    key: "relearning",
+    label: "Relearning",
+    className:
+      "text-[oklch(0.55_0.1_25)] dark:text-[oklch(0.82_0.09_25)]",
+    barClassName: "bg-[oklch(0.82_0.09_25)]",
+  },
+];
+
+export const CardsStateBar = () => {
+  const { data: cards = [] } = useQuery({
+    queryKey: ["all-flashcards"],
+    queryFn: getAllFlashcards,
+  });
+
+  const counts = React.useMemo(() => {
+    const c = { new: 0, learning: 0, review: 0, relearning: 0, due: 0 };
+    const now = Date.now();
+    for (const card of cards) {
+      const s = card.state as "new" | "learning" | "review" | "relearning";
+      if (s in c) c[s]++;
+      if (card.due && new Date(card.due).getTime() <= now) c.due++;
+    }
+    return c;
+  }, [cards]);
+
+  if (cards.length === 0) return null;
+  const total = cards.length;
+
+  return (
+    <div className="flex flex-col gap-1.5 px-1 pb-1">
+      <div className="flex h-1.5 rounded-full bg-muted overflow-hidden">
+        {STATE_SEGMENTS.map((s) => {
+          const pct = total > 0 ? (counts[s.key] / total) * 100 : 0;
+          return pct > 0 ? (
+            <div
+              key={s.key}
+              className={cn("h-full", s.barClassName)}
+              style={{ width: `${pct}%` }}
+            />
+          ) : null;
+        })}
+      </div>
+      <div className="flex items-center gap-3 text-[0.6875rem]">
+        {STATE_SEGMENTS.map((s) => (
+          <span key={s.key} className={cn("tabular-nums", s.className)}>
+            {counts[s.key]} {s.label}
+          </span>
+        ))}
+        {counts.due > 0 && (
+          <span className="ml-auto text-muted-foreground tabular-nums">
+            {counts.due} due
+          </span>
+        )}
+      </div>
+    </div>
   );
 };

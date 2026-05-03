@@ -547,6 +547,8 @@ export async function getAllFlashcards() {
         id: flashcards.id,
         front: flashcards.front,
         back: flashcards.back,
+        state: flashcards.state,
+        due: flashcards.due,
         itemId: flashcards.itemId,
         itemTitle: items.title,
         itemUrl: items.url,
