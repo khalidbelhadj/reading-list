@@ -38,7 +38,9 @@ import { getFaviconSrc } from "./items-list/utils";
 type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import { type EditFields } from "./items-list/utils";
-import { createItem, updateItem } from "@/app/actions";
+import { createItem, fetchPageTitle, updateItem } from "@/app/actions";
+import { findDuplicateItem } from "@/lib/url";
+import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { SortableItemRow } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useItemsFilters, type TabId } from "./items-list/use-filters";
@@ -205,6 +207,136 @@ export const ItemsList = () => {
 
   const pendingFaviconSrc = itemToDelete ? getFaviconSrc(itemToDelete) : null;
 
+  // Mutations
+  const animateTypingTitle = React.useCallback(
+    (itemId: string, target: string) =>
+      new Promise<void>((resolve) => {
+        if (!target) {
+          resolve();
+          return;
+        }
+        let i = 0;
+        setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
+        const interval = setInterval(() => {
+          i++;
+          const partial = target.slice(0, i);
+          setTypingTitles((prev) => ({ ...prev, [itemId]: partial }));
+          if (i >= target.length) {
+            clearInterval(interval);
+            setTypingTitles((prev) => {
+              const next = { ...prev };
+              delete next[itemId];
+              return next;
+            });
+            resolve();
+          }
+        }, 15);
+      }),
+    [],
+  );
+
+  type CreateArgs = {
+    title: string;
+    url: string;
+    tagNames: string[];
+    notes?: string;
+    animateTitle?: boolean;
+  };
+
+  const createMutation = useMutation({
+    mutationFn: (args: CreateArgs) =>
+      createItem(
+        args.title,
+        args.url,
+        args.tagNames,
+        undefined,
+        tabType,
+        args.notes,
+      ),
+    onSuccess: async (itemId, vars) => {
+      if (!vars.animateTitle || !itemId) return;
+      invalidate();
+      setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
+      const fetched = await fetchPageTitle(vars.url);
+      const fallback = (() => {
+        try {
+          return new URL(vars.url).hostname.replace(/^www\./, "");
+        } catch {
+          return vars.url;
+        }
+      })();
+      const target = fetched?.trim() || fallback;
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((it) =>
+          it.id === itemId ? { ...it, title: target } : it,
+        ),
+      );
+      await animateTypingTitle(itemId, target);
+      await updateItem(itemId, { title: target });
+    },
+  });
+
+  type CreateCallbacks = {
+    onProceed?: () => void;
+    onCreated?: (itemId: string) => void;
+    onOpenExisting?: (existingId: string) => void;
+  };
+
+  const [duplicateDialog, setDuplicateDialog] = React.useState<{
+    existing: Item;
+    pending: CreateArgs;
+    callbacks: CreateCallbacks;
+  } | null>(null);
+
+  const requestCreate = React.useCallback(
+    (args: CreateArgs, callbacks: CreateCallbacks = {}) => {
+      const existing = findDuplicateItem(items, args.url);
+      if (existing) {
+        setDuplicateDialog({ existing, pending: args, callbacks });
+        return;
+      }
+      callbacks.onProceed?.();
+      createMutation.mutate(args, {
+        onSuccess: (newId) => {
+          if (newId && callbacks.onCreated) callbacks.onCreated(newId);
+        },
+      });
+    },
+    [items, createMutation],
+  );
+
+  const requestPasteCreate = React.useCallback(
+    (url: string, tagNames: string[]) => {
+      requestCreate({ title: "", url, tagNames, animateTitle: true });
+    },
+    [requestCreate],
+  );
+
+  const handleDuplicateOpenExisting = React.useCallback(() => {
+    if (!duplicateDialog) return;
+    const id = duplicateDialog.existing.id;
+    duplicateDialog.callbacks.onOpenExisting?.(id);
+    setSelectedId(id);
+    setEditingId(null);
+    setDuplicateDialog(null);
+  }, [duplicateDialog]);
+
+  const handleDuplicateCreateAnyway = React.useCallback(() => {
+    if (!duplicateDialog) return;
+    const { pending, callbacks } = duplicateDialog;
+    setDuplicateDialog(null);
+    callbacks.onProceed?.();
+    createMutation.mutate(pending, {
+      onSuccess: (newId) => {
+        if (newId && callbacks.onCreated) callbacks.onCreated(newId);
+      },
+    });
+  }, [duplicateDialog, createMutation]);
+
+  const handleDuplicateOpenChange = React.useCallback((open: boolean) => {
+    if (!open) setDuplicateDialog(null);
+  }, []);
+
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
     selectedId,
@@ -222,25 +354,7 @@ export const ItemsList = () => {
       if (selectedId) requestDeleteItem(selectedId);
     }, [selectedId, requestDeleteItem]),
     activeTags,
-    setTypingTitles,
-  });
-
-  // Mutations
-  const createMutation = useMutation({
-    mutationFn: (args: {
-      title: string;
-      url: string;
-      tagNames: string[];
-      notes?: string;
-    }) =>
-      createItem(
-        args.title,
-        args.url,
-        args.tagNames,
-        undefined,
-        tabType,
-        args.notes,
-      ),
+    onPasteCreate: requestPasteCreate,
   });
 
   const updateMutation = useMutation({
@@ -294,14 +408,18 @@ export const ItemsList = () => {
           setEditingId(null);
           return;
         }
-        createMutation.mutate(
+        requestCreate(
           {
             title: fields.title.trim() || fields.url.trim(),
             url: fields.url.trim(),
             tagNames,
             notes: fields.notes.trim() || undefined,
           },
-          { onSuccess: invalidate },
+          {
+            onProceed: () => setEditingId(null),
+            onCreated: () => invalidate(),
+            onOpenExisting: () => setEditingId(null),
+          },
         );
       } else {
         updateMutation.mutate({
@@ -313,11 +431,10 @@ export const ItemsList = () => {
             tagNames,
           },
         });
+        setEditingId(null);
       }
-
-      setEditingId(null);
     },
-    [createMutation, updateMutation, invalidate],
+    [requestCreate, updateMutation, invalidate],
   );
 
   const handleCreate = React.useCallback(
@@ -327,8 +444,7 @@ export const ItemsList = () => {
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean);
       if (!fields.title.trim() && !fields.url.trim()) return;
-      setSelectedId(null);
-      createMutation.mutate(
+      requestCreate(
         {
           title: fields.title.trim() || fields.url.trim(),
           url: fields.url.trim(),
@@ -336,16 +452,17 @@ export const ItemsList = () => {
           notes: fields.notes.trim() || undefined,
         },
         {
-          onSuccess: async (newId) => {
+          onProceed: () => setSelectedId(null),
+          onCreated: async (newId) => {
             await queryClient.invalidateQueries({ queryKey: ["items"] });
             setEditingId(null);
             setSelectedId(newId);
           },
-          onError: () => setEditingId(null),
+          onOpenExisting: () => setEditingId(null),
         },
       );
     },
-    [createMutation, queryClient],
+    [requestCreate, queryClient],
   );
 
   // Effects
@@ -695,6 +812,14 @@ export const ItemsList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DuplicateDialog
+        open={duplicateDialog !== null}
+        onOpenChange={handleDuplicateOpenChange}
+        existing={duplicateDialog?.existing ?? null}
+        onOpenExisting={handleDuplicateOpenExisting}
+        onCreateAnyway={handleDuplicateCreateAnyway}
+      />
     </div>
   );
 };
