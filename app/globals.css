@@ -267,6 +267,23 @@
 .markdown-editor .ProseMirror h3 {
   font-size: 0.8125rem;
 }
+.markdown-editor .ProseMirror img {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  display: block;
+  margin: 0.25rem 0;
+  cursor: pointer;
+}
+.markdown-editor .ProseMirror img:active {
+  cursor: grabbing;
+}
+.markdown-editor .ProseMirror img[data-uploading="true"] {
+  opacity: 0.5;
+  filter: grayscale(0.4);
+  cursor: progress;
+}
 /* Hide ProseMirror's mandatory empty paragraphs that get auto-inserted
    adjacent to non-paragraph blocks (lists, code blocks, etc.) so the
    cursor can escape them. Only hides truly empty ones. */
