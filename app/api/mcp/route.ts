@@ -64,47 +64,72 @@ const TOOLS = [
     },
   },
   {
-    name: "create_item",
-    description: "Add a new item to the reading list.",
+    name: "create_items",
+    description:
+      "Add one or more items to the reading list. Pass an array of items; the first item becomes the top of the list.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        title: { type: "string" },
-        url: { type: "string" },
-        type: {
-          type: "string",
-          default: "reading-list",
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              url: { type: "string" },
+              type: { type: "string", default: "reading-list" },
+              tagNames: {
+                type: "array",
+                items: { type: "string" },
+                default: [],
+              },
+              notes: { type: "string" },
+            },
+            required: ["title", "url"],
+          },
         },
-        tagNames: { type: "array", items: { type: "string" }, default: [] },
-        notes: { type: "string" },
       },
-      required: ["title", "url"],
+      required: ["items"],
     },
   },
   {
-    name: "update_item",
-    description: "Update an existing item's fields.",
+    name: "update_items",
+    description:
+      "Update one or more items' fields. Pass an array of updates, each with an id.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        id: { type: "string", description: "The item ID" },
-        title: { type: "string" },
-        url: { type: "string" },
-        notes: { type: "string" },
-        tagNames: { type: "array", items: { type: "string" } },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "The item ID" },
+              title: { type: "string" },
+              url: { type: "string" },
+              notes: { type: "string" },
+              tagNames: { type: "array", items: { type: "string" } },
+            },
+            required: ["id"],
+          },
+        },
       },
-      required: ["id"],
+      required: ["items"],
     },
   },
   {
-    name: "delete_item",
-    description: "Delete an item from the reading list.",
+    name: "delete_items",
+    description: "Delete one or more items from the reading list.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        id: { type: "string", description: "The item ID" },
+        ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Item IDs to delete",
+        },
       },
-      required: ["id"],
+      required: ["ids"],
     },
   },
   {
@@ -119,40 +144,62 @@ const TOOLS = [
     },
   },
   {
-    name: "create_flashcard",
-    description: "Create a flashcard linked to an item.",
+    name: "create_flashcards",
+    description: "Create one or more flashcards linked to items.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        itemId: { type: "string", description: "The item ID" },
-        front: { type: "string", description: "The question or prompt" },
-        back: { type: "string", description: "The answer" },
+        flashcards: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              itemId: { type: "string", description: "The item ID" },
+              front: { type: "string", description: "The question or prompt" },
+              back: { type: "string", description: "The answer" },
+            },
+            required: ["itemId", "front", "back"],
+          },
+        },
       },
-      required: ["itemId", "front", "back"],
+      required: ["flashcards"],
     },
   },
   {
-    name: "update_flashcard",
-    description: "Update a flashcard's front or back text.",
+    name: "update_flashcards",
+    description: "Update one or more flashcards' front or back text.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        id: { type: "string", description: "The flashcard ID" },
-        front: { type: "string" },
-        back: { type: "string" },
+        flashcards: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "The flashcard ID" },
+              front: { type: "string" },
+              back: { type: "string" },
+            },
+            required: ["id"],
+          },
+        },
       },
-      required: ["id"],
+      required: ["flashcards"],
     },
   },
   {
-    name: "delete_flashcard",
-    description: "Delete a flashcard.",
+    name: "delete_flashcards",
+    description: "Delete one or more flashcards.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        id: { type: "string", description: "The flashcard ID" },
+        ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Flashcard IDs to delete",
+        },
       },
-      required: ["id"],
+      required: ["ids"],
     },
   },
 ];
@@ -230,71 +277,52 @@ async function handleTool(name: string, args: any, userId: string) {
       );
     }
 
-    case "create_item": {
-      const itemId = crypto.randomUUID();
+    case "create_items": {
+      const inputs: Array<{
+        title: string;
+        url: string;
+        type?: string;
+        tagNames?: string[];
+        notes?: string;
+      }> = args.items ?? [];
       const now = new Date().toISOString();
-      const type = args.type ?? "reading-list";
-      const tagNames: string[] = args.tagNames ?? [];
+      const created: Array<{ id: string; type: string }> = inputs.map((i) => ({
+        id: crypto.randomUUID(),
+        type: i.type ?? "reading-list",
+      }));
 
       await withUser(userId, async (tx) => {
-        await tx
-          .update(items)
-          .set({ position: sql`${items.position} + 1` })
-          .where(and(eq(items.userId, userId), eq(items.type, type)));
-        await tx.insert(items).values({
-          id: itemId,
-          userId,
-          title: args.title,
-          url: args.url,
-          faviconUrl: null,
-          type,
-          starred: false,
-          notes: args.notes ?? null,
-          position: 0,
-          createdAt: now,
-          updatedAt: now,
-        });
-        for (const tagName of tagNames) {
-          await tx
-            .insert(tags)
-            .values({ userId, name: tagName })
-            .onConflictDoNothing();
-          const [tag] = await tx
-            .select()
-            .from(tags)
-            .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-          if (tag) await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
+        const shiftByType = new Map<string, number>();
+        for (const c of created) {
+          shiftByType.set(c.type, (shiftByType.get(c.type) ?? 0) + 1);
         }
-      });
-      return text(JSON.stringify({ id: itemId }));
-    }
+        for (const [type, count] of shiftByType) {
+          await tx
+            .update(items)
+            .set({ position: sql`${items.position} + ${count}` })
+            .where(and(eq(items.userId, userId), eq(items.type, type)));
+        }
 
-    case "update_item": {
-      const now = new Date().toISOString();
-      const result = await withUser(userId, async (tx) => {
-        const [owned] = await tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
-        if (!owned) return { ok: false };
-
-        const set: Record<string, unknown> = { updatedAt: now };
-        if (args.title !== undefined) set.title = args.title;
-        if (args.url !== undefined) set.url = args.url;
-        if (args.notes !== undefined) set.notes = args.notes;
-        await tx
-          .update(items)
-          .set(set)
-          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
-
-        if (args.tagNames !== undefined) {
-          const existingLinks = await tx
-            .select({ tagId: itemsTags.tagId })
-            .from(itemsTags)
-            .where(eq(itemsTags.itemId, args.id));
-          const existingTagIds = existingLinks.map((l) => l.tagId);
-          const newTagIds: number[] = [];
-          for (const tagName of args.tagNames) {
+        const positionByType = new Map<string, number>();
+        for (let idx = 0; idx < inputs.length; idx++) {
+          const input = inputs[idx];
+          const { id: itemId, type } = created[idx];
+          const position = positionByType.get(type) ?? 0;
+          positionByType.set(type, position + 1);
+          await tx.insert(items).values({
+            id: itemId,
+            userId,
+            title: input.title,
+            url: input.url,
+            faviconUrl: null,
+            type,
+            starred: false,
+            notes: input.notes ?? null,
+            position,
+            createdAt: now,
+            updatedAt: now,
+          });
+          for (const tagName of input.tagNames ?? []) {
             await tx
               .insert(tags)
               .values({ userId, name: tagName })
@@ -303,55 +331,118 @@ async function handleTool(name: string, args: any, userId: string) {
               .select()
               .from(tags)
               .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-            if (tag) newTagIds.push(tag.id);
-          }
-          for (const tagId of existingTagIds) {
-            if (!newTagIds.includes(tagId)) {
-              await tx
-                .delete(itemsTags)
-                .where(
-                  and(
-                    eq(itemsTags.itemId, args.id),
-                    eq(itemsTags.tagId, tagId),
-                  ),
-                );
-            }
-          }
-          for (const tagId of newTagIds) {
-            if (!existingTagIds.includes(tagId)) {
-              await tx.insert(itemsTags).values({ itemId: args.id, tagId });
-            }
+            if (tag)
+              await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
           }
         }
-        return { ok: true };
       });
-      if (!result.ok) return text("Not found");
-      return text("Updated");
+      return text(JSON.stringify({ ids: created.map((c) => c.id) }));
     }
 
-    case "delete_item": {
-      const deleted = await withUser(userId, async (tx) => {
-        const [owned] = await tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
-        if (!owned) return false;
-        await tx.delete(itemsTags).where(eq(itemsTags.itemId, args.id));
-        await tx
-          .delete(flashcards)
-          .where(
-            and(
-              eq(flashcards.itemId, args.id),
-              eq(flashcards.userId, userId),
-            ),
-          );
-        await tx
-          .delete(items)
-          .where(and(eq(items.id, args.id), eq(items.userId, userId)));
-        return true;
+    case "update_items": {
+      const updates: Array<{
+        id: string;
+        title?: string;
+        url?: string;
+        notes?: string;
+        tagNames?: string[];
+      }> = args.items ?? [];
+      const now = new Date().toISOString();
+      const results = await withUser(userId, async (tx) => {
+        let updated = 0;
+        const notFound: string[] = [];
+        for (const update of updates) {
+          const [owned] = await tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, update.id), eq(items.userId, userId)));
+          if (!owned) {
+            notFound.push(update.id);
+            continue;
+          }
+
+          const set: Record<string, unknown> = { updatedAt: now };
+          if (update.title !== undefined) set.title = update.title;
+          if (update.url !== undefined) set.url = update.url;
+          if (update.notes !== undefined) set.notes = update.notes;
+          await tx
+            .update(items)
+            .set(set)
+            .where(and(eq(items.id, update.id), eq(items.userId, userId)));
+
+          if (update.tagNames !== undefined) {
+            const existingLinks = await tx
+              .select({ tagId: itemsTags.tagId })
+              .from(itemsTags)
+              .where(eq(itemsTags.itemId, update.id));
+            const existingTagIds = existingLinks.map((l) => l.tagId);
+            const newTagIds: number[] = [];
+            for (const tagName of update.tagNames) {
+              await tx
+                .insert(tags)
+                .values({ userId, name: tagName })
+                .onConflictDoNothing();
+              const [tag] = await tx
+                .select()
+                .from(tags)
+                .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
+              if (tag) newTagIds.push(tag.id);
+            }
+            for (const tagId of existingTagIds) {
+              if (!newTagIds.includes(tagId)) {
+                await tx
+                  .delete(itemsTags)
+                  .where(
+                    and(
+                      eq(itemsTags.itemId, update.id),
+                      eq(itemsTags.tagId, tagId),
+                    ),
+                  );
+              }
+            }
+            for (const tagId of newTagIds) {
+              if (!existingTagIds.includes(tagId)) {
+                await tx
+                  .insert(itemsTags)
+                  .values({ itemId: update.id, tagId });
+              }
+            }
+          }
+          updated++;
+        }
+        return { updated, notFound };
       });
-      if (!deleted) return text("Not found");
-      return text("Deleted");
+      return text(JSON.stringify(results));
+    }
+
+    case "delete_items": {
+      const ids: string[] = args.ids ?? [];
+      const results = await withUser(userId, async (tx) => {
+        let deleted = 0;
+        const notFound: string[] = [];
+        for (const id of ids) {
+          const [owned] = await tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, id), eq(items.userId, userId)));
+          if (!owned) {
+            notFound.push(id);
+            continue;
+          }
+          await tx.delete(itemsTags).where(eq(itemsTags.itemId, id));
+          await tx
+            .delete(flashcards)
+            .where(
+              and(eq(flashcards.itemId, id), eq(flashcards.userId, userId)),
+            );
+          await tx
+            .delete(items)
+            .where(and(eq(items.id, id), eq(items.userId, userId)));
+          deleted++;
+        }
+        return { deleted, notFound };
+      });
+      return text(JSON.stringify(results));
     }
 
     case "get_flashcards": {
@@ -370,55 +461,80 @@ async function handleTool(name: string, args: any, userId: string) {
       return text(JSON.stringify(cards, null, 2));
     }
 
-    case "create_flashcard": {
-      const id = crypto.randomUUID();
+    case "create_flashcards": {
+      const inputs: Array<{ itemId: string; front: string; back: string }> =
+        args.flashcards ?? [];
       const now = new Date().toISOString();
-      const result = await withUser(userId, async (tx) => {
-        const [owned] = await tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.id, args.itemId), eq(items.userId, userId)));
-        if (!owned) return { ok: false };
-        await tx.insert(flashcards).values({
-          id,
-          userId,
-          itemId: args.itemId,
-          front: args.front,
-          back: args.back,
-          createdAt: now,
-          updatedAt: now,
-        });
-        return { ok: true };
+      const results = await withUser(userId, async (tx) => {
+        const created: string[] = [];
+        const notFound: string[] = [];
+        for (const input of inputs) {
+          const [owned] = await tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, input.itemId), eq(items.userId, userId)));
+          if (!owned) {
+            notFound.push(input.itemId);
+            continue;
+          }
+          const id = crypto.randomUUID();
+          await tx.insert(flashcards).values({
+            id,
+            userId,
+            itemId: input.itemId,
+            front: input.front,
+            back: input.back,
+            createdAt: now,
+            updatedAt: now,
+          });
+          created.push(id);
+        }
+        return { ids: created, notFound };
       });
-      if (!result.ok) return text("Item not found");
-      return text(JSON.stringify({ id }));
+      return text(JSON.stringify(results));
     }
 
-    case "update_flashcard": {
+    case "update_flashcards": {
+      const updates: Array<{ id: string; front?: string; back?: string }> =
+        args.flashcards ?? [];
       const now = new Date().toISOString();
-      const set: Record<string, unknown> = { updatedAt: now };
-      if (args.front !== undefined) set.front = args.front;
-      if (args.back !== undefined) set.back = args.back;
-      await withUser(userId, (tx) =>
-        tx
-          .update(flashcards)
-          .set(set)
-          .where(
-            and(eq(flashcards.id, args.id), eq(flashcards.userId, userId)),
-          ),
-      );
-      return text("Updated");
+      const updated = await withUser(userId, async (tx) => {
+        let count = 0;
+        for (const update of updates) {
+          const set: Record<string, unknown> = { updatedAt: now };
+          if (update.front !== undefined) set.front = update.front;
+          if (update.back !== undefined) set.back = update.back;
+          await tx
+            .update(flashcards)
+            .set(set)
+            .where(
+              and(
+                eq(flashcards.id, update.id),
+                eq(flashcards.userId, userId),
+              ),
+            );
+          count++;
+        }
+        return count;
+      });
+      return text(JSON.stringify({ updated }));
     }
 
-    case "delete_flashcard": {
-      await withUser(userId, (tx) =>
-        tx
-          .delete(flashcards)
-          .where(
-            and(eq(flashcards.id, args.id), eq(flashcards.userId, userId)),
-          ),
-      );
-      return text("Deleted");
+    case "delete_flashcards": {
+      const ids: string[] = args.ids ?? [];
+      const deleted = await withUser(userId, async (tx) => {
+        let count = 0;
+        for (const id of ids) {
+          await tx
+            .delete(flashcards)
+            .where(
+              and(eq(flashcards.id, id), eq(flashcards.userId, userId)),
+            );
+          count++;
+        }
+        return count;
+      });
+      return text(JSON.stringify({ deleted }));
     }
 
     default:

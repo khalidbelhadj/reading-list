@@ -36,7 +36,7 @@ Existing notes:
 
 Start by reading the URL and (if possible) giving me a quick, concise summary of the key ideas — keep it brief. From there we'll have a discussion — asking questions, extracting information, structuring thoughts — to round out my understanding of this item.
 
-Whenever we hit a key point, a revelation, or reach a solid understanding of something worth remembering, propose a flashcard and (with my go-ahead) save it using the reading-list MCP tools — create_flashcard with the item ID above. You can also append anything worth keeping to the item's notes via update_item from the same tools.`,
+Whenever we hit a key point, a revelation, or reach a solid understanding of something worth remembering, propose a flashcard and (with my go-ahead) save it using the reading-list MCP tools — create_flashcards with the item ID above. You can also append anything worth keeping to the item's notes via update_items from the same tools.`,
   },
   {
     id: "flashcards",
@@ -51,7 +51,7 @@ Whenever we hit a key point, a revelation, or reach a solid understanding of som
 Existing notes:
 {{notes}}
 
-Read the URL (and notes above, if any), then create a focused set of flashcards that cover the key ideas. One idea per card — fronts should read like questions or prompts, backs should be concise answers. Save each directly using the reading-list MCP tools — create_flashcard with the item ID above.`,
+Read the URL (and notes above, if any), then create a focused set of flashcards that cover the key ideas. One idea per card — fronts should read like questions or prompts, backs should be concise answers. Save them in a single call using the reading-list MCP tools — create_flashcards with the item ID above.`,
   },
   {
     id: "tidy",
@@ -66,7 +66,7 @@ Read the URL (and notes above, if any), then create a focused set of flashcards 
 Current notes:
 {{notes}}
 
-Rewrite the notes to be clearer and better-organized: tighten prose, group related points, remove redundancy. Preserve meaning and tone — don't invent facts that aren't there. Once I approve the result, save it using the reading-list MCP tools — update_item with the item ID above.`,
+Rewrite the notes to be clearer and better-organized: tighten prose, group related points, remove redundancy. Preserve meaning and tone — don't invent facts that aren't there. Once I approve the result, save it using the reading-list MCP tools — update_items with the item ID above.`,
   },
 ];
 
