@@ -1,6 +1,6 @@
 import React from "react";
 
-import { type Item, type DbTag, isReadingListItem } from "@/lib/types";
+import { type Item, type DbTag } from "@/lib/types";
 
 export type TabId = "reading-list" | "cards";
 export type GroupBy = "none" | "tag" | "day";
@@ -152,14 +152,11 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
     localStorage.setItem("groupBy", groupBy);
   }, [groupBy]);
 
-  const tabType = "reading-list";
-
   const tabItems = React.useMemo(
     () =>
       (items ?? [])
-        .filter((item) => item.type === tabType)
         .sort((a, b) => a.position - b.position),
-    [items, tabType],
+    [items],
   );
 
   const allTags = React.useMemo(() => {
@@ -190,7 +187,7 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
   const filteredItems = React.useMemo(
     () =>
       tabItems.filter((item) => {
-        if (isReadingListItem(item) && !showRead && item.read) return false;
+        if (!showRead && item.read) return false;
         if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
         return true;
       }),
@@ -215,7 +212,6 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
   );
 
   return {
-    tabType,
     tabItems,
     allTags,
     filteredItems,

@@ -4,7 +4,7 @@ import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { type DbTag, type Item, isReadingListItem } from "@/lib/types";
+import { type DbTag, type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
@@ -294,11 +294,7 @@ export const GroupedList = ({
                     isTyping={typingTitle !== undefined}
                     onSelect={() => onSelect(item.id)}
                     onDelete={() => onDelete(item.id)}
-                    onToggleRead={
-                      isReadingListItem(item)
-                        ? () => onToggleRead(item.id, !item.read)
-                        : undefined
-                    }
+                    onToggleRead={() => onToggleRead(item.id, !item.read)}
                   />
                 );
               })}
@@ -363,7 +359,7 @@ const PlainItemRow = ({
 }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
-  const isRead = isReadingListItem(item) && item.read;
+  const isRead = item.read;
 
   return (
     <ItemContextMenu

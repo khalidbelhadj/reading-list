@@ -60,7 +60,7 @@ Single-page reading list app with an MCP server for AI integrations.
 ### Database
 
 - Schema in `db/schema.ts`: four tables — `items`, `tags`, `items_tags` (many-to-many), `flashcards` (linked to items)
-- Items have a `type` field ("reading-list") and a `position` integer for ordering
+- Items have a `position` integer for ordering
 - Flashcards have `front`/`back` text, linked to items via `itemId` (nullable FK)
 - Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`
 - Config in `drizzle.config.ts` (dialect: postgresql)

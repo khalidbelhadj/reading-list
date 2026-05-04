@@ -12,22 +12,20 @@ async function fixPositions() {
   }
 
   await db.transaction(async (tx) => {
-    for (const type of ["reading-list"]) {
-      const rows = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(and(eq(items.userId, userId), eq(items.type, type)))
-        .orderBy(desc(items.createdAt));
+    const rows = await tx
+      .select({ id: items.id })
+      .from(items)
+      .where(eq(items.userId, userId))
+      .orderBy(desc(items.createdAt));
 
-      for (let i = 0; i < rows.length; i++) {
-        await tx
-          .update(items)
-          .set({ position: i })
-          .where(and(eq(items.id, rows[i].id), eq(items.userId, userId)));
-      }
-
-      console.log(`${type}: renumbered ${rows.length} items (newest first)`);
+    for (let i = 0; i < rows.length; i++) {
+      await tx
+        .update(items)
+        .set({ position: i })
+        .where(and(eq(items.id, rows[i].id), eq(items.userId, userId)));
     }
+
+    console.log(`renumbered ${rows.length} items (newest first)`);
   });
 
   process.exit(0);

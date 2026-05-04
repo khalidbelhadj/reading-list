@@ -20,7 +20,7 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { isReadingListItem, type Item } from "@/lib/types";
+import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
@@ -184,7 +184,6 @@ export const ItemsList = () => {
 
   // Hooks
   const {
-    tabType,
     tabItems,
     allTags,
     filteredItems,
@@ -289,7 +288,6 @@ export const ItemsList = () => {
         args.url,
         args.tagNames,
         undefined,
-        tabType,
         args.notes,
       ),
     onSuccess: async (itemId, vars) => {
@@ -385,7 +383,6 @@ export const ItemsList = () => {
     setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
-    tabType,
     tabItems,
     cursorRef,
     setCursor,
@@ -530,25 +527,19 @@ export const ItemsList = () => {
       setJustDropped(true);
       queryClient.setQueryData<Item[]>(["items"], (old) => {
         if (!old) return old;
-        const typeArr = old
-          .filter((i) => i.type === tabType)
-          .sort((a, b) => a.position - b.position);
-        const rest = old.filter((i) => i.type !== tabType);
-        const currentIndex = typeArr.findIndex((i) => i.id === active.id);
+        const sorted = old.slice().sort((a, b) => a.position - b.position);
+        const currentIndex = sorted.findIndex((i) => i.id === active.id);
         if (currentIndex === -1) return old;
-        const [moved] = typeArr.splice(currentIndex, 1);
-        const clamped = Math.max(0, Math.min(overIndex, typeArr.length));
-        typeArr.splice(clamped, 0, moved);
-        return [
-          ...typeArr.map((item, i) => ({ ...item, position: i })),
-          ...rest,
-        ];
+        const [moved] = sorted.splice(currentIndex, 1);
+        const clamped = Math.max(0, Math.min(overIndex, sorted.length));
+        sorted.splice(clamped, 0, moved);
+        return sorted.map((item, i) => ({ ...item, position: i }));
       });
       requestAnimationFrame(() => setJustDropped(false));
 
-      handleReorder(active.id as string, tabType, overIndex);
+      handleReorder(active.id as string, overIndex);
     },
-    [tabItems, tabType, handleReorder, queryClient],
+    [tabItems, handleReorder, queryClient],
   );
 
   // Derived state
@@ -576,7 +567,6 @@ export const ItemsList = () => {
     const hiddenReadCount = !showRead
       ? tabItems.filter(
           (item) =>
-            isReadingListItem(item) &&
             item.read &&
             (activeTags.size === 0 ||
               item.tags.some((t) => activeTags.has(t.name))),
@@ -605,7 +595,6 @@ export const ItemsList = () => {
             <Toolbar
               activeTab={activeTab}
               setActiveTabAndUrl={setActiveTabAndUrl}
-              tabType={tabType}
               hasTags={allTags.length > 0}
               tagsOpen={tagsOpen}
               setTagsOpen={setTagsOpen}
@@ -747,11 +736,7 @@ export const ItemsList = () => {
                       isDragDisabled={isDragDisabled}
                       isTyping={typingTitle !== undefined}
                       suppressTransition={justDropped}
-                      onToggleRead={
-                        isReadingListItem(item)
-                          ? () => handleToggleRead(item.id, !item.read)
-                          : undefined
-                      }
+                      onToggleRead={() => handleToggleRead(item.id, !item.read)}
                       onSelect={() => {
                         if (editingId !== null) setEditingId(null);
                         if (selectedId === item.id) {
@@ -820,7 +805,7 @@ export const ItemsList = () => {
                   panelItem ? () => requestDeleteItem(panelItem.id) : undefined
                 }
                 onToggleRead={
-                  panelItem && isReadingListItem(panelItem)
+                  panelItem
                     ? () => handleToggleRead(panelItem.id, !panelItem.read)
                     : undefined
                 }

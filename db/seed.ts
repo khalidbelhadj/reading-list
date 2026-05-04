@@ -17,78 +17,66 @@ if (!userId) {
   process.exit(1);
 }
 
-const seedItems: { title: string; url: string; tags: string[]; type: string }[] = [
+const seedItems: { title: string; url: string; tags: string[] }[] = [
   {
     title: "Go Blog: Error handling and Go",
     url: "https://go.dev/blog/error-handling-and-go",
     tags: ["go", "errors"],
-    type: "reading-list",
   },
   {
     title: "SQLite Documentation",
     url: "https://www.sqlite.org/docs.html",
     tags: ["database", "sqlite"],
-    type: "reading-list",
   },
   {
     title: "React Query Overview",
     url: "https://tanstack.com/query/latest/docs/framework/react/overview",
     tags: ["react", "data"],
-    type: "reading-list",
   },
   {
     title: "Vite Guide",
     url: "https://vite.dev/guide/",
     tags: ["frontend", "tooling"],
-    type: "reading-list",
   },
   {
     title: "REST API Design",
     url: "https://restfulapi.net/",
     tags: ["api", "design"],
-    type: "reading-list",
   },
   {
     title: "Go Concurrency Patterns",
     url: "https://go.dev/blog/pipelines",
     tags: ["go", "concurrency"],
-    type: "reading-list",
   },
   {
     title: "HTTP RFC 9110",
     url: "https://www.rfc-editor.org/rfc/rfc9110",
     tags: ["http", "standards"],
-    type: "reading-list",
   },
   {
     title: "MDN: HTTP CORS",
     url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS",
     tags: ["http", "cors"],
-    type: "reading-list",
   },
   {
     title: "SQLite Query Planner",
     url: "https://www.sqlite.org/queryplanner.html",
     tags: ["database", "performance"],
-    type: "reading-list",
   },
   {
     title: "React Hooks Reference",
     url: "https://react.dev/reference/react",
     tags: ["react", "hooks"],
-    type: "reading-list",
   },
   {
     title: "Vite Environment Variables",
     url: "https://vite.dev/guide/env-and-mode.html",
     tags: ["frontend", "config"],
-    type: "reading-list",
   },
   {
     title: "SQL Style Guide",
     url: "https://www.sqlstyle.guide/",
     tags: ["sql", "style"],
-    type: "reading-list",
   },
 ];
 
@@ -101,7 +89,6 @@ for (const item of seedItems) {
     userId,
     title: item.title,
     url: item.url,
-    type: item.type,
     starred: false,
     createdAt: now,
     updatedAt: now,

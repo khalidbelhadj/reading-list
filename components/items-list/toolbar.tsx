@@ -21,7 +21,6 @@ import { ReviewConfirmDialog } from "./review-confirm-dialog";
 export const Toolbar = ({
   activeTab,
   setActiveTabAndUrl,
-  tabType,
   hasTags,
   tagsOpen,
   setTagsOpen,
@@ -33,7 +32,6 @@ export const Toolbar = ({
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
-  tabType: string;
   hasTags: boolean;
   tagsOpen: boolean;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -112,7 +110,7 @@ export const Toolbar = ({
         activeTab={activeTab}
         setActiveTabAndUrl={setActiveTabAndUrl}
         showFilters={showFilters}
-        showReadingListFilters={showFilters && tabType === "reading-list"}
+        showReadingListFilters={showFilters}
         hasTags={hasTags}
         tagsOpen={tagsOpen}
         setTagsOpen={setTagsOpen}

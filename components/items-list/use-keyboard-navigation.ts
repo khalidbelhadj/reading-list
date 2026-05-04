@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { reorderItem } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
-import { type TabId } from "@/components/items-list/use-filters";
+import type { TabId } from "@/components/items-list/use-filters";
 
 export const useKeyboardNavigation = ({
   filteredItems,
@@ -15,7 +15,6 @@ export const useKeyboardNavigation = ({
   setActiveTabAndUrl,
   setTagsOpen,
   setShowRead,
-  tabType,
   tabItems,
   cursorRef,
   setCursor,
@@ -31,7 +30,6 @@ export const useKeyboardNavigation = ({
   setActiveTabAndUrl: (tab: TabId) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
-  tabType: string;
   tabItems: Item[];
   cursorRef: React.RefObject<string | null>;
   setCursor: (id: string | null) => void;
@@ -47,8 +45,8 @@ export const useKeyboardNavigation = ({
   );
 
   const reorderMutation = useMutation({
-    mutationFn: (args: { id: string; type: string; newPosition: number }) =>
-      reorderItem(args.id, args.type, args.newPosition),
+    mutationFn: (args: { id: string; newPosition: number }) =>
+      reorderItem(args.id, args.newPosition),
     onSuccess: invalidate,
   });
 
@@ -161,7 +159,7 @@ export const useKeyboardNavigation = ({
           ? Math.min(currentIndex + 1, sortedItems.length - 1)
           : Math.max(currentIndex - 1, 0);
         if (newIndex === currentIndex) return;
-        reorderMutation.mutate({ id: selectedId, type: tabType, newPosition: newIndex });
+        reorderMutation.mutate({ id: selectedId, newPosition: newIndex });
         return;
       }
 
@@ -210,7 +208,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedId, editingId, filteredItems, tabType, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, reorderMutation]);
+  }, [selectedId, editingId, filteredItems, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, reorderMutation]);
 
   return {
     suppressHover,

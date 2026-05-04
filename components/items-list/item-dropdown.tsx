@@ -1,6 +1,6 @@
 import React from "react";
 
-import { type Item, isReadingListItem } from "@/lib/types";
+import { type Item } from "@/lib/types";
 import {
   ContextMenu as ContextMenuRoot,
   ContextMenuContent,
@@ -157,7 +157,7 @@ const ItemMenuItems = ({
   onToggleRead,
   onDelete,
 }: ItemMenuActionsProps & ReturnType<typeof useItemMenuActions>) => {
-  const isRead = isReadingListItem(item) && item.read;
+  const isRead = item.read;
 
   return (
     <>
@@ -191,7 +191,7 @@ const ItemMenuItems = ({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       )}
-      {onToggleRead && isReadingListItem(item) && (
+      {onToggleRead && (
         <DropdownMenuItem onClick={onToggleRead}>
           {isRead ? "Mark as unread" : "Mark as read"}
         </DropdownMenuItem>

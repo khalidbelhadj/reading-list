@@ -23,7 +23,6 @@ export const items = pgTable(
     title: text("title").notNull(),
     url: text("url").notNull(),
     faviconUrl: text("favicon_url"),
-    type: text("type").notNull().default("reading-list"),
     starred: boolean("starred").notNull().default(false),
     notes: text("notes"),
     read: boolean("read").notNull().default(false),
@@ -32,7 +31,7 @@ export const items = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
   },
-  (table) => [index("items_user_type_position_idx").on(table.userId, table.type, table.position)],
+  (table) => [index("items_user_position_idx").on(table.userId, table.position)],
 );
 
 export const tags = pgTable(

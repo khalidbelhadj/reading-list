@@ -19,7 +19,7 @@ export async function deleteItem(itemId: string) {
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
     const [item] = await tx
-      .select({ type: items.type, position: items.position })
+      .select({ position: items.position })
       .from(items)
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
@@ -56,7 +56,6 @@ export async function deleteItem(itemId: string) {
       .where(
         and(
           eq(items.userId, userId),
-          eq(items.type, item.type),
           gte(items.position, item.position),
         ),
       );
@@ -134,7 +133,6 @@ export async function createItem(
   url: string,
   tagNames: string[],
   faviconUrl?: string,
-  type: string = "reading-list",
   notes?: string,
   id?: string,
   position?: number,
@@ -152,7 +150,6 @@ export async function createItem(
       .where(
         and(
           eq(items.userId, userId),
-          eq(items.type, type),
           gte(items.position, insertAt),
         ),
       );
@@ -163,7 +160,6 @@ export async function createItem(
       title,
       url,
       faviconUrl: faviconUrl ?? null,
-      type,
       starred: false,
       notes: notes ?? null,
       position: insertAt,
@@ -197,7 +193,6 @@ export async function updateItem(
     title?: string;
     url?: string;
     faviconUrl?: string;
-    type?: string;
     starred?: boolean;
     notes?: string;
     read?: boolean;
@@ -217,54 +212,10 @@ export async function updateItem(
     if (fields.notes !== undefined) set.notes = fields.notes;
     if (fields.read !== undefined) set.read = fields.read;
 
-    // Handle type change: move to position 0 in new type, renumber old type
-    if (fields.type !== undefined) {
-      const [current] = await tx
-        .select({ type: items.type })
-        .from(items)
-        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-      if (current && fields.type !== current.type) {
-        // Shift items in new type down — user-scoped.
-        await tx
-          .update(items)
-          .set({ position: sql`${items.position} + 1` })
-          .where(and(eq(items.userId, userId), eq(items.type, fields.type)));
-        set.position = 0;
-        set.type = fields.type;
-
-        await tx
-          .update(items)
-          .set(set)
-          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-        // Renumber old type — user-scoped.
-        const oldTypeItems = await tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.userId, userId), eq(items.type, current.type)))
-          .orderBy(asc(items.position));
-        for (let i = 0; i < oldTypeItems.length; i++) {
-          await tx
-            .update(items)
-            .set({ position: i })
-            .where(
-              and(eq(items.id, oldTypeItems[i].id), eq(items.userId, userId)),
-            );
-        }
-      } else {
-        set.type = fields.type;
-        await tx
-          .update(items)
-          .set(set)
-          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-      }
-    } else {
-      await tx
-        .update(items)
-        .set(set)
-        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-    }
+    await tx
+      .update(items)
+      .set(set)
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
     if (fields.tagNames !== undefined) {
       // Verify ownership of the item before mutating tag links.
@@ -318,7 +269,6 @@ export async function updateItem(
 
 export async function reorderItem(
   itemId: string,
-  type: string,
   newPosition: number,
 ) {
   const userId = await getCurrentUserId();
@@ -326,7 +276,7 @@ export async function reorderItem(
     const typeItems = await tx
       .select({ id: items.id, position: items.position })
       .from(items)
-      .where(and(eq(items.userId, userId), eq(items.type, type)))
+      .where(eq(items.userId, userId))
       .orderBy(asc(items.position));
 
     const currentIndex = typeItems.findIndex((i) => i.id === itemId);
@@ -363,14 +313,12 @@ export async function bulkDeleteItems(itemIds: string[]) {
 
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
-    // Find affected types, ownership-filtered.
     const affectedItems = await tx
-      .select({ id: items.id, type: items.type })
+      .select({ id: items.id })
       .from(items)
       .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
     const ownedIds = affectedItems.map((i) => i.id);
     if (ownedIds.length === 0) return;
-    const affectedTypes = Array.from(new Set(affectedItems.map((i) => i.type)));
 
     const affectedTagIds = (
       await tx
@@ -394,62 +342,15 @@ export async function bulkDeleteItems(itemIds: string[]) {
 
     await pruneOrphanTags(tx, userId, affectedTagIds);
 
-    for (const type of affectedTypes) {
-      await tx.execute(sql`
-        UPDATE ${items} SET position = sub.new_pos
-        FROM (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
-          FROM ${items}
-          WHERE type = ${type} AND user_id = ${userId}
-        ) sub
-        WHERE ${items}.id = sub.id
-      `);
-    }
-  });
-}
-
-export async function bulkMoveItems(itemIds: string[], newType: string) {
-  if (itemIds.length === 0) return;
-
-  const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
-    // Ownership-filtered source items.
-    const sourceItems = await tx
-      .select({ id: items.id, type: items.type })
-      .from(items)
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-    const ownedIds = sourceItems.map((i) => i.id);
-    if (ownedIds.length === 0) return;
-    const sourceTypes = Array.from(new Set(sourceItems.map((i) => i.type)));
-
-    // Shift existing items in target type — user-scoped.
-    await tx
-      .update(items)
-      .set({ position: sql`${items.position} + ${ownedIds.length}` })
-      .where(and(eq(items.userId, userId), eq(items.type, newType)));
-
-    const now = new Date().toISOString();
-    for (let i = 0; i < ownedIds.length; i++) {
-      await tx
-        .update(items)
-        .set({ type: newType, position: i, updatedAt: now })
-        .where(and(eq(items.id, ownedIds[i]), eq(items.userId, userId)));
-    }
-
-    for (const type of sourceTypes) {
-      if (type === newType) continue;
-      const remaining = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(and(eq(items.userId, userId), eq(items.type, type)))
-        .orderBy(asc(items.position));
-      for (let i = 0; i < remaining.length; i++) {
-        await tx
-          .update(items)
-          .set({ position: i })
-          .where(and(eq(items.id, remaining[i].id), eq(items.userId, userId)));
-      }
-    }
+    await tx.execute(sql`
+      UPDATE ${items} SET position = sub.new_pos
+      FROM (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
+        FROM ${items}
+        WHERE user_id = ${userId}
+      ) sub
+      WHERE ${items}.id = sub.id
+    `);
   });
 }
 

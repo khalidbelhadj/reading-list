@@ -28,8 +28,8 @@ export const useItemsMutations = ({
   );
 
   const reorderMutation = useMutation({
-    mutationFn: ({ itemId, type, newPosition }: { itemId: string; type: string; newPosition: number }) =>
-      reorderItem(itemId, type, newPosition),
+    mutationFn: ({ itemId, newPosition }: { itemId: string; newPosition: number }) =>
+      reorderItem(itemId, newPosition),
     onSuccess: invalidate,
   });
 
@@ -62,8 +62,8 @@ export const useItemsMutations = ({
   });
 
   const handleReorder = React.useCallback(
-    (itemId: string, type: string, newPosition: number) => {
-      reorderMutation.mutate({ itemId, type, newPosition });
+    (itemId: string, newPosition: number) => {
+      reorderMutation.mutate({ itemId, newPosition });
     },
     [reorderMutation],
   );

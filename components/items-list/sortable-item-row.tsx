@@ -5,7 +5,7 @@ import Image from "next/image";
 import React from "react";
 
 import { cn } from "@/lib/utils";
-import { type Item, isReadingListItem } from "@/lib/types";
+import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -65,7 +65,7 @@ export function SortableItemRow({
     zIndex: isDragging ? 10 : undefined,
   };
 
-  const isRead = isReadingListItem(item) && item.read;
+  const isRead = item.read;
 
   return (
     <ItemContextMenu

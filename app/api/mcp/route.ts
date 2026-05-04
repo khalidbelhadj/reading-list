@@ -15,14 +15,10 @@ const TOOLS = [
   {
     name: "get_items",
     description:
-      "List reading list items. Optionally filter by type or tag. Supports sorting, limit, and offset for pagination. For text search, use search_items.",
+      "List reading list items. Optionally filter by tag. Supports sorting, limit, and offset for pagination. For text search, use search_items.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        type: {
-          type: "string",
-          description: "Filter by item type (currently only \"reading-list\")",
-        },
         tag: { type: "string", description: "Filter by tag name" },
         sort: {
           type: "string",
@@ -94,7 +90,6 @@ const TOOLS = [
             properties: {
               title: { type: "string" },
               url: { type: "string" },
-              type: { type: "string", default: "reading-list" },
               tagNames: {
                 type: "array",
                 items: { type: "string" },
@@ -248,7 +243,6 @@ async function handleTool(name: string, args: any, userId: string) {
         ...item,
         tags: it.map((t) => t.tag.name),
       }));
-      if (args.type) result = result.filter((i) => i.type === args.type);
       if (args.tag) result = result.filter((i) => i.tags.includes(args.tag));
       const total = result.length;
       const offset = args.offset ?? 0;
@@ -297,7 +291,7 @@ async function handleTool(name: string, args: any, userId: string) {
           return tx.execute(sql`
             WITH haystacks AS (
               SELECT
-                i.id, i.title, i.url, i.notes, i.type, i.starred, i.read,
+                i.id, i.title, i.url, i.notes, i.starred, i.read,
                 i.read_at, i.position, i.created_at, i.updated_at, i.favicon_url,
                 COALESCE(
                   STRING_AGG(f.front || E'\n' || f.back, E'\n'),
@@ -319,7 +313,7 @@ async function handleTool(name: string, args: any, userId: string) {
               FROM haystacks h
             )
             SELECT
-              m.id, m.title, m.url, m.notes, m.type, m.starred, m.read,
+              m.id, m.title, m.url, m.notes, m.starred, m.read,
               m.read_at, m.position, m.created_at, m.updated_at, m.favicon_url,
               m.m_title, m.m_url, m.m_notes, m.m_flashcards,
               COALESCE(
@@ -342,7 +336,6 @@ async function handleTool(name: string, args: any, userId: string) {
           title: r.title,
           url: r.url,
           notes: r.notes,
-          type: r.type,
           starred: r.starred,
           read: r.read,
           readAt: r.read_at,
@@ -390,44 +383,32 @@ async function handleTool(name: string, args: any, userId: string) {
       const inputs: Array<{
         title: string;
         url: string;
-        type?: string;
         tagNames?: string[];
         notes?: string;
       }> = args.items ?? [];
       const now = new Date().toISOString();
-      const created: Array<{ id: string; type: string }> = inputs.map((i) => ({
+      const created: Array<{ id: string }> = inputs.map(() => ({
         id: crypto.randomUUID(),
-        type: i.type ?? "reading-list",
       }));
 
       await withUser(userId, async (tx) => {
-        const shiftByType = new Map<string, number>();
-        for (const c of created) {
-          shiftByType.set(c.type, (shiftByType.get(c.type) ?? 0) + 1);
-        }
-        for (const [type, count] of shiftByType) {
-          await tx
-            .update(items)
-            .set({ position: sql`${items.position} + ${count}` })
-            .where(and(eq(items.userId, userId), eq(items.type, type)));
-        }
+        await tx
+          .update(items)
+          .set({ position: sql`${items.position} + ${inputs.length}` })
+          .where(eq(items.userId, userId));
 
-        const positionByType = new Map<string, number>();
         for (let idx = 0; idx < inputs.length; idx++) {
           const input = inputs[idx];
-          const { id: itemId, type } = created[idx];
-          const position = positionByType.get(type) ?? 0;
-          positionByType.set(type, position + 1);
+          const { id: itemId } = created[idx];
           await tx.insert(items).values({
             id: itemId,
             userId,
             title: input.title,
             url: input.url,
             faviconUrl: null,
-            type,
             starred: false,
             notes: input.notes ?? null,
-            position,
+            position: idx,
             createdAt: now,
             updatedAt: now,
           });
