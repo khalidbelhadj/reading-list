@@ -79,12 +79,53 @@ const formatDuration = (ms: number) => {
   return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
 };
 
-export const ReviewSession = ({
-  initialData,
+export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["review-session", sessionId],
+    queryFn: () => getReviewSession(sessionId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner className="size-5" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="text-muted-foreground text-sm">
+            Review session not found.
+          </div>
+          <Button
+            variant="ghost"
+            size="lg"
+            className="w-fit"
+            nativeButton={false}
+            render={<Link href="/" />}
+          >
+            Back to list
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <ReviewSessionInner sessionId={sessionId} initialData={data} />;
+};
+
+const ReviewSessionInner = ({
   sessionId,
+  initialData,
 }: {
-  initialData: ReviewSessionData;
   sessionId: string;
+  initialData: ReviewSessionData;
 }) => {
   const queryClient = useQueryClient();
   const logEvent = useEventLogger(sessionId);

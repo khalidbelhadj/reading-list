@@ -48,10 +48,17 @@ export const ReviewConfirmDialog = ({
   const plannedCount = Math.min(limit, cardCount);
 
   const isCram = mode === "cram";
-  const title = isCram ? "Start cram session?" : "Start review?";
+  const isNew = mode === "new";
+  const title = isCram
+    ? "Start cram session?"
+    : isNew
+      ? "Start new cards session?"
+      : "Start review?";
   const summary =
     cardCount === 0
-      ? "There are no cards to review."
+      ? isNew
+        ? "There are no new cards to review."
+        : "There are no cards to review."
       : `${pluralize(cardCount, "card")} available across ${pluralize(
           itemCount,
           "item",
@@ -96,7 +103,7 @@ export const ReviewConfirmDialog = ({
             disabled={isStarting || plannedCount === 0}
           >
             {isStarting && <Spinner className="size-3" />}
-            {isCram ? "Start cram" : "Start review"}
+            {isCram ? "Start cram" : isNew ? "Start new cards" : "Start review"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

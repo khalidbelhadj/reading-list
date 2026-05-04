@@ -453,7 +453,7 @@ export const DetailPanel = ({
 
   return (
     <div
-      className="flex flex-col gap-2 w-full"
+      className="flex flex-col gap-2 w-full pb-12"
     >
       {/* Item form card */}
       <div className="flex flex-col gap-2">
@@ -578,7 +578,7 @@ export const DetailPanel = ({
           value={notes}
           onChange={setNotes}
           placeholder="Notes..."
-          className="text-sm text-muted-foreground [&_.ProseMirror]:min-h-8!"
+          className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
         />
 
       </div>

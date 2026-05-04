@@ -12,15 +12,15 @@ export default async function LoginPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    redirect("/");
-  }
+  const { error, redirect: redirectTo } = await searchParams;
 
-  const { error } = await searchParams;
+  if (user) {
+    redirect(redirectTo || "/");
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <LoginForm error={!!error} />
+      <LoginForm error={!!error} redirectTo={redirectTo} />
     </div>
   );
 }

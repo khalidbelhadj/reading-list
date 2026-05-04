@@ -5,19 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useCallback, useState } from "react";
 
-export const LoginForm = ({ error }: { error: boolean }) => {
+export const LoginForm = ({
+  error,
+  redirectTo,
+}: {
+  error: boolean;
+  redirectTo?: string;
+}) => {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (redirectTo) callback.searchParams.set("next", redirectTo);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: callback.toString() },
     });
-  }, []);
+  }, [redirectTo]);
 
   return (
     <div className="flex w-full max-w-xs flex-col gap-4">

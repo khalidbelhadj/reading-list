@@ -122,20 +122,15 @@ export const FlashcardCard = ({
               className="text-xs font-medium"
             />
           </div>
-          <div
-            className="grid transition-[grid-template-rows] duration-150"
-            style={{ gridTemplateRows: card.back ? "1fr" : "0fr" }}
-          >
-            <div className="overflow-hidden">
-              <div className="cursor-pointer mt-0.5" onClick={handleBackClick}>
-                <MarkdownEditor
-                  value={card.back}
-                  editable={false}
-                  className="text-xs text-muted-foreground"
-                />
-              </div>
+          {card.back && (
+            <div className="cursor-pointer mt-0.5" onClick={handleBackClick}>
+              <MarkdownEditor
+                value={card.back}
+                editable={false}
+                className="text-xs text-muted-foreground"
+              />
             </div>
-          </div>
+          )}
         </>
       )}
 

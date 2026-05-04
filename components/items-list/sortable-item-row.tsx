@@ -9,7 +9,11 @@ import { type Item, isReadingListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { ItemDropdown } from "./item-dropdown";
+import {
+  ItemContextMenu,
+  ItemContextMenuTrigger,
+  ItemDropdown,
+} from "./item-dropdown";
 import { type EditFields, getFaviconSrc } from "./utils";
 
 export function SortableItemRow({
@@ -40,6 +44,7 @@ export function SortableItemRow({
   onCancelEdit?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
 
   const {
     attributes,
@@ -63,21 +68,31 @@ export function SortableItemRow({
   const isRead = isReadingListItem(item) && item.read;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      data-item-id={item.id}
-      className={cn(
-        "group relative flex items-center gap-2 p-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
-        isSelected && "bg-secondary",
-        !isSelected && !suppressHover && "hover:bg-card",
-        !isSelected && menuOpen && "bg-card",
-        isRead && "opacity-50",
-      )}
-      data-menu-open={menuOpen || undefined}
-      onClick={onSelect}
-      {...attributes}
-      {...listeners}
+    <ItemContextMenu
+      item={item}
+      onToggleRead={onToggleRead}
+      onDelete={onDelete}
+      onOpenChange={setContextMenuOpen}
+    >
+    <ItemContextMenuTrigger
+      render={
+        <div
+          ref={setNodeRef}
+          style={style}
+          data-item-id={item.id}
+          className={cn(
+            "group relative flex items-center gap-2 p-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
+            isSelected && "bg-secondary",
+            !isSelected && !suppressHover && "hover:bg-card",
+            !isSelected && (menuOpen || contextMenuOpen) && "bg-card",
+            isRead && "opacity-50",
+          )}
+          data-menu-open={menuOpen || contextMenuOpen || undefined}
+          onClick={onSelect}
+          {...attributes}
+          {...listeners}
+        />
+      }
     >
       <div className="relative size-4 shrink-0">
         {getFaviconSrc(item) ? (
@@ -144,7 +159,8 @@ export function SortableItemRow({
           </DropdownMenuTrigger>
         </div>
       </ItemDropdown>
-    </div>
+    </ItemContextMenuTrigger>
+    </ItemContextMenu>
   );
 }
 

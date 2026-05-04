@@ -255,29 +255,33 @@ const STATE_SEGMENTS: Array<{
     key: "new",
     label: "New",
     className:
-      "text-[oklch(0.55_0.06_250)] dark:text-[oklch(0.82_0.05_250)]",
-    barClassName: "bg-[oklch(0.82_0.05_250)]",
+      "text-[oklch(0.55_0.06_250)] dark:text-[oklch(0.72_0.08_250)]",
+    barClassName:
+      "bg-[oklch(0.82_0.05_250)] dark:bg-[oklch(0.6_0.08_250)]",
   },
   {
     key: "learning",
     label: "Learning",
     className:
-      "text-[oklch(0.55_0.09_80)] dark:text-[oklch(0.85_0.08_80)]",
-    barClassName: "bg-[oklch(0.85_0.08_80)]",
+      "text-[oklch(0.55_0.09_80)] dark:text-[oklch(0.78_0.1_80)]",
+    barClassName:
+      "bg-[oklch(0.85_0.08_80)] dark:bg-[oklch(0.65_0.1_80)]",
   },
   {
     key: "review",
     label: "Review",
     className:
-      "text-[oklch(0.55_0.06_150)] dark:text-[oklch(0.82_0.05_150)]",
-    barClassName: "bg-[oklch(0.82_0.05_150)]",
+      "text-[oklch(0.55_0.06_150)] dark:text-[oklch(0.72_0.08_150)]",
+    barClassName:
+      "bg-[oklch(0.82_0.05_150)] dark:bg-[oklch(0.6_0.08_150)]",
   },
   {
     key: "relearning",
     label: "Relearning",
     className:
-      "text-[oklch(0.55_0.1_25)] dark:text-[oklch(0.82_0.09_25)]",
-    barClassName: "bg-[oklch(0.82_0.09_25)]",
+      "text-[oklch(0.55_0.1_25)] dark:text-[oklch(0.72_0.1_25)]",
+    barClassName:
+      "bg-[oklch(0.82_0.09_25)] dark:bg-[oklch(0.6_0.1_25)]",
   },
 ];
 

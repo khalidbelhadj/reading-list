@@ -2,6 +2,11 @@ import React from "react";
 
 import { type Item, isReadingListItem } from "@/lib/types";
 import {
+  ContextMenu as ContextMenuRoot,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,37 +27,24 @@ import {
 
 const AUTO_CLOSE_MS = 3000;
 
-export const ItemDropdown = ({
-  item,
+// Track-cursor-and-auto-close behaviour shared between the dropdown and the
+// context menu — once the user clicks copy, we start a 3s timer when their
+// cursor leaves the popup, and cancel when it re-enters. Using global
+// mousemove + hit-testing is more reliable than mouseenter/leave which fires
+// on every wobble across the popup boundary.
+const useAutoCloseAfterCopy = ({
   open,
-  onOpenChange,
-  onToggleRead,
-  onDelete,
-  children,
+  copyTriggered,
+  onClose,
 }: {
-  item: Item;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onToggleRead?: () => void;
-  onDelete?: () => void;
-  children: React.ReactNode;
+  open: boolean;
+  copyTriggered: boolean;
+  onClose: () => void;
 }) => {
-  const [prompts] = useCopyPrompts();
-  const [lastCopied, setLastCopied] = React.useState<string | null>(null);
-  const [copyTriggered, setCopyTriggered] = React.useState(false);
-  const onOpenChangeRef = React.useRef(onOpenChange);
+  const onCloseRef = React.useRef(onClose);
   React.useEffect(() => {
-    onOpenChangeRef.current = onOpenChange;
+    onCloseRef.current = onClose;
   });
-
-  React.useEffect(() => {
-    if (!open) setCopyTriggered(false);
-  }, [open]);
-
-  // Once copy has been clicked, watch the cursor globally. Start a 3s timer
-  // when the cursor is outside the popup's bounding rect; cancel when inside.
-  // Using global mousemove + hit-testing is more reliable than mouseenter/leave
-  // which fire on every wobble across the popup boundary.
   React.useEffect(() => {
     if (!open || !copyTriggered) return;
     let timerId: ReturnType<typeof setTimeout> | null = null;
@@ -65,13 +57,13 @@ export const ItemDropdown = ({
     const start = () => {
       cancel();
       timerId = setTimeout(() => {
-        onOpenChangeRef.current?.(false);
+        onCloseRef.current();
       }, AUTO_CLOSE_MS);
     };
 
     const handleMove = (e: MouseEvent) => {
       const popups = document.querySelectorAll<HTMLElement>(
-        '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]',
+        '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="context-menu-content"]',
       );
       if (popups.length === 0) return;
       const inside = Array.from(popups).some((popup) => {
@@ -93,6 +85,21 @@ export const ItemDropdown = ({
       cancel();
     };
   }, [open, copyTriggered]);
+};
+
+type ItemMenuActionsProps = {
+  item: Item;
+  onToggleRead?: () => void;
+  onDelete?: () => void;
+};
+
+// Internal hook returning the action handlers + visible-state needed to render
+// the menu items. Used by both ItemDropdown and ItemContextMenu so that the
+// underlying behaviour (copy feedback, prompts, etc.) stays consistent.
+const useItemMenuActions = ({ item }: { item: Item }) => {
+  const [prompts] = useCopyPrompts();
+  const [lastCopied, setLastCopied] = React.useState<string | null>(null);
+  const [copyTriggered, setCopyTriggered] = React.useState(false);
 
   const handleCopy = React.useCallback(
     (promptId: string, template: string) => {
@@ -123,19 +130,111 @@ export const ItemDropdown = ({
 
   const canOpenUrl = !!item.url && URL.canParse(item.url);
 
+  return {
+    prompts,
+    lastCopied,
+    copyTriggered,
+    setCopyTriggered,
+    handleCopy,
+    handleCopyId,
+    handleOpenInNewTab,
+    canOpenUrl,
+  };
+};
+
+// Renders just the menu items (no Root/Popup/Content wrapper). Both the
+// dropdown and context-menu wrappers use the same MenuPrimitive.Item under
+// the hood (ContextMenuRoot creates Menu.Root internally), so DropdownMenu*
+// items render correctly inside either context.
+const ItemMenuItems = ({
+  item,
+  prompts,
+  canOpenUrl,
+  lastCopied,
+  handleOpenInNewTab,
+  handleCopyId,
+  handleCopy,
+  onToggleRead,
+  onDelete,
+}: ItemMenuActionsProps & ReturnType<typeof useItemMenuActions>) => {
   const isRead = isReadingListItem(item) && item.read;
+
+  return (
+    <>
+      {canOpenUrl && (
+        <DropdownMenuItem onClick={handleOpenInNewTab}>
+          Open in new tab
+        </DropdownMenuItem>
+      )}
+      <Tooltip open={lastCopied === "__id__"}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
+              Copy ID
+            </DropdownMenuItem>
+          }
+        />
+        <TooltipContent side="right">Copied</TooltipContent>
+      </Tooltip>
+      {prompts.length > 0 && (
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Prompts</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="max-w-72">
+            {prompts.map((prompt) => (
+              <PromptMenuItem
+                key={prompt.id}
+                prompt={prompt}
+                isCopied={lastCopied === prompt.id}
+                onCopy={handleCopy}
+              />
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      )}
+      {onToggleRead && isReadingListItem(item) && (
+        <DropdownMenuItem onClick={onToggleRead}>
+          {isRead ? "Mark as unread" : "Mark as read"}
+        </DropdownMenuItem>
+      )}
+      {onDelete && (
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          Delete
+        </DropdownMenuItem>
+      )}
+    </>
+  );
+};
+
+export const ItemDropdown = ({
+  item,
+  open,
+  onOpenChange,
+  onToggleRead,
+  onDelete,
+  children,
+}: {
+  item: Item;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onToggleRead?: () => void;
+  onDelete?: () => void;
+  children: React.ReactNode;
+}) => {
+  const actions = useItemMenuActions({ item });
+
+  React.useEffect(() => {
+    if (!open) actions.setCopyTriggered(false);
+  }, [open, actions]);
+
+  useAutoCloseAfterCopy({
+    open: !!open,
+    copyTriggered: actions.copyTriggered,
+    onClose: () => onOpenChange?.(false),
+  });
 
   const handleStopPropagation = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
   }, []);
-
-  const handleToggleRead = React.useCallback(() => {
-    if (onToggleRead) onToggleRead();
-  }, [onToggleRead]);
-
-  const handleDelete = React.useCallback(() => {
-    if (onDelete) onDelete();
-  }, [onDelete]);
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -145,50 +244,67 @@ export const ItemDropdown = ({
         sideOffset={4}
         onClick={handleStopPropagation}
       >
-        {canOpenUrl && (
-          <DropdownMenuItem onClick={handleOpenInNewTab}>
-            Open in new tab
-          </DropdownMenuItem>
-        )}
-        <Tooltip open={lastCopied === "__id__"}>
-          <TooltipTrigger
-            render={
-              <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
-                Copy ID
-              </DropdownMenuItem>
-            }
-          />
-          <TooltipContent side="right">Copied</TooltipContent>
-        </Tooltip>
-        {prompts.length > 0 && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Prompts</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="max-w-72">
-              {prompts.map((prompt) => (
-                <PromptMenuItem
-                  key={prompt.id}
-                  prompt={prompt}
-                  isCopied={lastCopied === prompt.id}
-                  onCopy={handleCopy}
-                />
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        {onToggleRead && isReadingListItem(item) && (
-          <DropdownMenuItem onClick={handleToggleRead}>
-            {isRead ? "Mark as unread" : "Mark as read"}
-          </DropdownMenuItem>
-        )}
-        {onDelete && (
-          <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-            Delete
-          </DropdownMenuItem>
-        )}
+        <ItemMenuItems
+          item={item}
+          onToggleRead={onToggleRead}
+          onDelete={onDelete}
+          {...actions}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
+
+export const ItemContextMenu = ({
+  item,
+  onToggleRead,
+  onDelete,
+  onOpenChange,
+  children,
+}: {
+  item: Item;
+  onToggleRead?: () => void;
+  onDelete?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  children: React.ReactNode;
+}) => {
+  const [open, setOpenState] = React.useState(false);
+  const actions = useItemMenuActions({ item });
+
+  const setOpen = React.useCallback(
+    (next: boolean) => {
+      setOpenState(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
+
+  React.useEffect(() => {
+    if (!open) actions.setCopyTriggered(false);
+  }, [open, actions]);
+
+  useAutoCloseAfterCopy({
+    open,
+    copyTriggered: actions.copyTriggered,
+    onClose: () => setOpen(false),
+  });
+
+  return (
+    <ContextMenuRoot open={open} onOpenChange={setOpen}>
+      {children}
+      <ContextMenuContent>
+        <ItemMenuItems
+          item={item}
+          onToggleRead={onToggleRead}
+          onDelete={onDelete}
+          {...actions}
+        />
+      </ContextMenuContent>
+    </ContextMenuRoot>
+  );
+};
+
+export { ContextMenuTrigger as ItemContextMenuTrigger };
 
 const PromptMenuItem = ({
   prompt,

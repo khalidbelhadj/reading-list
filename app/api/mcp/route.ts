@@ -10,6 +10,7 @@ import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
+import { pruneOrphanTags } from "@/lib/tags";
 
 const TOOLS = [
   {
@@ -388,6 +389,7 @@ async function handleTool(name: string, args: any, userId: string) {
                 .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
               if (tag) newTagIds.push(tag.id);
             }
+            const removedTagIds: number[] = [];
             for (const tagId of existingTagIds) {
               if (!newTagIds.includes(tagId)) {
                 await tx
@@ -398,6 +400,7 @@ async function handleTool(name: string, args: any, userId: string) {
                       eq(itemsTags.tagId, tagId),
                     ),
                   );
+                removedTagIds.push(tagId);
               }
             }
             for (const tagId of newTagIds) {
@@ -407,6 +410,7 @@ async function handleTool(name: string, args: any, userId: string) {
                   .values({ itemId: update.id, tagId });
               }
             }
+            await pruneOrphanTags(tx, userId, removedTagIds);
           }
           updated++;
         }
@@ -429,6 +433,12 @@ async function handleTool(name: string, args: any, userId: string) {
             notFound.push(id);
             continue;
           }
+          const affectedTagIds = (
+            await tx
+              .select({ tagId: itemsTags.tagId })
+              .from(itemsTags)
+              .where(eq(itemsTags.itemId, id))
+          ).map((r) => r.tagId);
           await tx.delete(itemsTags).where(eq(itemsTags.itemId, id));
           await tx
             .delete(flashcards)
@@ -438,6 +448,7 @@ async function handleTool(name: string, args: any, userId: string) {
           await tx
             .delete(items)
             .where(and(eq(items.id, id), eq(items.userId, userId)));
+          await pruneOrphanTags(tx, userId, affectedTagIds);
           deleted++;
         }
         return { deleted, notFound };

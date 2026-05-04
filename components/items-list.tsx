@@ -51,10 +51,31 @@ import { ReviewNudge } from "./items-list/review-nudge";
 import { DetailPanel } from "./items-list/detail-panel";
 import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
+import { GroupedList } from "./items-list/grouped-list";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Anchor offset (in px) matching the panel's `left: calc(50% + 18.75rem)` style.
+const PANEL_LEFT_OFFSET_PX = 300;
+// Width (in px) of the panel in collapsed state.
+const COLLAPSED_PANEL_WIDTH_PX = 440;
+// Visual width of inner content when expanded — keeps the form centered.
+const EXPANDED_CONTENT_MAX_WIDTH_PX = 600;
+
+const useViewportWidth = () => {
+  const [width, setWidth] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const update = () => setWidth(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return width;
+};
 
 export const ItemsList = () => {
   // Data
+  const viewportWidth = useViewportWidth();
+  const [isPanelAnimating, setIsPanelAnimating] = React.useState(false);
   const queryClient = useQueryClient();
   const {
     data: items,
@@ -174,6 +195,9 @@ export const ItemsList = () => {
     setTagsOpen,
     showRead,
     setShowRead,
+    groupBy,
+    setGroupBy,
+    groups,
   } = useItemsFilters(items, activeTab);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle } =
@@ -193,6 +217,21 @@ export const ItemsList = () => {
       setDeleteOpen(true);
     },
     [items],
+  );
+
+  const handleSelectRow = React.useCallback(
+    (id: string) => {
+      if (editingId !== null) setEditingId(null);
+      if (selectedId === id) {
+        setSelectedId(null);
+        setCursor(null);
+      } else {
+        setSelectedId(id);
+        setCursor(id);
+      }
+      setLiveFields(null);
+    },
+    [editingId, selectedId, setCursor],
   );
   const confirmDelete = React.useCallback(async () => {
     if (!itemToDelete) return;
@@ -474,7 +513,8 @@ export const ItemsList = () => {
   }, []);
 
   // DnD
-  const isDragDisabled = activeTags.size > 0 || editingId !== null;
+  const isDragDisabled =
+    activeTags.size > 0 || editingId !== null || groupBy !== "none";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -571,6 +611,8 @@ export const ItemsList = () => {
               setTagsOpen={setTagsOpen}
               showRead={showRead}
               setShowRead={setShowRead}
+              groupBy={groupBy}
+              setGroupBy={setGroupBy}
               setEditingId={setEditingId}
             />
 
@@ -620,6 +662,34 @@ export const ItemsList = () => {
                   </div>
                 );
               })}
+            </div>
+          ) : groupBy !== "none" ? (
+            <div
+              onMouseMove={
+                suppressHover ? () => setSuppressHover(false) : undefined
+              }
+            >
+              {itemsError ? (
+                <div className="px-1 py-6 text-center text-destructive text-xs">
+                  Failed to load items
+                </div>
+              ) : (
+                emptyMessage && (
+                  <div className="px-1 py-6 text-center text-muted-foreground text-xs">
+                    {emptyMessage}
+                  </div>
+                )
+              )}
+              <GroupedList
+                groups={groups}
+                selectedId={selectedId}
+                liveFields={liveFields}
+                typingTitles={typingTitles}
+                suppressHover={suppressHover}
+                onSelect={handleSelectRow}
+                onDelete={requestDeleteItem}
+                onToggleRead={handleToggleRead}
+              />
             </div>
           ) : (
             <DndContext
@@ -711,48 +781,60 @@ export const ItemsList = () => {
           data-detail-panel
           initial={false}
           animate={{
-            x: isFocused ? -600 : 0,
+            x: isFocused
+              ? -(viewportWidth / 2 + PANEL_LEFT_OFFSET_PX)
+              : 0,
             y: 0,
-            width: isFocused ? 600 : 440,
+            width: isFocused ? viewportWidth : COLLAPSED_PANEL_WIDTH_PX,
           }}
           transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
+          onAnimationStart={() => setIsPanelAnimating(true)}
+          onAnimationComplete={() => setIsPanelAnimating(false)}
           style={{ top: 20, left: "calc(50% + 18.75rem)" }}
-          className="fixed z-20 max-h-[calc(100vh-5rem)] overflow-y-auto detail-panel-scroll bg-background"
-        >
-          {isFocused && !focusedItem ? (
-            <DetailPanelSkeleton />
-          ) : (
-            <DetailPanel
-              key={panelItem?.id ?? "new"}
-              focused={isFocused}
-              item={panelItem}
-              isNew={!isFocused && isNewItem}
-              defaultTags={
-                !isFocused && isNewItem ? [...activeTags] : undefined
-              }
-              onSave={(itemId, fields) => handleSave(itemId, fields)}
-              onCreate={handleCreate}
-              onCancel={
-                !isFocused && isNewItem ? () => setEditingId(null) : undefined
-              }
-              onDelete={
-                panelItem ? () => requestDeleteItem(panelItem.id) : undefined
-              }
-              onToggleRead={
-                panelItem && isReadingListItem(panelItem)
-                  ? () => handleToggleRead(panelItem.id, !panelItem.read)
-                  : undefined
-              }
-              onExpand={
-                isFocused
-                  ? handleCloseFocused
-                  : detailItem
-                    ? () => handleExpandItem(detailItem.id)
-                    : undefined
-              }
-              onFieldsChange={setLiveFields}
-            />
+          className={cn(
+            "fixed z-20 h-[calc(100vh-2.5rem)] detail-panel-scroll bg-background",
+            isPanelAnimating ? "overflow-hidden" : "overflow-y-auto",
           )}
+        >
+          <div
+            className="mx-auto w-full"
+            style={{ maxWidth: EXPANDED_CONTENT_MAX_WIDTH_PX }}
+          >
+            {isFocused && !focusedItem ? (
+              <DetailPanelSkeleton />
+            ) : (
+              <DetailPanel
+                key={panelItem?.id ?? "new"}
+                focused={isFocused}
+                item={panelItem}
+                isNew={!isFocused && isNewItem}
+                defaultTags={
+                  !isFocused && isNewItem ? [...activeTags] : undefined
+                }
+                onSave={(itemId, fields) => handleSave(itemId, fields)}
+                onCreate={handleCreate}
+                onCancel={
+                  !isFocused && isNewItem ? () => setEditingId(null) : undefined
+                }
+                onDelete={
+                  panelItem ? () => requestDeleteItem(panelItem.id) : undefined
+                }
+                onToggleRead={
+                  panelItem && isReadingListItem(panelItem)
+                    ? () => handleToggleRead(panelItem.id, !panelItem.read)
+                    : undefined
+                }
+                onExpand={
+                  isFocused
+                    ? handleCloseFocused
+                    : detailItem
+                      ? () => handleExpandItem(detailItem.id)
+                      : undefined
+                }
+                onFieldsChange={setLiveFields}
+              />
+            )}
+          </div>
         </motion.div>
       )}
 
@@ -773,8 +855,23 @@ export const ItemsList = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete item</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this item? This action cannot be
-              undone.
+              {itemToDelete && itemToDelete.flashcardCount > 0 ? (
+                <>
+                  This will also delete{" "}
+                  <span className="font-medium">
+                    {itemToDelete.flashcardCount}
+                  </span>{" "}
+                  {itemToDelete.flashcardCount === 1
+                    ? "flashcard"
+                    : "flashcards"}
+                  . This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete this item? This action cannot
+                  be undone.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {itemToDelete && (

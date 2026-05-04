@@ -1,21 +1,25 @@
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { startReviewSession, type ReviewMode } from "@/app/actions";
 
 export const useStartReview = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [startingMode, setStartingMode] = React.useState<ReviewMode | null>(
     null,
   );
   const mutation = useMutation({
     mutationFn: (args: { mode: ReviewMode; limit: number }) =>
       startReviewSession(args),
-    onSuccess: ({ sessionId, cardCount }) => {
+    onSuccess: ({ sessionId, cardCount, data }) => {
       if (cardCount === 0) {
         setStartingMode(null);
         return;
+      }
+      if (data) {
+        queryClient.setQueryData(["review-session", sessionId], data);
       }
       router.push(`/review/${sessionId}`);
     },

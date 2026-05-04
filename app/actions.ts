@@ -13,6 +13,7 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { schedule, type Rating } from "@/lib/srs";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
+import { pruneOrphanTags } from "@/lib/tags";
 
 export async function deleteItem(itemId: string) {
   const userId = await getCurrentUserId();
@@ -23,6 +24,13 @@ export async function deleteItem(itemId: string) {
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
 
     if (!item) return;
+
+    const affectedTagIds = (
+      await tx
+        .select({ tagId: itemsTags.tagId })
+        .from(itemsTags)
+        .where(eq(itemsTags.itemId, itemId))
+    ).map((r) => r.tagId);
 
     await tx.delete(itemsTags).where(
       inArray(
@@ -39,6 +47,8 @@ export async function deleteItem(itemId: string) {
     await tx
       .delete(items)
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+
+    await pruneOrphanTags(tx, userId, affectedTagIds);
 
     await tx
       .update(items)
@@ -283,6 +293,7 @@ export async function updateItem(
         if (tag) newTagIds.push(tag.id);
       }
 
+      const removedTagIds: number[] = [];
       for (const tagId of existingTagIds) {
         if (!newTagIds.includes(tagId)) {
           await tx
@@ -290,6 +301,7 @@ export async function updateItem(
             .where(
               and(eq(itemsTags.itemId, itemId), eq(itemsTags.tagId, tagId)),
             );
+          removedTagIds.push(tagId);
         }
       }
 
@@ -298,6 +310,8 @@ export async function updateItem(
           await tx.insert(itemsTags).values({ itemId, tagId });
         }
       }
+
+      await pruneOrphanTags(tx, userId, removedTagIds);
     }
   });
 }
@@ -358,6 +372,13 @@ export async function bulkDeleteItems(itemIds: string[]) {
     if (ownedIds.length === 0) return;
     const affectedTypes = Array.from(new Set(affectedItems.map((i) => i.type)));
 
+    const affectedTagIds = (
+      await tx
+        .select({ tagId: itemsTags.tagId })
+        .from(itemsTags)
+        .where(inArray(itemsTags.itemId, ownedIds))
+    ).map((r) => r.tagId);
+
     await tx.delete(itemsTags).where(inArray(itemsTags.itemId, ownedIds));
     await tx
       .delete(flashcards)
@@ -370,6 +391,8 @@ export async function bulkDeleteItems(itemIds: string[]) {
     await tx
       .delete(items)
       .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
+
+    await pruneOrphanTags(tx, userId, affectedTagIds);
 
     for (const type of affectedTypes) {
       await tx.execute(sql`
@@ -725,11 +748,46 @@ export async function getAllCardsForCram(): Promise<QueueCard[]> {
   );
 }
 
+// Strict round-robin interleave: take one card from each item's group in turn.
+// Group order is the order items first appear in the input (which the caller
+// pre-sorted by due asc, so the most-urgent item leads). Within each group,
+// cards are due-asc so the most-overdue card of each item gets shown first.
+// Cards with no itemId each get their own bucket so they freely mix.
+const interleaveByItem = <T extends { itemId: string | null; due: string }>(
+  cards: T[],
+): T[] => {
+  const groups = new Map<string, T[]>();
+  let solo = 0;
+  for (const card of cards) {
+    const key = card.itemId ?? `__solo__${solo++}`;
+    const existing = groups.get(key);
+    if (existing) existing.push(card);
+    else groups.set(key, [card]);
+  }
+  const buckets = Array.from(groups.values());
+  for (const bucket of buckets) {
+    bucket.sort((a, b) => a.due.localeCompare(b.due));
+  }
+
+  const result: T[] = [];
+  const maxLen = buckets.reduce((m, b) => Math.max(m, b.length), 0);
+  for (let i = 0; i < maxLen; i++) {
+    for (const bucket of buckets) {
+      if (i < bucket.length) result.push(bucket[i]);
+    }
+  }
+  return result;
+};
+
 export async function startReviewSession(args: {
   mode: ReviewMode;
   scope?: ReviewScope;
   limit?: number;
-}): Promise<{ sessionId: string; cardCount: number }> {
+}): Promise<{
+  sessionId: string;
+  cardCount: number;
+  data: ReviewSessionData | null;
+}> {
   const userId = await getCurrentUserId();
   const sessionId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -737,30 +795,56 @@ export async function startReviewSession(args: {
   const limit = args.limit ?? 5;
 
   return withUser(userId, async (tx) => {
-    let cardIds: string[] = [];
+    const cardSelection = {
+      id: flashcards.id,
+      itemId: flashcards.itemId,
+      front: flashcards.front,
+      back: flashcards.back,
+      state: flashcards.state,
+      interval: flashcards.interval,
+      easeFactor: flashcards.easeFactor,
+      reps: flashcards.reps,
+      lapses: flashcards.lapses,
+      due: flashcards.due,
+      itemTitle: items.title,
+      itemUrl: items.url,
+      itemFaviconUrl: items.faviconUrl,
+    };
+
+    let cards: ReviewSessionCard[] = [];
 
     if (args.mode === "due") {
-      const rows = await tx
-        .select({ id: flashcards.id })
+      cards = await tx
+        .select(cardSelection)
         .from(flashcards)
+        .leftJoin(
+          items,
+          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+        )
         .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
         .orderBy(asc(flashcards.due))
         .limit(limit);
-      cardIds = rows.map((r) => r.id);
     } else if (args.mode === "new") {
-      const rows = await tx
-        .select({ id: flashcards.id })
+      cards = await tx
+        .select(cardSelection)
         .from(flashcards)
+        .leftJoin(
+          items,
+          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+        )
         .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
         .orderBy(asc(flashcards.createdAt))
         .limit(limit);
-      cardIds = rows.map((r) => r.id);
     } else if (args.mode === "item") {
       if (!args.scope?.itemId)
         throw new Error("item mode requires scope.itemId");
-      const rows = await tx
-        .select({ id: flashcards.id })
+      cards = await tx
+        .select(cardSelection)
         .from(flashcards)
+        .leftJoin(
+          items,
+          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+        )
         .where(
           and(
             eq(flashcards.userId, userId),
@@ -768,16 +852,21 @@ export async function startReviewSession(args: {
           ),
         )
         .orderBy(asc(flashcards.createdAt));
-      cardIds = rows.map((r) => r.id);
     } else if (args.mode === "cram") {
-      const rows = await tx
-        .select({ id: flashcards.id })
+      cards = await tx
+        .select(cardSelection)
         .from(flashcards)
+        .leftJoin(
+          items,
+          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+        )
         .where(eq(flashcards.userId, userId))
         .orderBy(asc(flashcards.createdAt))
         .limit(limit);
-      cardIds = rows.map((r) => r.id);
     }
+
+    cards = interleaveByItem(cards);
+    const cardIds = cards.map((c) => c.id);
 
     await tx.insert(reviewSessions).values({
       id: sessionId,
@@ -791,7 +880,23 @@ export async function startReviewSession(args: {
       startedAt: now,
     });
 
-    return { sessionId, cardCount: cardIds.length };
+    const data: ReviewSessionData | null = cardIds.length
+      ? {
+          session: {
+            id: sessionId,
+            mode: args.mode,
+            cardsPlanned: cardIds.length,
+            cardsCompleted: 0,
+            affectsSchedule,
+            startedAt: now,
+            endedAt: null,
+          },
+          cards,
+          completedCardIds: [],
+        }
+      : null;
+
+    return { sessionId, cardCount: cardIds.length, data };
   });
 }
 
@@ -1145,13 +1250,15 @@ export async function endReviewSession(args: {
 export async function getReviewStatus(): Promise<{
   dueCount: number;
   dueItemCount: number;
+  newCount: number;
+  newItemCount: number;
   totalCardCount: number;
   totalItemCount: number;
   lastReviewedAt: string | null;
 }> {
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  const [dueRows, totalRows, lastRows] = await Promise.all([
+  const [dueRows, newRows, totalRows, lastRows] = await Promise.all([
     withUser(userId, (tx) =>
       tx
         .select({
@@ -1160,6 +1267,17 @@ export async function getReviewStatus(): Promise<{
         })
         .from(flashcards)
         .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
+    ),
+    withUser(userId, (tx) =>
+      tx
+        .select({
+          cards: sql<number>`count(*)::int`,
+          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
+        })
+        .from(flashcards)
+        .where(
+          and(eq(flashcards.userId, userId), eq(flashcards.state, "new")),
+        ),
     ),
     withUser(userId, (tx) =>
       tx
@@ -1182,6 +1300,8 @@ export async function getReviewStatus(): Promise<{
   return {
     dueCount: dueRows[0]?.cards ?? 0,
     dueItemCount: dueRows[0]?.items ?? 0,
+    newCount: newRows[0]?.cards ?? 0,
+    newItemCount: newRows[0]?.items ?? 0,
     totalCardCount: totalRows[0]?.cards ?? 0,
     totalItemCount: totalRows[0]?.items ?? 0,
     lastReviewedAt: lastRows[0]?.reviewedAt ?? null,

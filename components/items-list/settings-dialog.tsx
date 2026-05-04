@@ -7,7 +7,7 @@ import { IconChevronDown } from "@tabler/icons-react";
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { type TabId } from "@/components/items-list/use-filters";
+import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,12 @@ const TAB_LABELS: Record<TabId, string> = {
   cards: "Cards",
 };
 
+const GROUP_BY_LABELS: Record<GroupBy, string> = {
+  none: "None",
+  tag: "Tag",
+  day: "Day",
+};
+
 export const SettingsMenu = ({
   activeTab,
   setActiveTabAndUrl,
@@ -78,6 +84,8 @@ export const SettingsMenu = ({
   setTagsOpen,
   showRead,
   setShowRead,
+  groupBy,
+  setGroupBy,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -88,6 +96,8 @@ export const SettingsMenu = ({
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showRead: boolean;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
+  groupBy: GroupBy;
+  setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
 }) => {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
@@ -169,6 +179,11 @@ export const SettingsMenu = ({
   const handleShowReadChange = React.useCallback(
     (checked: boolean) => setShowRead(checked),
     [setShowRead],
+  );
+
+  const handleGroupByChange = React.useCallback(
+    (value: string) => setGroupBy(value as GroupBy),
+    [setGroupBy],
   );
 
   const handleSansFontChange = React.useCallback((value: string) => {
@@ -266,6 +281,21 @@ export const SettingsMenu = ({
             >
               Filter by tags
             </DropdownMenuCheckboxItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Group by</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={groupBy}
+                  onValueChange={handleGroupByChange}
+                >
+                  {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((key) => (
+                    <DropdownMenuRadioItem key={key} value={key}>
+                      {GROUP_BY_LABELS[key]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
           </>
         )}

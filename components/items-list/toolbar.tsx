@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { SettingsMenu } from "./settings-dialog";
-import { type TabId } from "@/components/items-list/use-filters";
+import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
 import { getReviewStatus, type ReviewMode } from "@/app/actions";
 import { useStartReview } from "./use-start-review";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
@@ -27,6 +27,8 @@ export const Toolbar = ({
   setTagsOpen,
   showRead,
   setShowRead,
+  groupBy,
+  setGroupBy,
   setEditingId,
 }: {
   activeTab: TabId;
@@ -37,6 +39,8 @@ export const Toolbar = ({
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showRead: boolean;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
+  groupBy: GroupBy;
+  setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
   setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
 }) => {
   const handleAddClick = React.useCallback(() => {
@@ -63,6 +67,10 @@ export const Toolbar = ({
     if (isStarting) return;
     setPendingMode("cram");
   }, [isStarting]);
+  const handleNewClick = React.useCallback(() => {
+    if (isStarting) return;
+    setPendingMode("new");
+  }, [isStarting]);
   const handleDialogOpenChange = React.useCallback(
     (open: boolean) => {
       if (!open && !isStarting) setPendingMode(null);
@@ -86,11 +94,15 @@ export const Toolbar = ({
   const dialogCardCount =
     pendingMode === "cram"
       ? (reviewStatus?.totalCardCount ?? 0)
-      : (reviewStatus?.dueCount ?? 0);
+      : pendingMode === "new"
+        ? (reviewStatus?.newCount ?? 0)
+        : (reviewStatus?.dueCount ?? 0);
   const dialogItemCount =
     pendingMode === "cram"
       ? (reviewStatus?.totalItemCount ?? 0)
-      : (reviewStatus?.dueItemCount ?? 0);
+      : pendingMode === "new"
+        ? (reviewStatus?.newItemCount ?? 0)
+        : (reviewStatus?.dueItemCount ?? 0);
 
   const showFilters = activeTab !== "cards";
 
@@ -106,6 +118,8 @@ export const Toolbar = ({
         setTagsOpen={setTagsOpen}
         showRead={showRead}
         setShowRead={setShowRead}
+        groupBy={groupBy}
+        setGroupBy={setGroupBy}
       />
 
       <div className="flex-1" />
@@ -135,7 +149,7 @@ export const Toolbar = ({
                 disabled={isStarting}
                 aria-label="More review options"
               >
-                {startingMode === "cram" ? (
+                {startingMode === "cram" || startingMode === "new" ? (
                   <Spinner className="size-3" />
                 ) : (
                   <IconChevronDown />
@@ -144,7 +158,22 @@ export const Toolbar = ({
             }
           />
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCramClick}>Cram</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleNewClick}>
+              New cards
+              {!dueLoading && !dueError && (
+                <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
+                  {reviewStatus?.newCount ?? 0}
+                </span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleCramClick}>
+              Cram
+              {!dueLoading && !dueError && (
+                <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
+                  {reviewStatus?.totalCardCount ?? 0}
+                </span>
+              )}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
