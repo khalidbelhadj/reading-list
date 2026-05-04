@@ -10,6 +10,22 @@ import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { pruneOrphanTags } from "@/lib/tags";
+import {
+  toMcpItem,
+  toMcpFlashcard,
+  toMcpSearchItem,
+  type McpSearchMatch,
+  type GetItemsResponse,
+  type GetItemByUrlResponse,
+  type SearchItemsResponse,
+  type CreateItemsResponse,
+  type UpdateItemsResponse,
+  type DeleteItemsResponse,
+  type GetFlashcardsResponse,
+  type CreateFlashcardsResponse,
+  type UpdateFlashcardsResponse,
+  type DeleteFlashcardsResponse,
+} from "./types";
 
 const TOOLS = [
   {
@@ -220,6 +236,10 @@ function text(content: string) {
   return { content: [{ type: "text" as const, text: content }] };
 }
 
+function jsonText<T>(value: T) {
+  return text(JSON.stringify(value, null, 2));
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTool(name: string, args: any, userId: string) {
   switch (name) {
@@ -239,22 +259,23 @@ async function handleTool(name: string, args: any, userId: string) {
           with: { itemsTags: { with: { tag: true } } },
         }),
       );
-      let result = allItems.map(({ itemsTags: it, ...item }) => ({
-        ...item,
-        tags: it.map((t) => t.tag.name),
-      }));
+      let result = allItems.map((item) =>
+        toMcpItem(
+          item,
+          item.itemsTags.map((t) => t.tag.name),
+        ),
+      );
       if (args.tag) result = result.filter((i) => i.tags.includes(args.tag));
       const total = result.length;
       const offset = args.offset ?? 0;
       if (offset > 0) result = result.slice(offset);
       if (args.limit) result = result.slice(0, args.limit);
-      return text(
-        JSON.stringify(
-          { items: result, total, offset, limit: args.limit ?? null },
-          null,
-          2,
-        ),
-      );
+      return jsonText<GetItemsResponse>({
+        items: result,
+        total,
+        offset,
+        limit: args.limit ?? null,
+      });
     }
 
     case "get_item_by_url": {
@@ -266,9 +287,8 @@ async function handleTool(name: string, args: any, userId: string) {
         }),
       );
       if (!item) return text("Not found");
-      const { itemsTags: it, ...rest } = item;
-      return text(
-        JSON.stringify({ ...rest, tags: it.map((t) => t.tag.name) }, null, 2),
+      return jsonText<GetItemByUrlResponse>(
+        toMcpItem(item, item.itemsTags.map((t) => t.tag.name)),
       );
     }
 
@@ -292,7 +312,7 @@ async function handleTool(name: string, args: any, userId: string) {
             WITH haystacks AS (
               SELECT
                 i.id, i.title, i.url, i.notes, i.starred, i.read,
-                i.read_at, i.position, i.created_at, i.updated_at, i.favicon_url,
+                i.created_at, i.position,
                 COALESCE(
                   STRING_AGG(f.front || E'\n' || f.back, E'\n'),
                   ''
@@ -314,7 +334,7 @@ async function handleTool(name: string, args: any, userId: string) {
             )
             SELECT
               m.id, m.title, m.url, m.notes, m.starred, m.read,
-              m.read_at, m.position, m.created_at, m.updated_at, m.favicon_url,
+              m.created_at,
               m.m_title, m.m_url, m.m_notes, m.m_flashcards,
               COALESCE(
                 (SELECT json_agg(t.name ORDER BY t.name)
@@ -331,40 +351,34 @@ async function handleTool(name: string, args: any, userId: string) {
         });
 
         const list = rows as unknown as Array<Record<string, unknown>>;
-        const results = list.map((r) => ({
-          id: r.id,
-          title: r.title,
-          url: r.url,
-          notes: r.notes,
-          starred: r.starred,
-          read: r.read,
-          readAt: r.read_at,
-          position: r.position,
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-          faviconUrl: r.favicon_url,
-          tags: r.tags,
-          matchedIn: [
-            r.m_title ? "title" : null,
-            r.m_url ? "url" : null,
-            r.m_notes ? "notes" : null,
-            r.m_flashcards ? "flashcards" : null,
-          ].filter((x): x is string => x !== null),
-        }));
-
-        return text(
-          JSON.stringify(
+        const results = list.map((r) => {
+          const matchedIn: McpSearchMatch[] = [];
+          if (r.m_title) matchedIn.push("title");
+          if (r.m_url) matchedIn.push("url");
+          if (r.m_notes) matchedIn.push("notes");
+          if (r.m_flashcards) matchedIn.push("flashcards");
+          return toMcpSearchItem(
             {
-              pattern,
-              caseSensitive,
-              total: results.length,
-              truncated: results.length === 100,
-              items: results,
+              id: r.id as string,
+              title: r.title as string,
+              url: r.url as string,
+              notes: r.notes as string | null,
+              starred: r.starred as boolean,
+              read: r.read as boolean,
+              createdAt: r.created_at as string,
             },
-            null,
-            2,
-          ),
-        );
+            r.tags as string[],
+            matchedIn,
+          );
+        });
+
+        return jsonText<SearchItemsResponse>({
+          pattern,
+          caseSensitive,
+          total: results.length,
+          truncated: results.length === 100,
+          items: results,
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (/invalid regular expression/i.test(msg)) {
@@ -426,7 +440,7 @@ async function handleTool(name: string, args: any, userId: string) {
           }
         }
       });
-      return text(JSON.stringify({ ids: created.map((c) => c.id) }));
+      return jsonText<CreateItemsResponse>({ ids: created.map((c) => c.id) });
     }
 
     case "update_items": {
@@ -438,7 +452,7 @@ async function handleTool(name: string, args: any, userId: string) {
         tagNames?: string[];
       }> = args.items ?? [];
       const now = new Date().toISOString();
-      const results = await withUser(userId, async (tx) => {
+      const results: UpdateItemsResponse = await withUser(userId, async (tx) => {
         let updated = 0;
         const notFound: string[] = [];
         for (const update of updates) {
@@ -505,12 +519,12 @@ async function handleTool(name: string, args: any, userId: string) {
         }
         return { updated, notFound };
       });
-      return text(JSON.stringify(results));
+      return jsonText<UpdateItemsResponse>(results);
     }
 
     case "delete_items": {
       const ids: string[] = args.ids ?? [];
-      const results = await withUser(userId, async (tx) => {
+      const results: DeleteItemsResponse = await withUser(userId, async (tx) => {
         let deleted = 0;
         const notFound: string[] = [];
         for (const id of ids) {
@@ -542,13 +556,20 @@ async function handleTool(name: string, args: any, userId: string) {
         }
         return { deleted, notFound };
       });
-      return text(JSON.stringify(results));
+      return jsonText<DeleteItemsResponse>(results);
     }
 
     case "get_flashcards": {
       const cards = await withUser(userId, (tx) =>
         tx
-          .select()
+          .select({
+            id: flashcards.id,
+            itemId: flashcards.itemId,
+            front: flashcards.front,
+            back: flashcards.back,
+            state: flashcards.state,
+            due: flashcards.due,
+          })
           .from(flashcards)
           .where(
             and(
@@ -558,14 +579,14 @@ async function handleTool(name: string, args: any, userId: string) {
           )
           .orderBy(desc(flashcards.createdAt)),
       );
-      return text(JSON.stringify(cards, null, 2));
+      return jsonText<GetFlashcardsResponse>(cards.map(toMcpFlashcard));
     }
 
     case "create_flashcards": {
       const inputs: Array<{ itemId: string; front: string; back: string }> =
         args.flashcards ?? [];
       const now = new Date().toISOString();
-      const results = await withUser(userId, async (tx) => {
+      const results: CreateFlashcardsResponse = await withUser(userId, async (tx) => {
         const created: string[] = [];
         const notFound: string[] = [];
         for (const input of inputs) {
@@ -591,7 +612,7 @@ async function handleTool(name: string, args: any, userId: string) {
         }
         return { ids: created, notFound };
       });
-      return text(JSON.stringify(results));
+      return jsonText<CreateFlashcardsResponse>(results);
     }
 
     case "update_flashcards": {
@@ -617,7 +638,7 @@ async function handleTool(name: string, args: any, userId: string) {
         }
         return count;
       });
-      return text(JSON.stringify({ updated }));
+      return jsonText<UpdateFlashcardsResponse>({ updated });
     }
 
     case "delete_flashcards": {
@@ -634,7 +655,7 @@ async function handleTool(name: string, args: any, userId: string) {
         }
         return count;
       });
-      return text(JSON.stringify({ deleted }));
+      return jsonText<DeleteFlashcardsResponse>({ deleted });
     }
 
     default:
