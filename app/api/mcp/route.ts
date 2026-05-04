@@ -5,7 +5,6 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { similarity as trigramSimilarity } from "@/lib/trigram";
 import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
@@ -16,7 +15,7 @@ const TOOLS = [
   {
     name: "get_items",
     description:
-      "List reading list items. Optionally filter by type, tag, or search query. Supports sorting, limit, and offset for pagination.",
+      "List reading list items. Optionally filter by type or tag. Supports sorting, limit, and offset for pagination. For text search, use search_items.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -25,10 +24,6 @@ const TOOLS = [
           description: "Filter by item type (currently only \"reading-list\")",
         },
         tag: { type: "string", description: "Filter by tag name" },
-        search: {
-          type: "string",
-          description: "Search query to match against title and URL",
-        },
         sort: {
           type: "string",
           enum: ["position", "created_at", "updated_at", "title"],
@@ -62,6 +57,27 @@ const TOOLS = [
         url: { type: "string", description: "The URL to look up" },
       },
       required: ["url"],
+    },
+  },
+  {
+    name: "search_items",
+    description:
+      "Regex search across the user's reading list. The pattern is matched (POSIX regex, via Postgres `~`/`~*`) against each item's title, url, notes, and the concatenated front+back text of its flashcards. Returns matched items with a `matchedIn` array indicating which fields hit. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        pattern: {
+          type: "string",
+          description:
+            "POSIX regular expression. Examples: 'rust', '^https://github\\.com/', '\\bauth(entication)?\\b'. Max 500 chars.",
+        },
+        caseSensitive: {
+          type: "boolean",
+          default: false,
+          description: "If true, use case-sensitive match (`~` instead of `~*`).",
+        },
+      },
+      required: ["pattern"],
     },
   },
   {
@@ -234,22 +250,6 @@ async function handleTool(name: string, args: any, userId: string) {
       }));
       if (args.type) result = result.filter((i) => i.type === args.type);
       if (args.tag) result = result.filter((i) => i.tags.includes(args.tag));
-      if (args.search) {
-        const q = args.search.toLowerCase();
-        const scored = result.map((i) => {
-          const exact =
-            i.title.toLowerCase().includes(q) ||
-            i.url.toLowerCase().includes(q);
-          return {
-            item: i,
-            score: exact ? 1 : trigramSimilarity(i.title.toLowerCase(), q),
-          };
-        });
-        result = scored
-          .filter((s) => s.score >= 0.15)
-          .sort((a, b) => b.score - a.score)
-          .map((s) => s.item);
-      }
       const total = result.length;
       const offset = args.offset ?? 0;
       if (offset > 0) result = result.slice(offset);
@@ -276,6 +276,114 @@ async function handleTool(name: string, args: any, userId: string) {
       return text(
         JSON.stringify({ ...rest, tags: it.map((t) => t.tag.name) }, null, 2),
       );
+    }
+
+    case "search_items": {
+      const pattern: string = args.pattern;
+      const caseSensitive: boolean = args.caseSensitive ?? false;
+
+      if (typeof pattern !== "string" || pattern.length === 0) {
+        return text("Missing 'pattern' (non-empty string required)");
+      }
+      if (pattern.length > 500) {
+        return text("Pattern too long (max 500 chars)");
+      }
+
+      const op = sql.raw(caseSensitive ? "~" : "~*");
+
+      try {
+        const rows = await withUser(userId, async (tx) => {
+          await tx.execute(sql`SET LOCAL statement_timeout = '10000ms'`);
+          return tx.execute(sql`
+            WITH haystacks AS (
+              SELECT
+                i.id, i.title, i.url, i.notes, i.type, i.starred, i.read,
+                i.read_at, i.position, i.created_at, i.updated_at, i.favicon_url,
+                COALESCE(
+                  STRING_AGG(f.front || E'\n' || f.back, E'\n'),
+                  ''
+                ) AS fc_text
+              FROM items i
+              LEFT JOIN flashcards f
+                ON f.item_id = i.id AND f.user_id = i.user_id
+              WHERE i.user_id = ${userId}
+              GROUP BY i.id
+            ),
+            matched AS (
+              SELECT
+                h.*,
+                (h.title ${op} ${pattern})                  AS m_title,
+                (h.url   ${op} ${pattern})                  AS m_url,
+                (COALESCE(h.notes, '') ${op} ${pattern})    AS m_notes,
+                (h.fc_text ${op} ${pattern})                AS m_flashcards
+              FROM haystacks h
+            )
+            SELECT
+              m.id, m.title, m.url, m.notes, m.type, m.starred, m.read,
+              m.read_at, m.position, m.created_at, m.updated_at, m.favicon_url,
+              m.m_title, m.m_url, m.m_notes, m.m_flashcards,
+              COALESCE(
+                (SELECT json_agg(t.name ORDER BY t.name)
+                 FROM items_tags it
+                 JOIN tags t ON t.id = it.tag_id
+                 WHERE it.item_id = m.id),
+                '[]'::json
+              ) AS tags
+            FROM matched m
+            WHERE m.m_title OR m.m_url OR m.m_notes OR m.m_flashcards
+            ORDER BY m.position ASC
+            LIMIT 100
+          `);
+        });
+
+        const list = rows as unknown as Array<Record<string, unknown>>;
+        const results = list.map((r) => ({
+          id: r.id,
+          title: r.title,
+          url: r.url,
+          notes: r.notes,
+          type: r.type,
+          starred: r.starred,
+          read: r.read,
+          readAt: r.read_at,
+          position: r.position,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+          faviconUrl: r.favicon_url,
+          tags: r.tags,
+          matchedIn: [
+            r.m_title ? "title" : null,
+            r.m_url ? "url" : null,
+            r.m_notes ? "notes" : null,
+            r.m_flashcards ? "flashcards" : null,
+          ].filter((x): x is string => x !== null),
+        }));
+
+        return text(
+          JSON.stringify(
+            {
+              pattern,
+              caseSensitive,
+              total: results.length,
+              truncated: results.length === 100,
+              items: results,
+            },
+            null,
+            2,
+          ),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/invalid regular expression/i.test(msg)) {
+          return text(`Invalid regex: ${msg}`);
+        }
+        if (/statement timeout|canceling statement/i.test(msg)) {
+          return text(
+            "Search timed out after 10s — pattern is too expensive. Try anchoring it (e.g. ^foo) or making it more specific.",
+          );
+        }
+        throw e;
+      }
     }
 
     case "create_items": {
