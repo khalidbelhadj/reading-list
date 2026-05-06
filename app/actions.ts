@@ -14,7 +14,7 @@ import { getCurrentUserId } from "@/lib/auth";
 import { schedule, type Rating } from "@/lib/srs";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
 import { pruneOrphanTags } from "@/lib/tags";
-import { assertPublicUrl } from "@/lib/url";
+import { assertPublicUrl } from "@/lib/url.server";
 
 export async function deleteItem(itemId: string) {
   const userId = await getCurrentUserId();
