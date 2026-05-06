@@ -49,6 +49,11 @@ export const ReviewConfirmDialog = ({
 
   const isCram = mode === "cram";
   const isNew = mode === "new";
+  const title = isCram
+    ? "Start cram session?"
+    : isNew
+      ? "Start new cards session?"
+      : "Start review?";
   const summary =
     cardCount === 0
       ? isNew
@@ -63,7 +68,7 @@ export const ReviewConfirmDialog = ({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Start review?</AlertDialogTitle>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
             {summary}
             {cardCount > 0 && isCram && (
