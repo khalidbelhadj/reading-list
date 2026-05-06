@@ -14,6 +14,7 @@ import { getCurrentUserId } from "@/lib/auth";
 import { schedule, type Rating } from "@/lib/srs";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
 import { pruneOrphanTags } from "@/lib/tags";
+import { assertPublicUrl } from "@/lib/url";
 
 export async function deleteItem(itemId: string) {
   const userId = await getCurrentUserId();
@@ -93,6 +94,8 @@ function decodeHtmlEntities(str: string): string {
 
 export async function fetchPageTitle(url: string): Promise<string | null> {
   try {
+    await assertPublicUrl(url);
+
     const parsed = new URL(url);
     const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(
       parsed.hostname,
