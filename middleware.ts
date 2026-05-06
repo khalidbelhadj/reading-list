@@ -7,10 +7,12 @@ export async function middleware(request: NextRequest) {
 
   // CORS for API routes
   if (pathname.startsWith("/api/")) {
+    const isMcp = pathname.startsWith("/api/mcp");
+
     if (request.method === "OPTIONS") {
       return new NextResponse(null, {
         status: 204,
-        headers: corsHeaders(request),
+        headers: corsHeaders(request, isMcp),
       });
     }
 
@@ -33,7 +35,7 @@ export async function middleware(request: NextRequest) {
       } = await supabase.auth.getUser(token);
       if (user) {
         const response = NextResponse.next();
-        for (const [key, value] of Object.entries(corsHeaders(request))) {
+        for (const [key, value] of Object.entries(corsHeaders(request, isMcp))) {
           response.headers.set(key, value);
         }
         return response;
@@ -44,7 +46,7 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.next();
     const { user } = await updateSession(request, response);
     if (!user) {
-      const headers = corsHeaders(request);
+      const headers = corsHeaders(request, isMcp);
       headers["WWW-Authenticate"] = `Bearer resource_metadata="${request.nextUrl.origin}/.well-known/oauth-protected-resource"`;
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -52,7 +54,7 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    for (const [key, value] of Object.entries(corsHeaders(request))) {
+    for (const [key, value] of Object.entries(corsHeaders(request, isMcp))) {
       response.headers.set(key, value);
     }
     return response;
@@ -87,14 +89,32 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-function corsHeaders(request: NextRequest): Record<string, string> {
-  const origin = request.headers.get("origin") ?? "*";
-  return {
-    "Access-Control-Allow-Origin": origin,
+const ALLOWED_ORIGINS = (() => {
+  const env = process.env.ALLOWED_ORIGINS;
+  const origins = env ? env.split(",").map((o) => o.trim()) : [];
+  origins.push("http://localhost:3000");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    origins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  }
+  return new Set(origins);
+})();
+
+function corsHeaders(request: NextRequest, isMcp: boolean): Record<string, string> {
+  const origin = request.headers.get("origin");
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, mcp-session-id",
     "Access-Control-Max-Age": "86400",
   };
+
+  if (isMcp) {
+    headers["Access-Control-Allow-Origin"] = origin ?? "*";
+  } else if (origin && ALLOWED_ORIGINS.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Vary"] = "Origin";
+  }
+
+  return headers;
 }
 
 export const config = {
