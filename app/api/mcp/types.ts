@@ -127,10 +127,12 @@ export type CreateFlashcardsResponse = {
 
 export type UpdateFlashcardsResponse = {
   updated: number;
+  notFound: string[];
 };
 
 export type DeleteFlashcardsResponse = {
   deleted: number;
+  notFound: string[];
 };
 
 export type SearchFlashcardsResponse = {

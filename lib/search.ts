@@ -3,6 +3,11 @@ import { type Tx } from "@/db";
 
 export type SearchMode = "fuzzy" | "regex";
 
+export type SearchOptions = {
+  caseSensitive?: boolean;
+  mode?: SearchMode;
+};
+
 export type SearchResult = {
   id: string;
   title: string;
@@ -24,8 +29,11 @@ export const searchItems = async (
   tx: Tx,
   userId: string,
   rawQuery: string,
+  options?: SearchOptions,
 ): Promise<SearchResult[]> => {
-  const { mode, pattern } = parseMode(rawQuery);
+  const { caseSensitive = false, mode: modeOverride } = options ?? {};
+  const { mode: detectedMode, pattern } = parseMode(rawQuery);
+  const mode = modeOverride ?? detectedMode;
 
   if (pattern.length === 0) return [];
   if (pattern.length > 500) throw new Error("Pattern too long (max 500 chars)");
@@ -33,7 +41,7 @@ export const searchItems = async (
   await tx.execute(sql`SET LOCAL statement_timeout = '10000ms'`);
 
   if (mode === "regex") {
-    return regexSearch(tx, userId, pattern);
+    return regexSearch(tx, userId, pattern, caseSensitive);
   }
   return fuzzySearch(tx, userId, pattern);
 };
@@ -42,8 +50,9 @@ const regexSearch = async (
   tx: Tx,
   userId: string,
   pattern: string,
+  caseSensitive: boolean,
 ): Promise<SearchResult[]> => {
-  const op = sql.raw("~*");
+  const op = sql.raw(caseSensitive ? "~" : "~*");
 
   const rows = await tx.execute(sql`
     WITH haystacks AS (

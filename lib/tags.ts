@@ -3,14 +3,6 @@ import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { db, type Tx } from "@/db";
 import { itemsTags, tags } from "@/db/schema";
 
-/**
- * Delete tags from `tagIds` that are no longer referenced by any items_tags
- * row. Scoped to `userId` and to the supplied set so we never scan the whole
- * tags table. Safe to call with an empty `tagIds` (no-op).
- *
- * Call this after any DELETE on items_tags so the tags table doesn't bloat
- * with rows that no item uses.
- */
 export const pruneOrphanTags = async (
   tx: Tx | typeof db,
   userId: string,
@@ -32,4 +24,74 @@ export const pruneOrphanTags = async (
         ),
       ),
     );
+};
+
+export const ensureTagsLinked = async (
+  tx: Tx | typeof db,
+  userId: string,
+  itemId: string,
+  tagNames: string[],
+) => {
+  for (const tagName of tagNames) {
+    await tx
+      .insert(tags)
+      .values({ userId, name: tagName })
+      .onConflictDoNothing();
+    const [tag] = await tx
+      .select()
+      .from(tags)
+      .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
+    if (tag) {
+      await tx
+        .insert(itemsTags)
+        .values({ itemId, tagId: tag.id })
+        .onConflictDoNothing();
+    }
+  }
+};
+
+export const syncItemTags = async (
+  tx: Tx | typeof db,
+  userId: string,
+  itemId: string,
+  tagNames: string[],
+) => {
+  const existingLinks = await tx
+    .select({ tagId: itemsTags.tagId })
+    .from(itemsTags)
+    .where(eq(itemsTags.itemId, itemId));
+  const existingTagIds = existingLinks.map((l) => l.tagId);
+
+  const newTagIds: number[] = [];
+  for (const tagName of tagNames) {
+    await tx
+      .insert(tags)
+      .values({ userId, name: tagName })
+      .onConflictDoNothing();
+    const [tag] = await tx
+      .select()
+      .from(tags)
+      .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
+    if (tag) newTagIds.push(tag.id);
+  }
+
+  const removedTagIds: number[] = [];
+  for (const tagId of existingTagIds) {
+    if (!newTagIds.includes(tagId)) {
+      await tx
+        .delete(itemsTags)
+        .where(
+          and(eq(itemsTags.itemId, itemId), eq(itemsTags.tagId, tagId)),
+        );
+      removedTagIds.push(tagId);
+    }
+  }
+
+  for (const tagId of newTagIds) {
+    if (!existingTagIds.includes(tagId)) {
+      await tx.insert(itemsTags).values({ itemId, tagId });
+    }
+  }
+
+  await pruneOrphanTags(tx, userId, removedTagIds);
 };

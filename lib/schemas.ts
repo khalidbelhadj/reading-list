@@ -34,7 +34,6 @@ export const createItemSchema = z.object({
   faviconUrl: urlSchema.optional(),
   notes: notesSchema.optional(),
   id: idSchema.optional(),
-  position: z.number().int().min(0).optional(),
 });
 
 export const updateItemSchema = z.object({
@@ -200,6 +199,8 @@ export const mcpUpdateItemsSchema = z.object({
     title: titleSchema.optional(),
     url: urlSchema.optional(),
     notes: notesSchema.optional(),
+    starred: z.boolean().optional(),
+    read: z.boolean().optional(),
     tagNames: tagNamesSchema.optional(),
   })).min(1, "Must provide at least one item").max(50, "Cannot update more than 50 items at once"),
 });
