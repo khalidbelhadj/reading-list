@@ -22,8 +22,10 @@ import { getFaviconSrc } from "./utils";
 type AllFlashcard = Awaited<ReturnType<typeof getAllFlashcards>>[number];
 
 export const CardsList = ({
+  searchIds,
   onOpenItem,
 }: {
+  searchIds?: Set<string> | null;
   onOpenItem?: (itemId: string) => void;
 }) => {
   const queryClient = useQueryClient();
@@ -133,6 +135,10 @@ export const CardsList = ({
     [deleteCardMutation],
   );
 
+  const filteredCards = searchIds
+    ? cards.filter((c) => searchIds.has(c.id))
+    : cards;
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
@@ -161,9 +167,17 @@ export const CardsList = ({
     );
   }
 
+  if (filteredCards.length === 0 && searchIds) {
+    return (
+      <div className="px-1 py-6 text-center text-muted-foreground text-xs">
+        No matching cards
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      {cards.map((card) => {
+      {filteredCards.map((card) => {
         const item = card.itemId ? itemsById.get(card.itemId) : undefined;
         const favicon = card.itemUrl
           ? getFaviconSrc({

@@ -231,3 +231,7 @@ export const mcpUpdateFlashcardsSchema = z.object({
 export const mcpDeleteFlashcardsSchema = z.object({
   ids: z.array(idSchema).min(1, "Must provide at least one ID").max(100, "Cannot delete more than 100 flashcards at once"),
 });
+
+export const mcpSearchFlashcardsSchema = z.object({
+  query: z.string().min(1, "Query must not be empty").max(500, "Query must be under 500 characters"),
+});

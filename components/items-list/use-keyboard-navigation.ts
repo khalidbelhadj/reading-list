@@ -21,6 +21,7 @@ export const useKeyboardNavigation = ({
   onRequestDelete,
   activeTags,
   onPasteCreate,
+  onSearchOpen,
 }: {
   filteredItems: Item[];
   selectedId: string | null;
@@ -36,6 +37,7 @@ export const useKeyboardNavigation = ({
   onRequestDelete?: () => void;
   activeTags: Set<string>;
   onPasteCreate: (url: string, tagNames: string[]) => void;
+  onSearchOpen: () => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
   const queryClient = useQueryClient();
@@ -104,10 +106,14 @@ export const useKeyboardNavigation = ({
         e.preventDefault();
         setShowRead((v) => !v);
       }
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !editingId) {
+        e.preventDefault();
+        onSearchOpen();
+      }
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [editingId, setEditingId, setSelectedId, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor]);
+  }, [editingId, setEditingId, setSelectedId, setActiveTabAndUrl, setTagsOpen, setShowRead, cursorRef, setCursor, onSearchOpen]);
 
   // Cmd+Backspace to delete selected item
   React.useEffect(() => {

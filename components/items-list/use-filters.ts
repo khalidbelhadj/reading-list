@@ -101,7 +101,7 @@ const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
   return [];
 };
 
-export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
+export function useItemsFilters(items: Item[] | undefined, activeTab: TabId, searchIds: Set<string> | null = null) {
   const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
   const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
   const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
@@ -187,11 +187,12 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: TabId) {
   const filteredItems = React.useMemo(
     () =>
       tabItems.filter((item) => {
+        if (searchIds !== null && !searchIds.has(item.id)) return false;
         if (!showRead && item.read) return false;
         if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
         return true;
       }),
-    [tabItems, showRead, activeTags],
+    [tabItems, showRead, activeTags, searchIds],
   );
 
   const toggleTag = React.useCallback((tagName: string) => {

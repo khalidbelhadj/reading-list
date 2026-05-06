@@ -232,13 +232,14 @@ export const SettingsMenu = ({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
-            type="button"
-            className="font-content text-sm font-medium flex items-center gap-1 cursor-pointer outline-none"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="font-content text-sm font-medium gap-1 px-2"
           >
             {TAB_LABELS[activeTab]}
             <IconChevronDown className="size-3.5 text-muted-foreground/60" />
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
@@ -247,7 +248,7 @@ export const SettingsMenu = ({
             key={key}
             onClick={() => setActiveTabAndUrl(key)}
             className={cn(
-              activeTab === key && "bg-secondary",
+              activeTab === key && "bg-secondary focus:bg-secondary",
             )}
           >
             {TAB_LABELS[key]}

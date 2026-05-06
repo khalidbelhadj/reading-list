@@ -49,20 +49,27 @@ export const ReviewConfirmDialog = ({
 
   const isCram = mode === "cram";
   const isNew = mode === "new";
-  const title = isCram
-    ? "Start cram session?"
-    : isNew
-      ? "Start new cards session?"
-      : "Start review?";
-  const summary =
-    cardCount === 0
-      ? isNew
-        ? "There are no new cards to review."
-        : "There are no cards to review."
-      : `${pluralize(cardCount, "card")} available across ${pluralize(
-          itemCount,
-          "item",
-        )}.`;
+  const isEmpty = cardCount === 0;
+
+  const title = isEmpty
+    ? isNew
+      ? "No new cards"
+      : isCram
+        ? "No cards to cram"
+        : "No cards due"
+    : isCram
+      ? "Start cram session?"
+      : isNew
+        ? "Start new cards session?"
+        : "Start review?";
+
+  const description = isEmpty
+    ? isNew
+      ? "All your cards have been introduced. New cards will appear as you add flashcards to items."
+      : isCram
+        ? "There are no flashcards yet. Add flashcards to your items to start cramming."
+        : "You’re all caught up! Cards will become due again as their review intervals expire."
+    : `${pluralize(cardCount, "card")} available across ${pluralize(itemCount, "item")}.`;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -70,13 +77,13 @@ export const ReviewConfirmDialog = ({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
-            {summary}
-            {cardCount > 0 && isCram && (
+            {description}
+            {!isEmpty && isCram && (
               <> Cram sessions don&rsquo;t affect your schedule.</>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {cardCount > 1 && (
+        {!isEmpty && cardCount > 1 && (
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center justify-between">
               <span>Cards for this session</span>
@@ -97,14 +104,20 @@ export const ReviewConfirmDialog = ({
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isStarting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => onConfirm(plannedCount)}
-            disabled={isStarting || plannedCount === 0}
-          >
-            {isStarting && <Spinner className="size-3" />}
-            {isCram ? "Start cram" : isNew ? "Start new cards" : "Start review"}
-          </AlertDialogAction>
+          {isEmpty ? (
+            <AlertDialogCancel>OK</AlertDialogCancel>
+          ) : (
+            <>
+              <AlertDialogCancel disabled={isStarting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onConfirm(plannedCount)}
+                disabled={isStarting}
+              >
+                {isStarting && <Spinner className="size-3" />}
+                {isCram ? "Start cram" : isNew ? "Start new cards" : "Start review"}
+              </AlertDialogAction>
+            </>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -132,3 +132,19 @@ export type UpdateFlashcardsResponse = {
 export type DeleteFlashcardsResponse = {
   deleted: number;
 };
+
+export type SearchFlashcardsResponse = {
+  query: string;
+  total: number;
+  truncated: boolean;
+  flashcards: Array<{
+    id: string;
+    itemId: string | null;
+    front: string;
+    back: string;
+    state: string;
+    due: string;
+    itemTitle: string | null;
+    matchedIn: ("front" | "back" | "item_title")[];
+  }>;
+};

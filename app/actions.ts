@@ -14,6 +14,12 @@ import { getCurrentUserId } from "@/lib/auth";
 import { schedule, type Rating } from "@/lib/srs";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
 import { pruneOrphanTags } from "@/lib/tags";
+import {
+  searchItems as searchItemsQuery,
+  searchFlashcards as searchFlashcardsQuery,
+  type SearchResult,
+  type FlashcardSearchResult,
+} from "@/lib/search";
 import { assertPublicUrl } from "@/lib/url.server";
 import {
   parseInput,
@@ -43,6 +49,16 @@ import {
   getNewCardsSchema,
   getCardsForItemSchema,
 } from "@/lib/schemas";
+
+export async function searchItems(query: string): Promise<SearchResult[]> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) => searchItemsQuery(tx, userId, query));
+}
+
+export async function searchFlashcards(query: string): Promise<FlashcardSearchResult[]> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, (tx) => searchFlashcardsQuery(tx, userId, query));
+}
 
 export async function deleteItem(itemId: string) {
   parseInput(deleteItemSchema, { itemId });
