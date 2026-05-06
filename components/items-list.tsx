@@ -19,6 +19,7 @@ import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
@@ -38,7 +39,7 @@ import { getFaviconSrc } from "./items-list/utils";
 type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import { type EditFields } from "./items-list/utils";
-import { createItem, fetchPageTitle, updateItem } from "@/app/actions";
+import { createItem, fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
 import { findDuplicateItem } from "@/lib/url";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { SortableItemRow } from "./items-list/sortable-item-row";
@@ -53,6 +54,7 @@ import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList } from "./items-list/grouped-list";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 
 // Anchor offset (in px) matching the panel's `left: calc(50% + 18.75rem)` style.
 const PANEL_LEFT_OFFSET_PX = 300;
@@ -104,6 +106,16 @@ export const ItemsList = () => {
     if (tab === "cards") return "cards";
     return "reading-list";
   });
+
+  // Search
+  const [searchIds, setSearchIds] = React.useState<Set<string> | null>(null);
+  const searchBarRef = React.useRef<SearchBarHandle | null>(null);
+  const handleSearchResults = React.useCallback((ids: Set<string> | null) => {
+    setSearchIds(ids);
+  }, []);
+  const handleSearchOpen = React.useCallback(() => {
+    searchBarRef.current?.open();
+  }, []);
 
   // Refs
   const cursorRef = React.useRef<string | null>(null);
@@ -197,7 +209,7 @@ export const ItemsList = () => {
     groupBy,
     setGroupBy,
     groups,
-  } = useItemsFilters(items, activeTab);
+  } = useItemsFilters(items, activeTab, searchIds);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle } =
     useItemsMutations({
@@ -391,6 +403,7 @@ export const ItemsList = () => {
     }, [selectedId, requestDeleteItem]),
     activeTags,
     onPasteCreate: requestPasteCreate,
+    onSearchOpen: handleSearchOpen,
   });
 
   const updateMutation = useMutation({
@@ -560,9 +573,9 @@ export const ItemsList = () => {
   const panelVisible = showDetailPanel || isFocused;
 
   // Empty state message
-  const emptyMessage = React.useMemo(() => {
+  const emptyState = React.useMemo(() => {
     if (filteredItems.length > 0 || isNewItem) return null;
-    if (tabItems.length === 0) return "Nothing here yet";
+    if (tabItems.length === 0) return { message: "Nothing here yet", hasHiddenRead: false };
 
     const hiddenReadCount = !showRead
       ? tabItems.filter(
@@ -574,10 +587,28 @@ export const ItemsList = () => {
       : 0;
 
     if (hiddenReadCount > 0) {
-      return `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`;
+      return {
+        message: `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`,
+        hasHiddenRead: true,
+      };
     }
-    return "No items match your filters";
+    return { message: "No items match your filters", hasHiddenRead: false };
   }, [filteredItems, isNewItem, tabItems, showRead, activeTags]);
+
+  const emptyNode = emptyState && (
+    <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
+      <span>{emptyState.message}</span>
+      {emptyState.hasHiddenRead && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowRead(true)}
+        >
+          Show read
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="relative">
@@ -605,6 +636,14 @@ export const ItemsList = () => {
               setEditingId={setEditingId}
             />
 
+            <SearchBar
+              ref={searchBarRef}
+              queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
+              searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
+              onResults={handleSearchResults}
+              placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
+            />
+
             <ReviewNudge />
 
             {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
@@ -627,6 +666,7 @@ export const ItemsList = () => {
           {/* Content */}
           {activeTab === "cards" ? (
             <CardsList
+              searchIds={searchIds}
               onOpenItem={(id) => {
                 focusedFromTabRef.current = activeTab;
                 setFocusedId(id);
@@ -663,11 +703,7 @@ export const ItemsList = () => {
                   Failed to load items
                 </div>
               ) : (
-                emptyMessage && (
-                  <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-                    {emptyMessage}
-                  </div>
-                )
+                emptyNode
               )}
               <GroupedList
                 groups={groups}
@@ -701,11 +737,7 @@ export const ItemsList = () => {
                       Failed to load items
                     </div>
                   ) : (
-                    emptyMessage && (
-                      <div className="px-1 py-6 text-center text-muted-foreground text-xs">
-                        {emptyMessage}
-                      </div>
-                    )
+                    emptyNode
                   )}
                   {filteredItems.map((item) => {
                     const typingTitle = typingTitles[item.id];

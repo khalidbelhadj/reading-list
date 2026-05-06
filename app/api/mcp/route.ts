@@ -10,6 +10,7 @@ import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { pruneOrphanTags } from "@/lib/tags";
+import { searchFlashcards } from "@/lib/search";
 import {
   toMcpItem,
   toMcpFlashcard,
@@ -25,6 +26,7 @@ import {
   type CreateFlashcardsResponse,
   type UpdateFlashcardsResponse,
   type DeleteFlashcardsResponse,
+  type SearchFlashcardsResponse,
 } from "./types";
 
 const TOOLS = [
@@ -228,6 +230,22 @@ const TOOLS = [
         },
       },
       required: ["ids"],
+    },
+  },
+  {
+    name: "search_flashcards",
+    description:
+      "Search flashcards by front/back text and parent item title. Supports fuzzy search (space-separated tokens matched via ILIKE) by default. Wrap the pattern in slashes (`/pattern/`) to use POSIX regex (case-insensitive). Capped at 100 results with a 10s timeout.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Search query. Plain text for fuzzy search, or /regex/ for POSIX regex. Max 500 chars.",
+        },
+      },
+      required: ["query"],
     },
   },
 ];
@@ -656,6 +674,36 @@ async function handleTool(name: string, args: any, userId: string) {
         return count;
       });
       return jsonText<DeleteFlashcardsResponse>({ deleted });
+    }
+
+    case "search_flashcards": {
+      const query: string = args.query;
+      if (typeof query !== "string" || query.length === 0) {
+        return text("Missing 'query' (non-empty string required)");
+      }
+
+      try {
+        const results = await withUser(userId, (tx) =>
+          searchFlashcards(tx, userId, query),
+        );
+        return jsonText<SearchFlashcardsResponse>({
+          query,
+          total: results.length,
+          truncated: results.length === 100,
+          flashcards: results,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/invalid regular expression/i.test(msg)) {
+          return text(`Invalid regex: ${msg}`);
+        }
+        if (/statement timeout|canceling statement/i.test(msg)) {
+          return text(
+            "Search timed out after 10s — query is too expensive. Try making it more specific.",
+          );
+        }
+        throw e;
+      }
     }
 
     default:
