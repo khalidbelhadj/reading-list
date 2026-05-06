@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { submitOAuthDecision } from "./actions";
 
 const scopeDescriptions: Record<string, string> = {
   openid: "verify your identity",
@@ -49,7 +50,7 @@ export const ConsentForm = ({
         )}
       </div>
 
-      <form action="/api/oauth/decision" method="POST" className="flex gap-2">
+      <form action={submitOAuthDecision} className="flex gap-2">
         <input type="hidden" name="authorization_id" value={authorizationId} />
         <Button
           type="submit"
