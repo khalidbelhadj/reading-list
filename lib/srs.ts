@@ -1,6 +1,13 @@
 export type Rating = "again" | "hard" | "good" | "easy";
 
-export type CardState = "new" | "learning" | "review" | "relearning";
+const CARD_STATES = ["new", "learning", "review", "relearning"] as const;
+
+export type CardState = (typeof CARD_STATES)[number];
+
+export const parseCardState = (s: string): CardState => {
+  if (CARD_STATES.includes(s as CardState)) return s as CardState;
+  throw new Error(`Invalid card state: ${s}`);
+};
 
 export type SrsState = {
   state: CardState;

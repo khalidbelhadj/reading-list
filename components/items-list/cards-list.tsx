@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { cn } from "@/lib/utils";
+import { parseCardState } from "@/lib/srs";
 
 import { getFaviconSrc } from "./utils";
 
@@ -309,7 +310,7 @@ export const CardsStateBar = () => {
     const c = { new: 0, learning: 0, review: 0, relearning: 0, due: 0 };
     const now = Date.now();
     for (const card of cards) {
-      const s = card.state as "new" | "learning" | "review" | "relearning";
+      const s = parseCardState(card.state);
       if (s in c) c[s]++;
       if (card.due && new Date(card.due).getTime() <= now) c.due++;
     }
