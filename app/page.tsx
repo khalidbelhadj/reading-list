@@ -1,5 +1,7 @@
 import { ItemsList } from "@/components/items-list";
 
-export default function Page() {
+const Page = () => {
   return <ItemsList />;
-}
+};
+
+export default Page;

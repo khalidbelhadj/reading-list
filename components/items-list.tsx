@@ -668,10 +668,7 @@ export const ItemsList = () => {
           {activeTab === "cards" ? (
             <CardsList
               searchIds={searchIds}
-              onOpenItem={(id) => {
-                focusedFromTabRef.current = activeTab;
-                setFocusedId(id);
-              }}
+              onOpenItem={handleExpandItem}
             />
           ) : isLoading ? (
             <div className="flex flex-col">
@@ -770,19 +767,7 @@ export const ItemsList = () => {
                       isTyping={typingTitle !== undefined}
                       suppressTransition={justDropped}
                       onToggleRead={() => handleToggleRead(item.id, !item.read)}
-                      onSelect={() => {
-                        if (editingId !== null) setEditingId(null);
-                        if (selectedId === item.id) {
-                          setSelectedId(null);
-                          setCursor(null);
-                        } else {
-                          setSelectedId(item.id);
-                          setCursor(item.id);
-                        }
-                        setLiveFields(null);
-                      }}
-                      onSave={(fields) => handleSave(item.id, fields)}
-                      onCancelEdit={() => setEditingId(null)}
+                      onSelect={() => handleSelectRow(item.id)}
                       onDelete={() => requestDeleteItem(item.id)}
                     />
                     );
@@ -829,7 +814,7 @@ export const ItemsList = () => {
                 defaultTags={
                   !isFocused && isNewItem ? [...activeTags] : undefined
                 }
-                onSave={(itemId, fields) => handleSave(itemId, fields)}
+                onSave={handleSave}
                 onCreate={handleCreate}
                 onCancel={
                   !isFocused && isNewItem ? () => setEditingId(null) : undefined

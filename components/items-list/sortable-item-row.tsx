@@ -14,9 +14,9 @@ import {
   ItemContextMenuTrigger,
   ItemDropdown,
 } from "./item-dropdown";
-import { type EditFields, getFaviconSrc } from "./utils";
+import { getFaviconSrc } from "./utils";
 
-export function SortableItemRow({
+export const SortableItemRow = ({
   item,
   flashcardCount,
   isEditing,
@@ -39,10 +39,8 @@ export function SortableItemRow({
   isTyping?: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
-  onSave?: (fields: EditFields) => void;
   onDelete?: () => void;
-  onCancelEdit?: () => void;
-}) {
+}) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
 
@@ -162,8 +160,8 @@ export function SortableItemRow({
     </ItemContextMenuTrigger>
     </ItemContextMenu>
   );
-}
+};
 
-function stopPropagation(e: React.SyntheticEvent) {
+const stopPropagation = (e: React.SyntheticEvent) => {
   e.stopPropagation();
-}
+};

@@ -8,7 +8,7 @@ import {
 import React from "react";
 import { toast } from "sonner";
 
-function makeQueryClient() {
+const makeQueryClient = () => {
   return new QueryClient({
     defaultOptions: {
       queries: {
@@ -25,17 +25,17 @@ function makeQueryClient() {
       },
     }),
   });
-}
+};
 
 let browserQueryClient: QueryClient | undefined;
 
-function getQueryClient() {
+const getQueryClient = () => {
   if (typeof window === "undefined") return makeQueryClient();
   if (!browserQueryClient) browserQueryClient = makeQueryClient();
   return browserQueryClient;
-}
+};
 
-export function QueryProvider({ children }: { children: React.ReactNode }) {
+export const QueryProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = getQueryClient();
 
   return (
@@ -43,4 +43,4 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       {children}
     </QueryClientProvider>
   );
-}
+};

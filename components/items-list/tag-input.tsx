@@ -2,6 +2,7 @@ import { IconX } from "@tabler/icons-react";
 import React from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const splitTags = (raw: string) =>
@@ -29,31 +30,32 @@ const TagBadge = ({
       className={cn(selected && "bg-primary text-primary-foreground")}
     >
       {tag}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         data-icon="inline-end"
         onClick={handleRemove}
         aria-label={`Remove ${tag}`}
         className={cn(
-          "transition-colors",
+          "size-auto p-0 transition-colors",
           selected
             ? "text-primary-foreground/70 hover:text-primary-foreground"
             : "text-muted-foreground/60 hover:text-foreground",
         )}
       >
         <IconX className="size-2.5" />
-      </button>
+      </Button>
     </Badge>
   );
 };
 
-export function TagInput({
+export const TagInput = ({
   value,
   onChange,
 }: {
   value: string[];
   onChange: (tags: string[]) => void;
-}) {
+}) => {
   const [input, setInput] = React.useState("");
   const [allSelected, setAllSelected] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -190,4 +192,4 @@ export function TagInput({
       />
     </div>
   );
-}
+};

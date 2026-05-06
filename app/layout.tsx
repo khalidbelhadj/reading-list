@@ -12,11 +12,11 @@ export const metadata: Metadata = {
   title: "Reading List",
 };
 
-export default function RootLayout({
+const RootLayout = ({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}) => {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -36,4 +36,6 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
+};
+
+export default RootLayout;
