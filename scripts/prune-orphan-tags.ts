@@ -3,8 +3,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq, notExists, sql } from "drizzle-orm";
 
-import * as schema from "./schema";
-import { itemsTags, tags } from "./schema";
+import * as schema from "../db/schema";
+import { itemsTags, tags } from "../db/schema";
 
 config({ path: ".env.local" });
 

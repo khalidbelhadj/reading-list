@@ -1,5 +1,5 @@
-import { db } from "./index";
-import { items } from "./schema";
+import { db } from "../db/index";
+import { items } from "../db/schema";
 import { and, eq, desc } from "drizzle-orm";
 
 async function fixPositions() {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { IconSun, IconMoon } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 
-export function ThemeToggle() {
+export const ThemeToggle = () => {
   const [dark, setDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -55,4 +55,4 @@ export function ThemeToggle() {
       {dark ? <IconSun /> : <IconMoon />}
     </Button>
   );
-}
+};

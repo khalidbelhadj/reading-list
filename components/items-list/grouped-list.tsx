@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { type DbTag, type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -192,11 +193,11 @@ export const GroupedList = ({
         const isContextMenuOpen =
           tagForGroup && contextMenuOpenTagId === tagForGroup.id;
         const headerButton = (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => toggle(group.key)}
             className={cn(
-              "flex items-center gap-1.5 p-1 text-left text-sm font-content rounded-lg hover:bg-card outline-none cursor-pointer w-full",
+              "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-card outline-none cursor-pointer w-full justify-start",
               isContextMenuOpen && "bg-card",
             )}
           >
@@ -237,7 +238,7 @@ export const GroupedList = ({
             <span className="text-xs text-muted-foreground ml-1">
               {group.items.length}
             </span>
-          </button>
+          </Button>
         );
         return (
           <div key={group.key} className="flex flex-col">
