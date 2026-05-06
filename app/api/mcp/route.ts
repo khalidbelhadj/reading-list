@@ -7,10 +7,19 @@ import {
 
 import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
-import { pruneOrphanTags } from "@/lib/tags";
-import { searchFlashcards } from "@/lib/search";
+import { searchItems as searchItemsQuery, searchFlashcards } from "@/lib/search";
+import {
+  createItems as createItemsLib,
+  updateItem as updateItemLib,
+  deleteItems as deleteItemsLib,
+} from "@/lib/items";
+import {
+  createFlashcards as createFlashcardsLib,
+  updateFlashcards as updateFlashcardsLib,
+  deleteFlashcards as deleteFlashcardsLib,
+} from "@/lib/flashcards";
 import {
   parseInput,
   mcpGetItemsSchema,
@@ -29,7 +38,6 @@ import {
   toMcpItem,
   toMcpFlashcard,
   toMcpSearchItem,
-  type McpSearchMatch,
   type GetItemsResponse,
   type GetItemByUrlResponse,
   type SearchItemsResponse,
@@ -152,6 +160,8 @@ const TOOLS = [
               title: { type: "string" },
               url: { type: "string" },
               notes: { type: "string" },
+              starred: { type: "boolean" },
+              read: { type: "boolean" },
               tagNames: { type: "array", items: { type: "string" } },
             },
             required: ["id"],
@@ -328,80 +338,38 @@ async function handleTool(name: string, args: unknown, userId: string) {
 
     case "search_items": {
       const parsed = parseInput(mcpSearchItemsSchema, args);
-      const pattern = parsed.pattern;
       const caseSensitive = parsed.caseSensitive ?? false;
 
-      const op = sql.raw(caseSensitive ? "~" : "~*");
-
       try {
-        const rows = await withUser(userId, async (tx) => {
-          await tx.execute(sql`SET LOCAL statement_timeout = '10000ms'`);
-          return tx.execute(sql`
-            WITH haystacks AS (
-              SELECT
-                i.id, i.title, i.url, i.notes, i.starred, i.read,
-                i.created_at, i.position,
-                COALESCE(
-                  STRING_AGG(f.front || E'\n' || f.back, E'\n'),
-                  ''
-                ) AS fc_text
-              FROM items i
-              LEFT JOIN flashcards f
-                ON f.item_id = i.id AND f.user_id = i.user_id
-              WHERE i.user_id = ${userId}
-              GROUP BY i.id
-            ),
-            matched AS (
-              SELECT
-                h.*,
-                (h.title ${op} ${pattern})                  AS m_title,
-                (h.url   ${op} ${pattern})                  AS m_url,
-                (COALESCE(h.notes, '') ${op} ${pattern})    AS m_notes,
-                (h.fc_text ${op} ${pattern})                AS m_flashcards
-              FROM haystacks h
-            )
-            SELECT
-              m.id, m.title, m.url, m.notes, m.starred, m.read,
-              m.created_at,
-              m.m_title, m.m_url, m.m_notes, m.m_flashcards,
-              COALESCE(
-                (SELECT json_agg(t.name ORDER BY t.name)
-                 FROM items_tags it
-                 JOIN tags t ON t.id = it.tag_id
-                 WHERE it.item_id = m.id),
-                '[]'::json
-              ) AS tags
-            FROM matched m
-            WHERE m.m_title OR m.m_url OR m.m_notes OR m.m_flashcards
-            ORDER BY m.position ASC
-            LIMIT 100
-          `);
-        });
+        const results = await withUser(userId, async (tx) => {
+          const searchResults = await searchItemsQuery(tx, userId, parsed.pattern, {
+            caseSensitive,
+            mode: "regex",
+          });
 
-        const list = rows as unknown as Array<Record<string, unknown>>;
-        const results = list.map((r) => {
-          const matchedIn: McpSearchMatch[] = [];
-          if (r.m_title) matchedIn.push("title");
-          if (r.m_url) matchedIn.push("url");
-          if (r.m_notes) matchedIn.push("notes");
-          if (r.m_flashcards) matchedIn.push("flashcards");
-          return toMcpSearchItem(
-            {
-              id: r.id as string,
-              title: r.title as string,
-              url: r.url as string,
-              notes: r.notes as string | null,
-              starred: r.starred as boolean,
-              read: r.read as boolean,
-              createdAt: r.created_at as string,
-            },
-            r.tags as string[],
-            matchedIn,
+          if (searchResults.length === 0) return [];
+
+          const itemIds = searchResults.map((r) => r.id);
+          const tagRows = await tx
+            .select({ itemId: itemsTags.itemId, name: tags.name })
+            .from(itemsTags)
+            .innerJoin(tags, eq(tags.id, itemsTags.tagId))
+            .where(inArray(itemsTags.itemId, itemIds));
+
+          const tagsByItem = new Map<string, string[]>();
+          for (const row of tagRows) {
+            const existing = tagsByItem.get(row.itemId) ?? [];
+            existing.push(row.name);
+            tagsByItem.set(row.itemId, existing);
+          }
+
+          return searchResults.map((r) =>
+            toMcpSearchItem(r, tagsByItem.get(r.id) ?? [], r.matchedIn),
           );
         });
 
         return jsonText<SearchItemsResponse>({
-          pattern,
+          pattern: parsed.pattern,
           caseSensitive,
           total: results.length,
           truncated: results.length === 100,
@@ -423,118 +391,22 @@ async function handleTool(name: string, args: unknown, userId: string) {
 
     case "create_items": {
       const parsed = parseInput(mcpCreateItemsSchema, args);
-      const inputs = parsed.items;
-      const now = new Date().toISOString();
-      const created: Array<{ id: string }> = inputs.map(() => ({
-        id: crypto.randomUUID(),
-      }));
-
-      await withUser(userId, async (tx) => {
-        await tx
-          .update(items)
-          .set({ position: sql`${items.position} + ${inputs.length}` })
-          .where(eq(items.userId, userId));
-
-        for (let idx = 0; idx < inputs.length; idx++) {
-          const input = inputs[idx];
-          const { id: itemId } = created[idx];
-          await tx.insert(items).values({
-            id: itemId,
-            userId,
-            title: input.title,
-            url: input.url,
-            faviconUrl: null,
-            starred: false,
-            notes: input.notes ?? null,
-            position: idx,
-            createdAt: now,
-            updatedAt: now,
-          });
-          for (const tagName of input.tagNames ?? []) {
-            await tx
-              .insert(tags)
-              .values({ userId, name: tagName })
-              .onConflictDoNothing();
-            const [tag] = await tx
-              .select()
-              .from(tags)
-              .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-            if (tag)
-              await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
-          }
-        }
-      });
-      return jsonText<CreateItemsResponse>({ ids: created.map((c) => c.id) });
+      const ids = await withUser(userId, (tx) =>
+        createItemsLib(tx, userId, parsed.items),
+      );
+      return jsonText<CreateItemsResponse>({ ids });
     }
 
     case "update_items": {
       const parsed = parseInput(mcpUpdateItemsSchema, args);
-      const updates = parsed.items;
-      const now = new Date().toISOString();
       const results: UpdateItemsResponse = await withUser(userId, async (tx) => {
         let updated = 0;
         const notFound: string[] = [];
-        for (const update of updates) {
-          const [owned] = await tx
-            .select({ id: items.id })
-            .from(items)
-            .where(and(eq(items.id, update.id), eq(items.userId, userId)));
-          if (!owned) {
-            notFound.push(update.id);
-            continue;
-          }
-
-          const set: Record<string, unknown> = { updatedAt: now };
-          if (update.title !== undefined) set.title = update.title;
-          if (update.url !== undefined) set.url = update.url;
-          if (update.notes !== undefined) set.notes = update.notes;
-          await tx
-            .update(items)
-            .set(set)
-            .where(and(eq(items.id, update.id), eq(items.userId, userId)));
-
-          if (update.tagNames !== undefined) {
-            const existingLinks = await tx
-              .select({ tagId: itemsTags.tagId })
-              .from(itemsTags)
-              .where(eq(itemsTags.itemId, update.id));
-            const existingTagIds = existingLinks.map((l) => l.tagId);
-            const newTagIds: number[] = [];
-            for (const tagName of update.tagNames) {
-              await tx
-                .insert(tags)
-                .values({ userId, name: tagName })
-                .onConflictDoNothing();
-              const [tag] = await tx
-                .select()
-                .from(tags)
-                .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-              if (tag) newTagIds.push(tag.id);
-            }
-            const removedTagIds: number[] = [];
-            for (const tagId of existingTagIds) {
-              if (!newTagIds.includes(tagId)) {
-                await tx
-                  .delete(itemsTags)
-                  .where(
-                    and(
-                      eq(itemsTags.itemId, update.id),
-                      eq(itemsTags.tagId, tagId),
-                    ),
-                  );
-                removedTagIds.push(tagId);
-              }
-            }
-            for (const tagId of newTagIds) {
-              if (!existingTagIds.includes(tagId)) {
-                await tx
-                  .insert(itemsTags)
-                  .values({ itemId: update.id, tagId });
-              }
-            }
-            await pruneOrphanTags(tx, userId, removedTagIds);
-          }
-          updated++;
+        for (const update of parsed.items) {
+          const { id, ...fields } = update;
+          const found = await updateItemLib(tx, userId, id, fields);
+          if (found) updated++;
+          else notFound.push(id);
         }
         return { updated, notFound };
       });
@@ -543,40 +415,13 @@ async function handleTool(name: string, args: unknown, userId: string) {
 
     case "delete_items": {
       const parsed = parseInput(mcpDeleteItemsSchema, args);
-      const ids = parsed.ids;
-      const results: DeleteItemsResponse = await withUser(userId, async (tx) => {
-        let deleted = 0;
-        const notFound: string[] = [];
-        for (const id of ids) {
-          const [owned] = await tx
-            .select({ id: items.id })
-            .from(items)
-            .where(and(eq(items.id, id), eq(items.userId, userId)));
-          if (!owned) {
-            notFound.push(id);
-            continue;
-          }
-          const affectedTagIds = (
-            await tx
-              .select({ tagId: itemsTags.tagId })
-              .from(itemsTags)
-              .where(eq(itemsTags.itemId, id))
-          ).map((r) => r.tagId);
-          await tx.delete(itemsTags).where(eq(itemsTags.itemId, id));
-          await tx
-            .delete(flashcards)
-            .where(
-              and(eq(flashcards.itemId, id), eq(flashcards.userId, userId)),
-            );
-          await tx
-            .delete(items)
-            .where(and(eq(items.id, id), eq(items.userId, userId)));
-          await pruneOrphanTags(tx, userId, affectedTagIds);
-          deleted++;
-        }
-        return { deleted, notFound };
+      const result = await withUser(userId, (tx) =>
+        deleteItemsLib(tx, userId, parsed.ids),
+      );
+      return jsonText<DeleteItemsResponse>({
+        deleted: result.deleted.length,
+        notFound: result.notFound,
       });
-      return jsonText<DeleteItemsResponse>(results);
     }
 
     case "get_flashcards": {
@@ -605,79 +450,29 @@ async function handleTool(name: string, args: unknown, userId: string) {
 
     case "create_flashcards": {
       const parsed = parseInput(mcpCreateFlashcardsSchema, args);
-      const inputs = parsed.flashcards;
-      const now = new Date().toISOString();
-      const results: CreateFlashcardsResponse = await withUser(userId, async (tx) => {
-        const created: string[] = [];
-        const notFound: string[] = [];
-        for (const input of inputs) {
-          const [owned] = await tx
-            .select({ id: items.id })
-            .from(items)
-            .where(and(eq(items.id, input.itemId), eq(items.userId, userId)));
-          if (!owned) {
-            notFound.push(input.itemId);
-            continue;
-          }
-          const id = crypto.randomUUID();
-          await tx.insert(flashcards).values({
-            id,
-            userId,
-            itemId: input.itemId,
-            front: input.front,
-            back: input.back,
-            createdAt: now,
-            updatedAt: now,
-          });
-          created.push(id);
-        }
-        return { ids: created, notFound };
+      const result = await withUser(userId, (tx) =>
+        createFlashcardsLib(tx, userId, parsed.flashcards),
+      );
+      return jsonText<CreateFlashcardsResponse>({
+        ids: result.created.map((c) => c.id),
+        notFound: result.notFound,
       });
-      return jsonText<CreateFlashcardsResponse>(results);
     }
 
     case "update_flashcards": {
       const parsed = parseInput(mcpUpdateFlashcardsSchema, args);
-      const updates = parsed.flashcards;
-      const now = new Date().toISOString();
-      const updated = await withUser(userId, async (tx) => {
-        let count = 0;
-        for (const update of updates) {
-          const set: Record<string, unknown> = { updatedAt: now };
-          if (update.front !== undefined) set.front = update.front;
-          if (update.back !== undefined) set.back = update.back;
-          await tx
-            .update(flashcards)
-            .set(set)
-            .where(
-              and(
-                eq(flashcards.id, update.id),
-                eq(flashcards.userId, userId),
-              ),
-            );
-          count++;
-        }
-        return count;
-      });
-      return jsonText<UpdateFlashcardsResponse>({ updated });
+      const result = await withUser(userId, (tx) =>
+        updateFlashcardsLib(tx, userId, parsed.flashcards),
+      );
+      return jsonText<UpdateFlashcardsResponse>(result);
     }
 
     case "delete_flashcards": {
       const parsed = parseInput(mcpDeleteFlashcardsSchema, args);
-      const ids = parsed.ids;
-      const deleted = await withUser(userId, async (tx) => {
-        let count = 0;
-        for (const id of ids) {
-          await tx
-            .delete(flashcards)
-            .where(
-              and(eq(flashcards.id, id), eq(flashcards.userId, userId)),
-            );
-          count++;
-        }
-        return count;
-      });
-      return jsonText<DeleteFlashcardsResponse>({ deleted });
+      const result = await withUser(userId, (tx) =>
+        deleteFlashcardsLib(tx, userId, parsed.ids),
+      );
+      return jsonText<DeleteFlashcardsResponse>(result);
     }
 
     case "search_flashcards": {

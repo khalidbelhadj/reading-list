@@ -9,11 +9,21 @@ import {
   reviewSessions,
   cardReviews,
 } from "@/db/schema";
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { schedule, type Rating } from "@/lib/srs";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
-import { pruneOrphanTags } from "@/lib/tags";
+import { ensureTagsLinked } from "@/lib/tags";
+import {
+  createItems as createItemsLib,
+  updateItem as updateItemLib,
+  deleteItems as deleteItemsLib,
+} from "@/lib/items";
+import {
+  createFlashcards as createFlashcardsLib,
+  updateFlashcards as updateFlashcardsLib,
+  deleteFlashcards as deleteFlashcardsLib,
+} from "@/lib/flashcards";
 import {
   searchItems as searchItemsQuery,
   searchFlashcards as searchFlashcardsQuery,
@@ -63,49 +73,7 @@ export async function searchFlashcards(query: string): Promise<FlashcardSearchRe
 export async function deleteItem(itemId: string) {
   parseInput(deleteItemSchema, { itemId });
   const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
-    const [item] = await tx
-      .select({ position: items.position })
-      .from(items)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-    if (!item) return;
-
-    const affectedTagIds = (
-      await tx
-        .select({ tagId: itemsTags.tagId })
-        .from(itemsTags)
-        .where(eq(itemsTags.itemId, itemId))
-    ).map((r) => r.tagId);
-
-    await tx.delete(itemsTags).where(
-      inArray(
-        itemsTags.itemId,
-        tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.id, itemId), eq(items.userId, userId))),
-      ),
-    );
-    await tx
-      .delete(flashcards)
-      .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)));
-    await tx
-      .delete(items)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-    await pruneOrphanTags(tx, userId, affectedTagIds);
-
-    await tx
-      .update(items)
-      .set({ position: sql`${items.position} - 1` })
-      .where(
-        and(
-          eq(items.userId, userId),
-          gte(items.position, item.position),
-        ),
-      );
-  });
+  await withUser(userId, (tx) => deleteItemsLib(tx, userId, [itemId]));
 }
 
 async function fetchOembedTitle(url: string): Promise<string | null> {
@@ -184,57 +152,15 @@ export async function createItem(
   faviconUrl?: string,
   notes?: string,
   id?: string,
-  position?: number,
 ) {
-  parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id, position });
+  parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id });
   const userId = await getCurrentUserId();
-  const itemId = id ?? crypto.randomUUID();
-  const now = new Date().toISOString();
-  const insertAt = position ?? 0;
-
-  await withUser(userId, async (tx) => {
-    // Shift items at or after the insertion point down by 1 — scoped to this user's items.
-    await tx
-      .update(items)
-      .set({ position: sql`${items.position} + 1` })
-      .where(
-        and(
-          eq(items.userId, userId),
-          gte(items.position, insertAt),
-        ),
-      );
-
-    await tx.insert(items).values({
-      id: itemId,
-      userId,
-      title,
-      url,
-      faviconUrl: faviconUrl ?? null,
-      starred: false,
-      notes: notes ?? null,
-      position: insertAt,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    for (const tagName of tagNames) {
-      await tx
-        .insert(tags)
-        .values({ userId, name: tagName })
-        .onConflictDoNothing();
-
-      const [tag] = await tx
-        .select()
-        .from(tags)
-        .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-
-      if (tag) {
-        await tx.insert(itemsTags).values({ itemId, tagId: tag.id });
-      }
-    }
+  return withUser(userId, async (tx) => {
+    const [itemId] = await createItemsLib(tx, userId, [
+      { title, url, tagNames, faviconUrl, notes, id },
+    ]);
+    return itemId;
   });
-
-  return itemId;
 }
 
 export async function updateItem(
@@ -251,71 +177,7 @@ export async function updateItem(
 ) {
   parseInput(updateItemSchema, { itemId, fields });
   const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-
-  await withUser(userId, async (tx) => {
-    // TODO: I'm curious, why do we need this `set`, why not use fields directly?
-    const set: Record<string, unknown> = { updatedAt: now };
-    if (fields.title !== undefined) set.title = fields.title;
-    if (fields.url !== undefined) set.url = fields.url;
-    if (fields.faviconUrl !== undefined) set.faviconUrl = fields.faviconUrl;
-    if (fields.starred !== undefined) set.starred = fields.starred;
-    if (fields.notes !== undefined) set.notes = fields.notes;
-    if (fields.read !== undefined) set.read = fields.read;
-
-    await tx
-      .update(items)
-      .set(set)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-    if (fields.tagNames !== undefined) {
-      // Verify ownership of the item before mutating tag links.
-      const [owned] = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-      if (!owned) return;
-
-      const existingLinks = await tx
-        .select({ tagId: itemsTags.tagId })
-        .from(itemsTags)
-        .where(eq(itemsTags.itemId, itemId));
-      const existingTagIds = existingLinks.map((l) => l.tagId);
-
-      const newTagIds: number[] = [];
-      for (const tagName of fields.tagNames) {
-        await tx
-          .insert(tags)
-          .values({ userId, name: tagName })
-          .onConflictDoNothing();
-        const [tag] = await tx
-          .select()
-          .from(tags)
-          .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-        if (tag) newTagIds.push(tag.id);
-      }
-
-      const removedTagIds: number[] = [];
-      for (const tagId of existingTagIds) {
-        if (!newTagIds.includes(tagId)) {
-          await tx
-            .delete(itemsTags)
-            .where(
-              and(eq(itemsTags.itemId, itemId), eq(itemsTags.tagId, tagId)),
-            );
-          removedTagIds.push(tagId);
-        }
-      }
-
-      for (const tagId of newTagIds) {
-        if (!existingTagIds.includes(tagId)) {
-          await tx.insert(itemsTags).values({ itemId, tagId });
-        }
-      }
-
-      await pruneOrphanTags(tx, userId, removedTagIds);
-    }
-  });
+  await withUser(userId, (tx) => updateItemLib(tx, userId, itemId, fields));
 }
 
 export async function reorderItem(
@@ -364,48 +226,8 @@ export async function toggleRead(itemId: string, read: boolean) {
 export async function bulkDeleteItems(itemIds: string[]) {
   parseInput(bulkDeleteItemsSchema, { itemIds });
   if (itemIds.length === 0) return;
-
   const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
-    const affectedItems = await tx
-      .select({ id: items.id })
-      .from(items)
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-    const ownedIds = affectedItems.map((i) => i.id);
-    if (ownedIds.length === 0) return;
-
-    const affectedTagIds = (
-      await tx
-        .select({ tagId: itemsTags.tagId })
-        .from(itemsTags)
-        .where(inArray(itemsTags.itemId, ownedIds))
-    ).map((r) => r.tagId);
-
-    await tx.delete(itemsTags).where(inArray(itemsTags.itemId, ownedIds));
-    await tx
-      .delete(flashcards)
-      .where(
-        and(
-          inArray(flashcards.itemId, ownedIds),
-          eq(flashcards.userId, userId),
-        ),
-      );
-    await tx
-      .delete(items)
-      .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
-
-    await pruneOrphanTags(tx, userId, affectedTagIds);
-
-    await tx.execute(sql`
-      UPDATE ${items} SET position = sub.new_pos
-      FROM (
-        SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
-        FROM ${items}
-        WHERE user_id = ${userId}
-      ) sub
-      WHERE ${items}.id = sub.id
-    `);
-  });
+  await withUser(userId, (tx) => deleteItemsLib(tx, userId, itemIds));
 }
 
 export async function bulkTag(itemIds: string[], tagNames: string[]) {
@@ -414,7 +236,6 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
 
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
-    // Filter to owned items only.
     const owned = await tx
       .select({ id: items.id })
       .from(items)
@@ -422,22 +243,8 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
     const ownedIds = owned.map((i) => i.id);
     if (ownedIds.length === 0) return;
 
-    for (const tagName of tagNames) {
-      await tx
-        .insert(tags)
-        .values({ userId, name: tagName })
-        .onConflictDoNothing();
-      const [tag] = await tx
-        .select()
-        .from(tags)
-        .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-      if (!tag) continue;
-      for (const itemId of ownedIds) {
-        await tx
-          .insert(itemsTags)
-          .values({ itemId, tagId: tag.id })
-          .onConflictDoNothing();
-      }
+    for (const itemId of ownedIds) {
+      await ensureTagsLinked(tx, userId, itemId, tagNames);
     }
   });
 }
@@ -556,26 +363,12 @@ export async function createFlashcard(
 ) {
   parseInput(createFlashcardSchema, { itemId, front, back });
   const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
   return withUser(userId, async (tx) => {
-    // Verify the item belongs to this user before linking a flashcard to it.
-    const [owned] = await tx
-      .select({ id: items.id })
-      .from(items)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-    if (!owned) throw new Error("Item not found");
-
-    await tx.insert(flashcards).values({
-      id,
-      userId,
-      itemId,
-      front,
-      back,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return { id, itemId, front, back, createdAt: now, updatedAt: now };
+    const result = await createFlashcardsLib(tx, userId, [
+      { itemId, front, back },
+    ]);
+    if (result.notFound.length > 0) throw new Error("Item not found");
+    return result.created[0];
   });
 }
 
@@ -585,26 +378,15 @@ export async function updateFlashcard(
 ) {
   parseInput(updateFlashcardSchema, { id, fields });
   const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-  const set: Record<string, unknown> = { updatedAt: now };
-  if (fields.front !== undefined) set.front = fields.front;
-  if (fields.back !== undefined) set.back = fields.back;
   await withUser(userId, (tx) =>
-    tx
-      .update(flashcards)
-      .set(set)
-      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId))),
+    updateFlashcardsLib(tx, userId, [{ id, ...fields }]),
   );
 }
 
 export async function deleteFlashcard(id: string) {
   parseInput(deleteFlashcardSchema, { id });
   const userId = await getCurrentUserId();
-  await withUser(userId, (tx) =>
-    tx
-      .delete(flashcards)
-      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId))),
-  );
+  await withUser(userId, (tx) => deleteFlashcardsLib(tx, userId, [id]));
 }
 
 // Review actions
