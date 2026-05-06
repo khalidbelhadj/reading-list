@@ -49,11 +49,6 @@ export const ReviewConfirmDialog = ({
 
   const isCram = mode === "cram";
   const isNew = mode === "new";
-  const title = isCram
-    ? "Start cram session?"
-    : isNew
-      ? "Start new cards session?"
-      : "Start review?";
   const summary =
     cardCount === 0
       ? isNew
@@ -68,7 +63,7 @@ export const ReviewConfirmDialog = ({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogTitle>Start review?</AlertDialogTitle>
           <AlertDialogDescription>
             {summary}
             {cardCount > 0 && isCram && (
@@ -103,7 +98,7 @@ export const ReviewConfirmDialog = ({
             disabled={isStarting || plannedCount === 0}
           >
             {isStarting && <Spinner className="size-3" />}
-            {isCram ? "Start cram" : isNew ? "Start new cards" : "Start review"}
+            Start review
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
