@@ -11,7 +11,8 @@ import {
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
-import { schedule, type Rating } from "@/lib/srs";
+import { schedule, parseCardState, type Rating } from "@/lib/srs";
+import { z } from "zod";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
 import { ensureTagsLinked } from "@/lib/tags";
 import {
@@ -200,13 +201,20 @@ export async function reorderItem(
     const clamped = Math.max(0, Math.min(newPosition, typeItems.length));
     typeItems.splice(clamped, 0, movedItem);
 
-    for (let i = 0; i < typeItems.length; i++) {
-      if (typeItems[i].position !== i) {
-        await tx
-          .update(items)
-          .set({ position: i })
-          .where(and(eq(items.id, typeItems[i].id), eq(items.userId, userId)));
-      }
+    const updates = typeItems
+      .map((item, i) => ({ id: item.id, position: i }))
+      .filter((u, i) => typeItems[i].position !== u.position);
+
+    if (updates.length > 0) {
+      await tx.execute(sql`
+        UPDATE ${items} SET position = v.new_pos::int
+        FROM (
+          SELECT unnest(${updates.map((u) => u.id)}::text[]) AS id,
+                 unnest(${updates.map((u) => u.position)}::int[]) AS new_pos
+        ) v
+        WHERE ${items}.id = v.id::uuid
+          AND ${items}.user_id = ${userId}
+      `);
     }
   });
 }
@@ -398,7 +406,7 @@ export type ReviewScope = {
   tagIds?: number[];
 };
 
-type QueueCard = {
+export type FlashcardWithItem = {
   id: string;
   itemId: string | null;
   front: string;
@@ -430,7 +438,7 @@ const selectQueueCard = {
   itemFaviconUrl: items.faviconUrl,
 };
 
-export async function getDueCards(limit = 5): Promise<QueueCard[]> {
+export async function getDueCards(limit = 5): Promise<FlashcardWithItem[]> {
   parseInput(getDueCardsSchema, { limit });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
@@ -448,7 +456,7 @@ export async function getDueCards(limit = 5): Promise<QueueCard[]> {
   );
 }
 
-export async function getNewCards(limit = 5): Promise<QueueCard[]> {
+export async function getNewCards(limit = 5): Promise<FlashcardWithItem[]> {
   parseInput(getNewCardsSchema, { limit });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -465,7 +473,7 @@ export async function getNewCards(limit = 5): Promise<QueueCard[]> {
   );
 }
 
-export async function getCardsForItem(itemId: string): Promise<QueueCard[]> {
+export async function getCardsForItem(itemId: string): Promise<FlashcardWithItem[]> {
   parseInput(getCardsForItemSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -481,7 +489,7 @@ export async function getCardsForItem(itemId: string): Promise<QueueCard[]> {
   );
 }
 
-export async function getAllCardsForCram(): Promise<QueueCard[]> {
+export async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -544,21 +552,7 @@ export async function startReviewSession(args: {
   const limit = args.limit ?? 5;
 
   return withUser(userId, async (tx) => {
-    const cardSelection = {
-      id: flashcards.id,
-      itemId: flashcards.itemId,
-      front: flashcards.front,
-      back: flashcards.back,
-      state: flashcards.state,
-      interval: flashcards.interval,
-      easeFactor: flashcards.easeFactor,
-      reps: flashcards.reps,
-      lapses: flashcards.lapses,
-      due: flashcards.due,
-      itemTitle: items.title,
-      itemUrl: items.url,
-      itemFaviconUrl: items.faviconUrl,
-    };
+    const cardSelection = selectQueueCard;
 
     let cards: ReviewSessionCard[] = [];
 
@@ -649,21 +643,7 @@ export async function startReviewSession(args: {
   });
 }
 
-export type ReviewSessionCard = {
-  id: string;
-  itemId: string | null;
-  front: string;
-  back: string;
-  state: string;
-  interval: number;
-  easeFactor: number;
-  reps: number;
-  lapses: number;
-  due: string;
-  itemTitle: string | null;
-  itemUrl: string | null;
-  itemFaviconUrl: string | null;
-};
+export type ReviewSessionCard = FlashcardWithItem;
 
 export type ReviewSessionData = {
   session: {
@@ -696,24 +676,10 @@ export async function getReviewSession(
       );
     if (!session) return null;
 
-    const ids = (session.cardIds ?? []) as string[];
+    const ids = z.array(z.string()).parse(session.cardIds ?? []);
     const cards: ReviewSessionCard[] = ids.length
       ? await tx
-          .select({
-            id: flashcards.id,
-            itemId: flashcards.itemId,
-            front: flashcards.front,
-            back: flashcards.back,
-            state: flashcards.state,
-            interval: flashcards.interval,
-            easeFactor: flashcards.easeFactor,
-            reps: flashcards.reps,
-            lapses: flashcards.lapses,
-            due: flashcards.due,
-            itemTitle: items.title,
-            itemUrl: items.url,
-            itemFaviconUrl: items.faviconUrl,
-          })
+          .select(selectQueueCard)
           .from(flashcards)
           .leftJoin(
             items,
@@ -820,7 +786,7 @@ export async function getSessionSummary(
 
     return {
       mode: session.mode,
-      totalCards: (session.cardIds as string[]).length,
+      totalCards: z.array(z.string()).parse(session.cardIds ?? []).length,
       ratedCards: reviews.length,
       ratings,
       totalActiveMs,
@@ -869,7 +835,7 @@ export async function rateCard(args: {
 
     const next = schedule(
       {
-        state: card.state as "new" | "learning" | "review" | "relearning",
+        state: parseCardState(card.state),
         interval: card.interval,
         easeFactor: card.easeFactor,
         reps: card.reps,
@@ -1013,8 +979,8 @@ export async function getReviewStatus(): Promise<{
 }> {
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  const [dueRows, newRows, totalRows, lastRows] = await Promise.all([
-    withUser(userId, (tx) =>
+  return withUser(userId, async (tx) => {
+    const [dueRows, newRows, totalRows, lastRows] = await Promise.all([
       tx
         .select({
           cards: sql<number>`count(*)::int`,
@@ -1022,8 +988,6 @@ export async function getReviewStatus(): Promise<{
         })
         .from(flashcards)
         .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
-    ),
-    withUser(userId, (tx) =>
       tx
         .select({
           cards: sql<number>`count(*)::int`,
@@ -1033,8 +997,6 @@ export async function getReviewStatus(): Promise<{
         .where(
           and(eq(flashcards.userId, userId), eq(flashcards.state, "new")),
         ),
-    ),
-    withUser(userId, (tx) =>
       tx
         .select({
           cards: sql<number>`count(*)::int`,
@@ -1042,23 +1004,21 @@ export async function getReviewStatus(): Promise<{
         })
         .from(flashcards)
         .where(eq(flashcards.userId, userId)),
-    ),
-    withUser(userId, (tx) =>
       tx
         .select({ reviewedAt: cardReviews.reviewedAt })
         .from(cardReviews)
         .where(eq(cardReviews.userId, userId))
         .orderBy(desc(cardReviews.reviewedAt))
         .limit(1),
-    ),
-  ]);
-  return {
-    dueCount: dueRows[0]?.cards ?? 0,
-    dueItemCount: dueRows[0]?.items ?? 0,
-    newCount: newRows[0]?.cards ?? 0,
-    newItemCount: newRows[0]?.items ?? 0,
-    totalCardCount: totalRows[0]?.cards ?? 0,
-    totalItemCount: totalRows[0]?.items ?? 0,
-    lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
-  };
+    ]);
+    return {
+      dueCount: dueRows[0]?.cards ?? 0,
+      dueItemCount: dueRows[0]?.items ?? 0,
+      newCount: newRows[0]?.cards ?? 0,
+      newItemCount: newRows[0]?.items ?? 0,
+      totalCardCount: totalRows[0]?.cards ?? 0,
+      totalItemCount: totalRows[0]?.items ?? 0,
+      lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
+    };
+  });
 }

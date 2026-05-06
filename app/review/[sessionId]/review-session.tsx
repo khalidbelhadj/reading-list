@@ -36,7 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getFaviconSrc } from "@/components/items-list/utils";
-import { schedule, type Rating } from "@/lib/srs";
+import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { cn } from "@/lib/utils";
 
 import { useEventLogger } from "./use-event-logger";
@@ -257,8 +257,7 @@ const ReviewSessionInner = ({
       flashcardId: currentCard.id,
       afterReveal: revealed,
       durationMs,
-      // TODO: What is this catch doing??
-    }).catch(() => {});
+    });
 
     const isLast = currentIndex >= cards.length - 1;
     setRevealed(false);
@@ -460,11 +459,7 @@ const ReviewSessionInner = ({
             {RATINGS.map((r) => {
               const next = schedule(
                 {
-                  state: currentCard.state as
-                    | "new"
-                    | "learning"
-                    | "review"
-                    | "relearning",
+                  state: parseCardState(currentCard.state),
                   interval: currentCard.interval,
                   easeFactor: currentCard.easeFactor,
                   reps: currentCard.reps,

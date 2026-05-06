@@ -17,6 +17,10 @@ function makeQueryClient() {
     },
     mutationCache: new MutationCache({
       onError: (error) => {
+        if (error instanceof Error && error.message === "Unauthorized") {
+          window.location.href = "/login";
+          return;
+        }
         toast.error(error instanceof Error ? error.message : "Something went wrong");
       },
     }),

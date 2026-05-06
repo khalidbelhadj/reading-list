@@ -83,9 +83,11 @@ export const updateFlashcards = async (
       continue;
     }
 
-    const set: Record<string, unknown> = { updatedAt: now };
-    if (update.front !== undefined) set.front = update.front;
-    if (update.back !== undefined) set.back = update.back;
+    const set: Partial<typeof flashcards.$inferInsert> = {
+      updatedAt: now,
+      ...(update.front !== undefined && { front: update.front }),
+      ...(update.back !== undefined && { back: update.back }),
+    };
 
     await tx
       .update(flashcards)

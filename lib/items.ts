@@ -71,13 +71,15 @@ export const updateItem = async (
   if (!owned) return false;
 
   const now = new Date().toISOString();
-  const set: Record<string, unknown> = { updatedAt: now };
-  if (fields.title !== undefined) set.title = fields.title;
-  if (fields.url !== undefined) set.url = fields.url;
-  if (fields.faviconUrl !== undefined) set.faviconUrl = fields.faviconUrl;
-  if (fields.starred !== undefined) set.starred = fields.starred;
-  if (fields.notes !== undefined) set.notes = fields.notes;
-  if (fields.read !== undefined) set.read = fields.read;
+  const set: Partial<typeof items.$inferInsert> = {
+    updatedAt: now,
+    ...(fields.title !== undefined && { title: fields.title }),
+    ...(fields.url !== undefined && { url: fields.url }),
+    ...(fields.faviconUrl !== undefined && { faviconUrl: fields.faviconUrl }),
+    ...(fields.starred !== undefined && { starred: fields.starred }),
+    ...(fields.notes !== undefined && { notes: fields.notes }),
+    ...(fields.read !== undefined && { read: fields.read }),
+  };
 
   await tx
     .update(items)
