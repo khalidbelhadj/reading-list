@@ -200,6 +200,7 @@ const ReviewSessionInner = ({
       });
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["review-status"] });
     },
   });
 
