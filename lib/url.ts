@@ -1,5 +1,16 @@
 import type { Item } from "@/lib/types";
 
+export const sanitizeRedirect = (next: string | undefined | null): string => {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
+  try {
+    const url = new URL(next, "http://dummy");
+    if (url.hostname !== "dummy") return "/";
+  } catch {
+    return "/";
+  }
+  return next;
+};
+
 export const normalizeUrl = (raw: string): string | null => {
   const trimmed = raw.trim();
   if (!trimmed) return null;

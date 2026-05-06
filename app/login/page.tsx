@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeRedirect } from "@/lib/url";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -15,7 +16,7 @@ export default async function LoginPage({
   const { error, redirect: redirectTo } = await searchParams;
 
   if (user) {
-    redirect(redirectTo || "/");
+    redirect(sanitizeRedirect(redirectTo));
   }
 
   return (

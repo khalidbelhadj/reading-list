@@ -12,6 +12,20 @@ import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { pruneOrphanTags } from "@/lib/tags";
 import { searchFlashcards } from "@/lib/search";
 import {
+  parseInput,
+  mcpGetItemsSchema,
+  mcpGetItemByUrlSchema,
+  mcpSearchItemsSchema,
+  mcpCreateItemsSchema,
+  mcpUpdateItemsSchema,
+  mcpDeleteItemsSchema,
+  mcpGetFlashcardsSchema,
+  mcpCreateFlashcardsSchema,
+  mcpUpdateFlashcardsSchema,
+  mcpDeleteFlashcardsSchema,
+  mcpSearchFlashcardsSchema,
+} from "@/lib/schemas";
+import {
   toMcpItem,
   toMcpFlashcard,
   toMcpSearchItem,
@@ -258,17 +272,18 @@ function jsonText<T>(value: T) {
   return text(JSON.stringify(value, null, 2));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleTool(name: string, args: any, userId: string) {
+async function handleTool(name: string, args: unknown, userId: string) {
+  try {
   switch (name) {
     case "get_items": {
-      const dir = args.order === "desc" ? desc : asc;
+      const parsed = parseInput(mcpGetItemsSchema, args);
+      const dir = parsed.order === "desc" ? desc : asc;
       const orderBy = {
         position: dir(items.position),
         created_at: dir(items.createdAt),
         updated_at: dir(items.updatedAt),
         title: dir(items.title),
-      }[args.sort as string] ?? dir(items.position);
+      }[parsed.sort ?? "position"] ?? dir(items.position);
 
       const allItems = await withUser(userId, (tx) =>
         tx.query.items.findMany({
@@ -283,23 +298,24 @@ async function handleTool(name: string, args: any, userId: string) {
           item.itemsTags.map((t) => t.tag.name),
         ),
       );
-      if (args.tag) result = result.filter((i) => i.tags.includes(args.tag));
+      if (parsed.tag) result = result.filter((i) => i.tags.includes(parsed.tag!));
       const total = result.length;
-      const offset = args.offset ?? 0;
+      const offset = parsed.offset ?? 0;
       if (offset > 0) result = result.slice(offset);
-      if (args.limit) result = result.slice(0, args.limit);
+      if (parsed.limit) result = result.slice(0, parsed.limit);
       return jsonText<GetItemsResponse>({
         items: result,
         total,
         offset,
-        limit: args.limit ?? null,
+        limit: parsed.limit ?? null,
       });
     }
 
     case "get_item_by_url": {
+      const parsed = parseInput(mcpGetItemByUrlSchema, args);
       const [item] = await withUser(userId, (tx) =>
         tx.query.items.findMany({
-          where: and(eq(items.url, args.url), eq(items.userId, userId)),
+          where: and(eq(items.url, parsed.url), eq(items.userId, userId)),
           with: { itemsTags: { with: { tag: true } } },
           limit: 1,
         }),
@@ -311,15 +327,9 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "search_items": {
-      const pattern: string = args.pattern;
-      const caseSensitive: boolean = args.caseSensitive ?? false;
-
-      if (typeof pattern !== "string" || pattern.length === 0) {
-        return text("Missing 'pattern' (non-empty string required)");
-      }
-      if (pattern.length > 500) {
-        return text("Pattern too long (max 500 chars)");
-      }
+      const parsed = parseInput(mcpSearchItemsSchema, args);
+      const pattern = parsed.pattern;
+      const caseSensitive = parsed.caseSensitive ?? false;
 
       const op = sql.raw(caseSensitive ? "~" : "~*");
 
@@ -412,12 +422,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "create_items": {
-      const inputs: Array<{
-        title: string;
-        url: string;
-        tagNames?: string[];
-        notes?: string;
-      }> = args.items ?? [];
+      const parsed = parseInput(mcpCreateItemsSchema, args);
+      const inputs = parsed.items;
       const now = new Date().toISOString();
       const created: Array<{ id: string }> = inputs.map(() => ({
         id: crypto.randomUUID(),
@@ -462,13 +468,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "update_items": {
-      const updates: Array<{
-        id: string;
-        title?: string;
-        url?: string;
-        notes?: string;
-        tagNames?: string[];
-      }> = args.items ?? [];
+      const parsed = parseInput(mcpUpdateItemsSchema, args);
+      const updates = parsed.items;
       const now = new Date().toISOString();
       const results: UpdateItemsResponse = await withUser(userId, async (tx) => {
         let updated = 0;
@@ -541,7 +542,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "delete_items": {
-      const ids: string[] = args.ids ?? [];
+      const parsed = parseInput(mcpDeleteItemsSchema, args);
+      const ids = parsed.ids;
       const results: DeleteItemsResponse = await withUser(userId, async (tx) => {
         let deleted = 0;
         const notFound: string[] = [];
@@ -578,6 +580,7 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "get_flashcards": {
+      const parsed = parseInput(mcpGetFlashcardsSchema, args);
       const cards = await withUser(userId, (tx) =>
         tx
           .select({
@@ -591,7 +594,7 @@ async function handleTool(name: string, args: any, userId: string) {
           .from(flashcards)
           .where(
             and(
-              eq(flashcards.itemId, args.itemId),
+              eq(flashcards.itemId, parsed.itemId),
               eq(flashcards.userId, userId),
             ),
           )
@@ -601,8 +604,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "create_flashcards": {
-      const inputs: Array<{ itemId: string; front: string; back: string }> =
-        args.flashcards ?? [];
+      const parsed = parseInput(mcpCreateFlashcardsSchema, args);
+      const inputs = parsed.flashcards;
       const now = new Date().toISOString();
       const results: CreateFlashcardsResponse = await withUser(userId, async (tx) => {
         const created: string[] = [];
@@ -634,8 +637,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "update_flashcards": {
-      const updates: Array<{ id: string; front?: string; back?: string }> =
-        args.flashcards ?? [];
+      const parsed = parseInput(mcpUpdateFlashcardsSchema, args);
+      const updates = parsed.flashcards;
       const now = new Date().toISOString();
       const updated = await withUser(userId, async (tx) => {
         let count = 0;
@@ -660,7 +663,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "delete_flashcards": {
-      const ids: string[] = args.ids ?? [];
+      const parsed = parseInput(mcpDeleteFlashcardsSchema, args);
+      const ids = parsed.ids;
       const deleted = await withUser(userId, async (tx) => {
         let count = 0;
         for (const id of ids) {
@@ -677,10 +681,8 @@ async function handleTool(name: string, args: any, userId: string) {
     }
 
     case "search_flashcards": {
-      const query: string = args.query;
-      if (typeof query !== "string" || query.length === 0) {
-        return text("Missing 'query' (non-empty string required)");
-      }
+      const parsed = parseInput(mcpSearchFlashcardsSchema, args);
+      const query = parsed.query;
 
       try {
         const results = await withUser(userId, (tx) =>
@@ -711,6 +713,12 @@ async function handleTool(name: string, args: any, userId: string) {
         content: [{ type: "text" as const, text: `Unknown tool: ${name}` }],
         isError: true,
       };
+  }
+  } catch (error) {
+    return {
+      content: [{ type: "text" as const, text: error instanceof Error ? error.message : String(error) }],
+      isError: true,
+    };
   }
 }
 

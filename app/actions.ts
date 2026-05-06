@@ -20,6 +20,35 @@ import {
   type SearchResult,
   type FlashcardSearchResult,
 } from "@/lib/search";
+import { assertPublicUrl } from "@/lib/url.server";
+import {
+  parseInput,
+  deleteItemSchema,
+  fetchPageTitleSchema,
+  createItemSchema,
+  updateItemSchema,
+  reorderItemSchema,
+  toggleReadSchema,
+  bulkDeleteItemsSchema,
+  bulkTagSchema,
+  bulkMarkReadSchema,
+  renameTagSchema,
+  deleteTagSchema,
+  getFlashcardsSchema,
+  createFlashcardSchema,
+  updateFlashcardSchema,
+  deleteFlashcardSchema,
+  startReviewSessionSchema,
+  rateCardSchema,
+  skipCardSchema,
+  endReviewSessionSchema,
+  logSessionEventSchema,
+  getReviewSessionSchema,
+  getSessionSummarySchema,
+  getDueCardsSchema,
+  getNewCardsSchema,
+  getCardsForItemSchema,
+} from "@/lib/schemas";
 
 export async function searchItems(query: string): Promise<SearchResult[]> {
   const userId = await getCurrentUserId();
@@ -32,6 +61,7 @@ export async function searchFlashcards(query: string): Promise<FlashcardSearchRe
 }
 
 export async function deleteItem(itemId: string) {
+  parseInput(deleteItemSchema, { itemId });
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
     const [item] = await tx
@@ -108,7 +138,10 @@ function decodeHtmlEntities(str: string): string {
 }
 
 export async function fetchPageTitle(url: string): Promise<string | null> {
+  parseInput(fetchPageTitleSchema, { url });
   try {
+    await assertPublicUrl(url);
+
     const parsed = new URL(url);
     const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(
       parsed.hostname,
@@ -153,6 +186,7 @@ export async function createItem(
   id?: string,
   position?: number,
 ) {
+  parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id, position });
   const userId = await getCurrentUserId();
   const itemId = id ?? crypto.randomUUID();
   const now = new Date().toISOString();
@@ -215,6 +249,7 @@ export async function updateItem(
     tagNames?: string[];
   },
 ) {
+  parseInput(updateItemSchema, { itemId, fields });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
 
@@ -287,6 +322,7 @@ export async function reorderItem(
   itemId: string,
   newPosition: number,
 ) {
+  parseInput(reorderItemSchema, { itemId, newPosition });
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
     const typeItems = await tx
@@ -314,6 +350,7 @@ export async function reorderItem(
 }
 
 export async function toggleRead(itemId: string, read: boolean) {
+  parseInput(toggleReadSchema, { itemId, read });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   await withUser(userId, async (tx) => {
@@ -325,6 +362,7 @@ export async function toggleRead(itemId: string, read: boolean) {
 }
 
 export async function bulkDeleteItems(itemIds: string[]) {
+  parseInput(bulkDeleteItemsSchema, { itemIds });
   if (itemIds.length === 0) return;
 
   const userId = await getCurrentUserId();
@@ -371,6 +409,7 @@ export async function bulkDeleteItems(itemIds: string[]) {
 }
 
 export async function bulkTag(itemIds: string[], tagNames: string[]) {
+  parseInput(bulkTagSchema, { itemIds, tagNames });
   if (itemIds.length === 0 || tagNames.length === 0) return;
 
   const userId = await getCurrentUserId();
@@ -404,6 +443,7 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
 }
 
 export async function bulkMarkRead(itemIds: string[], read: boolean) {
+  parseInput(bulkMarkReadSchema, { itemIds, read });
   if (itemIds.length === 0) return;
 
   const userId = await getCurrentUserId();
@@ -419,6 +459,7 @@ export async function bulkMarkRead(itemIds: string[], read: boolean) {
 // Flashcard actions
 
 export async function renameTag(tagId: number, newName: string) {
+  parseInput(renameTagSchema, { tagId, newName });
   const userId = await getCurrentUserId();
   const trimmed = newName.trim().toLowerCase();
   if (!trimmed) return;
@@ -459,6 +500,7 @@ export async function renameTag(tagId: number, newName: string) {
 }
 
 export async function deleteTag(tagId: number) {
+  parseInput(deleteTagSchema, { tagId });
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
     await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
@@ -469,6 +511,7 @@ export async function deleteTag(tagId: number) {
 }
 
 export async function getFlashcards(itemId: string) {
+  parseInput(getFlashcardsSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -511,6 +554,7 @@ export async function createFlashcard(
   front: string,
   back: string,
 ) {
+  parseInput(createFlashcardSchema, { itemId, front, back });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
@@ -539,6 +583,7 @@ export async function updateFlashcard(
   id: string,
   fields: { front?: string; back?: string },
 ) {
+  parseInput(updateFlashcardSchema, { id, fields });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   const set: Record<string, unknown> = { updatedAt: now };
@@ -553,6 +598,7 @@ export async function updateFlashcard(
 }
 
 export async function deleteFlashcard(id: string) {
+  parseInput(deleteFlashcardSchema, { id });
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) =>
     tx
@@ -603,6 +649,7 @@ const selectQueueCard = {
 };
 
 export async function getDueCards(limit = 5): Promise<QueueCard[]> {
+  parseInput(getDueCardsSchema, { limit });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   return withUser(userId, (tx) =>
@@ -620,6 +667,7 @@ export async function getDueCards(limit = 5): Promise<QueueCard[]> {
 }
 
 export async function getNewCards(limit = 5): Promise<QueueCard[]> {
+  parseInput(getNewCardsSchema, { limit });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -636,6 +684,7 @@ export async function getNewCards(limit = 5): Promise<QueueCard[]> {
 }
 
 export async function getCardsForItem(itemId: string): Promise<QueueCard[]> {
+  parseInput(getCardsForItemSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -705,6 +754,7 @@ export async function startReviewSession(args: {
   cardCount: number;
   data: ReviewSessionData | null;
 }> {
+  parseInput(startReviewSessionSchema, args);
   const userId = await getCurrentUserId();
   const sessionId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -850,6 +900,7 @@ export type ReviewSessionData = {
 export async function getReviewSession(
   sessionId: string,
 ): Promise<ReviewSessionData | null> {
+  parseInput(getReviewSessionSchema, { sessionId });
   const userId = await getCurrentUserId();
   return withUser(userId, async (tx) => {
     const [session] = await tx
@@ -936,6 +987,7 @@ export type SessionSummary = {
 export async function getSessionSummary(
   sessionId: string,
 ): Promise<SessionSummary | null> {
+  parseInput(getSessionSummarySchema, { sessionId });
   const userId = await getCurrentUserId();
   return withUser(userId, async (tx) => {
     const [session] = await tx
@@ -1004,6 +1056,7 @@ export async function rateCard(args: {
   durationMs: number;
   timeToRevealMs: number | null;
 }): Promise<void> {
+  parseInput(rateCardSchema, args);
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
 
@@ -1108,6 +1161,7 @@ export async function logSessionEvent(
   sessionId: string,
   event: ReviewEvent,
 ): Promise<void> {
+  parseInput(logSessionEventSchema, { sessionId, event });
   const userId = await getCurrentUserId();
   await logReviewEvent(userId, sessionId, event);
 }
@@ -1118,6 +1172,7 @@ export async function skipCard(args: {
   afterReveal: boolean;
   durationMs: number;
 }): Promise<void> {
+  parseInput(skipCardSchema, args);
   const userId = await getCurrentUserId();
   await logReviewEvent(userId, args.sessionId, {
     type: "card_skipped",
@@ -1130,6 +1185,7 @@ export async function endReviewSession(args: {
   sessionId: string;
   reason: "completed" | "user_ended";
 }): Promise<void> {
+  parseInput(endReviewSessionSchema, args);
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
 
