@@ -74,6 +74,18 @@ export const SearchBar = React.forwardRef<
     }
   }, [query, handleClose]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        handleClose();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isOpen, handleClose]);
+
   const resultCount = debouncedQuery.length > 0 && data ? data.length : null;
 
   return (

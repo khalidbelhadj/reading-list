@@ -581,6 +581,7 @@ export const ItemsList = () => {
       ? tabItems.filter(
           (item) =>
             item.read &&
+            (searchIds === null || searchIds.has(item.id)) &&
             (activeTags.size === 0 ||
               item.tags.some((t) => activeTags.has(t.name))),
         ).length
@@ -593,7 +594,7 @@ export const ItemsList = () => {
       };
     }
     return { message: "No items match your filters", hasHiddenRead: false };
-  }, [filteredItems, isNewItem, tabItems, showRead, activeTags]);
+  }, [filteredItems, isNewItem, tabItems, showRead, activeTags, searchIds]);
 
   const emptyNode = emptyState && (
     <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
