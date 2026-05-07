@@ -2,13 +2,11 @@
 
 import React from "react";
 import Image from "next/image";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconFileFilled } from "@tabler/icons-react";
 
 import {
-  deleteFlashcard,
   getAllFlashcards,
-  updateFlashcard,
 } from "@/app/actions";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
@@ -19,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { parseCardState } from "@/lib/srs";
 
 import { getFaviconSrc } from "./utils";
+import { useFlashcardMutations } from "./use-flashcard-mutations";
 
 type AllFlashcard = Awaited<ReturnType<typeof getAllFlashcards>>[number];
 
@@ -45,96 +44,23 @@ export const CardsList = ({
     return map;
   }, [items]);
 
-  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
-    null,
-  );
-
-  const updateCardMutation = useMutation({
-    mutationFn: ({
-      id,
-      front,
-      back,
-    }: {
-      id: string;
-      front?: string;
-      back?: string;
-    }) => updateFlashcard(id, { front, back }),
-    onMutate: async ({ id, front, back }) => {
-      await queryClient.cancelQueries({ queryKey: ["all-flashcards"] });
-      const previous = queryClient.getQueryData(["all-flashcards"]);
-      queryClient.setQueryData<AllFlashcard[]>(["all-flashcards"], (old) =>
-        (old ?? []).map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                ...(front !== undefined && { front }),
-                ...(back !== undefined && { back }),
-                updatedAt: new Date().toISOString(),
-              }
-            : c,
-        ),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["all-flashcards"], context.previous);
-      }
-    },
-    onSuccess: (_data, vars) => {
-      const card = cards.find((c) => c.id === vars.id);
-      if (card?.itemId) {
-        queryClient.invalidateQueries({
-          queryKey: ["flashcards", card.itemId],
-        });
-      }
-    },
-  });
-
-  const deleteCardMutation = useMutation({
-    mutationFn: (id: string) => deleteFlashcard(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["all-flashcards"] });
-      const previous = queryClient.getQueryData(["all-flashcards"]);
-      queryClient.setQueryData<AllFlashcard[]>(["all-flashcards"], (old) =>
-        (old ?? []).filter((c) => c.id !== id),
-      );
-      return { previous };
-    },
-    onError: (_err, _id, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["all-flashcards"], context.previous);
-      }
-    },
-    onSettled: (_data, _err, id) => {
+  const { deletingCardId, handleUpdateCard, handleDeleteCard } = useFlashcardMutations<AllFlashcard>({
+    queryKey: ["all-flashcards"],
+    onUpdateSuccess: (id) => {
       const card = cards.find((c) => c.id === id);
       if (card?.itemId) {
-        queryClient.invalidateQueries({
-          queryKey: ["flashcards", card.itemId],
-        });
+        queryClient.invalidateQueries({ queryKey: ["flashcards", card.itemId] });
+      }
+    },
+    onDeleteSettled: (id) => {
+      const card = cards.find((c) => c.id === id);
+      if (card?.itemId) {
+        queryClient.invalidateQueries({ queryKey: ["flashcards", card.itemId] });
       }
       queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
 
-  const handleUpdateCard = React.useCallback(
-    (id: string, fields: { front?: string; back?: string }) => {
-      updateCardMutation.mutate({ id, ...fields });
-    },
-    [updateCardMutation],
-  );
-
-  const handleDeleteCard = React.useCallback(
-    async (cardId: string) => {
-      setDeletingCardId(cardId);
-      try {
-        await deleteCardMutation.mutateAsync(cardId);
-      } finally {
-        setDeletingCardId(null);
-      }
-    },
-    [deleteCardMutation],
-  );
 
   const filteredCards = searchIds
     ? cards.filter((c) => searchIds.has(c.id))

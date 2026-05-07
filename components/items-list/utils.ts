@@ -24,6 +24,29 @@ export function relativeTime(dateStr: string): string {
   return `${years} ${years === 1 ? "year" : "years"} ago`;
 }
 
+export function resolveRowItem(
+  item: Item,
+  typingTitle: string | undefined,
+  selectedId: string | null,
+  liveFields: { title: string; url: string; notes: string; tags: string[] } | null,
+): Item {
+  if (typingTitle !== undefined) return { ...item, title: typingTitle };
+  if (selectedId === item.id && liveFields) {
+    return {
+      ...item,
+      title: liveFields.title,
+      url: liveFields.url,
+      notes: liveFields.notes,
+      tags: liveFields.tags.map((name, i) => ({
+        id: i,
+        name,
+        userId: item.userId,
+      })),
+    };
+  }
+  return item;
+}
+
 export function getFaviconSrc(item: Pick<Item, "faviconUrl" | "url">): string | null {
   if (item.faviconUrl) return item.faviconUrl;
   try {
