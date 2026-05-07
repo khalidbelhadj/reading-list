@@ -2,7 +2,7 @@
 
 import { withUser } from "@/db";
 import { flashcards, items } from "@/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import {
   createFlashcards as createFlashcardsLib,
