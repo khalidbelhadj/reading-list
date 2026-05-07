@@ -16,9 +16,9 @@ export type ItemGroup = {
 const dayBucket = (createdAtIso: string, now: Date): { key: string; label: string; sortKey: number } => {
   const created = new Date(createdAtIso);
   const startOfDay = (d: Date) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
+    const startDate = new Date(d);
+    startDate.setHours(0, 0, 0, 0);
+    return startDate;
   };
   const today = startOfDay(now);
   const createdDay = startOfDay(created);
@@ -101,7 +101,7 @@ const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
   return [];
 };
 
-export function useItemsFilters(items: Item[] | undefined, activeTab: TabId, searchIds: Set<string> | null = null) {
+export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, searchIds: Set<string> | null = null) => {
   const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
   const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
   const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
@@ -227,4 +227,4 @@ export function useItemsFilters(items: Item[] | undefined, activeTab: TabId, sea
     setGroupBy,
     groups,
   };
-}
+};

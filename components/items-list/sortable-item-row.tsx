@@ -12,7 +12,7 @@ import {
 import { type EditFields } from "./utils";
 import { ItemRowContent } from "./item-row-content";
 
-export function SortableItemRow({
+export const SortableItemRow = ({
   item,
   flashcardCount,
   isEditing,
@@ -35,10 +35,8 @@ export function SortableItemRow({
   isTyping?: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
-  onSave?: (fields: EditFields) => void;
   onDelete?: () => void;
-  onCancelEdit?: () => void;
-}) {
+}) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
 

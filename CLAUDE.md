@@ -79,7 +79,7 @@ Single-page reading list app with an MCP server for AI integrations.
 ### Fonts
 
 - Default body font is Inter (`--font-sans`)
-- Content font (titles, flashcards, tabs) uses `font-content` Tailwind class (`--font-content: Source Serif 4`)
+- Content font (titles, flashcards, tabs) uses `font-content` Tailwind class (`--font-content: DM Sans Variable`)
 - Do not use inline `style={{ fontFamily }}` — always use the `font-content` class
 
 ### MCP Server

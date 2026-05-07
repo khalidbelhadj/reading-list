@@ -170,7 +170,7 @@
 .detail-panel-scroll {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  overflow-y: overlay;
+  overflow-y: auto;
 }
 .detail-panel-scroll:hover {
   scrollbar-color: oklch(0.5 0 0 / 20%) transparent;

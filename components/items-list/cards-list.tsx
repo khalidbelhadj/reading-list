@@ -11,6 +11,7 @@ import {
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { cn } from "@/lib/utils";
@@ -155,10 +156,10 @@ const ItemFooter = ({
   }, [itemId, onOpenItem]);
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={handleClick}
-      className="mt-1 -mx-1 p-1 rounded-md flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:bg-accent hover:text-muted-foreground transition-colors min-w-0 w-[calc(100%+0.5rem)]"
+      className="mt-1 -mx-1 p-1 h-auto rounded-md flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:bg-accent hover:text-muted-foreground transition-colors min-w-0 w-[calc(100%+0.5rem)] justify-start"
     >
       {favicon ? (
         <Image
@@ -182,7 +183,7 @@ const ItemFooter = ({
           ))}
         </span>
       )}
-    </button>
+    </Button>
   );
 };
 
@@ -233,14 +234,14 @@ export const CardsStateBar = () => {
   });
 
   const counts = React.useMemo(() => {
-    const c = { new: 0, learning: 0, review: 0, relearning: 0, due: 0 };
+    const counts = { new: 0, learning: 0, review: 0, relearning: 0, due: 0 };
     const now = Date.now();
     for (const card of cards) {
-      const s = parseCardState(card.state);
-      if (s in c) c[s]++;
-      if (card.due && new Date(card.due).getTime() <= now) c.due++;
+      const cardState = parseCardState(card.state);
+      if (cardState in counts) counts[cardState]++;
+      if (card.due && new Date(card.due).getTime() <= now) counts.due++;
     }
-    return c;
+    return counts;
   }, [cards]);
 
   if (cards.length === 0) return null;
