@@ -229,11 +229,11 @@ export const ItemsList = () => {
       setActiveTabAndUrl(fromTab);
     }
     focusedFromTabRef.current = null;
-    // Select the item we were focused on, so the side panel renders at the
-    // morph target position (otherwise the back morph has nowhere to land).
-    if (focusedId) setSelectedId(focusedId);
     setFocusedId(null);
-  }, [activeTab, focusedId, setActiveTabAndUrl]);
+    setSelectedId(null);
+    setCursor(null);
+    setLiveFields(null);
+  }, [activeTab, setActiveTabAndUrl, setCursor]);
 
   // Hooks
   const {
@@ -822,7 +822,7 @@ export const ItemsList = () => {
             x: 0,
             width: isFocused ? viewportWidth : panelWidth,
           }}
-          exit={{ x: panelWidth }}
+          exit={{ x: viewportWidth }}
           transition={isDraggingPanel ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0 }}
           onAnimationStart={() => !isDraggingPanel && setIsPanelAnimating(true)}
           onAnimationComplete={() => setIsPanelAnimating(false)}
