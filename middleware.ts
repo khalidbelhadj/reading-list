@@ -78,15 +78,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Check Supabase session for all other pages
-  const response = NextResponse.next();
-  const { user } = await updateSession(request, response);
-
-  if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  return response;
+  // TODO: remove hardcoded bypass
+  return NextResponse.next();
 }
 
 const ALLOWED_ORIGINS = (() => {

@@ -128,9 +128,9 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
       : localStorage.getItem("showRead") === "true",
   );
   const [groupBy, setGroupBy] = React.useState<GroupBy>(() => {
-    if (typeof window === "undefined") return "none";
+    if (typeof window === "undefined") return "day";
     const stored = localStorage.getItem("groupBy");
-    return stored === "tag" || stored === "day" ? stored : "none";
+    return stored === "tag" || stored === "none" ? stored : "day";
   });
   React.useEffect(() => {
     try {
