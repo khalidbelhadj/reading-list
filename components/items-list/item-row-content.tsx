@@ -4,7 +4,6 @@ import React from "react";
 
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { ItemDropdown } from "./item-dropdown";
@@ -58,20 +57,6 @@ export const ItemRowContent = ({
           {item.title || (isTyping ? " " : "Untitled")}
         </span>
       </span>
-      {item.tags.length > 0 || flashcardCount > 0 ? (
-        <div className="hidden sm:flex items-center gap-1 ml-auto shrink-0 max-w-1/2 overflow-hidden">
-          {item.tags.map((t) => (
-            <Badge key={t.id} variant="secondary" className="shrink-0">
-              {t.name}
-            </Badge>
-          ))}
-          {flashcardCount > 0 && (
-            <Badge variant="secondary">{flashcardCount}</Badge>
-          )}
-        </div>
-      ) : (
-        <div className="hidden sm:block w-4 shrink-0" />
-      )}
       <ItemDropdown
         item={item}
         open={menuOpen}
