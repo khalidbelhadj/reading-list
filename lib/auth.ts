@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@/lib/supabase/server";
 
 export class UnauthorizedError extends Error {
   constructor() {
