@@ -9,7 +9,6 @@ import {
   ItemContextMenu,
   ItemContextMenuTrigger,
 } from "./item-dropdown";
-import { type EditFields } from "./utils";
 import { ItemRowContent } from "./item-row-content";
 
 export const SortableItemRow = ({
