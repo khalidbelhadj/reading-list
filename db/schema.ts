@@ -52,10 +52,10 @@ export const itemsTags = pgTable(
   {
     itemId: text("item_id")
       .notNull()
-      .references(() => items.id),
+      .references(() => items.id, { onDelete: "cascade" }),
     tagId: integer("tag_id")
       .notNull()
-      .references(() => tags.id),
+      .references(() => tags.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.itemId, table.tagId] })],
 );
@@ -65,7 +65,7 @@ export const flashcards = pgTable(
   {
     id: text("id").primaryKey(),
     userId: uuid("user_id").notNull(),
-    itemId: text("item_id").references(() => items.id),
+    itemId: text("item_id").references(() => items.id, { onDelete: "set null" }),
     front: text("front").notNull(),
     back: text("back").notNull(),
     state: text("state").notNull().default("new"),

@@ -7,6 +7,7 @@ import {
   deleteItem,
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
+import { useInvalidateItems } from "./use-invalidate-items";
 
 export const useItemsMutations = ({
   filteredItems,
@@ -22,10 +23,7 @@ export const useItemsMutations = ({
   setCursor: (id: string | null) => void;
 }) => {
   const queryClient = useQueryClient();
-  const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["items"] }),
-    [queryClient],
-  );
+  const invalidate = useInvalidateItems();
 
   const reorderMutation = useMutation({
     mutationFn: ({ itemId, newPosition }: { itemId: string; newPosition: number }) =>

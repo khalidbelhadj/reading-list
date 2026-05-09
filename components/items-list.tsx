@@ -34,11 +34,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { getFaviconSrc } from "./items-list/utils";
+import { getFaviconSrc, resolveRowItem } from "./items-list/utils";
 
 type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import { type EditFields } from "./items-list/utils";
+import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { createItem, fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
 import { findDuplicateItem } from "@/lib/url";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
@@ -124,9 +125,7 @@ export const ItemsList = () => {
   }, []);
 
   // Helpers
-  const invalidate = React.useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["items"] });
-  }, [queryClient]);
+  const invalidate = useInvalidateItems();
 
   const setActiveTabAndUrl = React.useCallback((tab: TabId) => {
     setActiveTab(tab);
@@ -404,6 +403,7 @@ export const ItemsList = () => {
     activeTags,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
+    onReorder: handleReorder,
   });
 
   const updateMutation = useMutation({
@@ -739,22 +739,7 @@ export const ItemsList = () => {
                   )}
                   {filteredItems.map((item) => {
                     const typingTitle = typingTitles[item.id];
-                    const rowItem =
-                      typingTitle !== undefined
-                        ? { ...item, title: typingTitle }
-                        : selectedId === item.id && liveFields
-                          ? {
-                              ...item,
-                              title: liveFields.title,
-                              url: liveFields.url,
-                              notes: liveFields.notes,
-                              tags: liveFields.tags.map((name, i) => ({
-                                id: i,
-                                name,
-                                userId: item.userId,
-                              })),
-                            }
-                          : item;
+                    const rowItem = resolveRowItem(item, typingTitle, selectedId, liveFields);
                     return (
                     <SortableItemRow
                       key={item.id}

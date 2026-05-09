@@ -27,9 +27,7 @@ import {
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   createFlashcard,
-  deleteFlashcard,
   getFlashcards,
-  updateFlashcard,
 } from "@/app/actions";
 
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
@@ -39,6 +37,7 @@ import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
 import { ItemDropdown } from "./item-dropdown";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { useFlashcardMutations } from "./use-flashcard-mutations";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
 // from outside the panel (rename/delete via the filter bar) and the server
@@ -89,9 +88,6 @@ export const DetailPanel = ({
   const [newFront, setNewFront] = React.useState("");
   const [newBack, setNewBack] = React.useState("");
   const [addingCard, setAddingCard] = React.useState(false);
-  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
-    null,
-  );
 
   // Refs
   const titleRef = React.useRef<HTMLInputElement>(null);
@@ -181,64 +177,27 @@ export const DetailPanel = ({
     },
   });
 
-  const updateCardMutation = useMutation({
-    mutationFn: ({
-      id,
-      front,
-      back,
-    }: {
-      id: string;
-      front?: string;
-      back?: string;
-    }) => updateFlashcard(id, { front, back }),
-    onMutate: async ({ id, front, back }) => {
-      await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
-      const previous = queryClient.getQueryData(["flashcards", item?.id]);
-      queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
-        (old ?? []).map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                ...(front !== undefined && { front }),
-                ...(back !== undefined && { back }),
-                updatedAt: new Date().toISOString(),
-              }
-            : c,
-        ),
-      );
-      return { previous };
-    },
-    onSuccess: () => {
+  const { deletingCardId, handleUpdateCard, handleDeleteCard: baseDeleteCard } = useFlashcardMutations<Flashcard>({
+    queryKey: ["flashcards", item?.id],
+    onUpdateSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["flashcards", item?.id], context.previous);
-      }
+    onDeleteSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
   });
 
-  const deleteCardMutation = useMutation({
-    mutationFn: (id: string) => deleteFlashcard(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
-      const previous = queryClient.getQueryData(["flashcards", item?.id]);
-      queryClient.setQueryData(["flashcards", item?.id], (old: typeof cards) =>
-        (old ?? []).filter((c) => c.id !== id),
-      );
+  const handleDeleteCard = React.useCallback(
+    async (cardId: string) => {
       if (item?.id) bumpItemFlashcardCount(queryClient, item.id, -1);
-      return { previous };
-    },
-    onError: (_err, _id, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["flashcards", item?.id], context.previous);
+      try {
+        await baseDeleteCard(cardId);
+      } catch {
         if (item?.id) bumpItemFlashcardCount(queryClient, item.id, 1);
       }
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-    },
-  });
+    [baseDeleteCard, item?.id, queryClient],
+  );
 
   // Focus the title when a new item's form first mounts.
   React.useEffect(() => {
@@ -362,13 +321,6 @@ export const DetailPanel = ({
   ]);
 
   // Callbacks
-  const handleUpdateCard = React.useCallback(
-    (id: string, fields: { front?: string; back?: string }) => {
-      updateCardMutation.mutate({ id, ...fields });
-    },
-    [updateCardMutation],
-  );
-
   const handleAddCard = React.useCallback(async () => {
     if (!item?.id || !newFront.trim()) return;
     addCardMutation.mutate({
@@ -380,18 +332,6 @@ export const DetailPanel = ({
     setNewBack("");
     setAddingCard(false);
   }, [item?.id, newFront, newBack, addCardMutation]);
-
-  const handleDeleteCard = React.useCallback(
-    async (cardId: string) => {
-      setDeletingCardId(cardId);
-      try {
-        await deleteCardMutation.mutateAsync(cardId);
-      } finally {
-        setDeletingCardId(null);
-      }
-    },
-    [deleteCardMutation],
-  );
 
   const handleExpandMouseDown = React.useCallback(
     (e: React.MouseEvent) => {

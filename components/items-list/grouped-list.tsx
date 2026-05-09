@@ -1,5 +1,4 @@
-import { IconChevronRight, IconDots, IconFileFilled } from "@tabler/icons-react";
-import Image from "next/image";
+import { IconChevronRight } from "@tabler/icons-react";
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -7,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { type DbTag, type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,10 +29,11 @@ import {
 import {
   ItemContextMenu,
   ItemContextMenuTrigger,
-  ItemDropdown,
 } from "./item-dropdown";
-import { getFaviconSrc } from "./utils";
+import { resolveRowItem } from "./utils";
 import { type ItemGroup } from "./use-filters";
+import { ItemRowContent } from "./item-row-content";
+import { useInvalidateItems } from "./use-invalidate-items";
 
 type GroupedListProps = {
   groups: ItemGroup[];
@@ -69,10 +68,7 @@ export const GroupedList = ({
   >(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  const invalidateItems = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["items"] }),
-    [queryClient],
-  );
+  const invalidateItems = useInvalidateItems();
 
   const renameMutation = useMutation({
     mutationFn: ({ tagId, newName }: { tagId: number; newName: string }) =>
@@ -269,22 +265,7 @@ export const GroupedList = ({
             {isOpen &&
               group.items.map((item) => {
                 const typingTitle = typingTitles[item.id];
-                const rowItem =
-                  typingTitle !== undefined
-                    ? { ...item, title: typingTitle }
-                    : selectedId === item.id && liveFields
-                      ? {
-                          ...item,
-                          title: liveFields.title,
-                          url: liveFields.url,
-                          notes: liveFields.notes,
-                          tags: liveFields.tags.map((name, i) => ({
-                            id: i,
-                            name,
-                            userId: item.userId,
-                          })),
-                        }
-                      : item;
+                const rowItem = resolveRowItem(item, typingTitle, selectedId, liveFields);
                 return (
                   <PlainItemRow
                     key={`${group.key}:${item.id}`}
@@ -385,76 +366,17 @@ const PlainItemRow = ({
         />
       }
     >
-      <div className="relative size-4 shrink-0">
-        {getFaviconSrc(item) ? (
-          <Image
-            src={getFaviconSrc(item)!}
-            alt=""
-            width={16}
-            height={16}
-            className="size-4 rounded-[3px]"
-            unoptimized
-          />
-        ) : (
-          <IconFileFilled className="size-4 text-muted-foreground" />
-        )}
-      </div>
-      <span
-        data-item-title
-        className={cn(
-          "font-content text-sm truncate min-w-0",
-          !item.title && !isTyping && "text-muted-foreground",
-        )}
-      >
-        <span className="title-strike" data-read={isRead ? "true" : undefined}>
-          {item.title || (isTyping ? " " : "Untitled")}
-        </span>
-      </span>
-      {item.tags.length > 0 || flashcardCount > 0 ? (
-        <div className="hidden sm:flex items-center gap-1 ml-auto shrink-0 max-w-1/2 overflow-hidden">
-          {item.tags.map((t) => (
-            <Badge key={t.id} variant="secondary" className="shrink-0">
-              {t.name}
-            </Badge>
-          ))}
-          {flashcardCount > 0 && (
-            <Badge variant="secondary">{flashcardCount}</Badge>
-          )}
-        </div>
-      ) : (
-        <div className="hidden sm:block w-4 shrink-0" />
-      )}
-      <ItemDropdown
+      <ItemRowContent
         item={item}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
+        flashcardCount={flashcardCount}
+        isSelected={isSelected}
+        isTyping={isTyping}
+        menuOpen={menuOpen}
+        onMenuOpenChange={setMenuOpen}
         onToggleRead={onToggleRead}
         onDelete={onDelete}
-      >
-        <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
-          <div
-            className={cn(
-              "absolute inset-0 bg-gradient-to-r from-transparent",
-              isSelected ? "via-secondary to-secondary" : "via-card to-card",
-            )}
-          />
-          <DropdownMenuTrigger
-            className={cn(
-              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isSelected ? "bg-secondary" : "bg-card",
-            )}
-            onClick={stopPropagation}
-            onPointerDown={stopPropagation}
-          >
-            <IconDots className="size-4" />
-          </DropdownMenuTrigger>
-        </div>
-      </ItemDropdown>
+      />
     </ItemContextMenuTrigger>
     </ItemContextMenu>
   );
-};
-
-const stopPropagation = (e: React.SyntheticEvent) => {
-  e.stopPropagation();
 };

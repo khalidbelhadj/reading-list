@@ -1,7 +1,5 @@
 import React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { reorderItem } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
 import type { TabId } from "@/components/items-list/use-filters";
@@ -22,6 +20,7 @@ export const useKeyboardNavigation = ({
   activeTags,
   onPasteCreate,
   onSearchOpen,
+  onReorder,
 }: {
   filteredItems: Item[];
   selectedId: string | null;
@@ -38,19 +37,9 @@ export const useKeyboardNavigation = ({
   activeTags: Set<string>;
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
+  onReorder: (itemId: string, newPosition: number) => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
-  const queryClient = useQueryClient();
-  const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["items"] }),
-    [queryClient],
-  );
-
-  const reorderMutation = useMutation({
-    mutationFn: (args: { id: string; newPosition: number }) =>
-      reorderItem(args.id, args.newPosition),
-    onSuccess: invalidate,
-  });
 
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
@@ -165,7 +154,7 @@ export const useKeyboardNavigation = ({
           ? Math.min(currentIndex + 1, sortedItems.length - 1)
           : Math.max(currentIndex - 1, 0);
         if (newIndex === currentIndex) return;
-        reorderMutation.mutate({ id: selectedId, newPosition: newIndex });
+        onReorder(selectedId, newIndex);
         return;
       }
 
@@ -214,7 +203,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedId, editingId, filteredItems, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, reorderMutation]);
+  }, [selectedId, editingId, filteredItems, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, onReorder]);
 
   return {
     suppressHover,

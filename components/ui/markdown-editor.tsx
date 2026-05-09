@@ -20,9 +20,11 @@ import { ImageUpload } from "@/lib/tiptap-image-upload";
 
 const ImageLightbox = ({
   src,
+  alt,
   onOpenChange,
 }: {
   src: string | null;
+  alt: string;
   onOpenChange: (open: boolean) => void;
 }) => {
   const handlePopupClick = React.useCallback(
@@ -36,13 +38,14 @@ const ImageLightbox = ({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/85 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-100" />
         <DialogPrimitive.Popup
+          aria-label="Image preview"
           onClick={handlePopupClick}
           className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-100"
         >
           {src && (
             <img
               src={src}
-              alt=""
+              alt={alt}
               className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
             />
           )}
@@ -143,6 +146,7 @@ export const MarkdownEditor = ({
   const onChangeRef = React.useRef(onChange);
   const onKeyDownRef = React.useRef(onKeyDown);
   const [lightboxSrc, setLightboxSrc] = React.useState<string | null>(null);
+  const [lightboxAlt, setLightboxAlt] = React.useState("");
   React.useEffect(() => {
     onChangeRef.current = onChange;
     onKeyDownRef.current = onKeyDown;
@@ -157,6 +161,7 @@ export const MarkdownEditor = ({
       if (!img.src) return;
       event.preventDefault();
       setLightboxSrc(img.src);
+      setLightboxAlt(img.alt || "Enlarged image");
     },
     [],
   );
@@ -240,7 +245,7 @@ export const MarkdownEditor = ({
       onClick={handleEditorClick}
     >
       <EditorContent editor={editor} />
-      <ImageLightbox src={lightboxSrc} onOpenChange={handleLightboxOpenChange} />
+      <ImageLightbox src={lightboxSrc} alt={lightboxAlt} onOpenChange={handleLightboxOpenChange} />
     </div>
   );
 };
