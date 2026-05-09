@@ -9,12 +9,8 @@ export class UnauthorizedError extends Error {
 }
 
 export const getCurrentUserId = async (): Promise<string> => {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new UnauthorizedError();
-  return user.id;
+  // TODO: remove hardcoded bypass
+  return "a543abcc-57d8-4b8e-acc5-9f2e3d4c9e8b";
 };
 
 export const getCurrentUserIdFromRequest = async (

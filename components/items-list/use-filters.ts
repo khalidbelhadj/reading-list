@@ -130,7 +130,7 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
   const [groupBy, setGroupBy] = React.useState<GroupBy>(() => {
     if (typeof window === "undefined") return "none";
     const stored = localStorage.getItem("groupBy");
-    return stored === "tag" || stored === "day" ? stored : "none";
+    return stored === "tag" || stored === "none" ? stored : "day";
   });
   React.useEffect(() => {
     try {

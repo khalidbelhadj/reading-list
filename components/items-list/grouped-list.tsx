@@ -35,6 +35,58 @@ import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useInvalidateItems } from "./use-invalidate-items";
 
+const CollapsibleSection = ({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: React.ReactNode;
+}) => {
+  const outerRef = React.useRef<HTMLDivElement>(null);
+  const innerRef = React.useRef<HTMLDivElement>(null);
+  const prevOpen = React.useRef(open);
+
+  React.useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+
+    if (prevOpen.current === open) {
+      outer.style.height = open ? "" : "0px";
+      return;
+    }
+    prevOpen.current = open;
+
+    const h = inner.scrollHeight;
+
+    outer.style.transition = "none";
+    outer.style.height = open ? "0px" : `${h}px`;
+    outer.getBoundingClientRect();
+    outer.style.transition = "";
+    outer.style.height = open ? `${h}px` : "0px";
+
+    if (open) {
+      const onEnd = () => {
+        outer.style.height = "";
+        outer.removeEventListener("transitionend", onEnd);
+      };
+      outer.addEventListener("transitionend", onEnd);
+      return () => outer.removeEventListener("transitionend", onEnd);
+    }
+  }, [open]);
+
+  return (
+    <div
+      ref={outerRef}
+      className="overflow-hidden transition-[height] duration-250 ease-in-out"
+    >
+      <div ref={innerRef}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 type GroupedListProps = {
   groups: ItemGroup[];
   selectedId: string | null;
@@ -58,6 +110,7 @@ export const GroupedList = ({
 }: GroupedListProps) => {
   const queryClient = useQueryClient();
   const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set());
+  const [closedDateKeys, setClosedDateKeys] = React.useState<Set<string>>(() => new Set());
   const [renamingTagId, setRenamingTagId] = React.useState<number | null>(null);
   const [renameDraft, setRenameDraft] = React.useState("");
   const [pendingDeleteTag, setPendingDeleteTag] = React.useState<DbTag | null>(
@@ -101,6 +154,15 @@ export const GroupedList = ({
 
   const toggle = React.useCallback((key: string) => {
     setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleDateGroup = React.useCallback((key: string) => {
+    setClosedDateKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -237,33 +299,49 @@ export const GroupedList = ({
           </Button>
         );
         return (
-          <div key={group.key} className="flex flex-col">
-            {tagForGroup ? (
-              <ContextMenu
-                onOpenChange={(open) =>
-                  setContextMenuOpenTagId(open ? tagForGroup.id : null)
-                }
-              >
-                <ContextMenuTrigger render={<div />}>
-                  {headerButton}
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  <ContextMenuItem onClick={() => startRename(tagForGroup)}>
-                    Rename
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    variant="destructive"
-                    onClick={() => setPendingDeleteTag(tagForGroup)}
-                  >
-                    Delete
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+          <div key={group.key} className={cn("flex flex-col", !isTagGroup && "mt-4 first:mt-0")}>
+            {isTagGroup ? (
+              tagForGroup ? (
+                <ContextMenu
+                  onOpenChange={(open) =>
+                    setContextMenuOpenTagId(open ? tagForGroup.id : null)
+                  }
+                >
+                  <ContextMenuTrigger render={<div />}>
+                    {headerButton}
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => startRename(tagForGroup)}>
+                      Rename
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      variant="destructive"
+                      onClick={() => setPendingDeleteTag(tagForGroup)}
+                    >
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ) : (
+                headerButton
+              )
             ) : (
-              headerButton
+              <button
+                type="button"
+                onClick={() => toggleDateGroup(group.key)}
+                className="flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+              >
+                {group.label}
+                <IconChevronRight
+                  className={cn(
+                    "size-3 transition-transform duration-150",
+                    !closedDateKeys.has(group.key) && "rotate-90",
+                  )}
+                />
+              </button>
             )}
-            {isOpen &&
-              group.items.map((item) => {
+            <CollapsibleSection open={isTagGroup ? isOpen : !closedDateKeys.has(group.key)}>
+              {group.items.map((item) => {
                 const typingTitle = typingTitles[item.id];
                 const rowItem = resolveRowItem(item, typingTitle, selectedId, liveFields);
                 return (
@@ -280,6 +358,7 @@ export const GroupedList = ({
                   />
                 );
               })}
+            </CollapsibleSection>
           </div>
         );
       })}
@@ -356,7 +435,7 @@ const PlainItemRow = ({
           data-item-id={item.id}
           onClick={onSelect}
           className={cn(
-            "group relative flex items-center gap-2 p-1 pl-6 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
+            "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
             isSelected && "bg-secondary",
             !isSelected && !suppressHover && "hover:bg-card",
             !isSelected && (menuOpen || contextMenuOpen) && "bg-card",

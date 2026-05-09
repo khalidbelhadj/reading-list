@@ -1,9 +1,6 @@
 import {
   IconCheck,
-  IconDots,
   IconFileFilled,
-  IconMaximize,
-  IconMinimize,
   IconPlus,
   IconWand,
   IconX,
@@ -16,14 +13,6 @@ import { type Flashcard, type Item } from "@/lib/types";
 import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import {
-  TOOLTIP_DELAY_MS,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   createFlashcard,
@@ -35,7 +24,6 @@ import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
 import { type EditFields, getFaviconSrc } from "./utils";
 import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
-import { ItemDropdown } from "./item-dropdown";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { useFlashcardMutations } from "./use-flashcard-mutations";
 
@@ -54,7 +42,6 @@ export const DetailPanel = ({
   onDelete,
   onToggleRead,
   onFieldsChange,
-  onExpand,
   focused = false,
 }: {
   item: Item | null;
@@ -73,7 +60,6 @@ export const DetailPanel = ({
       tags: string[];
     } | null,
   ) => void;
-  onExpand?: () => void;
   focused?: boolean;
 }) => {
   // Form state — initialize from item synchronously so the first paint
@@ -122,15 +108,13 @@ export const DetailPanel = ({
   const queryClient = useQueryClient();
   const currentId = item?.id ?? (isNew ? "new" : null);
 
-  // Cards only fetched when the user enters the focused/expanded view —
-  // the side panel just shows the count.
   const {
     data: cards = [],
     isError: cardsError,
   } = useQuery<Flashcard[]>({
     queryKey: ["flashcards", item?.id],
     queryFn: () => getFlashcards(item!.id),
-    enabled: focused && !!item?.id,
+    enabled: !!item?.id && !isNew,
     staleTime: Infinity,
   });
 
@@ -333,14 +317,6 @@ export const DetailPanel = ({
     setAddingCard(false);
   }, [item?.id, newFront, newBack, addCardMutation]);
 
-  const handleExpandMouseDown = React.useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      onExpand?.();
-    },
-    [onExpand],
-  );
-
   const handleSetTitle = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value),
     [],
@@ -433,46 +409,6 @@ export const DetailPanel = ({
               {fetching ? <Spinner className="size-3.5" /> : <IconWand />}
             </Button>
           )}
-          {!isNew && onExpand && (
-            <TooltipProvider delay={TOOLTIP_DELAY_MS}>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground/40 shrink-0"
-                      onMouseDown={handleExpandMouseDown}
-                    >
-                      {focused ? <IconMinimize /> : <IconMaximize />}
-                    </Button>
-                  }
-                />
-                <TooltipContent>
-                  {focused ? "Minimize" : "Expand"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {!isNew && item && (
-            <ItemDropdown
-              item={item}
-              onToggleRead={onToggleRead}
-              onDelete={onDelete}
-            >
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground/40 shrink-0 -ml-2"
-                  >
-                    <IconDots />
-                  </Button>
-                }
-              />
-            </ItemDropdown>
-          )}
           {isNew && (
             <>
               {onCancel && (
@@ -523,15 +459,7 @@ export const DetailPanel = ({
 
       </div>
 
-      {/* Flashcards: collapsed shows count line, expanded shows full management. */}
-      {item && !isNew && !focused && item.flashcardCount > 0 && (
-        <span className="text-xs text-muted-foreground">
-          {item.flashcardCount}{" "}
-          {item.flashcardCount === 1 ? "flashcard" : "flashcards"}
-        </span>
-      )}
-
-      {item && !isNew && focused && (
+      {item && !isNew && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">

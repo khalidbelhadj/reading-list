@@ -13,8 +13,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
-import { IconFileFilled } from "@tabler/icons-react";
+import { AnimatePresence, motion } from "motion/react";
+import { IconArrowsMaximize, IconChevronsRight, IconDots, IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -54,13 +54,17 @@ import { DetailPanel } from "./items-list/detail-panel";
 import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList } from "./items-list/grouped-list";
+import { ItemDropdown } from "./items-list/item-dropdown";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 
 // Anchor offset (in px) matching the panel's `left: calc(50% + 18.75rem)` style.
 const PANEL_LEFT_OFFSET_PX = 300;
-// Width (in px) of the panel in collapsed state.
-const COLLAPSED_PANEL_WIDTH_PX = 440;
+// Min/max width (in px) of the panel in collapsed state.
+const PANEL_MIN_WIDTH_PX = 360;
+const PANEL_MAX_WIDTH_PX = 700;
+const PANEL_DEFAULT_WIDTH_PX = 440;
 // Visual width of inner content when expanded — keeps the form centered.
 const EXPANDED_CONTENT_MAX_WIDTH_PX = 600;
 
@@ -96,6 +100,15 @@ export const ItemsList = () => {
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [panelWidth, setPanelWidth] = React.useState(() => {
+    if (typeof window === "undefined") return PANEL_DEFAULT_WIDTH_PX;
+    const stored = localStorage.getItem("panelWidth");
+    const parsed = stored ? parseInt(stored, 10) : NaN;
+    return Number.isFinite(parsed)
+      ? Math.min(Math.max(parsed, PANEL_MIN_WIDTH_PX), PANEL_MAX_WIDTH_PX)
+      : PANEL_DEFAULT_WIDTH_PX;
+  });
+  const [isDraggingPanel, setIsDraggingPanel] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [justDropped, setJustDropped] = React.useState(false);
   const [liveFields, setLiveFields] = React.useState<LiveFields | null>(null);
@@ -181,6 +194,35 @@ export const ItemsList = () => {
     },
     [activeTab],
   );
+  const handlePanelDragStart = React.useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      setIsDraggingPanel(true);
+      const startX = e.clientX;
+      const startWidth = panelWidth;
+      const onMove = (ev: PointerEvent) => {
+        const delta = startX - ev.clientX;
+        const next = Math.min(
+          Math.max(startWidth + delta, PANEL_MIN_WIDTH_PX),
+          PANEL_MAX_WIDTH_PX,
+        );
+        setPanelWidth(next);
+      };
+      const onUp = () => {
+        setIsDraggingPanel(false);
+        setPanelWidth((w) => {
+          localStorage.setItem("panelWidth", String(w));
+          return w;
+        });
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [panelWidth],
+  );
+
   const handleCloseFocused = React.useCallback(() => {
     const fromTab = focusedFromTabRef.current;
     if (fromTab && fromTab !== activeTab) {
@@ -384,6 +426,13 @@ export const ItemsList = () => {
   const handleDuplicateOpenChange = React.useCallback((open: boolean) => {
     if (!open) setDuplicateDialog(null);
   }, []);
+
+  const handleClosePanel = React.useCallback(() => {
+    if (editingId !== null) setEditingId(null);
+    setSelectedId(null);
+    setCursor(null);
+    setLiveFields(null);
+  }, [editingId, setCursor]);
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
@@ -621,7 +670,7 @@ export const ItemsList = () => {
         )}
         aria-hidden={focusedId ? true : undefined}
       >
-        <div className="mx-auto max-w-150 px-5 pb-5 flex flex-col gap-3">
+        <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
           {/* Sticky header */}
           <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
             <Toolbar
@@ -764,30 +813,84 @@ export const ItemsList = () => {
         </div>
       </div>
 
+      <AnimatePresence>
       {panelVisible && (
         <motion.div
           data-detail-panel
-          initial={false}
+          initial={{ x: panelWidth }}
           animate={{
-            x: isFocused
-              ? -(viewportWidth / 2 + PANEL_LEFT_OFFSET_PX)
-              : 0,
-            y: 0,
-            width: isFocused ? viewportWidth : COLLAPSED_PANEL_WIDTH_PX,
+            x: 0,
+            width: isFocused ? viewportWidth : panelWidth,
           }}
-          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-          onAnimationStart={() => setIsPanelAnimating(true)}
+          exit={{ x: panelWidth }}
+          transition={isDraggingPanel ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0 }}
+          onAnimationStart={() => !isDraggingPanel && setIsPanelAnimating(true)}
           onAnimationComplete={() => setIsPanelAnimating(false)}
-          style={{ top: 20, left: "calc(50% + 18.75rem)" }}
           className={cn(
-            "fixed z-20 h-[calc(100vh-2.5rem)] detail-panel-scroll bg-background",
+            "fixed top-0 right-0 z-20 h-dvh border-l border-border/50 bg-background detail-panel-scroll",
             isPanelAnimating ? "overflow-hidden" : "overflow-y-auto",
           )}
         >
-          <div
-            className="mx-auto w-full"
-            style={{ maxWidth: EXPANDED_CONTENT_MAX_WIDTH_PX }}
-          >
+          {!isFocused && (
+            <div
+              onPointerDown={handlePanelDragStart}
+              className={cn(
+                "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-30 hover:bg-foreground/10 active:bg-foreground/15",
+                isDraggingPanel && "bg-foreground/15",
+              )}
+            />
+          )}
+          {!isNewItem && (
+            <div className="sticky top-0 z-10 flex items-center gap-0.5 px-1.5 pt-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground/40"
+                onClick={isFocused ? handleCloseFocused : handleClosePanel}
+                title="Close"
+              >
+                <IconChevronsRight />
+              </Button>
+              {!isFocused && detailItem && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground/40"
+                  onClick={() => handleExpandItem(detailItem.id)}
+                  title="Open full page"
+                >
+                  <IconArrowsMaximize />
+                </Button>
+              )}
+              <div className="flex-1" />
+              {panelItem && (
+                <ItemDropdown
+                  item={panelItem}
+                  onToggleRead={
+                    panelItem
+                      ? () => handleToggleRead(panelItem.id, !panelItem.read)
+                      : undefined
+                  }
+                  onDelete={
+                    panelItem ? () => requestDeleteItem(panelItem.id) : undefined
+                  }
+                >
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground/40"
+                      >
+                        <IconDots />
+                      </Button>
+                    }
+                  />
+                </ItemDropdown>
+              )}
+            </div>
+          )}
+          <div className="mx-auto w-full px-5 pt-1" style={{ maxWidth: EXPANDED_CONTENT_MAX_WIDTH_PX }}>
             {isFocused && !focusedItem ? (
               <DetailPanelSkeleton />
             ) : (
@@ -812,19 +915,13 @@ export const ItemsList = () => {
                     ? () => handleToggleRead(panelItem.id, !panelItem.read)
                     : undefined
                 }
-                onExpand={
-                  isFocused
-                    ? handleCloseFocused
-                    : detailItem
-                      ? () => handleExpandItem(detailItem.id)
-                      : undefined
-                }
                 onFieldsChange={setLiveFields}
               />
             )}
           </div>
         </motion.div>
       )}
+      </AnimatePresence>
 
       <AlertDialog
         open={deleteOpen}

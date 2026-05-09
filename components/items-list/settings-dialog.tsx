@@ -186,6 +186,7 @@ export const SettingsMenu = ({
     [setGroupBy],
   );
 
+
   const handleSansFontChange = React.useCallback((value: string) => {
     const key = value as FontKey;
     setSansFont(key);
@@ -282,6 +283,7 @@ export const SettingsMenu = ({
             >
               Filter by tags
             </DropdownMenuCheckboxItem>
+
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>Group by</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
