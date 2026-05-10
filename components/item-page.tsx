@@ -42,6 +42,14 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
     router.prefetch("/");
   }, [router]);
 
+  React.useEffect(() => {
+    const pageTitle = item?.title?.trim() || "Untitled";
+    document.title = `${pageTitle} — Reading List`;
+    return () => {
+      document.title = "Reading List";
+    };
+  }, [item?.title]);
+
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
 

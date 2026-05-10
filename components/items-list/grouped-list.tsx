@@ -325,7 +325,7 @@ export const GroupedList = ({
               <button
                 type="button"
                 onClick={() => toggleDateGroup(group.key)}
-                className="flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
               >
                 {group.label}
                 <IconChevronRight
