@@ -175,8 +175,11 @@ export const mcpGetItemsSchema = z.object({
   offset: z.number().int().min(0).optional(),
 });
 
-export const mcpGetItemByUrlSchema = z.object({
-  url: urlSchema,
+export const mcpGetItemSchema = z.object({
+  url: urlSchema.optional(),
+  id: idSchema.optional(),
+}).refine((data) => data.url || data.id, {
+  message: "At least one of 'url' or 'id' must be provided",
 });
 
 export const mcpSearchItemsSchema = z.object({

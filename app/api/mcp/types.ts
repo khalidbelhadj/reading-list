@@ -94,7 +94,7 @@ export type GetItemsResponse = {
   limit: number | null;
 };
 
-export type GetItemByUrlResponse = McpItem;
+export type GetItemResponse = McpItem;
 
 export type SearchItemsResponse = {
   pattern: string;
