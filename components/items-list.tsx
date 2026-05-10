@@ -13,7 +13,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
 import { IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
@@ -36,7 +35,6 @@ import {
 import { getFaviconSrc, resolveRowItem } from "./items-list/utils";
 
 import { fetchItems } from "@/lib/queries";
-import { type EditFields } from "./items-list/utils";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { createItem, fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
 import { findDuplicateItem } from "@/lib/url";
@@ -48,14 +46,10 @@ import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
 import { ReviewNudge } from "./items-list/review-nudge";
-import { DetailPanel } from "./items-list/detail-panel";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList } from "./items-list/grouped-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
-
-const PANEL_DEFAULT_WIDTH_PX = 440;
-const PANEL_CONTENT_MAX_WIDTH_PX = 600;
 
 export const ItemsList = () => {
   // Data
@@ -72,8 +66,6 @@ export const ItemsList = () => {
 
   // UI state
   const searchParams = useSearchParams();
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -129,6 +121,11 @@ export const ItemsList = () => {
     },
     [router],
   );
+
+  const handleOpenNew = React.useCallback(() => {
+    router.push("/new");
+  }, [router]);
+
   // Hooks
   const {
     tabItems,
@@ -149,8 +146,6 @@ export const ItemsList = () => {
   const { handleReorder, handleToggleRead, handleDeleteSingle } =
     useItemsMutations({
       filteredItems,
-      setSelectedId,
-      setEditingId,
       showRead,
       setCursor,
     });
@@ -165,13 +160,6 @@ export const ItemsList = () => {
     [items],
   );
 
-  const handleSelectRow = React.useCallback(
-    (id: string) => {
-      if (editingId !== null) setEditingId(null);
-      router.push(`/item/${id}`);
-    },
-    [editingId, router],
-  );
   const confirmDelete = React.useCallback(async () => {
     if (!itemToDelete) return;
     setDeleting(true);
@@ -293,8 +281,6 @@ export const ItemsList = () => {
     if (!duplicateDialog) return;
     const id = duplicateDialog.existing.id;
     duplicateDialog.callbacks.onOpenExisting?.(id);
-    setSelectedId(id);
-    setEditingId(null);
     setDuplicateDialog(null);
   }, [duplicateDialog]);
 
@@ -316,10 +302,6 @@ export const ItemsList = () => {
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
-    selectedId,
-    setSelectedId,
-    editingId,
-    setEditingId,
     setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
@@ -327,122 +309,16 @@ export const ItemsList = () => {
     cursorRef,
     setCursor,
     onRequestDelete: React.useCallback(() => {
-      if (selectedId) requestDeleteItem(selectedId);
-    }, [selectedId, requestDeleteItem]),
+      const cursor = cursorRef.current;
+      if (cursor) requestDeleteItem(cursor);
+    }, [requestDeleteItem]),
     activeTags,
     onOpenItem: handleOpenItem,
+    onOpenNew: handleOpenNew,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
     onReorder: handleReorder,
   });
-
-  const updateMutation = useMutation({
-    mutationFn: (args: {
-      id: string;
-      fields: {
-        title?: string;
-        url?: string;
-        notes?: string;
-        tagNames?: string[];
-      };
-    }) => updateItem(args.id, args.fields),
-    onMutate: async ({ id, fields }) => {
-      await queryClient.cancelQueries({ queryKey: ["items"] });
-      const previous = queryClient.getQueryData<Item[]>(["items"]);
-      queryClient.setQueryData<Item[]>(["items"], (old) =>
-        (old ?? []).map((item) => {
-          if (item.id !== id) return item;
-          const next = { ...item, updatedAt: new Date().toISOString() };
-          if (fields.title !== undefined) next.title = fields.title;
-          if (fields.url !== undefined) next.url = fields.url;
-          if (fields.notes !== undefined) next.notes = fields.notes;
-          if (fields.tagNames !== undefined) {
-            const byName = new Map(item.tags.map((t) => [t.name, t]));
-            next.tags = fields.tagNames.map(
-              (name, i) =>
-                byName.get(name) ?? { id: -(i + 1), userId: item.userId, name },
-            );
-          }
-          return next;
-        }),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous)
-        queryClient.setQueryData(["items"], context.previous);
-    },
-    onSettled: invalidate,
-  });
-
-  const handleSave = React.useCallback(
-    (itemId: string, fields: EditFields) => {
-      const tagNames = fields.tags
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
-
-      if (itemId === "new") {
-        if (!fields.title.trim() && !fields.url.trim()) {
-          setEditingId(null);
-          return;
-        }
-        requestCreate(
-          {
-            title: fields.title.trim() || fields.url.trim(),
-            url: fields.url.trim(),
-            tagNames,
-            notes: fields.notes.trim() || undefined,
-          },
-          {
-            onProceed: () => setEditingId(null),
-            onCreated: () => invalidate(),
-            onOpenExisting: () => setEditingId(null),
-          },
-        );
-      } else {
-        updateMutation.mutate({
-          id: itemId,
-          fields: {
-            title: fields.title,
-            url: fields.url,
-            notes: fields.notes,
-            tagNames,
-          },
-        });
-        setEditingId(null);
-      }
-    },
-    [requestCreate, updateMutation, invalidate],
-  );
-
-  const handleCreate = React.useCallback(
-    (fields: EditFields) => {
-      const tagNames = fields.tags
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
-      if (!fields.title.trim() && !fields.url.trim()) return;
-      requestCreate(
-        {
-          title: fields.title.trim() || fields.url.trim(),
-          url: fields.url.trim(),
-          tagNames,
-          notes: fields.notes.trim() || undefined,
-        },
-        {
-          onProceed: () => setEditingId(null),
-          onCreated: async (newId) => {
-            await queryClient.invalidateQueries({ queryKey: ["items"] });
-            setEditingId(null);
-            router.push(`/item/${newId}`);
-          },
-          onOpenExisting: () => setEditingId(null),
-        },
-      );
-    },
-    [requestCreate, queryClient, router],
-  );
 
   // Effects
   React.useEffect(() => {
@@ -454,14 +330,14 @@ export const ItemsList = () => {
 
   React.useEffect(() => {
     if (!items) return;
+    router.prefetch("/new");
     for (const item of items) {
       router.prefetch(`/item/${item.id}`);
     }
   }, [items, router]);
 
   // DnD
-  const isDragDisabled =
-    activeTags.size > 0 || editingId !== null || groupBy !== "none";
+  const isDragDisabled = activeTags.size > 0 || groupBy !== "none";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -492,13 +368,9 @@ export const ItemsList = () => {
     [tabItems, handleReorder, queryClient],
   );
 
-  // Derived state
-  const isNewItem = editingId === "new";
-  const panelVisible = activeTab !== "cards" && isNewItem;
-
   // Empty state message
   const emptyState = React.useMemo(() => {
-    if (filteredItems.length > 0 || isNewItem) return null;
+    if (filteredItems.length > 0) return null;
     if (tabItems.length === 0) return { message: "Nothing here yet", hasHiddenRead: false };
 
     const hiddenReadCount = !showRead
@@ -518,7 +390,7 @@ export const ItemsList = () => {
       };
     }
     return { message: "No items match your filters", hasHiddenRead: false };
-  }, [filteredItems, isNewItem, tabItems, showRead, activeTags, searchIds]);
+  }, [filteredItems, tabItems, showRead, activeTags, searchIds]);
 
   const emptyNode = emptyState && (
     <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
@@ -536,173 +408,142 @@ export const ItemsList = () => {
   );
 
   return (
-    <div className="relative">
-      <div>
-        <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
-          {/* Sticky header */}
-          <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
-            <Toolbar
-              activeTab={activeTab}
-              setActiveTabAndUrl={setActiveTabAndUrl}
-              hasTags={allTags.length > 0}
-              tagsOpen={tagsOpen}
-              setTagsOpen={setTagsOpen}
-              showRead={showRead}
-              setShowRead={setShowRead}
-              groupBy={groupBy}
-              setGroupBy={setGroupBy}
-              setEditingId={setEditingId}
+    <div>
+      <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
+          <Toolbar
+            activeTab={activeTab}
+            setActiveTabAndUrl={setActiveTabAndUrl}
+            hasTags={allTags.length > 0}
+            tagsOpen={tagsOpen}
+            setTagsOpen={setTagsOpen}
+            showRead={showRead}
+            setShowRead={setShowRead}
+            groupBy={groupBy}
+            setGroupBy={setGroupBy}
+            onAdd={handleOpenNew}
+          />
+
+          <SearchBar
+            ref={searchBarRef}
+            queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
+            searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
+            onResults={handleSearchResults}
+            placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
+          />
+
+          <ReviewNudge />
+
+          {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
+            <TagFilters
+              allTags={allTags}
+              activeTags={activeTags}
+              items={tabItems}
+              toggleTag={toggleTag}
+              setActiveTags={setActiveTags}
             />
+          )}
 
-            <SearchBar
-              ref={searchBarRef}
-              queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
-              searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
-              onResults={handleSearchResults}
-              placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
-            />
+          {activeTab === "cards" && <CardsStateBar />}
 
-            <ReviewNudge />
-
-            {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
-              <TagFilters
-                allTags={allTags}
-                activeTags={activeTags}
-                items={tabItems}
-                toggleTag={toggleTag}
-                setActiveTags={setActiveTags}
-              />
-            )}
-
-            {activeTab === "cards" && <CardsStateBar />}
-
-            {scrolled && (
-              <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
-            )}
-          </div>
-
-          {/* Content */}
-          {activeTab === "cards" ? (
-            <CardsList
-              searchIds={searchIds}
-              onOpenItem={handleOpenItem}
-            />
-          ) : isLoading ? (
-            <div className="flex flex-col">
-              {Array.from({ length: 15 }).map((_, i) => {
-                // Pseudo-random-but-stable widths so rows don't look uniform.
-                const titleWidth = 30 + ((i * 17) % 55);
-                return (
-                  <div
-                    key={i}
-                    style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
-                    className="flex items-center gap-2 p-1 h-7"
-                  >
-                    <Skeleton className="size-4 rounded-[3px] shrink-0" />
-                    <Skeleton
-                      className="h-3 rounded-md"
-                      style={{ width: `${titleWidth}%` }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : groupBy !== "none" ? (
-            <div
-              onMouseMove={
-                suppressHover ? () => setSuppressHover(false) : undefined
-              }
-            >
-              {itemsError ? (
-                <div className="px-1 py-6 text-center text-destructive text-xs">
-                  Failed to load items
-                </div>
-              ) : (
-                emptyNode
-              )}
-              <GroupedList
-                groups={groups}
-                typingTitles={typingTitles}
-                suppressHover={suppressHover}
-                onSelect={handleSelectRow}
-                onDelete={requestDeleteItem}
-                onToggleRead={handleToggleRead}
-              />
-            </div>
-          ) : (
-            <DndContext
-              id="items-list-dnd"
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={filteredItems.map((i) => i.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div
-                  onMouseMove={
-                    suppressHover ? () => setSuppressHover(false) : undefined
-                  }
-                >
-                  {itemsError ? (
-                    <div className="px-1 py-6 text-center text-destructive text-xs">
-                      Failed to load items
-                    </div>
-                  ) : (
-                    emptyNode
-                  )}
-                  {filteredItems.map((item) => {
-                    const typingTitle = typingTitles[item.id];
-                    const rowItem = resolveRowItem(item, typingTitle);
-                    return (
-                    <SortableItemRow
-                      key={item.id}
-                      item={rowItem}
-                      flashcardCount={item.flashcardCount}
-                      isEditing={false}
-                      isSelected={false}
-                      suppressHover={suppressHover}
-                      isDragDisabled={isDragDisabled}
-                      isTyping={typingTitle !== undefined}
-                      suppressTransition={justDropped}
-                      onToggleRead={() => handleToggleRead(item.id, !item.read)}
-                      onSelect={() => handleSelectRow(item.id)}
-                      onDelete={() => requestDeleteItem(item.id)}
-                    />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
+          {scrolled && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
           )}
         </div>
-      </div>
 
-      <AnimatePresence>
-      {panelVisible && (
-        <motion.div
-          data-detail-panel
-          initial={{ x: PANEL_DEFAULT_WIDTH_PX }}
-          animate={{ x: 0, width: PANEL_DEFAULT_WIDTH_PX }}
-          exit={{ x: PANEL_DEFAULT_WIDTH_PX }}
-          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
-          className="fixed top-0 right-0 z-20 h-dvh border-l border-border/50 bg-background detail-panel-scroll overflow-y-auto"
-        >
-          <div className="mx-auto w-full px-5 pt-4" style={{ maxWidth: PANEL_CONTENT_MAX_WIDTH_PX }}>
-            <DetailPanel
-              key="new"
-              item={null}
-              isNew
-              defaultTags={[...activeTags]}
-              onSave={handleSave}
-              onCreate={handleCreate}
-              onCancel={() => setEditingId(null)}
+        {/* Content */}
+        {activeTab === "cards" ? (
+          <CardsList
+            searchIds={searchIds}
+            onOpenItem={handleOpenItem}
+          />
+        ) : isLoading ? (
+          <div className="flex flex-col">
+            {Array.from({ length: 15 }).map((_, i) => {
+              const titleWidth = 30 + ((i * 17) % 55);
+              return (
+                <div
+                  key={i}
+                  style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
+                  className="flex items-center gap-2 p-1 h-7"
+                >
+                  <Skeleton className="size-4 rounded-[3px] shrink-0" />
+                  <Skeleton
+                    className="h-3 rounded-md"
+                    style={{ width: `${titleWidth}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : groupBy !== "none" ? (
+          <div
+            onMouseMove={
+              suppressHover ? () => setSuppressHover(false) : undefined
+            }
+          >
+            {itemsError ? (
+              <div className="px-1 py-6 text-center text-destructive text-xs">
+                Failed to load items
+              </div>
+            ) : (
+              emptyNode
+            )}
+            <GroupedList
+              groups={groups}
+              typingTitles={typingTitles}
+              suppressHover={suppressHover}
+              onSelect={handleOpenItem}
+              onDelete={requestDeleteItem}
+              onToggleRead={handleToggleRead}
             />
           </div>
-        </motion.div>
-      )}
-      </AnimatePresence>
+        ) : (
+          <DndContext
+            id="items-list-dnd"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredItems.map((i) => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div
+                onMouseMove={
+                  suppressHover ? () => setSuppressHover(false) : undefined
+                }
+              >
+                {itemsError ? (
+                  <div className="px-1 py-6 text-center text-destructive text-xs">
+                    Failed to load items
+                  </div>
+                ) : (
+                  emptyNode
+                )}
+                {filteredItems.map((item) => {
+                  const typingTitle = typingTitles[item.id];
+                  const rowItem = resolveRowItem(item, typingTitle);
+                  return (
+                  <SortableItemRow
+                    key={item.id}
+                    item={rowItem}
+                    suppressHover={suppressHover}
+                    isDragDisabled={isDragDisabled}
+                    isTyping={typingTitle !== undefined}
+                    suppressTransition={justDropped}
+                    onToggleRead={() => handleToggleRead(item.id, !item.read)}
+                    onSelect={() => handleOpenItem(item.id)}
+                    onDelete={() => requestDeleteItem(item.id)}
+                  />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
 
       <AlertDialog
         open={deleteOpen}

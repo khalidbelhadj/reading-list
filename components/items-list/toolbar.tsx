@@ -28,7 +28,7 @@ export const Toolbar = ({
   setShowRead,
   groupBy,
   setGroupBy,
-  setEditingId,
+  onAdd,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -39,11 +39,8 @@ export const Toolbar = ({
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   groupBy: GroupBy;
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
-  setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
+  onAdd: () => void;
 }) => {
-  const handleAddClick = React.useCallback(() => {
-    setEditingId("new");
-  }, [setEditingId]);
 
   const {
     data: reviewStatus,
@@ -176,7 +173,7 @@ export const Toolbar = ({
         </DropdownMenu>
       </ButtonGroup>
 
-      <Button size="sm" className="ml-1" onClick={handleAddClick}>
+      <Button size="sm" className="ml-1" onClick={onAdd}>
         <IconPlus />
         Add
       </Button>

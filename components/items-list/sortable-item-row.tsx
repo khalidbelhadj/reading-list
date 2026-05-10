@@ -13,12 +13,10 @@ import {
   ItemContextMenuTrigger,
   ItemDropdown,
 } from "./item-dropdown";
-import { type EditFields, getFaviconSrc } from "./utils";
+import { getFaviconSrc } from "./utils";
 
 export function SortableItemRow({
   item,
-  flashcardCount,
-  isEditing,
   isSelected,
   suppressHover,
   suppressTransition,
@@ -29,18 +27,15 @@ export function SortableItemRow({
   onDelete,
 }: {
   item: Item;
-  flashcardCount: number;
-  isEditing: boolean;
-  isSelected: boolean;
+  flashcardCount?: number;
+  isSelected?: boolean;
   suppressHover: boolean;
   suppressTransition?: boolean;
   isDragDisabled: boolean;
   isTyping?: boolean;
   onToggleRead?: () => void;
   onSelect: () => void;
-  onSave?: (fields: EditFields) => void;
   onDelete?: () => void;
-  onCancelEdit?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
@@ -52,7 +47,7 @@ export function SortableItemRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled: isDragDisabled || isEditing });
+  } = useSortable({ id: item.id, disabled: isDragDisabled });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -115,7 +110,7 @@ export function SortableItemRow({
         )}
       >
         <span className="title-strike" data-read={isRead ? "true" : undefined}>
-          {item.title || (isTyping ? " " : "Untitled")}
+          {item.title || (isTyping ? " " : "Untitled")}
         </span>
       </span>
       <ItemDropdown
@@ -126,17 +121,9 @@ export function SortableItemRow({
         onDelete={onDelete}
       >
         <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
-          <div
-            className={cn(
-              "absolute inset-0 bg-gradient-to-r from-transparent",
-              isSelected ? "via-secondary to-secondary" : "via-card to-card",
-            )}
-          />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-card to-card" />
           <DropdownMenuTrigger
-            className={cn(
-              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isSelected ? "bg-secondary" : "bg-card",
-            )}
+            className="relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none bg-card"
             onClick={stopPropagation}
             onPointerDown={stopPropagation}
           >
@@ -152,4 +139,3 @@ export function SortableItemRow({
 function stopPropagation(e: React.SyntheticEvent) {
   e.stopPropagation();
 }
-
