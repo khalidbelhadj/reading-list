@@ -27,23 +27,8 @@ export function relativeTime(dateStr: string): string {
 export function resolveRowItem(
   item: Item,
   typingTitle: string | undefined,
-  selectedId: string | null,
-  liveFields: { title: string; url: string; notes: string; tags: string[] } | null,
 ): Item {
   if (typingTitle !== undefined) return { ...item, title: typingTitle };
-  if (selectedId === item.id && liveFields) {
-    return {
-      ...item,
-      title: liveFields.title,
-      url: liveFields.url,
-      notes: liveFields.notes,
-      tags: liveFields.tags.map((name, i) => ({
-        id: i,
-        name,
-        userId: item.userId,
-      })),
-    };
-  }
   return item;
 }
 

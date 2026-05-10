@@ -89,8 +89,6 @@ const CollapsibleSection = ({
 
 type GroupedListProps = {
   groups: ItemGroup[];
-  selectedId: string | null;
-  liveFields: { title: string; url: string; notes: string; tags: string[] } | null;
   typingTitles: Record<string, string>;
   suppressHover: boolean;
   onSelect: (id: string) => void;
@@ -100,8 +98,6 @@ type GroupedListProps = {
 
 export const GroupedList = ({
   groups,
-  selectedId,
-  liveFields,
   typingTitles,
   suppressHover,
   onSelect,
@@ -343,13 +339,13 @@ export const GroupedList = ({
             <CollapsibleSection open={isTagGroup ? isOpen : !closedDateKeys.has(group.key)}>
               {group.items.map((item) => {
                 const typingTitle = typingTitles[item.id];
-                const rowItem = resolveRowItem(item, typingTitle, selectedId, liveFields);
+                const rowItem = resolveRowItem(item, typingTitle);
                 return (
                   <PlainItemRow
                     key={`${group.key}:${item.id}`}
                     item={rowItem}
                     flashcardCount={item.flashcardCount}
-                    isSelected={selectedId === item.id}
+                    isSelected={false}
                     suppressHover={suppressHover}
                     isTyping={typingTitle !== undefined}
                     onSelect={() => onSelect(item.id)}

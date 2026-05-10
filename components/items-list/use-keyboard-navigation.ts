@@ -18,6 +18,7 @@ export const useKeyboardNavigation = ({
   setCursor,
   onRequestDelete,
   activeTags,
+  onOpenItem,
   onPasteCreate,
   onSearchOpen,
   onReorder,
@@ -35,6 +36,7 @@ export const useKeyboardNavigation = ({
   setCursor: (id: string | null) => void;
   onRequestDelete?: () => void;
   activeTags: Set<string>;
+  onOpenItem: (id: string) => void;
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
   onReorder: (itemId: string, newPosition: number) => void;
@@ -179,16 +181,11 @@ export const useKeyboardNavigation = ({
         return;
       }
 
-      // Enter to focus detail panel title
+      // Enter to open item page
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && selectedId !== null) {
         if (isOverlayOpen()) return;
         e.preventDefault();
-        const el = document.querySelector<HTMLInputElement>("[data-detail-title]");
-        if (el) {
-          el.focus();
-        } else {
-          setEditingId(selectedId);
-        }
+        onOpenItem(selectedId);
         return;
       }
 
@@ -203,7 +200,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [selectedId, editingId, filteredItems, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, onReorder]);
+  }, [selectedId, editingId, filteredItems, tabItems, setSelectedId, setEditingId, setSuppressHover, cursorRef, setCursor, onOpenItem, onReorder]);
 
   return {
     suppressHover,
