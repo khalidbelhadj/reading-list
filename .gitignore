@@ -25,7 +25,8 @@ db/*.db
 db/*.db-journal
 
 # claude
-.claude/
+.claude/*
+!.claude/skills/
 
 # agents
 .agents/
