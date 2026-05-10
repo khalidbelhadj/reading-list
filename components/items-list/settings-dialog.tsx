@@ -102,6 +102,18 @@ export const SettingsMenu = ({
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const email = user?.email ?? null;
+  const fullName =
+    (user?.user_metadata?.full_name as string) ??
+    (user?.user_metadata?.name as string) ??
+    null;
+  const initials = fullName
+    ? fullName
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : null;
   const [theme, setTheme] = React.useState<ThemeKey>("system");
   const [mounted, setMounted] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -255,13 +267,32 @@ export const SettingsMenu = ({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        {mounted && email && (
+        {mounted && (fullName || email) && (
           <>
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="truncate">
-                {email}
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <span className="flex items-center gap-2">
+                  {initials && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                      {initials}
+                    </span>
+                  )}
+                  {fullName ?? email}
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {email && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                      {email}
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                )}
+                <DropdownMenuItem onClick={handleLogout}>
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
           </>
         )}
@@ -318,9 +349,6 @@ export const SettingsMenu = ({
         </DropdownMenuSub>
         <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
         <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
-        {mounted && email && (
-          <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
-        )}
         {debugEnabled && (
           <>
             <DropdownMenuSeparator />
