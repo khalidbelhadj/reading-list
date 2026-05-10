@@ -20,7 +20,6 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -314,10 +313,6 @@ export const ItemsList = () => {
   const handleDuplicateOpenChange = React.useCallback((open: boolean) => {
     if (!open) setDuplicateDialog(null);
   }, []);
-
-  const handleClosePanel = React.useCallback(() => {
-    if (editingId !== null) setEditingId(null);
-  }, [editingId]);
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
