@@ -344,8 +344,6 @@ export const GroupedList = ({
                   <PlainItemRow
                     key={`${group.key}:${item.id}`}
                     item={rowItem}
-                    flashcardCount={item.flashcardCount}
-                    isSelected={false}
                     suppressHover={suppressHover}
                     isTyping={typingTitle !== undefined}
                     onSelect={() => onSelect(item.id)}
@@ -397,8 +395,6 @@ export const GroupedList = ({
 
 const PlainItemRow = ({
   item,
-  flashcardCount,
-  isSelected,
   suppressHover,
   isTyping,
   onSelect,
@@ -406,8 +402,6 @@ const PlainItemRow = ({
   onToggleRead,
 }: {
   item: Item;
-  flashcardCount: number;
-  isSelected: boolean;
   suppressHover: boolean;
   isTyping?: boolean;
   onSelect: () => void;
@@ -432,9 +426,8 @@ const PlainItemRow = ({
           onClick={onSelect}
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
-            isSelected && "bg-secondary",
-            !isSelected && !suppressHover && "hover:bg-card",
-            !isSelected && (menuOpen || contextMenuOpen) && "bg-card",
+            !suppressHover && "hover:bg-card",
+            (menuOpen || contextMenuOpen) && "bg-card",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
@@ -443,8 +436,8 @@ const PlainItemRow = ({
     >
       <ItemRowContent
         item={item}
-        flashcardCount={flashcardCount}
-        isSelected={isSelected}
+        flashcardCount={item.flashcardCount}
+        isSelected={false}
         isTyping={isTyping}
         menuOpen={menuOpen}
         onMenuOpenChange={setMenuOpen}

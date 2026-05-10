@@ -11,14 +11,10 @@ import { useInvalidateItems } from "./use-invalidate-items";
 
 export const useItemsMutations = ({
   filteredItems,
-  setSelectedId,
-  setEditingId,
   showRead,
   setCursor,
 }: {
   filteredItems: Item[];
-  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
-  setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
   showRead: boolean;
   setCursor: (id: string | null) => void;
 }) => {
@@ -71,17 +67,11 @@ export const useItemsMutations = ({
       if (read && !showRead) {
         const idx = filteredItems.findIndex((i) => i.id === itemId);
         const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
-        if (nextItem) {
-          setSelectedId(nextItem.id);
-          setCursor(nextItem.id);
-        } else {
-          setSelectedId(null);
-          setCursor(null);
-        }
+        setCursor(nextItem?.id ?? null);
       }
       toggleReadMutation.mutate({ itemId, read });
     },
-    [filteredItems, showRead, setSelectedId, setCursor, toggleReadMutation],
+    [filteredItems, showRead, setCursor, toggleReadMutation],
   );
 
   const handleDeleteSingle = React.useCallback(
@@ -89,16 +79,9 @@ export const useItemsMutations = ({
       await deleteMutation.mutateAsync(itemId);
       const idx = filteredItems.findIndex((i) => i.id === itemId);
       const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
-      setEditingId(null);
-      if (nextItem) {
-        setSelectedId(nextItem.id);
-        setCursor(nextItem.id);
-      } else {
-        setSelectedId(null);
-        setCursor(null);
-      }
+      setCursor(nextItem?.id ?? null);
     },
-    [filteredItems, setEditingId, setSelectedId, setCursor, deleteMutation],
+    [filteredItems, setCursor, deleteMutation],
   );
 
   return {

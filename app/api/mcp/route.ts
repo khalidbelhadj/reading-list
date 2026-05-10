@@ -23,7 +23,7 @@ import {
 import {
   parseInput,
   mcpGetItemsSchema,
-  mcpGetItemByUrlSchema,
+  mcpGetItemSchema,
   mcpSearchItemsSchema,
   mcpCreateItemsSchema,
   mcpUpdateItemsSchema,
@@ -39,7 +39,7 @@ import {
   toMcpFlashcard,
   toMcpSearchItem,
   type GetItemsResponse,
-  type GetItemByUrlResponse,
+  type GetItemResponse,
   type SearchItemsResponse,
   type CreateItemsResponse,
   type UpdateItemsResponse,
@@ -85,14 +85,14 @@ const TOOLS = [
     },
   },
   {
-    name: "get_item_by_url",
-    description: "Look up a reading list item by its URL.",
+    name: "get_item",
+    description: "Look up a reading list item by its URL or ID. At least one of 'url' or 'id' must be provided.",
     inputSchema: {
       type: "object" as const,
       properties: {
         url: { type: "string", description: "The URL to look up" },
+        id: { type: "string", description: "The item ID to look up" },
       },
-      required: ["url"],
     },
   },
   {
@@ -321,17 +321,20 @@ async function handleTool(name: string, args: unknown, userId: string) {
       });
     }
 
-    case "get_item_by_url": {
-      const parsed = parseInput(mcpGetItemByUrlSchema, args);
+    case "get_item": {
+      const parsed = parseInput(mcpGetItemSchema, args);
+      const condition = parsed.id
+        ? and(eq(items.id, parsed.id), eq(items.userId, userId))
+        : and(eq(items.url, parsed.url!), eq(items.userId, userId));
       const [item] = await withUser(userId, (tx) =>
         tx.query.items.findMany({
-          where: and(eq(items.url, parsed.url), eq(items.userId, userId)),
+          where: condition,
           with: { itemsTags: { with: { tag: true } } },
           limit: 1,
         }),
       );
       if (!item) return text("Not found");
-      return jsonText<GetItemByUrlResponse>(
+      return jsonText<GetItemResponse>(
         toMcpItem(item, item.itemsTags.map((t) => t.tag.name)),
       );
     }
