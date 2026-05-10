@@ -131,30 +131,69 @@ export async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
   );
 }
 
-const interleaveByItem = <T extends { itemId: string | null; due: string }>(
+const shuffle = <T>(array: T[]): T[] => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
+
+const shuffleWithSiblingSpacing = <T extends { itemId: string | null }>(
   cards: T[],
 ): T[] => {
-  const groups = new Map<string, T[]>();
-  let solo = 0;
-  for (const card of cards) {
-    const key = card.itemId ?? `__solo__${solo++}`;
-    const existing = groups.get(key);
-    if (existing) existing.push(card);
-    else groups.set(key, [card]);
-  }
-  const buckets = Array.from(groups.values());
-  for (const bucket of buckets) {
-    bucket.sort((a, b) => a.due.localeCompare(b.due));
-  }
+  shuffle(cards);
 
-  const result: T[] = [];
-  const maxLen = buckets.reduce((m, b) => Math.max(m, b.length), 0);
-  for (let i = 0; i < maxLen; i++) {
-    for (const bucket of buckets) {
-      if (i < bucket.length) result.push(bucket[i]);
+  for (let i = 1; i < cards.length; i++) {
+    if (
+      cards[i].itemId !== null &&
+      cards[i].itemId === cards[i - 1].itemId
+    ) {
+      let swapped = false;
+      for (let j = i + 1; j < cards.length; j++) {
+        if (cards[j].itemId !== cards[i].itemId) {
+          [cards[i], cards[j]] = [cards[j], cards[i]];
+          swapped = true;
+          break;
+        }
+      }
+      if (!swapped) break;
     }
   }
-  return result;
+
+  return cards;
+};
+
+const weightedRandomSelection = <T>(
+  pool: T[],
+  weights: number[],
+  count: number,
+): T[] => {
+  const selected: T[] = [];
+  const remainingIndices = pool.map((_, i) => i);
+  const remainingWeights = [...weights];
+
+  const actualCount = Math.min(count, pool.length);
+  for (let pick = 0; pick < actualCount; pick++) {
+    let totalWeight = 0;
+    for (const weight of remainingWeights) totalWeight += weight;
+
+    let random = Math.random() * totalWeight;
+    let chosenIdx = 0;
+    for (let i = 0; i < remainingWeights.length; i++) {
+      random -= remainingWeights[i];
+      if (random <= 0) {
+        chosenIdx = i;
+        break;
+      }
+    }
+
+    selected.push(pool[remainingIndices[chosenIdx]]);
+    remainingIndices.splice(chosenIdx, 1);
+    remainingWeights.splice(chosenIdx, 1);
+  }
+
+  return selected;
 };
 
 export async function startReviewSession(args: {
@@ -178,8 +217,10 @@ export async function startReviewSession(args: {
 
     let cards: ReviewSessionCard[] = [];
 
+    const poolSize = limit * 3;
+
     if (args.mode === "due") {
-      cards = await tx
+      const pool = await tx
         .select(cardSelection)
         .from(flashcards)
         .leftJoin(
@@ -188,9 +229,16 @@ export async function startReviewSession(args: {
         )
         .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
         .orderBy(asc(flashcards.due))
-        .limit(limit);
+        .limit(poolSize);
+
+      const nowMs = Date.now();
+      const weights = pool.map((card) => {
+        const overdueMs = nowMs - new Date(card.due).getTime();
+        return Math.max(overdueMs, 1);
+      });
+      cards = weightedRandomSelection(pool, weights, limit);
     } else if (args.mode === "new") {
-      cards = await tx
+      const pool = await tx
         .select(cardSelection)
         .from(flashcards)
         .leftJoin(
@@ -199,7 +247,10 @@ export async function startReviewSession(args: {
         )
         .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
         .orderBy(asc(flashcards.createdAt))
-        .limit(limit);
+        .limit(poolSize);
+
+      const uniformWeights = pool.map(() => 1);
+      cards = weightedRandomSelection(pool, uniformWeights, limit);
     } else if (args.mode === "item") {
       if (!args.scope?.itemId)
         throw new Error("item mode requires scope.itemId");
@@ -218,7 +269,7 @@ export async function startReviewSession(args: {
         )
         .orderBy(asc(flashcards.createdAt));
     } else if (args.mode === "cram") {
-      cards = await tx
+      const pool = await tx
         .select(cardSelection)
         .from(flashcards)
         .leftJoin(
@@ -227,10 +278,13 @@ export async function startReviewSession(args: {
         )
         .where(eq(flashcards.userId, userId))
         .orderBy(asc(flashcards.createdAt))
-        .limit(limit);
+        .limit(poolSize);
+
+      const uniformWeights = pool.map(() => 1);
+      cards = weightedRandomSelection(pool, uniformWeights, limit);
     }
 
-    cards = interleaveByItem(cards);
+    cards = shuffleWithSiblingSpacing(cards);
     const cardIds = cards.map((c) => c.id);
 
     await tx.insert(reviewSessions).values({
