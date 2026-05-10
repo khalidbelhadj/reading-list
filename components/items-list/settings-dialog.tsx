@@ -233,14 +233,13 @@ export const SettingsMenu = ({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="font-content text-sm font-medium gap-1 px-2"
+          <button
+            type="button"
+            className="font-content text-sm font-medium gap-1 inline-flex items-center outline-none"
           >
             {TAB_LABELS[activeTab]}
             <IconChevronDown className="size-3.5 text-muted-foreground/60" />
-          </Button>
+          </button>
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">

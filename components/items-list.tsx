@@ -12,15 +12,14 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { IconArrowsMaximize, IconChevronsRight, IconDots, IconFileFilled } from "@tabler/icons-react";
+import { IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -36,7 +35,6 @@ import {
 
 import { getFaviconSrc, resolveRowItem } from "./items-list/utils";
 
-type LiveFields = { title: string; url: string; notes: string; tags: string[] };
 import { fetchItems } from "@/lib/queries";
 import { type EditFields } from "./items-list/utils";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
@@ -51,38 +49,17 @@ import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { DetailPanel } from "./items-list/detail-panel";
-import { DetailPanelSkeleton } from "./items-list/detail-panel-skeleton";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList } from "./items-list/grouped-list";
-import { ItemDropdown } from "./items-list/item-dropdown";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 
-// Anchor offset (in px) matching the panel's `left: calc(50% + 18.75rem)` style.
-const PANEL_LEFT_OFFSET_PX = 300;
-// Min/max width (in px) of the panel in collapsed state.
-const PANEL_MIN_WIDTH_PX = 360;
-const PANEL_MAX_WIDTH_PX = 700;
 const PANEL_DEFAULT_WIDTH_PX = 440;
-// Visual width of inner content when expanded — keeps the form centered.
-const EXPANDED_CONTENT_MAX_WIDTH_PX = 600;
-
-const useViewportWidth = () => {
-  const [width, setWidth] = React.useState(0);
-  React.useLayoutEffect(() => {
-    const update = () => setWidth(window.innerWidth);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return width;
-};
+const PANEL_CONTENT_MAX_WIDTH_PX = 600;
 
 export const ItemsList = () => {
   // Data
-  const viewportWidth = useViewportWidth();
-  const [isPanelAnimating, setIsPanelAnimating] = React.useState(false);
+  const router = useRouter();
   const queryClient = useQueryClient();
   const {
     data: items,
@@ -100,18 +77,8 @@ export const ItemsList = () => {
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
-  const [panelWidth, setPanelWidth] = React.useState(() => {
-    if (typeof window === "undefined") return PANEL_DEFAULT_WIDTH_PX;
-    const stored = localStorage.getItem("panelWidth");
-    const parsed = stored ? parseInt(stored, 10) : NaN;
-    return Number.isFinite(parsed)
-      ? Math.min(Math.max(parsed, PANEL_MIN_WIDTH_PX), PANEL_MAX_WIDTH_PX)
-      : PANEL_DEFAULT_WIDTH_PX;
-  });
-  const [isDraggingPanel, setIsDraggingPanel] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [justDropped, setJustDropped] = React.useState(false);
-  const [liveFields, setLiveFields] = React.useState<LiveFields | null>(null);
   const [typingTitles, setTypingTitles] = React.useState<
     Record<string, string>
   >({});
@@ -156,85 +123,12 @@ export const ItemsList = () => {
     );
   }, []);
 
-  const [focusedId, setFocusedId] = React.useState<string | null>(() =>
-    searchParams.get("item"),
-  );
-
-  // Sync local state -> URL (so the page is shareable)
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("item") === focusedId) return;
-    if (focusedId) params.set("item", focusedId);
-    else params.delete("item");
-    const queryString = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      queryString ? `?${queryString}` : window.location.pathname,
-    );
-  }, [focusedId]);
-
-  // popstate -> sync URL back into local state
-  React.useEffect(() => {
-    const handler = () => {
-      setFocusedId(new URLSearchParams(window.location.search).get("item"));
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, []);
-
-  // Remember which tab the user opened the focused view from, so Back returns
-  // them to that tab (e.g. open from Cards → back to Cards).
-  const focusedFromTabRef = React.useRef<TabId | null>(null);
-
-  const handleExpandItem = React.useCallback(
+  const handleOpenItem = React.useCallback(
     (id: string) => {
-      focusedFromTabRef.current = activeTab;
-      setFocusedId(id);
+      router.push(`/item/${id}`);
     },
-    [activeTab],
+    [router],
   );
-  const handlePanelDragStart = React.useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      setIsDraggingPanel(true);
-      const startX = e.clientX;
-      const startWidth = panelWidth;
-      const onMove = (ev: PointerEvent) => {
-        const delta = startX - ev.clientX;
-        const next = Math.min(
-          Math.max(startWidth + delta, PANEL_MIN_WIDTH_PX),
-          PANEL_MAX_WIDTH_PX,
-        );
-        setPanelWidth(next);
-      };
-      const onUp = () => {
-        setIsDraggingPanel(false);
-        setPanelWidth((w) => {
-          localStorage.setItem("panelWidth", String(w));
-          return w;
-        });
-        document.removeEventListener("pointermove", onMove);
-        document.removeEventListener("pointerup", onUp);
-      };
-      document.addEventListener("pointermove", onMove);
-      document.addEventListener("pointerup", onUp);
-    },
-    [panelWidth],
-  );
-
-  const handleCloseFocused = React.useCallback(() => {
-    const fromTab = focusedFromTabRef.current;
-    if (fromTab && fromTab !== activeTab) {
-      setActiveTabAndUrl(fromTab);
-    }
-    focusedFromTabRef.current = null;
-    setFocusedId(null);
-    setSelectedId(null);
-    setCursor(null);
-    setLiveFields(null);
-  }, [activeTab, setActiveTabAndUrl, setCursor]);
-
   // Hooks
   const {
     tabItems,
@@ -274,16 +168,9 @@ export const ItemsList = () => {
   const handleSelectRow = React.useCallback(
     (id: string) => {
       if (editingId !== null) setEditingId(null);
-      if (selectedId === id) {
-        setSelectedId(null);
-        setCursor(null);
-      } else {
-        setSelectedId(id);
-        setCursor(id);
-      }
-      setLiveFields(null);
+      router.push(`/item/${id}`);
     },
-    [editingId, selectedId, setCursor],
+    [editingId, router],
   );
   const confirmDelete = React.useCallback(async () => {
     if (!itemToDelete) return;
@@ -427,13 +314,6 @@ export const ItemsList = () => {
     if (!open) setDuplicateDialog(null);
   }, []);
 
-  const handleClosePanel = React.useCallback(() => {
-    if (editingId !== null) setEditingId(null);
-    setSelectedId(null);
-    setCursor(null);
-    setLiveFields(null);
-  }, [editingId, setCursor]);
-
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
     selectedId,
@@ -450,6 +330,7 @@ export const ItemsList = () => {
       if (selectedId) requestDeleteItem(selectedId);
     }, [selectedId, requestDeleteItem]),
     activeTags,
+    onOpenItem: handleOpenItem,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
     onReorder: handleReorder,
@@ -550,17 +431,17 @@ export const ItemsList = () => {
           notes: fields.notes.trim() || undefined,
         },
         {
-          onProceed: () => setSelectedId(null),
+          onProceed: () => setEditingId(null),
           onCreated: async (newId) => {
             await queryClient.invalidateQueries({ queryKey: ["items"] });
             setEditingId(null);
-            setSelectedId(newId);
+            router.push(`/item/${newId}`);
           },
           onOpenExisting: () => setEditingId(null),
         },
       );
     },
-    [requestCreate, queryClient],
+    [requestCreate, queryClient, router],
   );
 
   // Effects
@@ -570,6 +451,13 @@ export const ItemsList = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  React.useEffect(() => {
+    if (!items) return;
+    for (const item of items) {
+      router.prefetch(`/item/${item.id}`);
+    }
+  }, [items, router]);
 
   // DnD
   const isDragDisabled =
@@ -606,20 +494,7 @@ export const ItemsList = () => {
 
   // Derived state
   const isNewItem = editingId === "new";
-  const detailItem =
-    !isNewItem && selectedId !== null
-      ? (filteredItems.find((i) => i.id === selectedId) ?? null)
-      : null;
-  const showDetailPanel =
-    activeTab !== "cards" && (detailItem !== null || isNewItem);
-
-  const focusedItem = focusedId
-    ? (items?.find((i) => i.id === focusedId) ?? null)
-    : null;
-
-  const isFocused = !!focusedId;
-  const panelItem = isFocused ? focusedItem : detailItem;
-  const panelVisible = showDetailPanel || isFocused;
+  const panelVisible = activeTab !== "cards" && isNewItem;
 
   // Empty state message
   const emptyState = React.useMemo(() => {
@@ -662,14 +537,7 @@ export const ItemsList = () => {
 
   return (
     <div className="relative">
-      <div
-        className={cn(
-          "transition-opacity duration-200",
-          focusedId &&
-            "fixed inset-0 opacity-0 pointer-events-none overflow-hidden",
-        )}
-        aria-hidden={focusedId ? true : undefined}
-      >
+      <div>
         <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
           {/* Sticky header */}
           <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
@@ -717,7 +585,7 @@ export const ItemsList = () => {
           {activeTab === "cards" ? (
             <CardsList
               searchIds={searchIds}
-              onOpenItem={handleExpandItem}
+              onOpenItem={handleOpenItem}
             />
           ) : isLoading ? (
             <div className="flex flex-col">
@@ -754,8 +622,6 @@ export const ItemsList = () => {
               )}
               <GroupedList
                 groups={groups}
-                selectedId={selectedId}
-                liveFields={liveFields}
                 typingTitles={typingTitles}
                 suppressHover={suppressHover}
                 onSelect={handleSelectRow}
@@ -788,14 +654,14 @@ export const ItemsList = () => {
                   )}
                   {filteredItems.map((item) => {
                     const typingTitle = typingTitles[item.id];
-                    const rowItem = resolveRowItem(item, typingTitle, selectedId, liveFields);
+                    const rowItem = resolveRowItem(item, typingTitle);
                     return (
                     <SortableItemRow
                       key={item.id}
                       item={rowItem}
                       flashcardCount={item.flashcardCount}
                       isEditing={false}
-                      isSelected={selectedId === item.id}
+                      isSelected={false}
                       suppressHover={suppressHover}
                       isDragDisabled={isDragDisabled}
                       isTyping={typingTitle !== undefined}
@@ -817,107 +683,22 @@ export const ItemsList = () => {
       {panelVisible && (
         <motion.div
           data-detail-panel
-          initial={{ x: panelWidth }}
-          animate={{
-            x: 0,
-            width: isFocused ? viewportWidth : panelWidth,
-          }}
-          exit={{ x: viewportWidth }}
-          transition={isDraggingPanel ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0 }}
-          onAnimationStart={() => !isDraggingPanel && setIsPanelAnimating(true)}
-          onAnimationComplete={() => setIsPanelAnimating(false)}
-          className={cn(
-            "fixed top-0 right-0 z-20 h-dvh border-l border-border/50 bg-background detail-panel-scroll",
-            isPanelAnimating ? "overflow-hidden" : "overflow-y-auto",
-          )}
+          initial={{ x: PANEL_DEFAULT_WIDTH_PX }}
+          animate={{ x: 0, width: PANEL_DEFAULT_WIDTH_PX }}
+          exit={{ x: PANEL_DEFAULT_WIDTH_PX }}
+          transition={{ type: "spring", visualDuration: 0.22, bounce: 0 }}
+          className="fixed top-0 right-0 z-20 h-dvh border-l border-border/50 bg-background detail-panel-scroll overflow-y-auto"
         >
-          {!isFocused && (
-            <div
-              onPointerDown={handlePanelDragStart}
-              className={cn(
-                "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-30 hover:bg-foreground/10 active:bg-foreground/15",
-                isDraggingPanel && "bg-foreground/15",
-              )}
+          <div className="mx-auto w-full px-5 pt-4" style={{ maxWidth: PANEL_CONTENT_MAX_WIDTH_PX }}>
+            <DetailPanel
+              key="new"
+              item={null}
+              isNew
+              defaultTags={[...activeTags]}
+              onSave={handleSave}
+              onCreate={handleCreate}
+              onCancel={() => setEditingId(null)}
             />
-          )}
-          {!isNewItem && (
-            <div className="sticky top-0 z-10 flex items-center gap-0.5 px-1.5 pt-1.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground/40"
-                onClick={isFocused ? handleCloseFocused : handleClosePanel}
-                title="Close"
-              >
-                <IconChevronsRight />
-              </Button>
-              {!isFocused && detailItem && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground/40"
-                  onClick={() => handleExpandItem(detailItem.id)}
-                  title="Open full page"
-                >
-                  <IconArrowsMaximize />
-                </Button>
-              )}
-              <div className="flex-1" />
-              {panelItem && (
-                <ItemDropdown
-                  item={panelItem}
-                  onToggleRead={
-                    panelItem
-                      ? () => handleToggleRead(panelItem.id, !panelItem.read)
-                      : undefined
-                  }
-                  onDelete={
-                    panelItem ? () => requestDeleteItem(panelItem.id) : undefined
-                  }
-                >
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground/40"
-                      >
-                        <IconDots />
-                      </Button>
-                    }
-                  />
-                </ItemDropdown>
-              )}
-            </div>
-          )}
-          <div className="mx-auto w-full px-5 pt-1" style={{ maxWidth: EXPANDED_CONTENT_MAX_WIDTH_PX }}>
-            {isFocused && !focusedItem ? (
-              <DetailPanelSkeleton />
-            ) : (
-              <DetailPanel
-                key={panelItem?.id ?? "new"}
-                focused={isFocused}
-                item={panelItem}
-                isNew={!isFocused && isNewItem}
-                defaultTags={
-                  !isFocused && isNewItem ? [...activeTags] : undefined
-                }
-                onSave={handleSave}
-                onCreate={handleCreate}
-                onCancel={
-                  !isFocused && isNewItem ? () => setEditingId(null) : undefined
-                }
-                onDelete={
-                  panelItem ? () => requestDeleteItem(panelItem.id) : undefined
-                }
-                onToggleRead={
-                  panelItem
-                    ? () => handleToggleRead(panelItem.id, !panelItem.read)
-                    : undefined
-                }
-                onFieldsChange={setLiveFields}
-              />
-            )}
           </div>
         </motion.div>
       )}
