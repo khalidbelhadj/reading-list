@@ -5,6 +5,7 @@ import {
   IconWand,
   IconX,
 } from "@tabler/icons-react";
+import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -374,7 +375,7 @@ export const DetailPanel = ({
       {/* Item form card */}
       <div className="flex flex-col gap-2">
         {/* Favicon + Title */}
-        <div className="flex items-center gap-2">
+        <div data-title-row className="flex items-center gap-2">
           <div className="size-5 shrink-0 flex items-center justify-center">
             {faviconSrc ? (
               <Image
@@ -461,15 +462,19 @@ export const DetailPanel = ({
 
       {item && !isNew && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {item.flashcardCount === 0
-                ? "No flashcards"
-                : `${item.flashcardCount} ${item.flashcardCount === 1 ? "flashcard" : "flashcards"}`}
-            </span>
-            <Button variant="ghost" onClick={handleAddingCard}>
+          <div className="border-t border-border" />
+          <div className="flex items-center">
+            {cards.length > 0 && (
+              <Badge variant="secondary">{cards.length}</Badge>
+            )}
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
+              onClick={handleAddingCard}
+            >
               <IconPlus />
-              Add card
             </Button>
           </div>
 

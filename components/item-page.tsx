@@ -2,12 +2,14 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconArrowLeft, IconDots, IconExternalLink } from "@tabler/icons-react";
+import { IconArrowLeft, IconDots, IconExternalLink, IconFileFilled } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
+import { getFaviconSrc } from "@/components/items-list/utils";
 import { updateItem, deleteItem, toggleRead } from "@/app/actions";
 import { type EditFields } from "@/components/items-list/utils";
 import { useInvalidateItems } from "@/components/items-list/use-invalidate-items";
@@ -49,6 +51,81 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
       document.title = "Reading List";
     };
   }, [item?.title]);
+
+  const morphRef = React.useRef<HTMLDivElement>(null);
+  const headerSlotRef = React.useRef<HTMLDivElement>(null);
+  const scrolledRef = React.useRef(false);
+  const [scrolled, setScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const THRESHOLD = 48;
+    const CONTENT_ICON = 20;
+    const HEADER_ICON = 14;
+    const CONTENT_FONT = 14;
+    const HEADER_FONT = 12;
+
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const ease = (t: number) => t * (2 - t);
+
+    const update = () => {
+      const morph = morphRef.current;
+      const headerSlot = headerSlotRef.current;
+      const contentRow = document.querySelector<HTMLElement>("[data-title-row]");
+      if (!morph || !headerSlot || !contentRow) return;
+
+      const scrollY = Math.max(0, window.scrollY);
+      const rawT = Math.min(scrollY / THRESHOLD, 1);
+      const t = ease(rawT);
+
+      const isScrolled = scrollY > 0;
+      if (isScrolled !== scrolledRef.current) {
+        scrolledRef.current = isScrolled;
+        setScrolled(isScrolled);
+      }
+
+      if (rawT <= 0) {
+        morph.style.opacity = "0";
+        contentRow.style.visibility = "";
+        return;
+      }
+
+      contentRow.style.visibility = "hidden";
+
+      const contentRect = contentRow.getBoundingClientRect();
+      const headerRect = headerSlot.getBoundingClientRect();
+
+      const x = lerp(contentRect.left, headerRect.left, t);
+      const y = lerp(contentRect.top, headerRect.top, t);
+      const iconSize = lerp(CONTENT_ICON, HEADER_ICON, t);
+      const fontSize = lerp(CONTENT_FONT, HEADER_FONT, t);
+      const gap = lerp(8, 6, t);
+      const maxWidth = lerp(contentRect.width, headerRect.width, t);
+
+      morph.style.transform = `translate(${x}px, ${y}px)`;
+      morph.style.fontSize = `${fontSize}px`;
+      morph.style.gap = `${gap}px`;
+      morph.style.maxWidth = `${maxWidth}px`;
+      morph.style.opacity = "1";
+
+      const icon = morph.querySelector<HTMLElement>("[data-morph-icon]");
+      if (icon) {
+        icon.style.width = `${iconSize}px`;
+        icon.style.height = `${iconSize}px`;
+      }
+    };
+
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const raf = requestAnimationFrame(update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      cancelAnimationFrame(raf);
+      const contentRow = document.querySelector<HTMLElement>("[data-title-row]");
+      if (contentRow) contentRow.style.visibility = "";
+    };
+  }, [item]);
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -135,14 +212,18 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
     router.back();
   }, [router]);
 
+  const faviconSrc = item
+    ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })
+    : null;
+
   return (
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-175 px-5">
-        <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5">
+        <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5 pb-1.5 bg-background">
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground/40"
+            className="text-muted-foreground"
             onClick={handleBack}
             title="Back"
           >
@@ -152,14 +233,14 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground/40"
+              className="text-muted-foreground"
               onClick={() => window.open(item.url, "_blank")}
               title="Open URL"
             >
               <IconExternalLink />
             </Button>
           )}
-          <div className="flex-1" />
+          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
           {item && (
             <ItemDropdown
               item={item}
@@ -171,13 +252,16 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground/40"
+                    className="text-muted-foreground"
                   >
                     <IconDots />
                   </Button>
                 }
               />
             </ItemDropdown>
+          )}
+          {scrolled && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
           )}
         </div>
         <div className="pt-1">
@@ -197,6 +281,32 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
         )}
         </div>
       </div>
+
+      {item && (
+        <div
+          ref={morphRef}
+          className="fixed top-0 left-0 z-20 flex items-center pointer-events-none"
+          style={{ opacity: 0 }}
+        >
+          <div data-morph-icon className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+            {faviconSrc ? (
+              <Image
+                src={faviconSrc}
+                alt=""
+                width={20}
+                height={20}
+                className="w-full h-full rounded object-contain"
+                unoptimized
+              />
+            ) : (
+              <IconFileFilled className="w-full h-full text-muted-foreground" />
+            )}
+          </div>
+          <span className="font-content truncate">
+            {item.title || "Untitled"}
+          </span>
+        </div>
+      )}
 
       <AlertDialog
         open={deleteOpen}
