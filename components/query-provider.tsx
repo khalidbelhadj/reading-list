@@ -9,7 +9,7 @@ import React from "react";
 import { toast } from "sonner";
 
 const makeQueryClient = () => {
-  return new QueryClient({
+  const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
@@ -22,9 +22,11 @@ const makeQueryClient = () => {
           return;
         }
         toast.error(error instanceof Error ? error.message : "Something went wrong");
+        queryClient.invalidateQueries();
       },
     }),
   });
+  return queryClient;
 };
 
 let browserQueryClient: QueryClient | undefined;

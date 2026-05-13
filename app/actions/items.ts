@@ -4,6 +4,7 @@ import { withUser } from "@/db";
 import { items } from "@/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
+import { safeAction } from "@/lib/safe-action";
 import { ensureTagsLinked } from "@/lib/tags";
 import {
   createItems as createItemsLib,
@@ -30,21 +31,21 @@ import {
   bulkMarkReadSchema,
 } from "@/lib/schemas";
 
-export async function searchItems(query: string): Promise<SearchResult[]> {
+export const searchItems = safeAction(async function searchItems(query: string): Promise<SearchResult[]> {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) => searchItemsQuery(tx, userId, query));
-}
+}, "Could not search items. Please try again.");
 
-export async function searchFlashcards(query: string): Promise<FlashcardSearchResult[]> {
+export const searchFlashcards = safeAction(async function searchFlashcards(query: string): Promise<FlashcardSearchResult[]> {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) => searchFlashcardsQuery(tx, userId, query));
-}
+}, "Could not search flashcards. Please try again.");
 
-export async function deleteItem(itemId: string) {
+export const deleteItem = safeAction(async function deleteItem(itemId: string) {
   parseInput(deleteItemSchema, { itemId });
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => deleteItemsLib(tx, userId, [itemId]));
-}
+}, "Could not delete item. Please try again.");
 
 async function fetchOembedTitle(url: string): Promise<string | null> {
   try {
@@ -75,7 +76,7 @@ function decodeHtmlEntities(str: string): string {
     .replace(/\s+/g, " ");
 }
 
-export async function fetchPageTitle(url: string): Promise<string | null> {
+export const fetchPageTitle = safeAction(async function fetchPageTitle(url: string): Promise<string | null> {
   parseInput(fetchPageTitleSchema, { url });
   try {
     await assertPublicUrl(url);
@@ -113,9 +114,9 @@ export async function fetchPageTitle(url: string): Promise<string | null> {
   } catch {
     return null;
   }
-}
+}, "Could not fetch page title. Please try again.");
 
-export async function createItem(
+export const createItem = safeAction(async function createItem(
   title: string,
   url: string,
   tagNames: string[],
@@ -131,9 +132,9 @@ export async function createItem(
     ]);
     return itemId;
   });
-}
+}, "Could not create item. Please try again.");
 
-export async function updateItem(
+export const updateItem = safeAction(async function updateItem(
   itemId: string,
   fields: {
     title?: string;
@@ -148,9 +149,9 @@ export async function updateItem(
   parseInput(updateItemSchema, { itemId, fields });
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => updateItemLib(tx, userId, itemId, fields));
-}
+}, "Could not update item. Please try again.");
 
-export async function reorderItem(
+export const reorderItem = safeAction(async function reorderItem(
   itemId: string,
   newPosition: number,
 ) {
@@ -175,20 +176,22 @@ export async function reorderItem(
       .filter((u, i) => typeItems[i].position !== u.position);
 
     if (updates.length > 0) {
+      const idValues = sql.join(updates.map((u) => sql`${u.id}`), sql`, `);
+      const posValues = sql.join(updates.map((u) => sql`${u.position}`), sql`, `);
       await tx.execute(sql`
         UPDATE ${items} SET position = v.new_pos::int
         FROM (
-          SELECT unnest(${updates.map((u) => u.id)}::text[]) AS id,
-                 unnest(${updates.map((u) => u.position)}::int[]) AS new_pos
+          SELECT unnest(ARRAY[${idValues}]::text[]) AS id,
+                 unnest(ARRAY[${posValues}]::int[]) AS new_pos
         ) v
-        WHERE ${items}.id = v.id::uuid
-          AND ${items}.user_id = ${userId}
+        WHERE ${items}.id = v.id
+          AND ${items}.user_id = ${userId}::uuid
       `);
     }
   });
-}
+}, "Could not reorder items. Please try again.");
 
-export async function toggleRead(itemId: string, read: boolean) {
+export const toggleRead = safeAction(async function toggleRead(itemId: string, read: boolean) {
   parseInput(toggleReadSchema, { itemId, read });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
@@ -198,16 +201,16 @@ export async function toggleRead(itemId: string, read: boolean) {
       .set({ read, readAt: read ? now : null, updatedAt: now })
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
   });
-}
+}, "Could not mark item as read. Please try again.");
 
-export async function bulkDeleteItems(itemIds: string[]) {
+export const bulkDeleteItems = safeAction(async function bulkDeleteItems(itemIds: string[]) {
   parseInput(bulkDeleteItemsSchema, { itemIds });
   if (itemIds.length === 0) return;
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => deleteItemsLib(tx, userId, itemIds));
-}
+}, "Could not delete items. Please try again.");
 
-export async function bulkTag(itemIds: string[], tagNames: string[]) {
+export const bulkTag = safeAction(async function bulkTag(itemIds: string[], tagNames: string[]) {
   parseInput(bulkTagSchema, { itemIds, tagNames });
   if (itemIds.length === 0 || tagNames.length === 0) return;
 
@@ -224,9 +227,9 @@ export async function bulkTag(itemIds: string[], tagNames: string[]) {
       await ensureTagsLinked(tx, userId, itemId, tagNames);
     }
   });
-}
+}, "Could not tag items. Please try again.");
 
-export async function bulkMarkRead(itemIds: string[], read: boolean) {
+export const bulkMarkRead = safeAction(async function bulkMarkRead(itemIds: string[], read: boolean) {
   parseInput(bulkMarkReadSchema, { itemIds, read });
   if (itemIds.length === 0) return;
 
@@ -238,4 +241,4 @@ export async function bulkMarkRead(itemIds: string[], read: boolean) {
       .set({ read, readAt: read ? now : null, updatedAt: now })
       .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
   });
-}
+}, "Could not update items. Please try again.");

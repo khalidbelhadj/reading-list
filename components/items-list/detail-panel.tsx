@@ -370,6 +370,7 @@ export const DetailPanel = ({
 
   return (
     <div
+      data-detail-panel
       className="flex flex-col gap-2 w-full pb-12"
     >
       {/* Item form card */}

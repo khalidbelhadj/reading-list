@@ -89,6 +89,7 @@ const useAutoCloseAfterCopy = ({
 
 type ItemMenuActionsProps = {
   item: Item;
+  onTogglePin?: () => void;
   onToggleRead?: () => void;
   onDelete?: () => void;
 };
@@ -154,6 +155,7 @@ const ItemMenuItems = ({
   handleOpenInNewTab,
   handleCopyId,
   handleCopy,
+  onTogglePin,
   onToggleRead,
   onDelete,
 }: ItemMenuActionsProps & ReturnType<typeof useItemMenuActions>) => {
@@ -164,6 +166,11 @@ const ItemMenuItems = ({
       {canOpenUrl && (
         <DropdownMenuItem onClick={handleOpenInNewTab}>
           Open in new tab
+        </DropdownMenuItem>
+      )}
+      {onTogglePin && (
+        <DropdownMenuItem onClick={onTogglePin}>
+          {item.starred ? "Unpin" : "Pin"}
         </DropdownMenuItem>
       )}
       <Tooltip open={lastCopied === "__id__"}>
@@ -209,6 +216,7 @@ export const ItemDropdown = ({
   item,
   open,
   onOpenChange,
+  onTogglePin,
   onToggleRead,
   onDelete,
   children,
@@ -216,6 +224,7 @@ export const ItemDropdown = ({
   item: Item;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onTogglePin?: () => void;
   onToggleRead?: () => void;
   onDelete?: () => void;
   children: React.ReactNode;
@@ -246,6 +255,7 @@ export const ItemDropdown = ({
       >
         <ItemMenuItems
           item={item}
+          onTogglePin={onTogglePin}
           onToggleRead={onToggleRead}
           onDelete={onDelete}
           {...actions}
@@ -257,12 +267,14 @@ export const ItemDropdown = ({
 
 export const ItemContextMenu = ({
   item,
+  onTogglePin,
   onToggleRead,
   onDelete,
   onOpenChange,
   children,
 }: {
   item: Item;
+  onTogglePin?: () => void;
   onToggleRead?: () => void;
   onDelete?: () => void;
   onOpenChange?: (open: boolean) => void;
@@ -295,6 +307,7 @@ export const ItemContextMenu = ({
       <ContextMenuContent>
         <ItemMenuItems
           item={item}
+          onTogglePin={onTogglePin}
           onToggleRead={onToggleRead}
           onDelete={onDelete}
           {...actions}

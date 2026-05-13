@@ -35,7 +35,7 @@ import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useInvalidateItems } from "./use-invalidate-items";
 
-const CollapsibleSection = ({
+export const CollapsibleSection = ({
   open,
   children,
 }: {
@@ -94,6 +94,7 @@ type GroupedListProps = {
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
+  onTogglePin: (id: string, starred: boolean) => void;
 };
 
 export const GroupedList = ({
@@ -103,6 +104,7 @@ export const GroupedList = ({
   onSelect,
   onDelete,
   onToggleRead,
+  onTogglePin,
 }: GroupedListProps) => {
   const queryClient = useQueryClient();
   const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set());
@@ -349,6 +351,7 @@ export const GroupedList = ({
                     onSelect={() => onSelect(item.id)}
                     onDelete={() => onDelete(item.id)}
                     onToggleRead={() => onToggleRead(item.id, !item.read)}
+                    onTogglePin={() => onTogglePin(item.id, !item.starred)}
                   />
                 );
               })}
@@ -393,13 +396,14 @@ export const GroupedList = ({
   );
 };
 
-const PlainItemRow = ({
+export const PlainItemRow = ({
   item,
   suppressHover,
   isTyping,
   onSelect,
   onDelete,
   onToggleRead,
+  onTogglePin,
 }: {
   item: Item;
   suppressHover: boolean;
@@ -407,6 +411,7 @@ const PlainItemRow = ({
   onSelect: () => void;
   onDelete?: () => void;
   onToggleRead?: () => void;
+  onTogglePin?: () => void;
 }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
@@ -415,6 +420,7 @@ const PlainItemRow = ({
   return (
     <ItemContextMenu
       item={item}
+      onTogglePin={onTogglePin}
       onToggleRead={onToggleRead}
       onDelete={onDelete}
       onOpenChange={setContextMenuOpen}
@@ -441,6 +447,7 @@ const PlainItemRow = ({
         isTyping={isTyping}
         menuOpen={menuOpen}
         onMenuOpenChange={setMenuOpen}
+        onTogglePin={onTogglePin}
         onToggleRead={onToggleRead}
         onDelete={onDelete}
       />

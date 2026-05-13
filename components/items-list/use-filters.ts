@@ -207,15 +207,27 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
     });
   }, [setActiveTags]);
 
+  const pinnedItems = React.useMemo(
+    () => filteredItems.filter((item) => item.starred),
+    [filteredItems],
+  );
+
+  const unpinnedItems = React.useMemo(
+    () => filteredItems.filter((item) => !item.starred),
+    [filteredItems],
+  );
+
   const groups = React.useMemo(
-    () => buildGroups(filteredItems, groupBy),
-    [filteredItems, groupBy],
+    () => buildGroups(unpinnedItems, groupBy),
+    [unpinnedItems, groupBy],
   );
 
   return {
     tabItems,
     allTags,
     filteredItems,
+    pinnedItems,
+    unpinnedItems,
     activeTags,
     setActiveTags,
     toggleTag,

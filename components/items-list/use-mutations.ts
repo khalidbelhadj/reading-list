@@ -5,6 +5,7 @@ import {
   reorderItem,
   toggleRead,
   deleteItem,
+  updateItem,
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import { useInvalidateItems } from "./use-invalidate-items";
@@ -84,9 +85,38 @@ export const useItemsMutations = ({
     [filteredItems, setCursor, deleteMutation],
   );
 
+  const togglePinMutation = useMutation({
+    mutationFn: ({ itemId, starred }: { itemId: string; starred: boolean }) =>
+      updateItem(itemId, { starred }),
+    onMutate: async ({ itemId, starred }) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((item) =>
+          item.id === itemId ? { ...item, starred } : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["items"], context.previous);
+      }
+    },
+    onSettled: invalidate,
+  });
+
+  const handleTogglePin = React.useCallback(
+    (itemId: string, starred: boolean) => {
+      togglePinMutation.mutate({ itemId, starred });
+    },
+    [togglePinMutation],
+  );
+
   return {
     handleReorder,
     handleToggleRead,
     handleDeleteSingle,
+    handleTogglePin,
   };
 };

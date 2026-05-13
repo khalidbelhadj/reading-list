@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
+import { safeAction, ActionError } from "@/lib/safe-action";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { z } from "zod";
 import { logReviewEvent, type ReviewEvent } from "@/lib/review-events";
@@ -65,8 +66,9 @@ const selectQueueCard = {
   itemFaviconUrl: items.faviconUrl,
 };
 
-export async function getDueCards(limit = 5): Promise<FlashcardWithItem[]> {
-  parseInput(getDueCardsSchema, { limit });
+export const getDueCards = safeAction(async function getDueCards(limit?: number): Promise<FlashcardWithItem[]> {
+  const n = limit ?? 5;
+  parseInput(getDueCardsSchema, { limit: n });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   return withUser(userId, (tx) =>
@@ -79,12 +81,13 @@ export async function getDueCards(limit = 5): Promise<FlashcardWithItem[]> {
       )
       .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
       .orderBy(asc(flashcards.due))
-      .limit(limit),
+      .limit(n),
   );
-}
+}, "Could not load due cards. Please try again.");
 
-export async function getNewCards(limit = 5): Promise<FlashcardWithItem[]> {
-  parseInput(getNewCardsSchema, { limit });
+export const getNewCards = safeAction(async function getNewCards(limit?: number): Promise<FlashcardWithItem[]> {
+  const n = limit ?? 5;
+  parseInput(getNewCardsSchema, { limit: n });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -96,11 +99,11 @@ export async function getNewCards(limit = 5): Promise<FlashcardWithItem[]> {
       )
       .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
       .orderBy(asc(flashcards.createdAt))
-      .limit(limit),
+      .limit(n),
   );
-}
+}, "Could not load new cards. Please try again.");
 
-export async function getCardsForItem(itemId: string): Promise<FlashcardWithItem[]> {
+export const getCardsForItem = safeAction(async function getCardsForItem(itemId: string): Promise<FlashcardWithItem[]> {
   parseInput(getCardsForItemSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -114,9 +117,9 @@ export async function getCardsForItem(itemId: string): Promise<FlashcardWithItem
       .where(and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)))
       .orderBy(asc(flashcards.createdAt)),
   );
-}
+}, "Could not load cards for item. Please try again.");
 
-export async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
+export const getAllCardsForCram = safeAction(async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -129,7 +132,7 @@ export async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
       .where(eq(flashcards.userId, userId))
       .orderBy(asc(flashcards.createdAt)),
   );
-}
+}, "Could not load cards for cram. Please try again.");
 
 const shuffle = <T>(array: T[]): T[] => {
   for (let i = array.length - 1; i > 0; i--) {
@@ -196,7 +199,7 @@ const weightedRandomSelection = <T>(
   return selected;
 };
 
-export async function startReviewSession(args: {
+export const startReviewSession = safeAction(async function startReviewSession(args: {
   mode: ReviewMode;
   scope?: ReviewScope;
   limit?: number;
@@ -253,7 +256,7 @@ export async function startReviewSession(args: {
       cards = weightedRandomSelection(pool, uniformWeights, limit);
     } else if (args.mode === "item") {
       if (!args.scope?.itemId)
-        throw new Error("item mode requires scope.itemId");
+        throw new ActionError("Item mode requires an item ID");
       cards = await tx
         .select(cardSelection)
         .from(flashcards)
@@ -317,7 +320,7 @@ export async function startReviewSession(args: {
 
     return { sessionId, cardCount: cardIds.length, data };
   });
-}
+}, "Could not start review session. Please try again.");
 
 export type ReviewSessionCard = FlashcardWithItem;
 
@@ -335,7 +338,7 @@ export type ReviewSessionData = {
   completedCardIds: string[];
 };
 
-export async function getReviewSession(
+export const getReviewSession = safeAction(async function getReviewSession(
   sessionId: string,
 ): Promise<ReviewSessionData | null> {
   parseInput(getReviewSessionSchema, { sessionId });
@@ -396,7 +399,7 @@ export async function getReviewSession(
       completedCardIds: completed.map((c) => c.flashcardId),
     };
   });
-}
+}, "Could not load review session. Please try again.");
 
 export type SessionSummary = {
   mode: string;
@@ -408,7 +411,7 @@ export type SessionSummary = {
   avgTimeToRevealMs: number | null;
 };
 
-export async function getSessionSummary(
+export const getSessionSummary = safeAction(async function getSessionSummary(
   sessionId: string,
 ): Promise<SessionSummary | null> {
   parseInput(getSessionSummarySchema, { sessionId });
@@ -471,9 +474,9 @@ export async function getSessionSummary(
         revealCount > 0 ? Math.round(revealSum / revealCount) : null,
     };
   });
-}
+}, "Could not load session summary. Please try again.");
 
-export async function rateCard(args: {
+export const rateCard = safeAction(async function rateCard(args: {
   sessionId: string;
   flashcardId: string;
   rating: Rating;
@@ -498,8 +501,8 @@ export async function rateCard(args: {
           eq(reviewSessions.userId, userId),
         ),
       );
-    if (!session) throw new Error("Review session not found");
-    if (session.endedAt) throw new Error("Review session already ended");
+    if (!session) throw new ActionError("Review session not found");
+    if (session.endedAt) throw new ActionError("Review session already ended");
 
     const [card] = await tx
       .select()
@@ -507,7 +510,7 @@ export async function rateCard(args: {
       .where(
         and(eq(flashcards.id, args.flashcardId), eq(flashcards.userId, userId)),
       );
-    if (!card) throw new Error("Flashcard not found");
+    if (!card) throw new ActionError("Flashcard not found");
 
     const next = schedule(
       {
@@ -579,18 +582,18 @@ export async function rateCard(args: {
       .set({ cardsCompleted: sql`${reviewSessions.cardsCompleted} + 1` })
       .where(eq(reviewSessions.id, args.sessionId));
   });
-}
+}, "Could not rate card. Please try again.");
 
-export async function logSessionEvent(
+export const logSessionEvent = safeAction(async function logSessionEvent(
   sessionId: string,
   event: ReviewEvent,
 ): Promise<void> {
   parseInput(logSessionEventSchema, { sessionId, event });
   const userId = await getCurrentUserId();
   await logReviewEvent(userId, sessionId, event);
-}
+}, "Could not log review event. Please try again.");
 
-export async function skipCard(args: {
+export const skipCard = safeAction(async function skipCard(args: {
   sessionId: string;
   flashcardId: string;
   afterReveal: boolean;
@@ -603,9 +606,9 @@ export async function skipCard(args: {
     flashcardId: args.flashcardId,
     data: { afterReveal: args.afterReveal, durationMs: args.durationMs },
   });
-}
+}, "Could not skip card. Please try again.");
 
-export async function endReviewSession(args: {
+export const endReviewSession = safeAction(async function endReviewSession(args: {
   sessionId: string;
   reason: "completed" | "user_ended";
 }): Promise<void> {
@@ -623,7 +626,7 @@ export async function endReviewSession(args: {
           eq(reviewSessions.userId, userId),
         ),
       );
-    if (!session) throw new Error("Review session not found");
+    if (!session) throw new ActionError("Review session not found");
     if (session.endedAt) return;
 
     await tx
@@ -642,9 +645,9 @@ export async function endReviewSession(args: {
     flashcardId: null,
     data: { reason: args.reason },
   });
-}
+}, "Could not end review session. Please try again.");
 
-export async function getReviewStatus(): Promise<{
+export const getReviewStatus = safeAction(async function getReviewStatus(): Promise<{
   dueCount: number;
   dueItemCount: number;
   newCount: number;
@@ -697,4 +700,4 @@ export async function getReviewStatus(): Promise<{
       lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
     };
   });
-}
+}, "Could not load review status. Please try again.");

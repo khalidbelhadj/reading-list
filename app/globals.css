@@ -88,6 +88,9 @@
   --sidebar-accent-foreground: oklch(0.216 0 0);
   --sidebar-border: oklch(0.92 0.003 85);
   --sidebar-ring: oklch(0.709 0 0);
+  --toast-error-bg: oklch(0.97 0.015 25);
+  --toast-error-text: oklch(0.45 0.18 25);
+  --toast-error-border: oklch(0.90 0.04 25);
 }
 
 .dark {
@@ -124,6 +127,9 @@
   --sidebar-accent-foreground: oklch(0.982 0.002 85);
   --sidebar-border: oklch(0.30 0.003 85);
   --sidebar-ring: oklch(0.553 0 0);
+  --toast-error-bg: oklch(0.27 0.04 25);
+  --toast-error-text: oklch(0.80 0.14 25);
+  --toast-error-border: oklch(0.35 0.06 25);
 }
 
 @layer base {
@@ -136,6 +142,12 @@
   html {
     @apply font-sans;
   }
+}
+
+[data-sonner-toast][data-type="error"] {
+  background: var(--toast-error-bg) !important;
+  color: var(--toast-error-text) !important;
+  border-color: var(--toast-error-border) !important;
 }
 
 /* Animated strike-through for read items. Applied to an inner inline span so

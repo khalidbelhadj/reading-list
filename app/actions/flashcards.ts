@@ -4,6 +4,7 @@ import { withUser } from "@/db";
 import { flashcards, items } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
+import { safeAction, ActionError } from "@/lib/safe-action";
 import {
   createFlashcards as createFlashcardsLib,
   updateFlashcards as updateFlashcardsLib,
@@ -17,7 +18,7 @@ import {
   deleteFlashcardSchema,
 } from "@/lib/schemas";
 
-export async function getFlashcards(itemId: string) {
+export const getFlashcards = safeAction(async function getFlashcards(itemId: string) {
   parseInput(getFlashcardsSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -27,9 +28,9 @@ export async function getFlashcards(itemId: string) {
       .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)))
       .orderBy(desc(flashcards.createdAt)),
   );
-}
+}, "Could not load flashcards. Please try again.");
 
-export async function getAllFlashcards() {
+export const getAllFlashcards = safeAction(async function getAllFlashcards() {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -54,9 +55,9 @@ export async function getAllFlashcards() {
       .where(eq(flashcards.userId, userId))
       .orderBy(desc(flashcards.createdAt)),
   );
-}
+}, "Could not load flashcards. Please try again.");
 
-export async function createFlashcard(
+export const createFlashcard = safeAction(async function createFlashcard(
   itemId: string,
   front: string,
   back: string,
@@ -67,12 +68,12 @@ export async function createFlashcard(
     const result = await createFlashcardsLib(tx, userId, [
       { itemId, front, back },
     ]);
-    if (result.notFound.length > 0) throw new Error("Item not found");
+    if (result.notFound.length > 0) throw new ActionError("Item not found");
     return result.created[0];
   });
-}
+}, "Could not create flashcard. Please try again.");
 
-export async function updateFlashcard(
+export const updateFlashcard = safeAction(async function updateFlashcard(
   id: string,
   fields: { front?: string; back?: string },
 ) {
@@ -81,10 +82,10 @@ export async function updateFlashcard(
   await withUser(userId, (tx) =>
     updateFlashcardsLib(tx, userId, [{ id, ...fields }]),
   );
-}
+}, "Could not update flashcard. Please try again.");
 
-export async function deleteFlashcard(id: string) {
+export const deleteFlashcard = safeAction(async function deleteFlashcard(id: string) {
   parseInput(deleteFlashcardSchema, { id });
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => deleteFlashcardsLib(tx, userId, [id]));
-}
+}, "Could not delete flashcard. Please try again.");

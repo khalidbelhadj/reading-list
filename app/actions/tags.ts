@@ -4,13 +4,14 @@ import { withUser } from "@/db";
 import { itemsTags, tags } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
+import { safeAction } from "@/lib/safe-action";
 import {
   parseInput,
   renameTagSchema,
   deleteTagSchema,
 } from "@/lib/schemas";
 
-export async function renameTag(tagId: number, newName: string) {
+export const renameTag = safeAction(async function renameTag(tagId: number, newName: string) {
   parseInput(renameTagSchema, { tagId, newName });
   const userId = await getCurrentUserId();
   const trimmed = newName.trim().toLowerCase();
@@ -46,9 +47,9 @@ export async function renameTag(tagId: number, newName: string) {
         .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
     }
   });
-}
+}, "Could not rename tag. Please try again.");
 
-export async function deleteTag(tagId: number) {
+export const deleteTag = safeAction(async function deleteTag(tagId: number) {
   parseInput(deleteTagSchema, { tagId });
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
@@ -57,4 +58,4 @@ export async function deleteTag(tagId: number) {
       .delete(tags)
       .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
   });
-}
+}, "Could not delete tag. Please try again.");

@@ -16,6 +16,7 @@ export const ItemRowContent = ({
   isTyping,
   menuOpen,
   onMenuOpenChange,
+  onTogglePin,
   onToggleRead,
   onDelete,
 }: {
@@ -25,6 +26,7 @@ export const ItemRowContent = ({
   isTyping?: boolean;
   menuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
+  onTogglePin?: () => void;
   onToggleRead?: () => void;
   onDelete?: () => void;
 }) => {
@@ -61,6 +63,7 @@ export const ItemRowContent = ({
         item={item}
         open={menuOpen}
         onOpenChange={onMenuOpenChange}
+        onTogglePin={onTogglePin}
         onToggleRead={onToggleRead}
         onDelete={onDelete}
       >

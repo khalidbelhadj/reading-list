@@ -267,35 +267,6 @@ export const SettingsMenu = ({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        {mounted && (fullName || email) && (
-          <>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <span className="flex items-center gap-2">
-                  {initials && (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-                      {initials}
-                    </span>
-                  )}
-                  {fullName ?? email}
-                </span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {email && (
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-                      {email}
-                    </DropdownMenuLabel>
-                  </DropdownMenuGroup>
-                )}
-                <DropdownMenuItem onClick={handleLogout}>
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-          </>
-        )}
         {showFilters && (
           <>
             {showReadingListFilters && (
@@ -385,6 +356,35 @@ export const SettingsMenu = ({
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        )}
+        {mounted && (fullName || email) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <span className="flex items-center gap-2">
+                  {initials && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                      {initials}
+                    </span>
+                  )}
+                  {fullName ?? email}
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {email && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                      {email}
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                )}
+                <DropdownMenuItem onClick={handleLogout}>
+                  Log out
+                </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>
