@@ -13,11 +13,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IconFileFilled } from "@tabler/icons-react";
+import { IconChevronRight, IconFileFilled, IconPinFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
@@ -47,7 +48,7 @@ import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
-import { GroupedList } from "./items-list/grouped-list";
+import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grouped-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 
@@ -70,6 +71,7 @@ export const ItemsList = () => {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
+  const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [justDropped, setJustDropped] = React.useState(false);
   const [typingTitles, setTypingTitles] = React.useState<
     Record<string, string>
@@ -131,6 +133,8 @@ export const ItemsList = () => {
     tabItems,
     allTags,
     filteredItems,
+    pinnedItems,
+    unpinnedItems,
     activeTags,
     setActiveTags,
     toggleTag,
@@ -143,7 +147,7 @@ export const ItemsList = () => {
     groups,
   } = useItemsFilters(items, activeTab, searchIds);
 
-  const { handleReorder, handleToggleRead, handleDeleteSingle } =
+  const { handleReorder, handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
       filteredItems,
       showRead,
@@ -490,6 +494,42 @@ export const ItemsList = () => {
             ) : (
               emptyNode
             )}
+            {pinnedItems.length > 0 && (
+              <div className="flex flex-col mb-4">
+                <button
+                  type="button"
+                  onClick={() => setPinnedOpen((p) => !p)}
+                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                >
+                  <IconPinFilled className="size-3" />
+                  Pinned
+                  <IconChevronRight
+                    className={cn(
+                      "size-3 transition-transform duration-150",
+                      pinnedOpen && "rotate-90",
+                    )}
+                  />
+                </button>
+                <CollapsibleSection open={pinnedOpen}>
+                  {pinnedItems.map((item) => {
+                    const typingTitle = typingTitles[item.id];
+                    const rowItem = resolveRowItem(item, typingTitle);
+                    return (
+                      <PlainItemRow
+                        key={item.id}
+                        item={rowItem}
+                        suppressHover={suppressHover}
+                        isTyping={typingTitle !== undefined}
+                        onSelect={() => handleOpenItem(item.id)}
+                        onDelete={() => requestDeleteItem(item.id)}
+                        onToggleRead={() => handleToggleRead(item.id, !item.read)}
+                        onTogglePin={() => handleTogglePin(item.id, !item.starred)}
+                      />
+                    );
+                  })}
+                </CollapsibleSection>
+              </div>
+            )}
             <GroupedList
               groups={groups}
               typingTitles={typingTitles}
@@ -497,6 +537,7 @@ export const ItemsList = () => {
               onSelect={handleOpenItem}
               onDelete={requestDeleteItem}
               onToggleRead={handleToggleRead}
+              onTogglePin={handleTogglePin}
             />
           </div>
         ) : (
@@ -507,7 +548,7 @@ export const ItemsList = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={filteredItems.map((i) => i.id)}
+              items={unpinnedItems.map((i) => i.id)}
               strategy={verticalListSortingStrategy}
             >
               <div
@@ -522,7 +563,44 @@ export const ItemsList = () => {
                 ) : (
                   emptyNode
                 )}
-                {filteredItems.map((item) => {
+                {pinnedItems.length > 0 && (
+                  <div className="flex flex-col mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setPinnedOpen((p) => !p)}
+                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                    >
+                      <IconPinFilled className="size-3" />
+                      Pinned
+                      <IconChevronRight
+                        className={cn(
+                          "size-3 transition-transform duration-150",
+                          pinnedOpen && "rotate-90",
+                        )}
+                      />
+                    </button>
+                    <CollapsibleSection open={pinnedOpen}>
+                      {pinnedItems.map((item) => {
+                        const typingTitle = typingTitles[item.id];
+                        const rowItem = resolveRowItem(item, typingTitle);
+                        return (
+                          <SortableItemRow
+                            key={item.id}
+                            item={rowItem}
+                            suppressHover={suppressHover}
+                            isDragDisabled={true}
+                            isTyping={typingTitle !== undefined}
+                            onTogglePin={() => handleTogglePin(item.id, !item.starred)}
+                            onToggleRead={() => handleToggleRead(item.id, !item.read)}
+                            onSelect={() => handleOpenItem(item.id)}
+                            onDelete={() => requestDeleteItem(item.id)}
+                          />
+                        );
+                      })}
+                    </CollapsibleSection>
+                  </div>
+                )}
+                {unpinnedItems.map((item) => {
                   const typingTitle = typingTitles[item.id];
                   const rowItem = resolveRowItem(item, typingTitle);
                   return (
@@ -533,6 +611,7 @@ export const ItemsList = () => {
                     isDragDisabled={isDragDisabled}
                     isTyping={typingTitle !== undefined}
                     suppressTransition={justDropped}
+                    onTogglePin={() => handleTogglePin(item.id, !item.starred)}
                     onToggleRead={() => handleToggleRead(item.id, !item.read)}
                     onSelect={() => handleOpenItem(item.id)}
                     onDelete={() => requestDeleteItem(item.id)}

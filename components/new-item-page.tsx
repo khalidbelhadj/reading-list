@@ -110,7 +110,7 @@ export const NewItemPage = () => {
         {
           onCreated: async (newId) => {
             await queryClient.invalidateQueries({ queryKey: ["items"] });
-            router.push(`/item/${newId}`);
+            router.replace(`/item/${newId}`);
           },
           onOpenExisting: (existingId) => {
             router.push(`/item/${existingId}`);

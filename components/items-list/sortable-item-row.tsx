@@ -22,6 +22,7 @@ export function SortableItemRow({
   suppressTransition,
   isDragDisabled,
   isTyping,
+  onTogglePin,
   onToggleRead,
   onSelect,
   onDelete,
@@ -33,6 +34,7 @@ export function SortableItemRow({
   suppressTransition?: boolean;
   isDragDisabled: boolean;
   isTyping?: boolean;
+  onTogglePin?: () => void;
   onToggleRead?: () => void;
   onSelect: () => void;
   onDelete?: () => void;
@@ -64,6 +66,7 @@ export function SortableItemRow({
   return (
     <ItemContextMenu
       item={item}
+      onTogglePin={onTogglePin}
       onToggleRead={onToggleRead}
       onDelete={onDelete}
       onOpenChange={setContextMenuOpen}
