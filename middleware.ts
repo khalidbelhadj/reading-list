@@ -78,8 +78,21 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // TODO: remove hardcoded bypass
-  return NextResponse.next();
+  // Allow bypass in development with explicit mock user
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.MOCK_USER_ID
+  ) {
+    return NextResponse.next();
+  }
+
+  // Check session for web routes, redirect to login if unauthenticated
+  const response = NextResponse.next();
+  const { user } = await updateSession(request, response);
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  return response;
 }
 
 const ALLOWED_ORIGINS = (() => {

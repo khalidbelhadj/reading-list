@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/server";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -7,9 +8,22 @@ export class UnauthorizedError extends Error {
   }
 }
 
+const getMockUserId = (): string | null => {
+  if (process.env.NODE_ENV !== "development") return null;
+  return process.env.MOCK_USER_ID ?? null;
+};
+
 export const getCurrentUserId = async (): Promise<string> => {
-  // TODO: remove hardcoded bypass
-  return "a543abcc-57d8-4b8e-acc5-9f2e3d4c9e8b";
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) return user.id;
+
+  const mockId = getMockUserId();
+  if (mockId) return mockId;
+
+  throw new UnauthorizedError();
 };
 
 export const getCurrentUserIdFromRequest = async (
@@ -33,5 +47,9 @@ export const getCurrentUserIdFromRequest = async (
     } = await supabase.auth.getUser(token);
     if (user) return user.id;
   }
-  return getCurrentUserId();
+
+  const mockId = getMockUserId();
+  if (mockId) return mockId;
+
+  throw new UnauthorizedError();
 };
