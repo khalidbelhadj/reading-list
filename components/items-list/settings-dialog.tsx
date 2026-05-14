@@ -34,7 +34,6 @@ import { useCurrentUser } from "@/lib/use-current-user";
 import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
 import { CopyPromptsDialog } from "./copy-prompts-dialog";
 
-type FontKey = "dm-sans" | "noto-sans" | "source-serif-4";
 type ThemeKey = "system" | "light" | "dark";
 
 const THEME_LABELS: Record<ThemeKey, string> = {
@@ -49,18 +48,6 @@ const applyTheme = (theme: ThemeKey) => {
     (theme === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", isDark);
-};
-
-const FONT_VALUES: Record<FontKey, string> = {
-  "dm-sans": '"DM Sans Variable", sans-serif',
-  "noto-sans": '"Noto Sans Variable", sans-serif',
-  "source-serif-4": '"Source Serif 4 Variable", serif',
-};
-
-const FONT_LABELS: Record<FontKey, string> = {
-  "dm-sans": "DM Sans",
-  "noto-sans": "Noto Sans",
-  "source-serif-4": "Source Serif 4",
 };
 
 const TAB_LABELS: Record<TabId, string> = {
@@ -119,10 +106,7 @@ export const SettingsMenu = ({
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportFilename, setExportFilename] =
     React.useState(defaultCsvFilename());
-  const [sansFont, setSansFont] = React.useState<FontKey>("dm-sans");
-  const [contentFont, setContentFont] = React.useState<FontKey>("dm-sans");
   const [promptsOpen, setPromptsOpen] = React.useState(false);
-  const [debugEnabled, setDebugEnabled] = React.useState(false);
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
@@ -199,38 +183,12 @@ export const SettingsMenu = ({
   );
 
 
-  const handleSansFontChange = React.useCallback((value: string) => {
-    const key = value as FontKey;
-    setSansFont(key);
-    localStorage.setItem("font-sans", key);
-    document.documentElement.style.setProperty("--font-sans", FONT_VALUES[key]);
-  }, []);
-
-  const handleContentFontChange = React.useCallback((value: string) => {
-    const key = value as FontKey;
-    setContentFont(key);
-    localStorage.setItem("font-content", key);
-    document.documentElement.style.setProperty(
-      "--font-content",
-      FONT_VALUES[key],
-    );
-  }, []);
-
   React.useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("theme");
     const initialTheme: ThemeKey =
       stored === "dark" || stored === "light" ? stored : "system";
     setTheme(initialTheme);
-    const storedSans = localStorage.getItem("font-sans") as FontKey | null;
-    const storedContent = localStorage.getItem(
-      "font-content",
-    ) as FontKey | null;
-    if (storedSans && storedSans in FONT_VALUES) setSansFont(storedSans);
-    if (storedContent && storedContent in FONT_VALUES)
-      setContentFont(storedContent);
-    setDebugEnabled(localStorage.getItem("reading-list-debug") === "true");
-
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       if (localStorage.getItem("theme")) return;
@@ -320,48 +278,6 @@ export const SettingsMenu = ({
         </DropdownMenuSub>
         <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
         <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
-        {/* Debug menu hidden for now
-        {debugEnabled && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Debug</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Body font</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuRadioGroup
-                      value={sansFont}
-                      onValueChange={handleSansFontChange}
-                    >
-                      {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
-                        <DropdownMenuRadioItem key={key} value={key}>
-                          {FONT_LABELS[key]}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Content font</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuRadioGroup
-                      value={contentFont}
-                      onValueChange={handleContentFontChange}
-                    >
-                      {(Object.keys(FONT_VALUES) as FontKey[]).map((key) => (
-                        <DropdownMenuRadioItem key={key} value={key}>
-                          {FONT_LABELS[key]}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </>
-        )}
-        */}
         {mounted && (fullName || email) && (
           <>
             <DropdownMenuSeparator />

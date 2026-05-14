@@ -9,8 +9,6 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@fontsource-variable/dm-sans": "^5.2.8",
-        "@fontsource-variable/noto-sans": "^5.2.10",
-        "@fontsource-variable/source-serif-4": "^5.2.9",
         "@supabase/ssr": "^0.10.2",
         "@supabase/supabase-js": "^2.103.0",
         "@tabler/icons-react": "^3.36.1",
@@ -220,10 +218,6 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
     "@fontsource-variable/dm-sans": ["@fontsource-variable/dm-sans@5.2.8", "", {}, "sha512-AxkvMTvNWgfrmlyjiV05vlHYJa+nRQCf1EfvIrQAPBpFJW0O9VTz7oAFr9S3lvbWdmnFoBk7yFqQL86u64nl2g=="],
-
-    "@fontsource-variable/noto-sans": ["@fontsource-variable/noto-sans@5.2.10", "", {}, "sha512-wyFgKkFu7jki5kEL8qv7avjQ8rxHX0J/nhLWvbR9T0hOH1HRKZEvb9EW9lMjZfWHHfEzKkYf5J+NadwgCS7TXA=="],
-
-    "@fontsource-variable/source-serif-4": ["@fontsource-variable/source-serif-4@5.2.9", "", {}, "sha512-PPcxjLFk/fS0WHg79pDM2YNvz61kC+oYZ5cWZZyCS0DHpJncmuYOuiZAsvj4tDxlWPBEvxxcRLQQNmSaRbPkqw=="],
 
     "@hono/node-server": ["@hono/node-server@1.19.9", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw=="],
 

@@ -424,7 +424,7 @@ export const PlainItemRow = ({
 
   React.useEffect(() => {
     if (menuOpen || contextMenuOpen) preview.dismiss();
-  }, [menuOpen, contextMenuOpen, preview.dismiss]);
+  }, [menuOpen, contextMenuOpen, preview]);
 
   return (
     <>

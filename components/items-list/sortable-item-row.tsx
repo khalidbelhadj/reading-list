@@ -74,7 +74,7 @@ export function SortableItemRow({
 
   React.useEffect(() => {
     if (menuOpen || contextMenuOpen || isDragging) preview.dismiss();
-  }, [menuOpen, contextMenuOpen, isDragging, preview.dismiss]);
+  }, [menuOpen, contextMenuOpen, isDragging, preview]);
 
   return (
     <>
