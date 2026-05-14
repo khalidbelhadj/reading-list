@@ -256,48 +256,55 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             </Tooltip>
           )}
           <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
-          {item && (
-            <>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  onClick={() => detailRef.current?.startAddingCard()}
+                />
+              }
+            >
+              <IconPlus />
+            </TooltipTrigger>
+            <TooltipContent>Add flashcard</TooltipContent>
+          </Tooltip>
+          {item ? (
+            <ItemDropdown
+              item={item}
+              onToggleRead={handleToggleRead}
+              onDelete={() => setDeleteOpen(true)}
+            >
               <Tooltip>
-                <TooltipTrigger
+                <DropdownMenuTrigger
                   render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground"
-                      onClick={() => detailRef.current?.startAddingCard()}
-                    />
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground"
+                        />
+                      }
+                    >
+                      <IconDots />
+                    </TooltipTrigger>
                   }
-                >
-                  <IconPlus />
-                </TooltipTrigger>
-                <TooltipContent>Add flashcard</TooltipContent>
+                />
+                <TooltipContent>More options</TooltipContent>
               </Tooltip>
-              <ItemDropdown
-                item={item}
-                onToggleRead={handleToggleRead}
-                onDelete={() => setDeleteOpen(true)}
-              >
-                <Tooltip>
-                  <DropdownMenuTrigger
-                    render={
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground"
-                          />
-                        }
-                      >
-                        <IconDots />
-                      </TooltipTrigger>
-                    }
-                  />
-                  <TooltipContent>More options</TooltipContent>
-                </Tooltip>
-              </ItemDropdown>
-            </>
+            </ItemDropdown>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              disabled
+            >
+              <IconDots />
+            </Button>
           )}
           {scrolled && (
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />

@@ -15,6 +15,15 @@ const truncateLines = (text: string) => {
   return lines.slice(0, MAX_LINES).join("\n");
 };
 
+const formatCreatedAt = (iso: string) => {
+  const date = new Date(iso);
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export const ItemPreview = ({ item }: { item: Item }) => {
   const faviconSrc = getFaviconSrc(item);
   const notes = item.notes?.trim() ?? "";
@@ -22,23 +31,28 @@ export const ItemPreview = ({ item }: { item: Item }) => {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <div className="relative size-4 shrink-0">
-          {faviconSrc ? (
-            <Image
-              src={faviconSrc}
-              alt=""
-              width={16}
-              height={16}
-              className="size-4 rounded-[3px]"
-              unoptimized
-            />
-          ) : (
-            <IconFileFilled className="size-4 text-muted-foreground" />
-          )}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <div className="relative size-4 shrink-0">
+            {faviconSrc ? (
+              <Image
+                src={faviconSrc}
+                alt=""
+                width={16}
+                height={16}
+                className="size-4 rounded-[3px]"
+                unoptimized
+              />
+            ) : (
+              <IconFileFilled className="size-4 text-muted-foreground" />
+            )}
+          </div>
+          <span className="font-content text-sm font-medium truncate">
+            {item.title || "Untitled"}
+          </span>
         </div>
-        <span className="font-content text-sm font-medium truncate">
-          {item.title || "Untitled"}
+        <span className="text-[11px] text-muted-foreground/60">
+          Created {formatCreatedAt(item.createdAt)}
         </span>
       </div>
 

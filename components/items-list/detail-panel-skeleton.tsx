@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export const DetailPanelSkeleton = () => (
   <div className="flex flex-col gap-2 w-full">
-    <div className="px-3 py-3 flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Skeleton className="size-5 rounded shrink-0" />
         <Skeleton className="h-5 flex-1 rounded" />
