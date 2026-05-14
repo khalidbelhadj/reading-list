@@ -13,8 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IconChevronRight, IconFileFilled, IconPinFilled } from "@tabler/icons-react";
-import Image from "next/image";
+import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -22,18 +21,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { type Item } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
-import { getFaviconSrc, resolveRowItem } from "./items-list/utils";
+import { resolveRowItem } from "./items-list/utils";
+import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 
 import { fetchItems } from "@/lib/queries";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
@@ -175,7 +165,6 @@ export const ItemsList = () => {
     }
   }, [itemToDelete, handleDeleteSingle]);
 
-  const pendingFaviconSrc = itemToDelete ? getFaviconSrc(itemToDelete) : null;
 
   // Mutations
   const animateTypingTitle = React.useCallback(
@@ -637,79 +626,13 @@ export const ItemsList = () => {
         )}
       </div>
 
-      <AlertDialog
+      <DeleteItemDialog
+        item={itemToDelete}
         open={deleteOpen}
-        onOpenChange={(open) => {
-          if (!open) setDeleteOpen(false);
-        }}
-      >
-        <AlertDialogContent
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !deleting) {
-              e.preventDefault();
-              confirmDelete();
-            }
-          }}
-        >
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete item</AlertDialogTitle>
-            <AlertDialogDescription>
-              {itemToDelete && itemToDelete.flashcardCount > 0 ? (
-                <>
-                  This will also delete{" "}
-                  <span className="font-medium">
-                    {itemToDelete.flashcardCount}
-                  </span>{" "}
-                  {itemToDelete.flashcardCount === 1
-                    ? "flashcard"
-                    : "flashcards"}
-                  . This action cannot be undone.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to delete this item? This action cannot
-                  be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {itemToDelete && (
-            <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
-              <div className="size-5 shrink-0 flex items-center justify-center">
-                {pendingFaviconSrc ? (
-                  <Image
-                    src={pendingFaviconSrc}
-                    alt=""
-                    width={20}
-                    height={20}
-                    className="size-5 rounded"
-                    unoptimized
-                  />
-                ) : (
-                  <IconFileFilled className="size-5 text-muted-foreground" />
-                )}
-              </div>
-              <span className="font-content text-sm truncate">
-                {itemToDelete.title || "Untitled"}
-              </span>
-            </div>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleting}
-              onClick={(e) => {
-                e.preventDefault();
-                confirmDelete();
-              }}
-            >
-              {deleting && <Spinner className="size-3.5" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        deleting={deleting}
+        onOpenChange={setDeleteOpen}
+        onConfirm={confirmDelete}
+      />
 
       <DuplicateDialog
         open={duplicateDialog !== null}

@@ -69,7 +69,7 @@ export const ItemPreview = ({ item }: { item: Item }) => {
       {truncatedNotes && (
         <div className="preview-notes relative overflow-hidden text-muted-foreground">
           <MarkdownEditor value={truncatedNotes} editable={false} />
-          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background dark:from-card to-transparent pointer-events-none" />
         </div>
       )}
     </div>

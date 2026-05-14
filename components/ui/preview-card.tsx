@@ -85,7 +85,7 @@ const HoverPreviewContent = ({
   return createPortal(
     <div
       className={cn(
-        "fixed z-50 w-72 rounded-lg bg-card p-3 shadow-lg pointer-events-none",
+        "fixed z-50 w-72 rounded-lg bg-background dark:bg-card p-3 shadow-lg pointer-events-none",
         "animate-in fade-in-0 zoom-in-95",
         className,
       )}

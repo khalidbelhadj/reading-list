@@ -7,17 +7,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { deleteTag, renameTag } from "@/app/actions";
 import { type DbTag, type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteTagDialog } from "@/components/items-list/delete-tag-dialog";
 
 const TagBadge = ({
   tag,
@@ -233,33 +223,6 @@ export const TagFilters = ({
     setMenuAnchor(null);
   }, [menuAnchor]);
 
-  const handleDeleteKeyDown = React.useCallback(
-    (e: React.KeyboardEvent) => {
-      if (deleting) return;
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        confirmDelete();
-      }
-    },
-    [confirmDelete, deleting],
-  );
-
-  const handleDeleteClick = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      confirmDelete();
-    },
-    [confirmDelete],
-  );
-
-  const handleDeleteOpenChange = React.useCallback(
-    (open: boolean) => {
-      if (deleting) return;
-      if (!open) setPendingDeleteTag(null);
-    },
-    [deleting],
-  );
-
   return (
     <>
       <div className="flex flex-wrap gap-1">
@@ -333,37 +296,13 @@ export const TagFilters = ({
         </MenuPrimitive.Portal>
       </MenuPrimitive.Root>
 
-      <AlertDialog
-        open={pendingDeleteTag !== null}
-        onOpenChange={handleDeleteOpenChange}
-      >
-        <AlertDialogContent onKeyDown={handleDeleteKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete tag</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingDeleteTag && (
-                <>
-                  This will remove{" "}
-                  <span className="font-medium">{pendingDeleteTag.name}</span>{" "}
-                  from {pendingDeleteCount}{" "}
-                  {pendingDeleteCount === 1 ? "item" : "items"}.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleting}
-              onClick={handleDeleteClick}
-            >
-              {deleting && <Spinner className="size-3.5" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteTagDialog
+        tag={pendingDeleteTag}
+        itemCount={pendingDeleteCount}
+        deleting={deleting}
+        onOpenChange={(open) => { if (!open) setPendingDeleteTag(null); }}
+        onConfirm={confirmDelete}
+      />
     </>
   );
 };

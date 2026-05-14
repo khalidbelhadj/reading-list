@@ -18,16 +18,7 @@ import { DetailPanel, type DetailPanelHandle } from "@/components/items-list/det
 import { DetailPanelSkeleton } from "@/components/items-list/detail-panel-skeleton";
 import { ItemDropdown } from "@/components/items-list/item-dropdown";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteItemDialog } from "@/components/items-list/delete-item-dialog";
 
 export const ItemPage = ({ itemId }: { itemId: string }) => {
   const router = useRouter();
@@ -356,35 +347,13 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
         </div>
       )}
 
-      <AlertDialog
+      <DeleteItemDialog
+        item={item}
         open={deleteOpen}
-        onOpenChange={(open) => {
-          if (!open) setDeleteOpen(false);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete item</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this item? This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleting}
-              onClick={(e) => {
-                e.preventDefault();
-                handleDelete();
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        deleting={deleting}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };
