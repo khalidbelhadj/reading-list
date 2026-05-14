@@ -326,6 +326,16 @@
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;
 }
+.preview-notes .markdown-editor .ProseMirror {
+  font-size: 0.75rem;
+  min-height: 0;
+}
+.preview-notes .markdown-editor .ProseMirror > * + * {
+  margin-top: 0.25rem;
+}
+.preview-notes .markdown-editor .ProseMirror img {
+  display: none;
+}
 
 /* Slow view transitions for debugging — uncomment to enable. */
 /*

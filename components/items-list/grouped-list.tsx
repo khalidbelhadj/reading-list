@@ -34,6 +34,8 @@ import { resolveRowItem } from "./utils";
 import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useInvalidateItems } from "./use-invalidate-items";
+import { useHoverPreview, HoverPreviewContent } from "@/components/ui/preview-card";
+import { ItemPreview } from "./item-preview";
 
 export const CollapsibleSection = ({
   open,
@@ -396,6 +398,8 @@ export const GroupedList = ({
   );
 };
 
+const PREVIEW_DELAY = 1000;
+
 export const PlainItemRow = ({
   item,
   suppressHover,
@@ -415,9 +419,15 @@ export const PlainItemRow = ({
 }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
+  const preview = useHoverPreview(PREVIEW_DELAY);
   const isRead = item.read;
 
+  React.useEffect(() => {
+    if (menuOpen || contextMenuOpen) preview.dismiss();
+  }, [menuOpen, contextMenuOpen, preview.dismiss]);
+
   return (
+    <>
     <ItemContextMenu
       item={item}
       onTogglePin={onTogglePin}
@@ -430,6 +440,9 @@ export const PlainItemRow = ({
         <div
           data-item-id={item.id}
           onClick={onSelect}
+          onMouseEnter={preview.onMouseEnter}
+          onMouseMove={preview.onMouseMove}
+          onMouseLeave={preview.onMouseLeave}
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
             !suppressHover && "hover:bg-card",
@@ -453,5 +466,9 @@ export const PlainItemRow = ({
       />
     </ItemContextMenuTrigger>
     </ItemContextMenu>
+    <HoverPreviewContent open={preview.open} position={preview.position}>
+      <ItemPreview item={item} />
+    </HoverPreviewContent>
+    </>
   );
 };

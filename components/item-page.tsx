@@ -4,16 +4,17 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconArrowLeft, IconDots, IconExternalLink, IconFileFilled } from "@tabler/icons-react";
+import { IconArrowLeft, IconDots, IconExternalLink, IconFileFilled, IconPlus } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
 import { getFaviconSrc } from "@/components/items-list/utils";
 import { updateItem, deleteItem, toggleRead } from "@/app/actions";
 import { type EditFields } from "@/components/items-list/utils";
 import { useInvalidateItems } from "@/components/items-list/use-invalidate-items";
-import { DetailPanel } from "@/components/items-list/detail-panel";
+import { DetailPanel, type DetailPanelHandle } from "@/components/items-list/detail-panel";
 import { DetailPanelSkeleton } from "@/components/items-list/detail-panel-skeleton";
 import { ItemDropdown } from "@/components/items-list/item-dropdown";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -52,6 +53,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
     };
   }, [item?.title]);
 
+  const detailRef = React.useRef<DetailPanelHandle>(null);
   const morphRef = React.useRef<HTMLDivElement>(null);
   const headerSlotRef = React.useRef<HTMLDivElement>(null);
   const scrolledRef = React.useRef(false);
@@ -219,56 +221,95 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
   return (
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-175 px-5">
+        <TooltipProvider delay={TOOLTIP_DELAY_MS}>
         <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5 pb-1.5 bg-background">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground"
-            onClick={handleBack}
-            title="Back"
-          >
-            <IconArrowLeft />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground"
+                  onClick={handleBack}
+                />
+              }
+            >
+              <IconArrowLeft />
+            </TooltipTrigger>
+            <TooltipContent>Back</TooltipContent>
+          </Tooltip>
           {item?.url && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              onClick={() => window.open(item.url, "_blank")}
-              title="Open URL"
-            >
-              <IconExternalLink />
-            </Button>
-          )}
-          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
-          {item && (
-            <ItemDropdown
-              item={item}
-              onToggleRead={handleToggleRead}
-              onDelete={() => setDeleteOpen(true)}
-            >
-              <DropdownMenuTrigger
+            <Tooltip>
+              <TooltipTrigger
                 render={
                   <Button
                     variant="ghost"
                     size="icon"
                     className="text-muted-foreground"
-                  >
-                    <IconDots />
-                  </Button>
+                    onClick={() => window.open(item.url, "_blank")}
+                  />
                 }
-              />
-            </ItemDropdown>
+              >
+                <IconExternalLink />
+              </TooltipTrigger>
+              <TooltipContent>Open URL</TooltipContent>
+            </Tooltip>
+          )}
+          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
+          {item && (
+            <>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground"
+                      onClick={() => detailRef.current?.startAddingCard()}
+                    />
+                  }
+                >
+                  <IconPlus />
+                </TooltipTrigger>
+                <TooltipContent>Add flashcard</TooltipContent>
+              </Tooltip>
+              <ItemDropdown
+                item={item}
+                onToggleRead={handleToggleRead}
+                onDelete={() => setDeleteOpen(true)}
+              >
+                <Tooltip>
+                  <DropdownMenuTrigger
+                    render={
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground"
+                          />
+                        }
+                      >
+                        <IconDots />
+                      </TooltipTrigger>
+                    }
+                  />
+                  <TooltipContent>More options</TooltipContent>
+                </Tooltip>
+              </ItemDropdown>
+            </>
           )}
           {scrolled && (
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
           )}
         </div>
+        </TooltipProvider>
         <div className="pt-1">
         {!item ? (
           <DetailPanelSkeleton />
         ) : (
           <DetailPanel
+            ref={detailRef}
             key={item.id}
             focused
             item={item}

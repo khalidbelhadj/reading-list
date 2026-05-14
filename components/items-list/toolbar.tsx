@@ -29,6 +29,7 @@ export const Toolbar = ({
   groupBy,
   setGroupBy,
   onAdd,
+  onPasteUrl,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -40,6 +41,7 @@ export const Toolbar = ({
   groupBy: GroupBy;
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
   onAdd: () => void;
+  onPasteUrl: () => void;
 }) => {
 
   const {
@@ -173,10 +175,24 @@ export const Toolbar = ({
         </DropdownMenu>
       </ButtonGroup>
 
-      <Button size="sm" className="ml-1" onClick={onAdd}>
-        <IconPlus />
-        Add
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button size="sm" className="ml-1">
+              <IconPlus />
+              Add
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onPasteUrl}>
+            Paste URL
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onAdd}>
+            New item
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <ReviewConfirmDialog
         open={pendingMode !== null}

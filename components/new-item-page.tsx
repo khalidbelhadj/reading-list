@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
 import { createItem } from "@/app/actions";
@@ -133,15 +134,23 @@ export const NewItemPage = () => {
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-175 px-5">
         <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground/40"
-            onClick={handleBack}
-            title="Back"
-          >
-            <IconArrowLeft />
-          </Button>
+          <TooltipProvider delay={TOOLTIP_DELAY_MS}>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground/40"
+                    onClick={handleBack}
+                  />
+                }
+              >
+                <IconArrowLeft />
+              </TooltipTrigger>
+              <TooltipContent>Back</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div className="pt-1">
           <DetailPanel

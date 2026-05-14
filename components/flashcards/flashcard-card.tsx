@@ -12,11 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type FlashcardCardData = {
@@ -173,24 +169,32 @@ const FlashcardDropdown = ({
   }, [card.id, onDelete]);
 
   return (
+    <TooltipProvider delay={TOOLTIP_DELAY_MS}>
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "z-20 absolute top-1 right-1 text-muted-foreground/30 hover:text-foreground hover:bg-accent",
-              deleting
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100 data-popup-open:opacity-100",
-            )}
-            disabled={deleting}
-          >
-            {deleting ? <Spinner className="size-3.5" /> : <IconDots />}
-          </Button>
-        }
-      />
+      <Tooltip>
+        <DropdownMenuTrigger
+          render={
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "z-20 absolute top-1 right-1 text-muted-foreground/30 hover:text-foreground hover:bg-accent",
+                    deleting
+                      ? "opacity-100"
+                      : "opacity-0 group-hover:opacity-100 data-popup-open:opacity-100",
+                  )}
+                  disabled={deleting}
+                />
+              }
+            >
+              {deleting ? <Spinner className="size-3.5" /> : <IconDots />}
+            </TooltipTrigger>
+          }
+        />
+        <TooltipContent>More options</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="end" sideOffset={4}>
         <Tooltip open={lastCopied === "id"}>
           <TooltipTrigger
@@ -220,5 +224,6 @@ const FlashcardDropdown = ({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </TooltipProvider>
   );
 };

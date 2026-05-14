@@ -320,6 +320,7 @@ export const SettingsMenu = ({
         </DropdownMenuSub>
         <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
         <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
+        {/* Debug menu hidden for now
         {debugEnabled && (
           <>
             <DropdownMenuSeparator />
@@ -360,6 +361,7 @@ export const SettingsMenu = ({
             </DropdownMenuSub>
           </>
         )}
+        */}
         {mounted && (fullName || email) && (
           <>
             <DropdownMenuSeparator />

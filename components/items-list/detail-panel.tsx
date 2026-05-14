@@ -1,11 +1,9 @@
 import {
   IconCheck,
   IconFileFilled,
-  IconPlus,
   IconWand,
   IconX,
 } from "@tabler/icons-react";
-import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +12,7 @@ import { type Flashcard, type Item } from "@/lib/types";
 import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   createFlashcard,
@@ -33,18 +32,11 @@ import { useFlashcardMutations } from "./use-flashcard-mutations";
 // may return them in any order — compare as a sorted set, not a sequence.
 const tagsKey = (names: string[]) => [...names].sort().join(", ");
 
-export const DetailPanel = ({
-  item,
-  isNew,
-  defaultTags,
-  onSave,
-  onCreate,
-  onCancel,
-  onDelete,
-  onToggleRead,
-  onFieldsChange,
-  focused = false,
-}: {
+export interface DetailPanelHandle {
+  startAddingCard: () => void;
+}
+
+export const DetailPanel = React.forwardRef<DetailPanelHandle, {
   item: Item | null;
   isNew: boolean;
   defaultTags?: string[];
@@ -62,7 +54,18 @@ export const DetailPanel = ({
     } | null,
   ) => void;
   focused?: boolean;
-}) => {
+}>(({
+  item,
+  isNew,
+  defaultTags,
+  onSave,
+  onCreate,
+  onCancel,
+  onDelete,
+  onToggleRead,
+  onFieldsChange,
+  focused = false,
+}, ref) => {
   // Form state — initialize from item synchronously so the first paint
   // already has the populated values (avoids a layout shift on mount).
   const [title, setTitle] = React.useState(() => item?.title ?? "");
@@ -75,6 +78,10 @@ export const DetailPanel = ({
   const [newFront, setNewFront] = React.useState("");
   const [newBack, setNewBack] = React.useState("");
   const [addingCard, setAddingCard] = React.useState(false);
+
+  React.useImperativeHandle(ref, () => ({
+    startAddingCard: () => setAddingCard(true),
+  }), []);
 
   // Refs
   const titleRef = React.useRef<HTMLInputElement>(null);
@@ -335,10 +342,6 @@ export const DetailPanel = ({
     }
   }, [notes, onCreate, tags, title, url]);
 
-  const handleAddingCard = React.useCallback(() => {
-    setAddingCard(true);
-  }, []);
-
   const handleAddingCardBlur = React.useCallback(
     (e: React.FocusEvent) => {
       if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -399,43 +402,63 @@ export const DetailPanel = ({
             placeholder="Title"
             className="font-content flex-1 min-w-0 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
           />
+          <TooltipProvider delay={TOOLTIP_DELAY_MS}>
           {showAutofill && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground/50"
-              onClick={handleAutofill}
-              disabled={fetching}
-              title="Autofill title from URL"
-            >
-              {fetching ? <Spinner className="size-3.5" /> : <IconWand />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground/50"
+                    onClick={handleAutofill}
+                    disabled={fetching}
+                  />
+                }
+              >
+                {fetching ? <Spinner className="size-3.5" /> : <IconWand />}
+              </TooltipTrigger>
+              <TooltipContent>Autofill title</TooltipContent>
+            </Tooltip>
           )}
           {isNew && (
             <>
               {onCancel && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground/40 shrink-0 hover:text-foreground"
-                  onClick={onCancel}
-                  title="Cancel"
-                >
-                  <IconX />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground/40 shrink-0 hover:text-foreground"
+                        onClick={onCancel}
+                      />
+                    }
+                  >
+                    <IconX />
+                  </TooltipTrigger>
+                  <TooltipContent>Cancel</TooltipContent>
+                </Tooltip>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground/50 shrink-0 -ml-2 hover:text-foreground"
-                disabled={saving}
-                onClick={handleSave}
-                title="Create item"
-              >
-                {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground/50 shrink-0 -ml-2 hover:text-foreground"
+                      disabled={saving}
+                      onClick={handleSave}
+                    />
+                  }
+                >
+                  {saving ? <Spinner className="size-3.5" /> : <IconCheck />}
+                </TooltipTrigger>
+                <TooltipContent>Create item</TooltipContent>
+              </Tooltip>
             </>
           )}
+          </TooltipProvider>
         </div>
 
         {/* URL */}
@@ -463,22 +486,6 @@ export const DetailPanel = ({
 
       {item && !isNew && (
         <div className="flex flex-col gap-2">
-          <div className="border-t border-border" />
-          <div className="flex items-center">
-            {cards.length > 0 && (
-              <Badge variant="secondary">{cards.length}</Badge>
-            )}
-            <div className="flex-1" />
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="text-muted-foreground"
-              onClick={handleAddingCard}
-            >
-              <IconPlus />
-            </Button>
-          </div>
-
           {addingCard && (
             <div
               className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
@@ -521,4 +528,6 @@ export const DetailPanel = ({
       )}
     </div>
   );
-};
+});
+
+DetailPanel.displayName = "DetailPanel";

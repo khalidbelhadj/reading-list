@@ -7,6 +7,10 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  useHoverPreview,
+  HoverPreviewContent,
+} from "@/components/ui/preview-card";
 
 import {
   ItemContextMenu,
@@ -14,6 +18,9 @@ import {
   ItemDropdown,
 } from "./item-dropdown";
 import { getFaviconSrc } from "./utils";
+import { ItemPreview } from "./item-preview";
+
+const PREVIEW_DELAY = 1000;
 
 export function SortableItemRow({
   item,
@@ -41,6 +48,7 @@ export function SortableItemRow({
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
+  const preview = useHoverPreview(PREVIEW_DELAY);
 
   const {
     attributes,
@@ -50,6 +58,7 @@ export function SortableItemRow({
     transition,
     isDragging,
   } = useSortable({ id: item.id, disabled: isDragDisabled });
+
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -63,7 +72,12 @@ export function SortableItemRow({
 
   const isRead = item.read;
 
+  React.useEffect(() => {
+    if (menuOpen || contextMenuOpen || isDragging) preview.dismiss();
+  }, [menuOpen, contextMenuOpen, isDragging, preview.dismiss]);
+
   return (
+    <>
     <ItemContextMenu
       item={item}
       onTogglePin={onTogglePin}
@@ -86,6 +100,9 @@ export function SortableItemRow({
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
           onClick={onSelect}
+          onMouseEnter={preview.onMouseEnter}
+          onMouseMove={preview.onMouseMove}
+          onMouseLeave={preview.onMouseLeave}
           {...attributes}
           {...listeners}
         />
@@ -136,6 +153,10 @@ export function SortableItemRow({
       </ItemDropdown>
     </ItemContextMenuTrigger>
     </ItemContextMenu>
+    <HoverPreviewContent open={preview.open} position={preview.position}>
+      <ItemPreview item={item} />
+    </HoverPreviewContent>
+    </>
   );
 }
 

@@ -281,6 +281,18 @@ export const ItemsList = () => {
     [requestCreate],
   );
 
+  const handlePasteUrl = React.useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const url = new URL(text.trim());
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        requestPasteCreate(text.trim(), [...activeTags]);
+      }
+    } catch {
+      // not a valid URL or clipboard denied
+    }
+  }, [requestPasteCreate, activeTags]);
+
   const handleDuplicateOpenExisting = React.useCallback(() => {
     if (!duplicateDialog) return;
     const id = duplicateDialog.existing.id;
@@ -427,6 +439,7 @@ export const ItemsList = () => {
             groupBy={groupBy}
             setGroupBy={setGroupBy}
             onAdd={handleOpenNew}
+            onPasteUrl={handlePasteUrl}
           />
 
           <SearchBar

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { IconSun, IconMoon } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 
 export const ThemeToggle = () => {
   const [dark, setDark] = useState(false);
@@ -45,14 +46,22 @@ export const ThemeToggle = () => {
   if (!mounted) return null;
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggle}
-      title={dark ? "Switch to light mode" : "Switch to dark mode"}
-      className="text-muted-foreground"
-    >
-      {dark ? <IconSun /> : <IconMoon />}
-    </Button>
+    <TooltipProvider delay={TOOLTIP_DELAY_MS}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              className="text-muted-foreground"
+            />
+          }
+        >
+          {dark ? <IconSun /> : <IconMoon />}
+        </TooltipTrigger>
+        <TooltipContent>{dark ? "Light mode" : "Dark mode"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
