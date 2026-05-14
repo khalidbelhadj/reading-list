@@ -60,8 +60,23 @@ const formatInterval = (dueIso: string, nowIso: string) => {
   return `${months}mo`;
 };
 
+let confettiInstance: confetti.CreateTypes | null = null;
+
+const getConfetti = (): confetti.CreateTypes => {
+  if (confettiInstance) return confettiInstance;
+  const canvas = document.createElement("canvas");
+  canvas.style.cssText =
+    "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100;";
+  document.body.appendChild(canvas);
+  confettiInstance = confetti.create(canvas, {
+    resize: true,
+    useWorker: false,
+  });
+  return confettiInstance;
+};
+
 const fireCompletionConfetti = () => {
-  confetti({
+  getConfetti()({
     particleCount: 60,
     spread: 80,
     ticks: 120,
@@ -91,7 +106,7 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="size-5" />
+        <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
   }
@@ -198,6 +213,9 @@ const ReviewSessionInner = ({
       queryClient.invalidateQueries({
         queryKey: ["review-session", sessionId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["review-summary", sessionId],
+      });
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["review-status"] });
@@ -211,6 +229,11 @@ const ReviewSessionInner = ({
       durationMs: number;
       timeToRevealMs: number | null;
     }) => rateCard({ sessionId, ...args }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["review-summary", sessionId],
+      });
+    },
   });
 
   const handleRate = React.useCallback(
@@ -562,7 +585,7 @@ const SessionSummaryView = ({
   if (isLoading || !summary) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="text-muted-foreground" />
+        <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
   }

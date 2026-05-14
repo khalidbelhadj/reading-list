@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -273,13 +274,14 @@ export const ItemsList = () => {
 
   const handlePasteUrl = React.useCallback(async () => {
     try {
-      const text = await navigator.clipboard.readText();
-      const url = new URL(text.trim());
-      if (url.protocol === "http:" || url.protocol === "https:") {
-        requestPasteCreate(text.trim(), [...activeTags]);
+      const text = (await navigator.clipboard.readText()).trim();
+      const url = new URL(text);
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new Error("unsupported protocol");
       }
+      requestPasteCreate(text, [...activeTags]);
     } catch {
-      // not a valid URL or clipboard denied
+      toast.error("Clipboard doesn't contain a valid URL");
     }
   }, [requestPasteCreate, activeTags]);
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { toast } from "sonner";
 
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
@@ -43,15 +44,17 @@ export const useKeyboardNavigation = ({
       if (isTypingContext(e) || isOverlayOpen()) return;
       const text = e.clipboardData?.getData("text/plain")?.trim();
       if (!text) return;
+      e.preventDefault();
       try {
         const url = new URL(text);
         if (url.protocol === "http:" || url.protocol === "https:") {
-          e.preventDefault();
           onPasteCreate(text, [...activeTags]);
+          return;
         }
       } catch {
-        // not a valid URL, ignore
+        // fall through to error toast
       }
+      toast.error("Clipboard doesn't contain a valid URL");
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
