@@ -28,6 +28,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
+    staleTime: Infinity,
   });
 
   const item = items?.find((i) => i.id === itemId) ?? null;

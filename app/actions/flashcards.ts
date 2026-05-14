@@ -17,8 +17,10 @@ import {
   updateFlashcardSchema,
   deleteFlashcardSchema,
 } from "@/lib/schemas";
+import { time } from "@/lib/perf";
 
 export const getFlashcards = safeAction(async function getFlashcards(itemId: string) {
+  return time("action:getFlashcards", async () => {
   parseInput(getFlashcardsSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -27,10 +29,13 @@ export const getFlashcards = safeAction(async function getFlashcards(itemId: str
       .from(flashcards)
       .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)))
       .orderBy(desc(flashcards.createdAt)),
+    "getFlashcards",
   );
+  }, { itemId });
 }, "Could not load flashcards. Please try again.");
 
 export const getAllFlashcards = safeAction(async function getAllFlashcards() {
+  return time("action:getAllFlashcards", async () => {
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
     tx
@@ -54,7 +59,9 @@ export const getAllFlashcards = safeAction(async function getAllFlashcards() {
       )
       .where(eq(flashcards.userId, userId))
       .orderBy(desc(flashcards.createdAt)),
+    "getAllFlashcards",
   );
+  });
 }, "Could not load flashcards. Please try again.");
 
 export const createFlashcard = safeAction(async function createFlashcard(

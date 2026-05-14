@@ -30,15 +30,20 @@ import {
   bulkTagSchema,
   bulkMarkReadSchema,
 } from "@/lib/schemas";
+import { time } from "@/lib/perf";
 
 export const searchItems = safeAction(async function searchItems(query: string): Promise<SearchResult[]> {
+  return time("action:searchItems", async () => {
   const userId = await getCurrentUserId();
-  return withUser(userId, (tx) => searchItemsQuery(tx, userId, query));
+  return withUser(userId, (tx) => searchItemsQuery(tx, userId, query), "searchItems");
+  }, { qlen: query.length });
 }, "Could not search items. Please try again.");
 
 export const searchFlashcards = safeAction(async function searchFlashcards(query: string): Promise<FlashcardSearchResult[]> {
+  return time("action:searchFlashcards", async () => {
   const userId = await getCurrentUserId();
-  return withUser(userId, (tx) => searchFlashcardsQuery(tx, userId, query));
+  return withUser(userId, (tx) => searchFlashcardsQuery(tx, userId, query), "searchFlashcards");
+  }, { qlen: query.length });
 }, "Could not search flashcards. Please try again.");
 
 export const deleteItem = safeAction(async function deleteItem(itemId: string) {

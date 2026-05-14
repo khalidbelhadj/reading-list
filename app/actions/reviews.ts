@@ -26,6 +26,7 @@ import {
   getNewCardsSchema,
   getCardsForItemSchema,
 } from "@/lib/schemas";
+import { time } from "@/lib/perf";
 
 export type ReviewMode = "due" | "cram" | "item" | "new" | "filter";
 
@@ -67,6 +68,7 @@ const selectQueueCard = {
 };
 
 export const getDueCards = safeAction(async function getDueCards(limit?: number): Promise<FlashcardWithItem[]> {
+  return time("action:getDueCards", async () => {
   const n = limit ?? 5;
   parseInput(getDueCardsSchema, { limit: n });
   const userId = await getCurrentUserId();
@@ -82,10 +84,13 @@ export const getDueCards = safeAction(async function getDueCards(limit?: number)
       .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
       .orderBy(asc(flashcards.due))
       .limit(n),
+    "getDueCards",
   );
+  });
 }, "Could not load due cards. Please try again.");
 
 export const getNewCards = safeAction(async function getNewCards(limit?: number): Promise<FlashcardWithItem[]> {
+  return time("action:getNewCards", async () => {
   const n = limit ?? 5;
   parseInput(getNewCardsSchema, { limit: n });
   const userId = await getCurrentUserId();
@@ -100,7 +105,9 @@ export const getNewCards = safeAction(async function getNewCards(limit?: number)
       .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
       .orderBy(asc(flashcards.createdAt))
       .limit(n),
+    "getNewCards",
   );
+  });
 }, "Could not load new cards. Please try again.");
 
 export const getCardsForItem = safeAction(async function getCardsForItem(itemId: string): Promise<FlashcardWithItem[]> {
@@ -656,30 +663,22 @@ export const getReviewStatus = safeAction(async function getReviewStatus(): Prom
   totalItemCount: number;
   lastReviewedAt: string | null;
 }> {
+  return time("action:getReviewStatus", async () => {
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
   return withUser(userId, async (tx) => {
-    const [dueRows, newRows, totalRows, lastRows] = await Promise.all([
+    // Single aggregate scan over flashcards (3 conditional COUNTs in one pass)
+    // plus the latest cardReviews row, in parallel — replaces 4 separate
+    // queries that each ate ~150ms of withUser overhead end-to-end.
+    const [counts, lastRows] = await Promise.all([
       tx
         .select({
-          cards: sql<number>`count(*)::int`,
-          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
-        })
-        .from(flashcards)
-        .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now))),
-      tx
-        .select({
-          cards: sql<number>`count(*)::int`,
-          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
-        })
-        .from(flashcards)
-        .where(
-          and(eq(flashcards.userId, userId), eq(flashcards.state, "new")),
-        ),
-      tx
-        .select({
-          cards: sql<number>`count(*)::int`,
-          items: sql<number>`count(distinct ${flashcards.itemId})::int`,
+          dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
+          dueItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.due} <= ${now})::int`,
+          newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
+          newItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.state} = 'new')::int`,
+          totalCards: sql<number>`count(*)::int`,
+          totalItems: sql<number>`count(distinct ${flashcards.itemId})::int`,
         })
         .from(flashcards)
         .where(eq(flashcards.userId, userId)),
@@ -690,14 +689,16 @@ export const getReviewStatus = safeAction(async function getReviewStatus(): Prom
         .orderBy(desc(cardReviews.reviewedAt))
         .limit(1),
     ]);
+    const c = counts[0];
     return {
-      dueCount: dueRows[0]?.cards ?? 0,
-      dueItemCount: dueRows[0]?.items ?? 0,
-      newCount: newRows[0]?.cards ?? 0,
-      newItemCount: newRows[0]?.items ?? 0,
-      totalCardCount: totalRows[0]?.cards ?? 0,
-      totalItemCount: totalRows[0]?.items ?? 0,
+      dueCount: c?.dueCards ?? 0,
+      dueItemCount: c?.dueItems ?? 0,
+      newCount: c?.newCards ?? 0,
+      newItemCount: c?.newItems ?? 0,
+      totalCardCount: c?.totalCards ?? 0,
+      totalItemCount: c?.totalItems ?? 0,
       lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
     };
+  }, "getReviewStatus");
   });
 }, "Could not load review status. Please try again.");

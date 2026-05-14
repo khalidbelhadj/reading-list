@@ -53,6 +53,7 @@ export const ItemsList = () => {
   } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
+    staleTime: Infinity,
   });
 
   // UI state

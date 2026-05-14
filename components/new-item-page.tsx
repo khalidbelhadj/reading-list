@@ -24,6 +24,7 @@ export const NewItemPage = () => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
+    staleTime: Infinity,
   });
 
   React.useEffect(() => {

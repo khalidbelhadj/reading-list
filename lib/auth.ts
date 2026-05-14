@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@/lib/supabase/server";
+import { perfLog } from "@/lib/perf";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -14,10 +15,14 @@ const getMockUserId = (): string | null => {
 };
 
 export const getCurrentUserId = async (): Promise<string> => {
+  const start = performance.now();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  perfLog("getCurrentUserId", performance.now() - start, {
+    hasUser: !!user,
+  });
   if (user) return user.id;
 
   const mockId = getMockUserId();
