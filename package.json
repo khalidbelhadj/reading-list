@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build --turbopack",
     "start": "next start",
     "db:push": "drizzle-kit push",
     "db:seed": "bun db/seed.ts",
