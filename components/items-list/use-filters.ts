@@ -152,12 +152,7 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
     localStorage.setItem("groupBy", groupBy);
   }, [groupBy]);
 
-  const tabItems = React.useMemo(
-    () =>
-      (items ?? [])
-        .sort((a, b) => a.position - b.position),
-    [items],
-  );
+  const tabItems = React.useMemo(() => items ?? [], [items]);
 
   const allTags = React.useMemo(() => {
     const tagMap = new Map<string, DbTag>();
