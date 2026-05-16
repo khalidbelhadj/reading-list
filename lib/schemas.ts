@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { ActionError } from "@/lib/safe-action";
 
 export const parseInput = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new Error(result.error.issues[0].message);
+    throw new ActionError(result.error.issues[0].message);
   }
   return result.data;
 };
