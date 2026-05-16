@@ -2,7 +2,7 @@
 
 import { withUser } from "@/db";
 import { items } from "@/db/schema";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction } from "@/lib/safe-action";
 import { ensureTagsLinkedForItems } from "@/lib/tags";
@@ -10,6 +10,7 @@ import {
   createItems as createItemsLib,
   updateItem as updateItemLib,
   deleteItems as deleteItemsLib,
+  recompactPositions,
 } from "@/lib/items";
 import {
   searchItems as searchItemsQuery,
@@ -176,6 +177,16 @@ export const updateItem = safeAction(async function updateItem(
   await withUser(userId, (tx) => updateItemLib(tx, userId, itemId, fields));
 }, "Could not update item. Please try again.");
 
+const computeMidpoint = (
+  before: number | null,
+  after: number | null,
+): number => {
+  if (before === null && after === null) return 0;
+  if (before === null && after !== null) return after - 1;
+  if (after === null && before !== null) return before + 1;
+  return ((before as number) + (after as number)) / 2;
+};
+
 export const reorderItem = safeAction(async function reorderItem(
   itemId: string,
   newPosition: number,
@@ -183,36 +194,46 @@ export const reorderItem = safeAction(async function reorderItem(
   parseInput(reorderItemSchema, { itemId, newPosition });
   const userId = await getCurrentUserId();
   await withUser(userId, async (tx) => {
-    const typeItems = await tx
+    const ordered = await tx
       .select({ id: items.id, position: items.position })
       .from(items)
       .where(eq(items.userId, userId))
       .orderBy(asc(items.position));
 
-    const currentIndex = typeItems.findIndex((i) => i.id === itemId);
+    const currentIndex = ordered.findIndex((i) => i.id === itemId);
     if (currentIndex === -1) return;
 
-    const [movedItem] = typeItems.splice(currentIndex, 1);
-    const clamped = Math.max(0, Math.min(newPosition, typeItems.length));
-    typeItems.splice(clamped, 0, movedItem);
+    const without = ordered.filter((_, i) => i !== currentIndex);
+    const clamped = Math.max(0, Math.min(newPosition, without.length));
+    if (clamped === currentIndex) return;
 
-    const updates = typeItems
-      .map((item, i) => ({ id: item.id, position: i }))
-      .filter((u, i) => typeItems[i].position !== u.position);
+    const before = clamped > 0 ? without[clamped - 1].position : null;
+    const after = clamped < without.length ? without[clamped].position : null;
+    let newPos = computeMidpoint(before, after);
 
-    if (updates.length > 0) {
-      const idValues = sql.join(updates.map((u) => sql`${u.id}`), sql`, `);
-      const posValues = sql.join(updates.map((u) => sql`${u.position}`), sql`, `);
-      await tx.execute(sql`
-        UPDATE ${items} SET position = v.new_pos::int
-        FROM (
-          SELECT unnest(ARRAY[${idValues}]::text[]) AS id,
-                 unnest(ARRAY[${posValues}]::int[]) AS new_pos
-        ) v
-        WHERE ${items}.id = v.id
-          AND ${items}.user_id = ${userId}::uuid
-      `);
+    // If neighbors are so dense that the midpoint collides, recompact once
+    // and recompute.
+    if (
+      (before !== null && newPos === before) ||
+      (after !== null && newPos === after)
+    ) {
+      await recompactPositions(tx, userId);
+      const reordered = await tx
+        .select({ id: items.id, position: items.position })
+        .from(items)
+        .where(eq(items.userId, userId))
+        .orderBy(asc(items.position));
+      const withoutR = reordered.filter((i) => i.id !== itemId);
+      const beforeR = clamped > 0 ? withoutR[clamped - 1].position : null;
+      const afterR =
+        clamped < withoutR.length ? withoutR[clamped].position : null;
+      newPos = computeMidpoint(beforeR, afterR);
     }
+
+    await tx
+      .update(items)
+      .set({ position: newPos })
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
   });
 }, "Could not reorder items. Please try again.");
 

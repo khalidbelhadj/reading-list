@@ -26,10 +26,16 @@ export const createItems = async (
   const now = new Date().toISOString();
   const ids = inputs.map((input) => input.id ?? crypto.randomUUID());
 
-  await tx
-    .update(items)
-    .set({ position: sql`${items.position} + ${inputs.length}` })
-    .where(eq(items.userId, userId));
+  // Insert new items above all existing ones by anchoring at min(position) - 1
+  // and giving each new item a slot of width 1 below that anchor. No need to
+  // rewrite existing rows.
+  const [{ minPos }] = (await tx.execute(sql`
+    SELECT COALESCE(MIN(position), 0) AS "minPos"
+    FROM ${items}
+    WHERE user_id = ${userId}::uuid
+  `)) as unknown as Array<{ minPos: number }>;
+
+  const anchor = Number(minPos) - inputs.length;
 
   await tx.insert(items).values(
     inputs.map((input, idx) => ({
@@ -40,7 +46,7 @@ export const createItems = async (
       faviconUrl: input.faviconUrl ?? null,
       starred: false,
       notes: input.notes ?? null,
-      position: idx,
+      position: anchor + idx,
       createdAt: now,
       updatedAt: now,
     })),
@@ -145,7 +151,8 @@ export const deleteItems = async (
     .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
 
   await pruneOrphanTags(tx, userId, affectedTagIds);
-  await recompactPositions(tx, userId);
+  // No recompaction on delete: fractional positions tolerate gaps, and
+  // recompacting on every delete used to rewrite every row in the table.
 
   return { deleted: ownedIds, notFound };
 };
