@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import * as schema from "./schema";
 import { perfLog } from "@/lib/perf";
+import "@/lib/env";
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 
