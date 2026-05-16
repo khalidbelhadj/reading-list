@@ -2,24 +2,21 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
-import { createItem } from "@/app/actions";
 import { type EditFields } from "@/components/items-list/utils";
-import { useInvalidateItems } from "@/components/items-list/use-invalidate-items";
 import { DetailPanel } from "@/components/items-list/detail-panel";
-import { findDuplicateItem } from "@/lib/url";
 import { DuplicateDialog } from "@/components/items-list/duplicate-dialog";
+import { useCreateItem } from "@/components/items-list/use-create-item";
 
 export const NewItemPage = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const invalidate = useInvalidateItems();
 
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -31,69 +28,13 @@ export const NewItemPage = () => {
     router.prefetch("/");
   }, [router]);
 
-  type CreateArgs = {
-    title: string;
-    url: string;
-    tagNames: string[];
-    notes?: string;
-  };
-
-  type CreateCallbacks = {
-    onProceed?: () => void;
-    onCreated?: (itemId: string) => void;
-    onOpenExisting?: (existingId: string) => void;
-  };
-
-  const [duplicateDialog, setDuplicateDialog] = React.useState<{
-    existing: Item;
-    pending: CreateArgs;
-    callbacks: CreateCallbacks;
-  } | null>(null);
-
-  const createMutation = useMutation({
-    mutationFn: (args: CreateArgs) =>
-      createItem(args.title, args.url, args.tagNames, undefined, args.notes),
-  });
-
-  const requestCreate = React.useCallback(
-    (args: CreateArgs, callbacks: CreateCallbacks = {}) => {
-      const existing = findDuplicateItem(items, args.url);
-      if (existing) {
-        setDuplicateDialog({ existing, pending: args, callbacks });
-        return;
-      }
-      callbacks.onProceed?.();
-      createMutation.mutate(args, {
-        onSuccess: (newId) => {
-          if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-        },
-      });
-    },
-    [items, createMutation],
-  );
-
-  const handleDuplicateOpenExisting = React.useCallback(() => {
-    if (!duplicateDialog) return;
-    const id = duplicateDialog.existing.id;
-    duplicateDialog.callbacks.onOpenExisting?.(id);
-    setDuplicateDialog(null);
-  }, [duplicateDialog]);
-
-  const handleDuplicateCreateAnyway = React.useCallback(() => {
-    if (!duplicateDialog) return;
-    const { pending, callbacks } = duplicateDialog;
-    setDuplicateDialog(null);
-    callbacks.onProceed?.();
-    createMutation.mutate(pending, {
-      onSuccess: (newId) => {
-        if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-      },
-    });
-  }, [duplicateDialog, createMutation]);
-
-  const handleDuplicateOpenChange = React.useCallback((open: boolean) => {
-    if (!open) setDuplicateDialog(null);
-  }, []);
+  const {
+    requestCreate,
+    duplicateDialog,
+    dismissDuplicateDialog,
+    openExisting,
+    createAnyway,
+  } = useCreateItem(items);
 
   const handleCreate = React.useCallback(
     (fields: EditFields) => {
@@ -165,10 +106,10 @@ export const NewItemPage = () => {
 
       <DuplicateDialog
         open={duplicateDialog !== null}
-        onOpenChange={handleDuplicateOpenChange}
+        onOpenChange={dismissDuplicateDialog}
         existing={duplicateDialog?.existing ?? null}
-        onOpenExisting={handleDuplicateOpenExisting}
-        onCreateAnyway={handleDuplicateCreateAnyway}
+        onOpenExisting={openExisting}
+        onCreateAnyway={createAnyway}
       />
     </div>
   );
