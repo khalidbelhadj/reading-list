@@ -537,6 +537,7 @@ export const ItemsList = () => {
             )}
             <GroupedList
               groups={groups}
+              items={items ?? []}
               typingTitles={typingTitles}
               suppressHover={suppressHover}
               onSelect={handleOpenItem}
