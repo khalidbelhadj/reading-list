@@ -1,6 +1,18 @@
 import React from "react";
 
 import { type Item, type DbTag } from "@/lib/types";
+import { useLocalStorage } from "@/lib/use-local-storage";
+
+const parseBool = (raw: string) => raw === "true";
+const parseGroupBy = (raw: string): GroupBy =>
+  raw === "tag" || raw === "none" ? raw : "day";
+const parseActiveTagsMap = (raw: string): Record<string, string[]> => {
+  const value = JSON.parse(raw);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, string[]>;
+  }
+  return {};
+};
 
 export type TabId = "reading-list" | "cards";
 export type GroupBy = "none" | "tag" | "day";
@@ -102,7 +114,16 @@ const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
 };
 
 export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, searchIds: Set<string> | null = null) => {
-  const [activeTagsMap, setActiveTagsMap] = React.useState<Record<string, string[]>>({});
+  // Preferences are read synchronously on first client render so filters
+  // apply from frame 1. Writes happen inside each setter (no extra effect),
+  // which avoids the redundant initial write-back and per-keystroke
+  // JSON.stringify on every state change.
+  // Toolbar elements that reflect these values wrap their mismatching
+  // content in `<span suppressHydrationWarning>` to silence the structural
+  // mismatch warning when SSR defaults differ from the stored value.
+  const [activeTagsMap, setActiveTagsMap] = useLocalStorage<
+    Record<string, string[]>
+  >("activeTagsMap", {}, parseActiveTagsMap, JSON.stringify);
   const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
   const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
     setActiveTagsMap((prev) => {
@@ -110,47 +131,26 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
       const next = updater(current);
       return { ...prev, [activeTab]: [...next] };
     });
-  }, [activeTab]);
+  }, [activeTab, setActiveTagsMap]);
 
-  // Read preferences synchronously on first client render so filters apply
-  // from frame 1. On the server `window` is undefined and we use defaults;
-  // the toolbar elements that reflect these values wrap their mismatching
-  // content in `<span suppressHydrationWarning>` to silence the structural
-  // mismatch warning.
-  const [tagsOpen, setTagsOpen] = React.useState(() =>
-    typeof window === "undefined"
-      ? false
-      : localStorage.getItem("tagsOpen") === "true",
+  const [tagsOpen, setTagsOpen] = useLocalStorage(
+    "tagsOpen",
+    false,
+    parseBool,
+    String,
   );
-  const [showRead, setShowRead] = React.useState(() =>
-    typeof window === "undefined"
-      ? false
-      : localStorage.getItem("showRead") === "true",
+  const [showRead, setShowRead] = useLocalStorage(
+    "showRead",
+    false,
+    parseBool,
+    String,
   );
-  const [groupBy, setGroupBy] = React.useState<GroupBy>(() => {
-    if (typeof window === "undefined") return "day";
-    const stored = localStorage.getItem("groupBy");
-    return stored === "tag" || stored === "none" ? stored : "day";
-  });
-  React.useEffect(() => {
-    try {
-      const stored = localStorage.getItem("activeTagsMap");
-      if (stored) setActiveTagsMap(JSON.parse(stored));
-    } catch {}
-  }, []);
-
-  React.useEffect(() => {
-    localStorage.setItem("activeTagsMap", JSON.stringify(activeTagsMap));
-  }, [activeTagsMap]);
-  React.useEffect(() => {
-    localStorage.setItem("tagsOpen", String(tagsOpen));
-  }, [tagsOpen]);
-  React.useEffect(() => {
-    localStorage.setItem("showRead", String(showRead));
-  }, [showRead]);
-  React.useEffect(() => {
-    localStorage.setItem("groupBy", groupBy);
-  }, [groupBy]);
+  const [groupBy, setGroupBy] = useLocalStorage<GroupBy>(
+    "groupBy",
+    "day",
+    parseGroupBy,
+    (v) => v,
+  );
 
   const tabItems = React.useMemo(() => items ?? [], [items]);
 
