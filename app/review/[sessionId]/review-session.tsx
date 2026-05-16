@@ -60,30 +60,44 @@ const formatInterval = (dueIso: string, nowIso: string) => {
   return `${months}mo`;
 };
 
-let confettiInstance: confetti.CreateTypes | null = null;
+const useCompletionConfetti = () => {
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const instanceRef = React.useRef<confetti.CreateTypes | null>(null);
 
-const getConfetti = (): confetti.CreateTypes => {
-  if (confettiInstance) return confettiInstance;
-  const canvas = document.createElement("canvas");
-  canvas.style.cssText =
-    "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100;";
-  document.body.appendChild(canvas);
-  confettiInstance = confetti.create(canvas, {
-    resize: true,
-    useWorker: false,
-  });
-  return confettiInstance;
-};
+  React.useEffect(() => {
+    return () => {
+      if (instanceRef.current) {
+        instanceRef.current.reset();
+        instanceRef.current = null;
+      }
+      if (canvasRef.current) {
+        canvasRef.current.remove();
+        canvasRef.current = null;
+      }
+    };
+  }, []);
 
-const fireCompletionConfetti = () => {
-  getConfetti()({
-    particleCount: 60,
-    spread: 80,
-    ticks: 120,
-    gravity: 0.9,
-    startVelocity: 45,
-    origin: { x: 0.5, y: 0.7 },
-  });
+  return React.useCallback(() => {
+    if (!instanceRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.style.cssText =
+        "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100;";
+      document.body.appendChild(canvas);
+      canvasRef.current = canvas;
+      instanceRef.current = confetti.create(canvas, {
+        resize: true,
+        useWorker: false,
+      });
+    }
+    instanceRef.current({
+      particleCount: 60,
+      spread: 80,
+      ticks: 120,
+      gravity: 0.9,
+      startVelocity: 45,
+      origin: { x: 0.5, y: 0.7 },
+    });
+  }, []);
 };
 
 const formatDuration = (ms: number) => {
@@ -573,6 +587,7 @@ const SessionSummaryView = ({
     queryFn: () => getSessionSummary(sessionId),
   });
 
+  const fireCompletionConfetti = useCompletionConfetti();
   const firedRef = React.useRef(false);
   React.useEffect(() => {
     if (firedRef.current || !summary) return;
@@ -580,7 +595,7 @@ const SessionSummaryView = ({
       firedRef.current = true;
       fireCompletionConfetti();
     }
-  }, [summary, cardCount]);
+  }, [summary, cardCount, fireCompletionConfetti]);
 
   if (isLoading || !summary) {
     return (
