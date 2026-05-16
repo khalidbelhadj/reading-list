@@ -39,6 +39,7 @@ export const searchItems = async (
   if (pattern.length > 500) throw new Error("Pattern too long (max 500 chars)");
 
   await tx.execute(sql`SET LOCAL statement_timeout = '10000ms'`);
+  await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
 
   if (mode === "regex") {
     return regexSearch(tx, userId, pattern, caseSensitive);
@@ -96,23 +97,34 @@ const fuzzySearch = async (
   userId: string,
   pattern: string,
 ): Promise<SearchResult[]> => {
-  const tokens = pattern
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `%${t}%`);
+  const tokens = pattern.split(/\s+/).filter(Boolean);
 
   if (tokens.length === 0) return [];
 
-  const tokenConditions = tokens.map(
-    (token) => sql`(
-      i.title ILIKE ${token}
-      OR i.url ILIKE ${token}
-      OR COALESCE(i.notes, '') ILIKE ${token}
-      OR COALESCE(fc_agg.fc_text, '') ILIKE ${token}
-    )`,
-  );
+  const tokenConditions = tokens.map((token) => {
+    const like = `%${token}%`;
+    if (token.length >= 4) {
+      return sql`(
+        i.title ILIKE ${like}
+        OR i.title %> ${token}
+        OR i.url ILIKE ${like}
+        OR COALESCE(i.notes, '') ILIKE ${like}
+        OR COALESCE(i.notes, '') %> ${token}
+        OR COALESCE(fc_agg.fc_text, '') ILIKE ${like}
+        OR COALESCE(fc_agg.fc_text, '') %> ${token}
+      )`;
+    }
+    return sql`(
+      i.title ILIKE ${like}
+      OR i.url ILIKE ${like}
+      OR COALESCE(i.notes, '') ILIKE ${like}
+      OR COALESCE(fc_agg.fc_text, '') ILIKE ${like}
+    )`;
+  });
 
   const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
+
+  const fullLike = `%${pattern}%`;
 
   const rows = await tx.execute(sql`
     WITH fc_agg AS (
@@ -126,15 +138,20 @@ const fuzzySearch = async (
     SELECT
       i.id, i.title, i.url, i.notes, i.starred, i.read,
       i.created_at, i.position,
-      (${tokens.map((t) => sql`(CASE WHEN i.title ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_title,
-      (${tokens.map((t) => sql`(CASE WHEN i.url ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_url,
-      (${tokens.map((t) => sql`(CASE WHEN COALESCE(i.notes, '') ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_notes,
-      (${tokens.map((t) => sql`(CASE WHEN COALESCE(fc_agg.fc_text, '') ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_flashcards
+      (i.title ILIKE ${fullLike} OR i.title %> ${pattern}) AS m_title,
+      (i.url ILIKE ${fullLike}) AS m_url,
+      (COALESCE(i.notes, '') ILIKE ${fullLike} OR COALESCE(i.notes, '') %> ${pattern}) AS m_notes,
+      (COALESCE(fc_agg.fc_text, '') ILIKE ${fullLike} OR COALESCE(fc_agg.fc_text, '') %> ${pattern}) AS m_flashcards,
+      GREATEST(
+        word_similarity(${pattern}, i.title) * 1.5,
+        word_similarity(${pattern}, COALESCE(i.notes, '')),
+        word_similarity(${pattern}, COALESCE(fc_agg.fc_text, ''))
+      ) AS score
     FROM items i
     LEFT JOIN fc_agg ON fc_agg.item_id = i.id
     WHERE i.user_id = ${userId}
       AND ${whereClause}
-    ORDER BY i.position ASC
+    ORDER BY score DESC, i.position ASC
     LIMIT 100
   `);
 
@@ -163,6 +180,7 @@ export const searchFlashcards = async (
   if (pattern.length > 500) throw new Error("Pattern too long (max 500 chars)");
 
   await tx.execute(sql`SET LOCAL statement_timeout = '10000ms'`);
+  await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
 
   if (mode === "regex") {
     return regexSearchFlashcards(tx, userId, pattern);
@@ -204,35 +222,50 @@ const fuzzySearchFlashcards = async (
   userId: string,
   pattern: string,
 ): Promise<FlashcardSearchResult[]> => {
-  const tokens = pattern
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `%${t}%`);
+  const tokens = pattern.split(/\s+/).filter(Boolean);
 
   if (tokens.length === 0) return [];
 
-  const tokenConditions = tokens.map(
-    (token) => sql`(
-      f.front ILIKE ${token}
-      OR f.back ILIKE ${token}
-      OR COALESCE(i.title, '') ILIKE ${token}
-    )`,
-  );
+  const tokenConditions = tokens.map((token) => {
+    const like = `%${token}%`;
+    if (token.length >= 4) {
+      return sql`(
+        f.front ILIKE ${like}
+        OR f.front %> ${token}
+        OR f.back ILIKE ${like}
+        OR f.back %> ${token}
+        OR COALESCE(i.title, '') ILIKE ${like}
+        OR COALESCE(i.title, '') %> ${token}
+      )`;
+    }
+    return sql`(
+      f.front ILIKE ${like}
+      OR f.back ILIKE ${like}
+      OR COALESCE(i.title, '') ILIKE ${like}
+    )`;
+  });
 
   const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
+
+  const fullLike = `%${pattern}%`;
 
   const rows = await tx.execute(sql`
     SELECT
       f.id, f.item_id, f.front, f.back, f.state, f.due,
       i.title AS item_title,
-      (${tokens.map((t) => sql`(CASE WHEN f.front ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_front,
-      (${tokens.map((t) => sql`(CASE WHEN f.back ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_back,
-      (${tokens.map((t) => sql`(CASE WHEN COALESCE(i.title, '') ILIKE ${t} THEN 1 ELSE 0 END)`).reduce((a, b) => sql`${a} + ${b}`)}) > 0 AS m_item_title
+      (f.front ILIKE ${fullLike} OR f.front %> ${pattern}) AS m_front,
+      (f.back ILIKE ${fullLike} OR f.back %> ${pattern}) AS m_back,
+      (COALESCE(i.title, '') ILIKE ${fullLike} OR COALESCE(i.title, '') %> ${pattern}) AS m_item_title,
+      GREATEST(
+        word_similarity(${pattern}, f.front),
+        word_similarity(${pattern}, f.back),
+        word_similarity(${pattern}, COALESCE(i.title, ''))
+      ) AS score
     FROM flashcards f
     LEFT JOIN items i ON i.id = f.item_id AND i.user_id = f.user_id
     WHERE f.user_id = ${userId}
       AND ${whereClause}
-    ORDER BY f.created_at DESC
+    ORDER BY score DESC, f.created_at DESC
     LIMIT 100
   `);
 
