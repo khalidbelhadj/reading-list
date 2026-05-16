@@ -53,8 +53,9 @@ export const getCurrentUserIdFromRequest = async (
     if (user) return user.id;
   }
 
-  const mockId = getMockUserId();
-  if (mockId) return mockId;
-
+  // No MOCK_USER_ID fallback here: middleware already 401s every /api/*
+  // request without a Bearer or cookie session, so this branch was
+  // unreachable — and would silently grant access to the configured user
+  // if middleware ever stopped guarding API routes.
   throw new UnauthorizedError();
 };
