@@ -4,7 +4,7 @@ import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "Reading List",
@@ -27,7 +27,7 @@ const RootLayout = ({
       <body className="font-sans bg-background text-foreground">
         <Suspense>
           <QueryProvider>
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider delay={TOOLTIP_DELAY_MS}>{children}</TooltipProvider>
           </QueryProvider>
         </Suspense>
         <Toaster />

@@ -6,7 +6,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -216,23 +216,21 @@ export const CopyPromptsDialog = ({
               onRenameKeyDown={handleRenameKeyDown}
             />
           ))}
-          <TooltipProvider delay={TOOLTIP_DELAY_MS}>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-muted-foreground"
-                    onClick={handleAddPrompt}
-                  />
-                }
-              >
-                <IconPlus />
-              </TooltipTrigger>
-              <TooltipContent>Add prompt</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground"
+                  onClick={handleAddPrompt}
+                />
+              }
+            >
+              <IconPlus />
+            </TooltipTrigger>
+            <TooltipContent>Add prompt</TooltipContent>
+          </Tooltip>
         </div>
 
         {selectedPrompt && (

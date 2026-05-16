@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconDots, IconExternalLink, IconFileFilled, IconPlus } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
 import { getFaviconSrc } from "@/components/items-list/utils";
@@ -213,7 +213,6 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
   return (
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-175 px-5">
-        <TooltipProvider delay={TOOLTIP_DELAY_MS}>
         <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5 pb-1.5 bg-background">
           <Tooltip>
             <TooltipTrigger
@@ -302,7 +301,6 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
           )}
         </div>
-        </TooltipProvider>
         <div className="pt-1">
         {!item ? (
           <DetailPanelSkeleton />
