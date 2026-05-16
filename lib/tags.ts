@@ -26,28 +26,56 @@ export const pruneOrphanTags = async (
     );
 };
 
+const upsertTagsAndGetIds = async (
+  tx: Tx | typeof db,
+  userId: string,
+  tagNames: string[],
+): Promise<number[]> => {
+  const unique = Array.from(new Set(tagNames));
+  if (unique.length === 0) return [];
+
+  await tx
+    .insert(tags)
+    .values(unique.map((name) => ({ userId, name })))
+    .onConflictDoNothing();
+
+  const found = await tx
+    .select({ id: tags.id })
+    .from(tags)
+    .where(and(eq(tags.userId, userId), inArray(tags.name, unique)));
+
+  return found.map((t) => t.id);
+};
+
 export const ensureTagsLinked = async (
   tx: Tx | typeof db,
   userId: string,
   itemId: string,
   tagNames: string[],
 ) => {
-  for (const tagName of tagNames) {
-    await tx
-      .insert(tags)
-      .values({ userId, name: tagName })
-      .onConflictDoNothing();
-    const [tag] = await tx
-      .select()
-      .from(tags)
-      .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-    if (tag) {
-      await tx
-        .insert(itemsTags)
-        .values({ itemId, tagId: tag.id })
-        .onConflictDoNothing();
-    }
-  }
+  const tagIds = await upsertTagsAndGetIds(tx, userId, tagNames);
+  if (tagIds.length === 0) return;
+
+  await tx
+    .insert(itemsTags)
+    .values(tagIds.map((tagId) => ({ itemId, tagId })))
+    .onConflictDoNothing();
+};
+
+export const ensureTagsLinkedForItems = async (
+  tx: Tx | typeof db,
+  userId: string,
+  itemIds: string[],
+  tagNames: string[],
+) => {
+  if (itemIds.length === 0) return;
+  const tagIds = await upsertTagsAndGetIds(tx, userId, tagNames);
+  if (tagIds.length === 0) return;
+
+  const rows = itemIds.flatMap((itemId) =>
+    tagIds.map((tagId) => ({ itemId, tagId })),
+  );
+  await tx.insert(itemsTags).values(rows).onConflictDoNothing();
 };
 
 export const syncItemTags = async (
@@ -62,35 +90,29 @@ export const syncItemTags = async (
     .where(eq(itemsTags.itemId, itemId));
   const existingTagIds = existingLinks.map((l) => l.tagId);
 
-  const newTagIds: number[] = [];
-  for (const tagName of tagNames) {
+  const newTagIds = await upsertTagsAndGetIds(tx, userId, tagNames);
+
+  const existingSet = new Set(existingTagIds);
+  const newSet = new Set(newTagIds);
+  const removedTagIds = existingTagIds.filter((id) => !newSet.has(id));
+  const addedTagIds = newTagIds.filter((id) => !existingSet.has(id));
+
+  if (removedTagIds.length > 0) {
     await tx
-      .insert(tags)
-      .values({ userId, name: tagName })
+      .delete(itemsTags)
+      .where(
+        and(
+          eq(itemsTags.itemId, itemId),
+          inArray(itemsTags.tagId, removedTagIds),
+        ),
+      );
+  }
+
+  if (addedTagIds.length > 0) {
+    await tx
+      .insert(itemsTags)
+      .values(addedTagIds.map((tagId) => ({ itemId, tagId })))
       .onConflictDoNothing();
-    const [tag] = await tx
-      .select()
-      .from(tags)
-      .where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
-    if (tag) newTagIds.push(tag.id);
-  }
-
-  const removedTagIds: number[] = [];
-  for (const tagId of existingTagIds) {
-    if (!newTagIds.includes(tagId)) {
-      await tx
-        .delete(itemsTags)
-        .where(
-          and(eq(itemsTags.itemId, itemId), eq(itemsTags.tagId, tagId)),
-        );
-      removedTagIds.push(tagId);
-    }
-  }
-
-  for (const tagId of newTagIds) {
-    if (!existingTagIds.includes(tagId)) {
-      await tx.insert(itemsTags).values({ itemId, tagId });
-    }
   }
 
   await pruneOrphanTags(tx, userId, removedTagIds);
