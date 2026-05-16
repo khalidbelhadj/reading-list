@@ -17,7 +17,7 @@ import {
   type SearchResult,
   type FlashcardSearchResult,
 } from "@/lib/search";
-import { assertPublicUrl } from "@/lib/url.server";
+import { safeFetch } from "@/lib/url.server";
 import {
   parseInput,
   deleteItemSchema,
@@ -84,8 +84,6 @@ function decodeHtmlEntities(str: string): string {
 export const fetchPageTitle = safeAction(async function fetchPageTitle(url: string): Promise<string | null> {
   parseInput(fetchPageTitleSchema, { url });
   try {
-    await assertPublicUrl(url);
-
     const parsed = new URL(url);
     const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(
       parsed.hostname,
@@ -95,12 +93,11 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(url: stri
       if (title) return title;
     }
 
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       },
-      redirect: "follow",
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
