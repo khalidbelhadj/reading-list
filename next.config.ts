@@ -1,8 +1,16 @@
+import crypto from "node:crypto";
 import type { NextConfig } from "next";
+
+import { THEME_BOOTSTRAP_SCRIPT } from "./lib/theme-bootstrap";
+
+const themeBootstrapHash = `'sha256-${crypto
+  .createHash("sha256")
+  .update(THEME_BOOTSTRAP_SCRIPT)
+  .digest("base64")}'`;
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' ${themeBootstrapHash}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' https: data: blob:",
   "font-src 'self'",

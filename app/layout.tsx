@@ -5,6 +5,7 @@ import "./globals.css";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 
 export const metadata: Metadata = {
   title: "Reading List",
@@ -19,9 +20,7 @@ const RootLayout = ({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem("theme");var d=t==="dark"||(!t&&matchMedia("(prefers-color-scheme:dark)").matches);if(d)document.documentElement.classList.add("dark");})()`,
-          }}
+          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
         />
       </head>
       <body className="font-sans bg-background text-foreground">
