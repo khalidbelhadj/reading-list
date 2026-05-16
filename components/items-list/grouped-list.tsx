@@ -1,13 +1,13 @@
 import { IconChevronRight } from "@tabler/icons-react";
 import React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { type DbTag, type Item } from "@/lib/types";
+import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { deleteTag, renameTag } from "@/app/actions";
 import { DeleteTagDialog } from "@/components/items-list/delete-tag-dialog";
+import { TagRenameInput } from "@/components/items-list/tag-rename-input";
+import { useTagMutations } from "@/components/items-list/use-tag-mutations";
 
 import {
   ContextMenu,
@@ -23,7 +23,6 @@ import {
 import { resolveRowItem } from "./utils";
 import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
-import { useInvalidateItems } from "./use-invalidate-items";
 import { useHoverPreview, HoverPreviewContent } from "@/components/ui/preview-card";
 import { ItemPreview } from "./item-preview";
 
@@ -81,6 +80,7 @@ export const CollapsibleSection = ({
 
 type GroupedListProps = {
   groups: ItemGroup[];
+  items: Item[];
   typingTitles: Record<string, string>;
   suppressHover: boolean;
   onSelect: (id: string) => void;
@@ -91,6 +91,7 @@ type GroupedListProps = {
 
 export const GroupedList = ({
   groups,
+  items,
   typingTitles,
   suppressHover,
   onSelect,
@@ -98,49 +99,25 @@ export const GroupedList = ({
   onToggleRead,
   onTogglePin,
 }: GroupedListProps) => {
-  const queryClient = useQueryClient();
   const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set());
   const [closedDateKeys, setClosedDateKeys] = React.useState<Set<string>>(() => new Set());
-  const [renamingTagId, setRenamingTagId] = React.useState<number | null>(null);
-  const [renameDraft, setRenameDraft] = React.useState("");
-  const [pendingDeleteTag, setPendingDeleteTag] = React.useState<DbTag | null>(
-    null,
-  );
   const [contextMenuOpenTagId, setContextMenuOpenTagId] = React.useState<
     number | null
   >(null);
-  const [deleting, setDeleting] = React.useState(false);
 
-  const invalidateItems = useInvalidateItems();
-
-  const renameMutation = useMutation({
-    mutationFn: ({ tagId, newName }: { tagId: number; newName: string }) =>
-      renameTag(tagId, newName),
-    onMutate: async ({ tagId, newName }) => {
-      await queryClient.cancelQueries({ queryKey: ["items"] });
-      const previous = queryClient.getQueryData<Item[]>(["items"]);
-      queryClient.setQueryData<Item[]>(["items"], (old) =>
-        (old ?? []).map((item) => ({
-          ...item,
-          tags: item.tags.map((t) =>
-            t.id === tagId ? { ...t, name: newName } : t,
-          ),
-        })),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["items"], context.previous);
-      }
-    },
-    onSettled: invalidateItems,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (tagId: number) => deleteTag(tagId),
-    onSuccess: invalidateItems,
-  });
+  const {
+    renamingTagId,
+    renameDraft,
+    setRenameDraft,
+    startRename,
+    commitRename,
+    cancelRename,
+    pendingDeleteTag,
+    setPendingDeleteTag,
+    pendingDeleteCount,
+    confirmDelete,
+    deleting,
+  } = useTagMutations(items);
 
   const toggle = React.useCallback((key: string) => {
     setOpenKeys((prev) => {
@@ -159,45 +136,6 @@ export const GroupedList = ({
       return next;
     });
   }, []);
-
-  const startRename = React.useCallback((tag: DbTag) => {
-    setRenamingTagId(tag.id);
-    setRenameDraft(tag.name);
-  }, []);
-
-  const commitRename = React.useCallback(
-    (tag: DbTag) => {
-      const next = renameDraft.trim().toLowerCase();
-      setRenamingTagId(null);
-      if (next && next !== tag.name) {
-        renameMutation.mutate({ tagId: tag.id, newName: next });
-      }
-    },
-    [renameDraft, renameMutation],
-  );
-
-  const cancelRename = React.useCallback(() => {
-    setRenamingTagId(null);
-  }, []);
-
-  const confirmDelete = React.useCallback(async () => {
-    if (!pendingDeleteTag) return;
-    setDeleting(true);
-    try {
-      await deleteMutation.mutateAsync(pendingDeleteTag.id);
-    } finally {
-      setDeleting(false);
-      setPendingDeleteTag(null);
-    }
-  }, [pendingDeleteTag, deleteMutation]);
-
-  const pendingDeleteCount = React.useMemo(() => {
-    if (!pendingDeleteTag) return 0;
-    return groups
-      .flatMap((g) => g.items)
-      .filter((item) => item.tags.some((t) => t.id === pendingDeleteTag.id))
-      .length;
-  }, [groups, pendingDeleteTag]);
 
   return (
     <>
@@ -230,23 +168,13 @@ export const GroupedList = ({
             />
             {isTagGroup && !isUntagged ? (
               isRenaming && tagForGroup ? (
-                <input
-                  autoFocus
+                <TagRenameInput
+                  tag={tagForGroup}
                   value={renameDraft}
-                  onChange={(e) => setRenameDraft(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  onBlur={() => commitRename(tagForGroup)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitRename(tagForGroup);
-                    } else if (e.key === "Escape") {
-                      e.preventDefault();
-                      cancelRename();
-                    }
-                  }}
-                  size={Math.max(renameDraft.length, 1)}
-                  className="h-5 rounded-md bg-badge px-2 text-[0.625rem] font-medium text-badge-foreground outline-none ring-1 ring-foreground/20 field-sizing-content"
+                  onChange={setRenameDraft}
+                  onCommit={commitRename}
+                  onCancel={cancelRename}
+                  stopClickPropagation
                 />
               ) : (
                 <Badge variant="secondary" className="shrink-0">
