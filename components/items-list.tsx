@@ -15,7 +15,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import React from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -28,9 +28,9 @@ import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 
 import { fetchItems } from "@/lib/queries";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
-import { createItem, fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
-import { findDuplicateItem } from "@/lib/url";
+import { fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
+import { useCreateItem } from "./items-list/use-create-item";
 import { SortableItemRow } from "./items-list/sortable-item-row";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useItemsFilters, type TabId } from "./items-list/use-filters";
@@ -196,33 +196,16 @@ export const ItemsList = () => {
     [],
   );
 
-  type CreateArgs = {
-    title: string;
-    url: string;
-    tagNames: string[];
-    notes?: string;
-    animateTitle?: boolean;
-  };
-
-  const createMutation = useMutation({
-    mutationFn: (args: CreateArgs) =>
-      createItem(
-        args.title,
-        args.url,
-        args.tagNames,
-        undefined,
-        args.notes,
-      ),
-    onSuccess: async (itemId, vars) => {
-      if (!vars.animateTitle || !itemId) return;
+  const handleAnimateTitle = React.useCallback(
+    async (itemId: string, url: string) => {
       invalidate();
       setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
-      const fetched = await fetchPageTitle(vars.url);
+      const fetched = await fetchPageTitle(url);
       const fallback = (() => {
         try {
-          return new URL(vars.url).hostname.replace(/^www\./, "");
+          return new URL(url).hostname.replace(/^www\./, "");
         } catch {
-          return vars.url;
+          return url;
         }
       })();
       const target = fetched?.trim() || fallback;
@@ -234,36 +217,16 @@ export const ItemsList = () => {
       await animateTypingTitle(itemId, target);
       await updateItem(itemId, { title: target });
     },
-  });
-
-  type CreateCallbacks = {
-    onProceed?: () => void;
-    onCreated?: (itemId: string) => void;
-    onOpenExisting?: (existingId: string) => void;
-  };
-
-  const [duplicateDialog, setDuplicateDialog] = React.useState<{
-    existing: Item;
-    pending: CreateArgs;
-    callbacks: CreateCallbacks;
-  } | null>(null);
-
-  const requestCreate = React.useCallback(
-    (args: CreateArgs, callbacks: CreateCallbacks = {}) => {
-      const existing = findDuplicateItem(items, args.url);
-      if (existing) {
-        setDuplicateDialog({ existing, pending: args, callbacks });
-        return;
-      }
-      callbacks.onProceed?.();
-      createMutation.mutate(args, {
-        onSuccess: (newId) => {
-          if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-        },
-      });
-    },
-    [items, createMutation],
+    [invalidate, queryClient, animateTypingTitle],
   );
+
+  const {
+    requestCreate,
+    duplicateDialog,
+    dismissDuplicateDialog,
+    openExisting: handleDuplicateOpenExisting,
+    createAnyway: handleDuplicateCreateAnyway,
+  } = useCreateItem(items, { onAnimateTitle: handleAnimateTitle });
 
   const requestPasteCreate = React.useCallback(
     (url: string, tagNames: string[]) => {
@@ -284,29 +247,6 @@ export const ItemsList = () => {
       toast.error("Clipboard doesn't contain a valid URL");
     }
   }, [requestPasteCreate, activeTags]);
-
-  const handleDuplicateOpenExisting = React.useCallback(() => {
-    if (!duplicateDialog) return;
-    const id = duplicateDialog.existing.id;
-    duplicateDialog.callbacks.onOpenExisting?.(id);
-    setDuplicateDialog(null);
-  }, [duplicateDialog]);
-
-  const handleDuplicateCreateAnyway = React.useCallback(() => {
-    if (!duplicateDialog) return;
-    const { pending, callbacks } = duplicateDialog;
-    setDuplicateDialog(null);
-    callbacks.onProceed?.();
-    createMutation.mutate(pending, {
-      onSuccess: (newId) => {
-        if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-      },
-    });
-  }, [duplicateDialog, createMutation]);
-
-  const handleDuplicateOpenChange = React.useCallback((open: boolean) => {
-    if (!open) setDuplicateDialog(null);
-  }, []);
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
@@ -640,7 +580,7 @@ export const ItemsList = () => {
 
       <DuplicateDialog
         open={duplicateDialog !== null}
-        onOpenChange={handleDuplicateOpenChange}
+        onOpenChange={dismissDuplicateDialog}
         existing={duplicateDialog?.existing ?? null}
         onOpenExisting={handleDuplicateOpenExisting}
         onCreateAnyway={handleDuplicateCreateAnyway}
