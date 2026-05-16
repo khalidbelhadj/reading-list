@@ -5,7 +5,7 @@ import { items } from "@/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction } from "@/lib/safe-action";
-import { ensureTagsLinked } from "@/lib/tags";
+import { ensureTagsLinkedForItems } from "@/lib/tags";
 import {
   createItems as createItemsLib,
   updateItem as updateItemLib,
@@ -248,9 +248,7 @@ export const bulkTag = safeAction(async function bulkTag(itemIds: string[], tagN
     const ownedIds = owned.map((i) => i.id);
     if (ownedIds.length === 0) return;
 
-    for (const itemId of ownedIds) {
-      await ensureTagsLinked(tx, userId, itemId, tagNames);
-    }
+    await ensureTagsLinkedForItems(tx, userId, ownedIds, tagNames);
   });
 }, "Could not tag items. Please try again.");
 

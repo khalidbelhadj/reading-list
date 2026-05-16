@@ -1,6 +1,6 @@
 import { db, type Tx } from "@/db";
 import { items, flashcards } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 export type CreateFlashcardInput = {
   itemId: string;
@@ -22,21 +22,28 @@ export const createFlashcards = async (
   userId: string,
   inputs: CreateFlashcardInput[],
 ): Promise<{ created: CreatedFlashcard[]; notFound: string[] }> => {
+  if (inputs.length === 0) return { created: [], notFound: [] };
+
   const now = new Date().toISOString();
+  const inputItemIds = Array.from(new Set(inputs.map((i) => i.itemId)));
+
+  const ownedRows = await tx
+    .select({ id: items.id })
+    .from(items)
+    .where(and(inArray(items.id, inputItemIds), eq(items.userId, userId)));
+  const ownedIds = new Set(ownedRows.map((r) => r.id));
+
   const created: CreatedFlashcard[] = [];
   const notFound: string[] = [];
+  const toInsert: (typeof flashcards.$inferInsert)[] = [];
 
   for (const input of inputs) {
-    const [owned] = await tx
-      .select({ id: items.id })
-      .from(items)
-      .where(and(eq(items.id, input.itemId), eq(items.userId, userId)));
-    if (!owned) {
+    if (!ownedIds.has(input.itemId)) {
       notFound.push(input.itemId);
       continue;
     }
     const id = crypto.randomUUID();
-    await tx.insert(flashcards).values({
+    toInsert.push({
       id,
       userId,
       itemId: input.itemId,
@@ -55,6 +62,10 @@ export const createFlashcards = async (
     });
   }
 
+  if (toInsert.length > 0) {
+    await tx.insert(flashcards).values(toInsert);
+  }
+
   return { created, notFound };
 };
 
@@ -69,26 +80,34 @@ export const updateFlashcards = async (
   userId: string,
   updates: UpdateFlashcardInput[],
 ): Promise<{ updated: number; notFound: string[] }> => {
+  if (updates.length === 0) return { updated: 0, notFound: [] };
+
   const now = new Date().toISOString();
-  let updated = 0;
+  const ids = updates.map((u) => u.id);
+
+  const ownedRows = await tx
+    .select({ id: flashcards.id })
+    .from(flashcards)
+    .where(and(inArray(flashcards.id, ids), eq(flashcards.userId, userId)));
+  const ownedIds = new Set(ownedRows.map((r) => r.id));
+
   const notFound: string[] = [];
-
+  const toApply: UpdateFlashcardInput[] = [];
   for (const update of updates) {
-    const [owned] = await tx
-      .select({ id: flashcards.id })
-      .from(flashcards)
-      .where(and(eq(flashcards.id, update.id), eq(flashcards.userId, userId)));
-    if (!owned) {
+    if (!ownedIds.has(update.id)) {
       notFound.push(update.id);
-      continue;
+    } else {
+      toApply.push(update);
     }
+  }
 
+  let updated = 0;
+  for (const update of toApply) {
     const set: Partial<typeof flashcards.$inferInsert> = {
       updatedAt: now,
       ...(update.front !== undefined && { front: update.front }),
       ...(update.back !== undefined && { back: update.back }),
     };
-
     await tx
       .update(flashcards)
       .set(set)
@@ -104,24 +123,24 @@ export const deleteFlashcards = async (
   userId: string,
   ids: string[],
 ): Promise<{ deleted: number; notFound: string[] }> => {
-  let deleted = 0;
-  const notFound: string[] = [];
+  if (ids.length === 0) return { deleted: 0, notFound: [] };
 
-  for (const id of ids) {
-    const [owned] = await tx
-      .select({ id: flashcards.id })
-      .from(flashcards)
-      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)));
-    if (!owned) {
-      notFound.push(id);
-      continue;
-    }
+  const ownedRows = await tx
+    .select({ id: flashcards.id })
+    .from(flashcards)
+    .where(and(inArray(flashcards.id, ids), eq(flashcards.userId, userId)));
+  const ownedIds = ownedRows.map((r) => r.id);
+  const ownedSet = new Set(ownedIds);
+  const notFound = ids.filter((id) => !ownedSet.has(id));
 
-    await tx
-      .delete(flashcards)
-      .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)));
-    deleted++;
-  }
+  if (ownedIds.length === 0) return { deleted: 0, notFound };
 
-  return { deleted, notFound };
+  await tx
+    .delete(flashcards)
+    .where(
+      and(inArray(flashcards.id, ownedIds), eq(flashcards.userId, userId)),
+    );
+
+  return { deleted: ownedIds.length, notFound };
 };
+

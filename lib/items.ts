@@ -1,7 +1,11 @@
 import { db, type Tx } from "@/db";
 import { items, itemsTags, flashcards } from "@/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { ensureTagsLinked, syncItemTags, pruneOrphanTags } from "@/lib/tags";
+import {
+  ensureTagsLinkedForItems,
+  syncItemTags,
+  pruneOrphanTags,
+} from "@/lib/tags";
 
 export type CreateItemInput = {
   title: string;
@@ -27,11 +31,9 @@ export const createItems = async (
     .set({ position: sql`${items.position} + ${inputs.length}` })
     .where(eq(items.userId, userId));
 
-  for (let idx = 0; idx < inputs.length; idx++) {
-    const input = inputs[idx];
-    const itemId = ids[idx];
-    await tx.insert(items).values({
-      id: itemId,
+  await tx.insert(items).values(
+    inputs.map((input, idx) => ({
+      id: ids[idx],
       userId,
       title: input.title,
       url: input.url,
@@ -41,8 +43,24 @@ export const createItems = async (
       position: idx,
       createdAt: now,
       updatedAt: now,
-    });
-    await ensureTagsLinked(tx, userId, itemId, input.tagNames ?? []);
+    })),
+  );
+
+  // Group items by identical tag sets so we ensure each unique set once
+  const byTagSet = new Map<string, { itemIds: string[]; tagNames: string[] }>();
+  for (let idx = 0; idx < inputs.length; idx++) {
+    const tagNames = inputs[idx].tagNames ?? [];
+    if (tagNames.length === 0) continue;
+    const key = JSON.stringify(Array.from(new Set(tagNames)).sort());
+    const bucket = byTagSet.get(key);
+    if (bucket) {
+      bucket.itemIds.push(ids[idx]);
+    } else {
+      byTagSet.set(key, { itemIds: [ids[idx]], tagNames });
+    }
+  }
+  for (const { itemIds, tagNames } of byTagSet.values()) {
+    await ensureTagsLinkedForItems(tx, userId, itemIds, tagNames);
   }
 
   return ids;
