@@ -23,15 +23,11 @@ const config = [
       "react-compiler/react-compiler": "error",
       "react-hooks/exhaustive-deps": "error",
       "react/no-unstable-nested-components": ["error", { allowAsProps: true }],
-      "react/jsx-no-bind": [
-        "warn",
-        {
-          allowArrowFunctions: false,
-          allowFunctions: false,
-          allowBind: true,
-          ignoreRefs: true,
-        },
-      ],
+      // React Compiler is enabled and hoists inline arrows on list rows, so
+      // jsx-no-bind would only produce noise on hot row callbacks. Leaving
+      // it as "warn" was the worst middle ground — relying on the compiler
+      // is the intent.
+      "react/jsx-no-bind": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
