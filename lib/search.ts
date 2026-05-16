@@ -92,38 +92,35 @@ const regexSearch = async (
   return (rows as unknown as Array<Record<string, unknown>>).map(toResult);
 };
 
+const TRIGRAM_MIN_LENGTH = 3;
+
 const fuzzySearch = async (
   tx: Tx,
   userId: string,
   pattern: string,
 ): Promise<SearchResult[]> => {
-  const tokens = pattern.split(/\s+/).filter(Boolean);
+  // Skip tokens shorter than 3 chars: the trigram GIN can't index them, and
+  // ILIKE '%xx%' on those degrades to seq-scan with very low selectivity.
+  const tokens = pattern
+    .split(/\s+/)
+    .filter((t) => t.length >= TRIGRAM_MIN_LENGTH);
 
   if (tokens.length === 0) return [];
 
-  const tokenConditions = tokens.map((token) => {
-    const like = `%${token}%`;
-    if (token.length >= 4) {
-      return sql`(
-        i.title ILIKE ${like}
-        OR i.title %> ${token}
-        OR i.url ILIKE ${like}
-        OR COALESCE(i.notes, '') ILIKE ${like}
-        OR COALESCE(i.notes, '') %> ${token}
-        OR COALESCE(fc_agg.fc_text, '') ILIKE ${like}
-        OR COALESCE(fc_agg.fc_text, '') %> ${token}
-      )`;
-    }
-    return sql`(
-      i.title ILIKE ${like}
-      OR i.url ILIKE ${like}
-      OR COALESCE(i.notes, '') ILIKE ${like}
-      OR COALESCE(fc_agg.fc_text, '') ILIKE ${like}
-    )`;
-  });
+  const tokenConditions = tokens.map(
+    (token) => sql`(
+      i.title %> ${token}
+      OR i.url ILIKE ${`%${token}%`}
+      OR COALESCE(i.notes, '') %> ${token}
+      OR COALESCE(fc_agg.fc_text, '') %> ${token}
+    )`,
+  );
 
   const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
 
+  // Only run the full-pattern trigram match when the pattern is long enough
+  // to produce a useful trigram set.
+  const usePatternTrigram = pattern.length >= TRIGRAM_MIN_LENGTH;
   const fullLike = `%${pattern}%`;
 
   const rows = await tx.execute(sql`
@@ -138,10 +135,10 @@ const fuzzySearch = async (
     SELECT
       i.id, i.title, i.url, i.notes, i.starred, i.read,
       i.created_at, i.position,
-      (i.title ILIKE ${fullLike} OR i.title %> ${pattern}) AS m_title,
+      (${usePatternTrigram ? sql`i.title %> ${pattern}` : sql`i.title ILIKE ${fullLike}`}) AS m_title,
       (i.url ILIKE ${fullLike}) AS m_url,
-      (COALESCE(i.notes, '') ILIKE ${fullLike} OR COALESCE(i.notes, '') %> ${pattern}) AS m_notes,
-      (COALESCE(fc_agg.fc_text, '') ILIKE ${fullLike} OR COALESCE(fc_agg.fc_text, '') %> ${pattern}) AS m_flashcards,
+      (${usePatternTrigram ? sql`COALESCE(i.notes, '') %> ${pattern}` : sql`COALESCE(i.notes, '') ILIKE ${fullLike}`}) AS m_notes,
+      (${usePatternTrigram ? sql`COALESCE(fc_agg.fc_text, '') %> ${pattern}` : sql`COALESCE(fc_agg.fc_text, '') ILIKE ${fullLike}`}) AS m_flashcards,
       GREATEST(
         word_similarity(${pattern}, i.title) * 1.5,
         word_similarity(${pattern}, COALESCE(i.notes, '')),
@@ -222,40 +219,32 @@ const fuzzySearchFlashcards = async (
   userId: string,
   pattern: string,
 ): Promise<FlashcardSearchResult[]> => {
-  const tokens = pattern.split(/\s+/).filter(Boolean);
+  const tokens = pattern
+    .split(/\s+/)
+    .filter((t) => t.length >= TRIGRAM_MIN_LENGTH);
 
   if (tokens.length === 0) return [];
 
-  const tokenConditions = tokens.map((token) => {
-    const like = `%${token}%`;
-    if (token.length >= 4) {
-      return sql`(
-        f.front ILIKE ${like}
-        OR f.front %> ${token}
-        OR f.back ILIKE ${like}
-        OR f.back %> ${token}
-        OR COALESCE(i.title, '') ILIKE ${like}
-        OR COALESCE(i.title, '') %> ${token}
-      )`;
-    }
-    return sql`(
-      f.front ILIKE ${like}
-      OR f.back ILIKE ${like}
-      OR COALESCE(i.title, '') ILIKE ${like}
-    )`;
-  });
+  const tokenConditions = tokens.map(
+    (token) => sql`(
+      f.front %> ${token}
+      OR f.back %> ${token}
+      OR COALESCE(i.title, '') %> ${token}
+    )`,
+  );
 
   const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
 
+  const usePatternTrigram = pattern.length >= TRIGRAM_MIN_LENGTH;
   const fullLike = `%${pattern}%`;
 
   const rows = await tx.execute(sql`
     SELECT
       f.id, f.item_id, f.front, f.back, f.state, f.due,
       i.title AS item_title,
-      (f.front ILIKE ${fullLike} OR f.front %> ${pattern}) AS m_front,
-      (f.back ILIKE ${fullLike} OR f.back %> ${pattern}) AS m_back,
-      (COALESCE(i.title, '') ILIKE ${fullLike} OR COALESCE(i.title, '') %> ${pattern}) AS m_item_title,
+      (${usePatternTrigram ? sql`f.front %> ${pattern}` : sql`f.front ILIKE ${fullLike}`}) AS m_front,
+      (${usePatternTrigram ? sql`f.back %> ${pattern}` : sql`f.back ILIKE ${fullLike}`}) AS m_back,
+      (${usePatternTrigram ? sql`COALESCE(i.title, '') %> ${pattern}` : sql`COALESCE(i.title, '') ILIKE ${fullLike}`}) AS m_item_title,
       GREATEST(
         word_similarity(${pattern}, f.front),
         word_similarity(${pattern}, f.back),
