@@ -12,7 +12,7 @@ import { type Flashcard, type Item } from "@/lib/types";
 import { bumpItemFlashcardCount } from "@/lib/items-cache";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import {
   createFlashcard,
@@ -402,7 +402,6 @@ export const DetailPanel = React.forwardRef<DetailPanelHandle, {
             placeholder="Title"
             className="font-content flex-1 min-w-0 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
           />
-          <TooltipProvider delay={TOOLTIP_DELAY_MS}>
           {showAutofill && (
             <Tooltip>
               <TooltipTrigger
@@ -458,7 +457,6 @@ export const DetailPanel = React.forwardRef<DetailPanelHandle, {
               </Tooltip>
             </>
           )}
-          </TooltipProvider>
         </div>
 
         {/* URL */}

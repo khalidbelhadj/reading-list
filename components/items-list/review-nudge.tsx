@@ -7,10 +7,8 @@ import { IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  TOOLTIP_DELAY_MS,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getReviewStatus } from "@/app/actions";
@@ -99,24 +97,22 @@ export const ReviewNudge = () => {
         {startingMode === "due" && <Spinner className="size-3" />}
         Review
       </Button>
-      <TooltipProvider delay={TOOLTIP_DELAY_MS}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-amber-900/70 hover:bg-transparent hover:text-amber-900 dark:text-amber-200/70 dark:hover:bg-transparent dark:hover:text-amber-200"
-                onClick={handleDismiss}
-                aria-label="Dismiss"
-              >
-                <IconX />
-              </Button>
-            }
-          />
-          <TooltipContent>Dismiss for 24 hours</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-amber-900/70 hover:bg-transparent hover:text-amber-900 dark:text-amber-200/70 dark:hover:bg-transparent dark:hover:text-amber-200"
+              onClick={handleDismiss}
+              aria-label="Dismiss"
+            >
+              <IconX />
+            </Button>
+          }
+        />
+        <TooltipContent>Dismiss for 24 hours</TooltipContent>
+      </Tooltip>
 
       <ReviewConfirmDialog
         open={confirmOpen}

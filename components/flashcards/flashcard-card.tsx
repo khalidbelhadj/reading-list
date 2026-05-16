@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type FlashcardCardData = {
@@ -169,7 +169,6 @@ const FlashcardDropdown = ({
   }, [card.id, onDelete]);
 
   return (
-    <TooltipProvider delay={TOOLTIP_DELAY_MS}>
     <DropdownMenu>
       <Tooltip>
         <DropdownMenuTrigger
@@ -224,6 +223,5 @@ const FlashcardDropdown = ({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-    </TooltipProvider>
   );
 };
