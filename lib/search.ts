@@ -1,5 +1,39 @@
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { type Tx } from "@/db";
+
+const searchRowSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: z.string(),
+  notes: z.string().nullable(),
+  starred: z.boolean(),
+  read: z.boolean(),
+  created_at: z.string(),
+  m_title: z.boolean().nullable(),
+  m_url: z.boolean().nullable(),
+  m_notes: z.boolean().nullable(),
+  m_flashcards: z.boolean().nullable(),
+});
+type SearchRow = z.infer<typeof searchRowSchema>;
+
+const flashcardSearchRowSchema = z.object({
+  id: z.string(),
+  item_id: z.string().nullable(),
+  front: z.string(),
+  back: z.string(),
+  state: z.string(),
+  due: z.string(),
+  item_title: z.string().nullable(),
+  m_front: z.boolean().nullable(),
+  m_back: z.boolean().nullable(),
+  m_item_title: z.boolean().nullable(),
+});
+type FlashcardSearchRow = z.infer<typeof flashcardSearchRowSchema>;
+
+const parseRows = <T>(schema: z.ZodType<T>, rows: unknown): T[] => {
+  return z.array(schema).parse(rows);
+};
 
 export type SearchMode = "fuzzy" | "regex";
 
@@ -89,7 +123,7 @@ const regexSearch = async (
     LIMIT 100
   `);
 
-  return (rows as unknown as Array<Record<string, unknown>>).map(toResult);
+  return parseRows(searchRowSchema, rows).map(toResult);
 };
 
 const TRIGRAM_MIN_LENGTH = 3;
@@ -152,7 +186,7 @@ const fuzzySearch = async (
     LIMIT 100
   `);
 
-  return (rows as unknown as Array<Record<string, unknown>>).map(toResult);
+  return parseRows(searchRowSchema, rows).map(toResult);
 };
 
 export type FlashcardSearchResult = {
@@ -211,7 +245,7 @@ const regexSearchFlashcards = async (
     LIMIT 100
   `);
 
-  return (rows as unknown as Array<Record<string, unknown>>).map(toFlashcardResult);
+  return parseRows(flashcardSearchRowSchema, rows).map(toFlashcardResult);
 };
 
 const fuzzySearchFlashcards = async (
@@ -258,40 +292,40 @@ const fuzzySearchFlashcards = async (
     LIMIT 100
   `);
 
-  return (rows as unknown as Array<Record<string, unknown>>).map(toFlashcardResult);
+  return parseRows(flashcardSearchRowSchema, rows).map(toFlashcardResult);
 };
 
-const toFlashcardResult = (r: Record<string, unknown>): FlashcardSearchResult => {
+const toFlashcardResult = (r: FlashcardSearchRow): FlashcardSearchResult => {
   const matchedIn: FlashcardSearchResult["matchedIn"] = [];
   if (r.m_front) matchedIn.push("front");
   if (r.m_back) matchedIn.push("back");
   if (r.m_item_title) matchedIn.push("item_title");
   return {
-    id: r.id as string,
-    itemId: r.item_id as string | null,
-    front: r.front as string,
-    back: r.back as string,
-    state: r.state as string,
-    due: r.due as string,
-    itemTitle: r.item_title as string | null,
+    id: r.id,
+    itemId: r.item_id,
+    front: r.front,
+    back: r.back,
+    state: r.state,
+    due: r.due,
+    itemTitle: r.item_title,
     matchedIn,
   };
 };
 
-const toResult = (r: Record<string, unknown>): SearchResult => {
+const toResult = (r: SearchRow): SearchResult => {
   const matchedIn: SearchResult["matchedIn"] = [];
   if (r.m_title) matchedIn.push("title");
   if (r.m_url) matchedIn.push("url");
   if (r.m_notes) matchedIn.push("notes");
   if (r.m_flashcards) matchedIn.push("flashcards");
   return {
-    id: r.id as string,
-    title: r.title as string,
-    url: r.url as string,
-    notes: r.notes as string | null,
-    starred: r.starred as boolean,
-    read: r.read as boolean,
-    createdAt: r.created_at as string,
+    id: r.id,
+    title: r.title,
+    url: r.url,
+    notes: r.notes,
+    starred: r.starred,
+    read: r.read,
+    createdAt: r.created_at,
     matchedIn,
   };
 };
