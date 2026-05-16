@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -27,7 +28,7 @@ export const items = pgTable(
     notes: text("notes"),
     read: boolean("read").notNull().default(false),
     readAt: timestamp("read_at", { withTimezone: true, mode: "string" }),
-    position: integer("position").notNull().default(0),
+    position: doublePrecision("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
   },
