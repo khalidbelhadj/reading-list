@@ -12,7 +12,10 @@ export const parseInput = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
 // Shared field schemas
 const idSchema = z.string().min(1, "ID must not be empty");
 const titleSchema = z.string().max(500, "Title must be under 500 characters");
-const urlSchema = z.string().max(2048, "URL must be under 2048 characters");
+const urlSchema = z
+  .string()
+  .max(2048, "URL must be under 2048 characters")
+  .refine((s) => /^https?:\/\//i.test(s), "URL must use http or https");
 const notesSchema = z.string().max(100000, "Notes must be under 100,000 characters");
 const tagNameSchema = z.string().max(100, "Tag name must be under 100 characters");
 const tagNamesSchema = z.array(tagNameSchema).max(50, "Cannot have more than 50 tags");
