@@ -101,7 +101,30 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(url: stri
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
-    const text = await res.text();
+    const MAX_BYTES = 512 * 1024;
+    const reader = res.body?.getReader();
+    if (!reader) return null;
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > MAX_BYTES) {
+        chunks.push(value.subarray(0, value.byteLength - (received - MAX_BYTES)));
+        await reader.cancel();
+        break;
+      }
+      chunks.push(value);
+    }
+    const total = chunks.reduce((n, c) => n + c.byteLength, 0);
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+      merged.set(c, offset);
+      offset += c.byteLength;
+    }
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(merged);
     const ogMatch =
       text.match(
         /<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i,
