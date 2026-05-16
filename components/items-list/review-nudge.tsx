@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getReviewStatus } from "@/app/actions";
+import { relativeTime } from "@/lib/format-time";
 
 import { useStartReview } from "./use-start-review";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
@@ -20,14 +21,6 @@ const STALE_DAYS = 4;
 const DISMISS_HOURS = 24;
 const DISMISS_KEY = "reviewNudgeDismissedAt";
 const DAY_MS = 1000 * 60 * 60 * 24;
-
-const formatRelative = (lastReviewedAt: string) => {
-  const days = Math.floor((Date.now() - new Date(lastReviewedAt).getTime()) / DAY_MS);
-  if (days < 14) return `${days} days ago`;
-  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
-  if (days < 365) return `${Math.floor(days / 30)} months ago`;
-  return `${Math.floor(days / 365)} years ago`;
-};
 
 export const ReviewNudge = () => {
   const { data } = useQuery({
@@ -86,7 +79,7 @@ export const ReviewNudge = () => {
   return (
     <div className="flex items-center gap-1 rounded-lg bg-amber-100 px-3 py-2 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
       <div className="flex-1 text-xs">
-        Your last review was {formatRelative(lastReviewedAt)}, let&rsquo;s catch up.
+        Your last review was {relativeTime(lastReviewedAt)}, let&rsquo;s catch up.
       </div>
       <Button
         size="sm"

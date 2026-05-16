@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getFaviconSrc } from "@/components/items-list/utils";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
+import { intervalShort, duration } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 
 import { useEventLogger } from "./use-event-logger";
@@ -47,18 +48,6 @@ const RATINGS: Array<{ value: Rating; label: string; key: string }> = [
   { value: "good", label: "Good", key: "3" },
   { value: "easy", label: "Easy", key: "4" },
 ];
-
-const formatInterval = (dueIso: string, nowIso: string) => {
-  const ms = new Date(dueIso).getTime() - new Date(nowIso).getTime();
-  const minutes = Math.round(ms / 60_000);
-  if (minutes < 60) return `${Math.max(1, minutes)}m`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d`;
-  const months = Math.round(days / 30);
-  return `${months}mo`;
-};
 
 const useCompletionConfetti = () => {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -98,14 +87,6 @@ const useCompletionConfetti = () => {
       origin: { x: 0.5, y: 0.7 },
     });
   }, []);
-};
-
-const formatDuration = (ms: number) => {
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
 };
 
 export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
@@ -507,7 +488,7 @@ const ReviewSessionInner = ({
                 new Date().toISOString(),
               );
               const nowIso = new Date().toISOString();
-              const interval = formatInterval(next.due, nowIso);
+              const interval = intervalShort(next.due, nowIso);
               return (
                 <Button
                   key={r.value}
@@ -625,19 +606,19 @@ const SessionSummaryView = ({
         <div className="grid grid-cols-2 gap-3">
           <SummaryStat
             label="Active time"
-            value={formatDuration(summary.totalActiveMs)}
+            value={duration(summary.totalActiveMs)}
             description="Time actually spent on cards, summed across each card's show-to-rate duration."
           />
           <SummaryStat
             label="Wall time"
-            value={formatDuration(summary.wallClockMs)}
+            value={duration(summary.wallClockMs)}
             description="Total elapsed time from session start to end, including any pauses."
           />
           <SummaryStat
             label="Avg. think"
             value={
               summary.avgTimeToRevealMs != null
-                ? formatDuration(summary.avgTimeToRevealMs)
+                ? duration(summary.avgTimeToRevealMs)
                 : "-"
             }
             description="Average time from seeing a card to revealing the answer."
