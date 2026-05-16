@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { updateSession } from "@/lib/supabase/middleware";
+import "@/lib/env";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
