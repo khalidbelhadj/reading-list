@@ -274,7 +274,7 @@ export const TagFilters = ({
           >
             <MenuPrimitive.Popup
               data-slot="dropdown-menu-content"
-              className="z-50 min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+              className="z-50 min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-depth-floating ring-1 ring-foreground/10 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
             >
               <MenuPrimitive.Item
                 data-slot="dropdown-menu-item"

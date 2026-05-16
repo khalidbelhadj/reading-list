@@ -205,8 +205,21 @@ export const SettingsMenu = ({
         render={
           <button
             type="button"
-            className="font-content text-sm font-medium gap-1 inline-flex items-center outline-none"
+            className="font-content text-sm font-medium gap-1.5 inline-flex items-center outline-none"
           >
+            <span
+              aria-hidden="true"
+              className="relative inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-primary shadow-depth-button-primary"
+            >
+              <svg viewBox="0 0 24 24" className="size-3">
+                <g transform="translate(3 3) scale(0.75)">
+                  <path
+                    className="fill-primary-foreground"
+                    d="M14 2a5 5 0 0 1 5 5v14a1 1 0 0 1 -1.555 .832l-5.445 -3.63l-5.444 3.63a1 1 0 0 1 -1.55 -.72l-.006 -.112v-14a5 5 0 0 1 5 -5h4z"
+                  />
+                </g>
+              </svg>
+            </span>
             {TAB_LABELS[activeTab]}
             <IconChevronDown className="size-3.5 text-muted-foreground/60" />
           </button>

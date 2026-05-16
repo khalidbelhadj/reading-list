@@ -11,8 +11,8 @@ const MAX_LINES = 5;
 
 const truncateLines = (text: string) => {
   const lines = text.split("\n");
-  if (lines.length <= MAX_LINES) return text;
-  return lines.slice(0, MAX_LINES).join("\n");
+  if (lines.length <= MAX_LINES) return { text, truncated: false };
+  return { text: lines.slice(0, MAX_LINES).join("\n"), truncated: true };
 };
 
 const formatCreatedAt = (iso: string) => {
@@ -27,7 +27,10 @@ const formatCreatedAt = (iso: string) => {
 export const ItemPreview = ({ item }: { item: Item }) => {
   const faviconSrc = getFaviconSrc(item);
   const notes = item.notes?.trim() ?? "";
-  const truncatedNotes = React.useMemo(() => truncateLines(notes), [notes]);
+  const { text: truncatedNotes, truncated } = React.useMemo(
+    () => truncateLines(notes),
+    [notes],
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -69,7 +72,9 @@ export const ItemPreview = ({ item }: { item: Item }) => {
       {truncatedNotes && (
         <div className="preview-notes relative overflow-hidden text-muted-foreground">
           <MarkdownEditor value={truncatedNotes} editable={false} />
-          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background dark:from-card to-transparent pointer-events-none" />
+          {truncated && (
+            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background dark:from-card to-transparent pointer-events-none" />
+          )}
         </div>
       )}
     </div>
