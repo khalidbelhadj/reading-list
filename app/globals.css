@@ -312,20 +312,6 @@
   filter: grayscale(0.4);
   cursor: progress;
 }
-/* Hide ProseMirror's mandatory empty paragraphs that get auto-inserted
-   adjacent to non-paragraph blocks (lists, code blocks, etc.) so the
-   cursor can escape them. Only hides truly empty ones. */
-.markdown-editor
-  .ProseMirror
-  > :not(p)
-  + p:last-child:has(> br.ProseMirror-trailingBreak:only-child),
-.markdown-editor
-  .ProseMirror
-  > p:first-child:has(> br.ProseMirror-trailingBreak:only-child):has(
-    + :not(p)
-  ) {
-  display: none;
-}
 .markdown-editor .ProseMirror p.is-editor-empty:first-child::before,
 .markdown-editor .ProseMirror front p.is-empty::before,
 .markdown-editor .ProseMirror back p.is-empty::before {

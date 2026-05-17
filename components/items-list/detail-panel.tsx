@@ -388,7 +388,7 @@ export const DetailPanel = React.forwardRef<
           <div data-title-row className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="relative inline-flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-card shadow-depth-button overflow-hidden"
+              className="relative inline-flex size-5 shrink-0 items-center justify-center rounded-[5px] overflow-hidden"
             >
               {faviconSrc ? (
                 <Image

@@ -117,12 +117,27 @@ const CodeBlockWithLineNav = CodeBlock.extend({
       }
       return true;
     };
+    const exitCodeBlock = (
+      direction: "above" | "below",
+      { editor }: { editor: Editor },
+    ) => {
+      const { $from, empty } = editor.state.selection;
+      if (!empty || $from.parent.type !== nodeType) return false;
+      const insertPos = direction === "above" ? $from.before() : $from.after();
+      return editor
+        .chain()
+        .insertContentAt(insertPos, { type: "paragraph" })
+        .setTextSelection(insertPos + 1)
+        .run();
+    };
     return {
       ...this.parent?.(),
       "Ctrl-e": (props) => moveWithinCodeBlock("lineEnd", props),
       End: (props) => moveWithinCodeBlock("lineEnd", props),
       "Ctrl-a": (props) => moveWithinCodeBlock("lineStart", props),
       Home: (props) => moveWithinCodeBlock("lineStart", props),
+      "Mod-Shift-Enter": (props) => exitCodeBlock("above", props),
+      "Mod-Enter": (props) => exitCodeBlock("below", props),
     };
   },
 });
@@ -219,15 +234,10 @@ export const MarkdownEditor = ({
       }),
       Placeholder.configure({
         includeChildren: true,
-        showOnlyCurrent: false,
-        placeholder: ({ node, pos, editor: e }) => {
-          if (node.type.name === "paragraph" && node.content.size === 0) {
-            try {
-              const parent = e.state.doc.resolve(pos).parent;
-              if (parent.type.name === "cardFront") return "Front";
-              if (parent.type.name === "cardBack") return "Back";
-            } catch {}
-          }
+        placeholder: ({ pos, editor: e }) => {
+          const parent = e.state.doc.resolve(pos).parent;
+          if (parent.type.name === "cardFront") return "Front";
+          if (parent.type.name === "cardBack") return "Back";
           return placeholder ?? "";
         },
       }),
