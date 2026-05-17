@@ -30,6 +30,7 @@ export const NewItemPage = () => {
 
   const {
     requestCreate,
+    isCreating,
     duplicateDialog,
     dismissDuplicateDialog,
     openExisting,
@@ -100,6 +101,7 @@ export const NewItemPage = () => {
             onSave={() => {}}
             onCreate={handleCreate}
             onCancel={handleCancel}
+            isSaving={isCreating}
           />
         </div>
       </div>

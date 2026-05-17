@@ -229,6 +229,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             </TooltipTrigger>
             <TooltipContent>Back</TooltipContent>
           </Tooltip>
+          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
           {item?.url && (
             <Tooltip>
               <TooltipTrigger
@@ -246,7 +247,6 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
               <TooltipContent>Open URL</TooltipContent>
             </Tooltip>
           )}
-          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
           <Tooltip>
             <TooltipTrigger
               render={
@@ -308,13 +308,11 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           <DetailPanel
             ref={detailRef}
             key={item.id}
-            focused
             item={item}
             isNew={false}
             onSave={handleSave}
             onCreate={() => {}}
             onDelete={() => setDeleteOpen(true)}
-            onToggleRead={handleToggleRead}
           />
         )}
         </div>
