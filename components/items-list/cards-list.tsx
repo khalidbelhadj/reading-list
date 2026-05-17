@@ -13,6 +13,7 @@ import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingFade } from "@/components/ui/loading-fade";
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { cn } from "@/lib/utils";
 import { parseCardState } from "@/lib/srs";
@@ -68,43 +69,37 @@ export const CardsList = ({
     ? cards.filter((c) => searchIds.has(c.id))
     : cards;
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}>
-            <Skeleton className="h-22 rounded-lg" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const skeleton = (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{ opacity: Math.max(1 - i * 0.2, 0.2) }}>
+          <Skeleton className="h-22 rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
 
+  let content: React.ReactNode;
   if (isError) {
-    return (
+    content = (
       <div className="px-1 py-6 text-center text-destructive text-xs">
         Failed to load cards
       </div>
     );
-  }
-
-  if (cards.length === 0) {
-    return (
+  } else if (cards.length === 0) {
+    content = (
       <div className="px-1 py-6 text-center text-muted-foreground text-xs">
         No cards yet
       </div>
     );
-  }
-
-  if (filteredCards.length === 0 && searchIds) {
-    return (
+  } else if (filteredCards.length === 0 && searchIds) {
+    content = (
       <div className="px-1 py-6 text-center text-muted-foreground text-xs">
         No matching cards
       </div>
     );
-  }
-
-  return (
+  } else {
+    content = (
     <div className="flex flex-col gap-2">
       {filteredCards.map((card) => {
         const item = card.itemId ? itemsById.get(card.itemId) : undefined;
@@ -136,6 +131,13 @@ export const CardsList = ({
         );
       })}
     </div>
+    );
+  }
+
+  return (
+    <LoadingFade loading={isLoading} skeleton={skeleton}>
+      {content}
+    </LoadingFade>
   );
 };
 
