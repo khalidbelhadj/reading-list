@@ -230,9 +230,12 @@ export const ItemsList = () => {
 
   const requestPasteCreate = React.useCallback(
     (url: string, tagNames: string[]) => {
-      requestCreate({ title: "", url, tagNames, animateTitle: true });
+      requestCreate(
+        { title: "", url, tagNames, animateTitle: true },
+        { onOpenExisting: handleOpenItem },
+      );
     },
-    [requestCreate],
+    [requestCreate, handleOpenItem],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
