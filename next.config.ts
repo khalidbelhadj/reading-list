@@ -1,32 +1,9 @@
-import crypto from "node:crypto";
 import type { NextConfig } from "next";
 
-import { THEME_BOOTSTRAP_SCRIPT } from "./lib/theme-bootstrap";
-
-const themeBootstrapHash = `'sha256-${crypto
-  .createHash("sha256")
-  .update(THEME_BOOTSTRAP_SCRIPT)
-  .digest("base64")}'`;
-
-const cspDirectives = [
-  "default-src 'self'",
-  `script-src 'self' ${themeBootstrapHash}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' https: data: blob:",
-  "font-src 'self'",
-  "connect-src 'self' *.supabase.co",
-  "frame-src 'self' accounts.google.com",
-  "frame-ancestors 'none'",
-  "form-action 'self' accounts.google.com",
-  "base-uri 'self'",
-  "object-src 'none'",
-];
-
+// Content-Security-Policy is set per-request in middleware.ts with a nonce
+// (Next.js's RSC streaming emits dynamic inline <script> tags that a static
+// hash can't cover). Other security headers are static and live here.
 const securityHeaders = [
-  {
-    key: "Content-Security-Policy",
-    value: cspDirectives.join("; "),
-  },
   {
     key: "X-Frame-Options",
     value: "DENY",
