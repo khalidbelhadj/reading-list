@@ -41,6 +41,7 @@ import { ReviewNudge } from "./items-list/review-nudge";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grouped-list";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingFade } from "@/components/ui/loading-fade";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 
 export const ItemsList = () => {
@@ -410,7 +411,10 @@ export const ItemsList = () => {
             searchIds={searchIds}
             onOpenItem={handleOpenItem}
           />
-        ) : isLoading ? (
+        ) : (
+        <LoadingFade
+          loading={isLoading}
+          skeleton={
           <div className="flex flex-col">
             {Array.from({ length: 15 }).map((_, i) => {
               const titleWidth = 30 + ((i * 17) % 55);
@@ -429,7 +433,9 @@ export const ItemsList = () => {
               );
             })}
           </div>
-        ) : groupBy !== "none" ? (
+          }
+        >
+        {groupBy !== "none" ? (
           <div
             onMouseMove={
               suppressHover ? () => setSuppressHover(false) : undefined
@@ -570,6 +576,8 @@ export const ItemsList = () => {
               </div>
             </SortableContext>
           </DndContext>
+        )}
+        </LoadingFade>
         )}
       </div>
 

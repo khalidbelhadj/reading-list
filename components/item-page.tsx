@@ -16,6 +16,7 @@ import { type EditFields } from "@/components/items-list/utils";
 import { useInvalidateItems } from "@/components/items-list/use-invalidate-items";
 import { DetailPanel, type DetailPanelHandle } from "@/components/items-list/detail-panel";
 import { DetailPanelSkeleton } from "@/components/items-list/detail-panel-skeleton";
+import { LoadingFade } from "@/components/ui/loading-fade";
 import { ItemDropdown } from "@/components/items-list/item-dropdown";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DeleteItemDialog } from "@/components/items-list/delete-item-dialog";
@@ -302,21 +303,21 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           )}
         </div>
         <div className="pt-1">
-        {!item ? (
-          <DetailPanelSkeleton />
-        ) : (
-          <DetailPanel
-            ref={detailRef}
-            key={item.id}
-            focused
-            item={item}
-            isNew={false}
-            onSave={handleSave}
-            onCreate={() => {}}
-            onDelete={() => setDeleteOpen(true)}
-            onToggleRead={handleToggleRead}
-          />
-        )}
+        <LoadingFade loading={!item} skeleton={<DetailPanelSkeleton />}>
+          {item ? (
+            <DetailPanel
+              ref={detailRef}
+              key={item.id}
+              focused
+              item={item}
+              isNew={false}
+              onSave={handleSave}
+              onCreate={() => {}}
+              onDelete={() => setDeleteOpen(true)}
+              onToggleRead={handleToggleRead}
+            />
+          ) : null}
+        </LoadingFade>
         </div>
       </div>
 
