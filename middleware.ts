@@ -3,6 +3,28 @@ import { createServerClient } from "@supabase/ssr";
 import { updateSession } from "@/lib/supabase/middleware";
 import "@/lib/env";
 
+// Per-request CSP nonce. Next.js streams its RSC payload via inline
+// <script>self.__next_f.push(...)</script> tags whose bodies change per
+// request, so static hashes can't cover them. With 'strict-dynamic', any
+// script tag carrying this nonce (including the ones Next.js generates) is
+// allowed; everything else is blocked.
+const buildCsp = (nonce: string): string => {
+  const directives = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' https: data: blob:",
+    "font-src 'self'",
+    "connect-src 'self' *.supabase.co",
+    "frame-src 'self' accounts.google.com",
+    "frame-ancestors 'none'",
+    "form-action 'self' accounts.google.com",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ];
+  return directives.join("; ");
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -61,20 +83,32 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // HTML routes from here on — apply per-request CSP nonce.
+  // Forward x-nonce on the *request* so Next.js can pick it up during SSR.
+  const requestHeaders = new Headers(request.headers);
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  requestHeaders.set("x-nonce", nonce);
+
+  const passThrough = (): NextResponse => {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set("Content-Security-Policy", buildCsp(nonce));
+    return response;
+  };
+
   // Skip auth for well-known endpoints, login page, and auth callback
   if (
     pathname.startsWith("/.well-known") ||
     pathname === "/login" ||
     pathname.startsWith("/auth/")
   ) {
-    const response = NextResponse.next();
+    const response = passThrough();
     await updateSession(request, response);
     return response;
   }
 
   // Skip auth for OAuth consent page (it handles its own auth check)
   if (pathname === "/oauth/consent") {
-    const response = NextResponse.next();
+    const response = passThrough();
     await updateSession(request, response);
     return response;
   }
@@ -84,11 +118,11 @@ export async function middleware(request: NextRequest) {
     process.env.NODE_ENV === "development" &&
     process.env.MOCK_USER_ID
   ) {
-    return NextResponse.next();
+    return passThrough();
   }
 
   // Check session for web routes, redirect to login if unauthenticated
-  const response = NextResponse.next();
+  const response = passThrough();
   const { user } = await updateSession(request, response);
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
