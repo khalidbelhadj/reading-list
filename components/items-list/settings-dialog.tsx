@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconChevronDown } from "@tabler/icons-react";
 
@@ -87,6 +88,7 @@ export const SettingsMenu = ({
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
 }) => {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data: user } = useCurrentUser();
   const email = user?.email ?? null;
   const fullName =
@@ -110,7 +112,10 @@ export const SettingsMenu = ({
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
-    onSuccess: () => queryClient.clear(),
+    onSuccess: () => {
+      queryClient.clear();
+      router.replace("/login");
+    },
   });
 
   const handleThemeChange = React.useCallback((value: string) => {
