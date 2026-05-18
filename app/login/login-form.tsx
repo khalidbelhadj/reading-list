@@ -49,6 +49,7 @@ export const LoginForm = ({
               alt=""
               width={14}
               height={14}
+              unoptimized
               className="size-3.5"
             />
           )}
