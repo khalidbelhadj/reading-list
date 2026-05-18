@@ -90,7 +90,7 @@ const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
   none: "None",
   tag: "Tag",
-  day: "Day",
+  day: "Date",
 };
 
 const GROUP_BY_ICONS: Record<
