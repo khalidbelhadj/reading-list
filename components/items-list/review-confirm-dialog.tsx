@@ -83,7 +83,7 @@ export const ReviewConfirmDialog = ({
       : isCram
         ? "There are no flashcards yet. Add flashcards to your items to start cramming."
         : "You’re all caught up! Cards will become due again as their review intervals expire."
-    : `${pluralize(cardCount, "card")} available across ${pluralize(itemCount, "item")}.`;
+    : `${pluralize(cardCount, "card")} due across ${pluralize(itemCount, "item")}.`;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
