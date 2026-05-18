@@ -48,10 +48,15 @@ export const SearchBar = React.forwardRef<
       onResults(null);
       return;
     }
-    if (data) {
-      onResults(new Set(data.map((r) => r.id)));
+    // While a fetch for the current query is in flight, treat the filter as
+    // open (null) instead of leaving the previous result set applied — this
+    // avoids flashing an empty state when the prior query returned no matches.
+    if (isFetching || !data) {
+      onResults(null);
+      return;
     }
-  }, [data, debouncedQuery, onResults]);
+    onResults(new Set(data.map((r) => r.id)));
+  }, [data, debouncedQuery, isFetching, onResults]);
 
   // Only sync the URL when the debounced query settles — typing should feel
   // instant, not pay a history.replaceState cost on every keystroke.

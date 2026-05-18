@@ -65,7 +65,7 @@ const GlobalError = ({
                 cursor: "pointer",
               }}
             >
-              Try again
+              Reload
             </button>
             <button
               onClick={() => {

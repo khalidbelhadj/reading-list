@@ -1,7 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Spinner } from "@/components/ui/spinner";
-import { IconChevronDown, IconPlus } from "@tabler/icons-react";
+import {
+  IconBoltFilled,
+  IconChevronDown,
+  IconClipboardFilled,
+  IconPlus,
+  IconSquareRoundedPlusFilled,
+  IconSparklesFilled,
+} from "@tabler/icons-react";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -158,6 +165,7 @@ export const Toolbar = ({
           />
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleNewClick}>
+              <IconSparklesFilled />
               New cards
               {!dueLoading && !dueError && (
                 <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
@@ -166,6 +174,7 @@ export const Toolbar = ({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCramClick}>
+              <IconBoltFilled />
               Cram
               {!dueLoading && !dueError && (
                 <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
@@ -188,9 +197,11 @@ export const Toolbar = ({
         />
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onPasteUrl}>
+            <IconClipboardFilled />
             Paste URL
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onAdd}>
+            <IconSquareRoundedPlusFilled />
             New item
           </DropdownMenuItem>
         </DropdownMenuContent>

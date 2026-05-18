@@ -26,7 +26,7 @@ const Error = ({
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={reset}>
-            Try again
+            Reload
           </Button>
           <Button
             size="sm"

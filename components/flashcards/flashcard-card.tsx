@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
-import { IconDots } from "@tabler/icons-react";
+import {
+  IconCopy,
+  IconDots,
+  IconMarkdown,
+  IconTrashFilled,
+} from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -199,6 +204,7 @@ const FlashcardDropdown = ({
           <TooltipTrigger
             render={
               <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
+                <IconCopy />
                 Copy ID
               </DropdownMenuItem>
             }
@@ -212,6 +218,7 @@ const FlashcardDropdown = ({
                 closeOnClick={false}
                 onClick={handleCopyMarkdown}
               >
+                <IconMarkdown />
                 Copy as markdown
               </DropdownMenuItem>
             }
@@ -219,6 +226,7 @@ const FlashcardDropdown = ({
           <TooltipContent side="right">Copied</TooltipContent>
         </Tooltip>
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+          <IconTrashFilled />
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
