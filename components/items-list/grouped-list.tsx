@@ -1,4 +1,8 @@
-import { IconChevronRight } from "@tabler/icons-react";
+import {
+  IconChevronRight,
+  IconPencil,
+  IconTrashFilled,
+} from "@tabler/icons-react";
 import React from "react";
 
 import { cn } from "@/lib/utils";
@@ -203,12 +207,14 @@ export const GroupedList = ({
                   </ContextMenuTrigger>
                   <ContextMenuContent>
                     <ContextMenuItem onClick={() => startRename(tagForGroup)}>
+                      <IconPencil />
                       Rename
                     </ContextMenuItem>
                     <ContextMenuItem
                       variant="destructive"
                       onClick={() => setPendingDeleteTag(tagForGroup)}
                     >
+                      <IconTrashFilled />
                       Delete
                     </ContextMenuItem>
                   </ContextMenuContent>

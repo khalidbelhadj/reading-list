@@ -12,14 +12,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import type { ReviewMode } from "@/app/actions";
 
 const DEFAULT_LIMIT = 5;
+const SECONDS_PER_CARD = 30;
+const PRESETS = [5, 10, 20];
 
 const pluralize = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
+
+const formatDuration = (seconds: number) => {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} min`;
+};
+
+const buildPresets = (cardCount: number) => {
+  const filtered = PRESETS.filter((preset) => preset < cardCount);
+  return [...filtered, cardCount];
+};
 
 export const ReviewConfirmDialog = ({
   open,
@@ -46,6 +59,7 @@ export const ReviewConfirmDialog = ({
   }, [open, cardCount]);
 
   const plannedCount = Math.min(limit, cardCount);
+  const presets = React.useMemo(() => buildPresets(cardCount), [cardCount]);
 
   const isCram = mode === "cram";
   const isNew = mode === "new";
@@ -69,7 +83,7 @@ export const ReviewConfirmDialog = ({
       : isCram
         ? "There are no flashcards yet. Add flashcards to your items to start cramming."
         : "You’re all caught up! Cards will become due again as their review intervals expire."
-    : `${pluralize(cardCount, "card")} available across ${pluralize(itemCount, "item")}.`;
+    : `${pluralize(cardCount, "card")} due across ${pluralize(itemCount, "item")}.`;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -84,23 +98,37 @@ export const ReviewConfirmDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!isEmpty && cardCount > 1 && (
-          <div className="flex flex-col gap-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span>Cards for this session</span>
-              <span className="tabular-nums text-muted-foreground">
-                {plannedCount}
-              </span>
-            </div>
-            <Slider
-              min={1}
-              max={cardCount}
-              value={[plannedCount]}
-              onValueChange={(values) => {
-                const next = Array.isArray(values) ? values[0] : values;
-                if (typeof next === "number") setLimit(next);
-              }}
-              disabled={isStarting}
-            />
+          <div className="grid grid-cols-2 gap-2">
+            {presets.map((preset) => {
+              const isAll = preset === cardCount;
+              const isSelected = plannedCount === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setLimit(preset)}
+                  disabled={isStarting}
+                  className={cn(
+                    "flex flex-col items-start gap-0.5 rounded-md px-4 py-3 text-left transition-colors disabled:opacity-50",
+                    isSelected
+                      ? "bg-secondary"
+                      : "bg-card hover:bg-card/70",
+                  )}
+                >
+                  <span className="font-content text-2xl tabular-nums">
+                    ~{formatDuration(preset * SECONDS_PER_CARD)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {isAll ? `All ${preset} cards` : `${preset} cards`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {!isEmpty && cardCount === 1 && (
+          <div className="text-xs text-muted-foreground">
+            Estimated time: ~{formatDuration(SECONDS_PER_CARD)}
           </div>
         )}
         <AlertDialogFooter>

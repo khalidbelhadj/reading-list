@@ -3,7 +3,24 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconChevronDown } from "@tabler/icons-react";
+import {
+  IconCalendarFilled,
+  IconCardsFilled,
+  IconChevronDown,
+  IconCircleOff,
+  IconDeviceDesktopFilled,
+  IconDownload,
+  IconEyeFilled,
+  IconFilterFilled,
+  IconLayoutListFilled,
+  IconListDetailsFilled,
+  IconLogout,
+  IconMoonFilled,
+  IconPaletteFilled,
+  IconSparklesFilled,
+  IconSunFilled,
+  IconTagFilled,
+} from "@tabler/icons-react";
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
@@ -43,6 +60,15 @@ const THEME_LABELS: Record<ThemeKey, string> = {
   dark: "Dark",
 };
 
+const THEME_ICONS: Record<
+  ThemeKey,
+  React.ComponentType<{ className?: string }>
+> = {
+  system: IconDeviceDesktopFilled,
+  light: IconSunFilled,
+  dark: IconMoonFilled,
+};
+
 const applyTheme = (theme: ThemeKey) => {
   const isDark =
     theme === "dark" ||
@@ -56,10 +82,24 @@ const TAB_LABELS: Record<TabId, string> = {
   cards: "Cards",
 };
 
+const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
+  "reading-list": IconListDetailsFilled,
+  cards: IconCardsFilled,
+};
+
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
   none: "None",
   tag: "Tag",
-  day: "Day",
+  day: "Date",
+};
+
+const GROUP_BY_ICONS: Record<
+  GroupBy,
+  React.ComponentType<{ className?: string }>
+> = {
+  none: IconCircleOff,
+  tag: IconTagFilled,
+  day: IconCalendarFilled,
 };
 
 export const SettingsMenu = ({
@@ -231,17 +271,21 @@ export const SettingsMenu = ({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
-        {(Object.keys(TAB_LABELS) as TabId[]).map((key) => (
-          <DropdownMenuItem
-            key={key}
-            onClick={() => setActiveTabAndUrl(key)}
-            className={cn(
-              activeTab === key && "bg-secondary focus:bg-secondary",
-            )}
-          >
-            {TAB_LABELS[key]}
-          </DropdownMenuItem>
-        ))}
+        {(Object.keys(TAB_LABELS) as TabId[]).map((key) => {
+          const TabIcon = TAB_ICONS[key];
+          return (
+            <DropdownMenuItem
+              key={key}
+              onClick={() => setActiveTabAndUrl(key)}
+              className={cn(
+                activeTab === key && "bg-secondary focus:bg-secondary",
+              )}
+            >
+              <TabIcon />
+              {TAB_LABELS[key]}
+            </DropdownMenuItem>
+          );
+        })}
         <DropdownMenuSeparator />
         {showFilters && (
           <>
@@ -250,6 +294,7 @@ export const SettingsMenu = ({
                 checked={showRead}
                 onCheckedChange={handleShowReadChange}
                 >
+                <IconEyeFilled />
                 Show read items
               </DropdownMenuCheckboxItem>
             )}
@@ -258,21 +303,29 @@ export const SettingsMenu = ({
               onCheckedChange={handleTagsOpenChange}
               disabled={!hasTags}
             >
+              <IconFilterFilled />
               Filter by tags
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Group by</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <IconLayoutListFilled />
+                Group by
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={groupBy}
                   onValueChange={handleGroupByChange}
                 >
-                  {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((key) => (
-                    <DropdownMenuRadioItem key={key} value={key}>
-                      {GROUP_BY_LABELS[key]}
-                    </DropdownMenuRadioItem>
-                  ))}
+                  {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((key) => {
+                    const GroupIcon = GROUP_BY_ICONS[key];
+                    return (
+                      <DropdownMenuRadioItem key={key} value={key}>
+                        <GroupIcon />
+                        {GROUP_BY_LABELS[key]}
+                      </DropdownMenuRadioItem>
+                    );
+                  })}
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
@@ -280,22 +333,35 @@ export const SettingsMenu = ({
           </>
         )}
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>
+            <IconPaletteFilled />
+            Theme
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
               value={theme}
               onValueChange={handleThemeChange}
             >
-              {(Object.keys(THEME_LABELS) as ThemeKey[]).map((key) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {THEME_LABELS[key]}
-                </DropdownMenuRadioItem>
-              ))}
+              {(Object.keys(THEME_LABELS) as ThemeKey[]).map((key) => {
+                const ThemeIcon = THEME_ICONS[key];
+                return (
+                  <DropdownMenuRadioItem key={key} value={key}>
+                    <ThemeIcon />
+                    {THEME_LABELS[key]}
+                  </DropdownMenuRadioItem>
+                );
+              })}
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem onClick={openExport}>Export as CSV</DropdownMenuItem>
-        <DropdownMenuItem onClick={openPrompts}>Edit prompts</DropdownMenuItem>
+        <DropdownMenuItem onClick={openExport}>
+          <IconDownload />
+          Export as CSV
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={openPrompts}>
+          <IconSparklesFilled />
+          Edit prompts
+        </DropdownMenuItem>
         {mounted && (fullName || email) && (
           <>
             <DropdownMenuSeparator />
@@ -311,6 +377,10 @@ export const SettingsMenu = ({
                 </span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <IconLogout />
+                  Log out
+                </DropdownMenuItem>
                 {email && (
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
@@ -318,9 +388,6 @@ export const SettingsMenu = ({
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
                 )}
-                <DropdownMenuItem onClick={handleLogout}>
-                  Log out
-                </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>

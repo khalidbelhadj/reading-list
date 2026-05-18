@@ -1,4 +1,15 @@
 import React from "react";
+import {
+  IconCheck,
+  IconCopy,
+  IconExternalLink,
+  IconEyeFilled,
+  IconEyeOff,
+  IconPinFilled,
+  IconPinnedOff,
+  IconSparklesFilled,
+  IconTrashFilled,
+} from "@tabler/icons-react";
 
 import { type Item } from "@/lib/types";
 import {
@@ -125,6 +136,13 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered(true);
   }, [item.id]);
 
+  const handleCopyTitle = React.useCallback(() => {
+    navigator.clipboard.writeText(item.title);
+    setLastCopied("__title__");
+    setTimeout(() => setLastCopied(null), 2000);
+    setCopyTriggered(true);
+  }, [item.title]);
+
   const handleOpenInNewTab = React.useCallback(() => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
@@ -138,6 +156,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered,
     handleCopy,
     handleCopyId,
+    handleCopyTitle,
     handleOpenInNewTab,
     canOpenUrl,
   };
@@ -154,6 +173,7 @@ const ItemMenuItems = ({
   lastCopied,
   handleOpenInNewTab,
   handleCopyId,
+  handleCopyTitle,
   handleCopy,
   onTogglePin,
   onToggleRead,
@@ -164,19 +184,33 @@ const ItemMenuItems = ({
   return (
     <>
       {canOpenUrl && (
-        <DropdownMenuItem onClick={handleOpenInNewTab}>
-          Open in new tab
-        </DropdownMenuItem>
+        <OpenInNewTabItem
+          url={item.url ?? ""}
+          onOpen={handleOpenInNewTab}
+        />
       )}
       {onTogglePin && (
         <DropdownMenuItem onClick={onTogglePin}>
+          {item.starred ? <IconPinnedOff /> : <IconPinFilled />}
           {item.starred ? "Unpin" : "Pin"}
         </DropdownMenuItem>
       )}
+      <Tooltip open={lastCopied === "__title__"}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuItem closeOnClick={false} onClick={handleCopyTitle}>
+              <IconCopy />
+              Copy title
+            </DropdownMenuItem>
+          }
+        />
+        <TooltipContent side="right">Copied</TooltipContent>
+      </Tooltip>
       <Tooltip open={lastCopied === "__id__"}>
         <TooltipTrigger
           render={
             <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
+              <IconCopy />
               Copy ID
             </DropdownMenuItem>
           }
@@ -185,7 +219,10 @@ const ItemMenuItems = ({
       </Tooltip>
       {prompts.length > 0 && (
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Prompts</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger>
+            <IconSparklesFilled />
+            Prompts
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-w-72">
             {prompts.map((prompt) => (
               <PromptMenuItem
@@ -200,11 +237,13 @@ const ItemMenuItems = ({
       )}
       {onToggleRead && (
         <DropdownMenuItem onClick={onToggleRead}>
+          {isRead ? <IconEyeOff /> : <IconEyeFilled />}
           {isRead ? "Mark as unread" : "Mark as read"}
         </DropdownMenuItem>
       )}
       {onDelete && (
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          <IconTrashFilled />
           Delete
         </DropdownMenuItem>
       )}
@@ -359,5 +398,46 @@ const PromptMenuItem = ({
       />
       <TooltipContent side="right">Copied</TooltipContent>
     </Tooltip>
+  );
+};
+
+const OpenInNewTabItem = ({
+  url,
+  onOpen,
+}: {
+  url: string;
+  onOpen: () => void;
+}) => {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyClick = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    },
+    [url],
+  );
+
+  const stopPointerDown = React.useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  return (
+    <DropdownMenuItem onClick={onOpen} className="group/open-tab pr-1">
+      <IconExternalLink />
+      <span className="flex-1">Open in new tab</span>
+      <button
+        type="button"
+        aria-label={copied ? "Copied" : "Copy URL"}
+        onPointerDown={stopPointerDown}
+        onClick={handleCopyClick}
+        className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-secondary group-hover/open-tab:opacity-100 focus-visible:opacity-100"
+      >
+        {copied ? <IconCheck /> : <IconCopy />}
+      </button>
+    </DropdownMenuItem>
   );
 };

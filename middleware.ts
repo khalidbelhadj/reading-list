@@ -95,11 +95,13 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
-  // Skip auth for well-known endpoints, login page, and auth callback
+  // Skip auth for well-known endpoints, login page, auth callback, and
+  // static files served from /public
   if (
     pathname.startsWith("/.well-known") ||
     pathname === "/login" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|ttf|otf|map|txt|json)$/i.test(pathname)
   ) {
     const response = passThrough();
     await updateSession(request, response);

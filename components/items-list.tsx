@@ -62,7 +62,6 @@ export const ItemsList = () => {
   const searchParams = useSearchParams();
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [justDropped, setJustDropped] = React.useState(false);
@@ -75,11 +74,30 @@ export const ItemsList = () => {
     return "reading-list";
   });
 
-  // Search
+  // Search — query persisted in the URL as ?q=... so it survives navigation
+  // away and back (e.g. clicking a result and hitting back). Captured once on
+  // mount; subsequent URL changes go through replaceState below.
+  const [initialSearchQuery] = React.useState(() => searchParams.get("q") ?? "");
   const [searchIds, setSearchIds] = React.useState<Set<string> | null>(null);
   const searchBarRef = React.useRef<SearchBarHandle | null>(null);
   const handleSearchResults = React.useCallback((ids: Set<string> | null) => {
     setSearchIds(ids);
+  }, []);
+  const handleSearchQueryChange = React.useCallback((query: string) => {
+    const params = new URLSearchParams(window.location.search);
+    const existing = params.get("q") ?? "";
+    if (existing === query) return;
+    if (query.length === 0) {
+      params.delete("q");
+    } else {
+      params.set("q", query);
+    }
+    const queryString = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      queryString ? `?${queryString}` : window.location.pathname,
+    );
   }, []);
   const handleSearchOpen = React.useCallback(() => {
     searchBarRef.current?.open();
@@ -117,10 +135,6 @@ export const ItemsList = () => {
     [router],
   );
 
-  const handleOpenNew = React.useCallback(() => {
-    router.push("/new");
-  }, [router]);
-
   // Hooks
   const {
     tabItems,
@@ -157,15 +171,10 @@ export const ItemsList = () => {
     [items],
   );
 
-  const confirmDelete = React.useCallback(async () => {
+  const confirmDelete = React.useCallback(() => {
     if (!itemToDelete) return;
-    setDeleting(true);
-    try {
-      await handleDeleteSingle(itemToDelete.id);
-    } finally {
-      setDeleting(false);
-      setDeleteOpen(false);
-    }
+    handleDeleteSingle(itemToDelete.id);
+    setDeleteOpen(false);
   }, [itemToDelete, handleDeleteSingle]);
 
 
@@ -223,11 +232,57 @@ export const ItemsList = () => {
 
   const {
     requestCreate,
+    isCreating,
     duplicateDialog,
     dismissDuplicateDialog,
     openExisting: handleDuplicateOpenExisting,
     createAnyway: handleDuplicateCreateAnyway,
   } = useCreateItem(items, { onAnimateTitle: handleAnimateTitle });
+
+  const handleOpenNew = React.useCallback(() => {
+    requestCreate(
+      { title: "", url: "", tagNames: [] },
+      {
+        onCreated: (newId) => {
+          // Optimistically insert into the cache so the detail page can
+          // render the new (empty) item without waiting on a full refetch.
+          // Server's createItems anchors new rows at minPos - 1; mirror that
+          // here so ordering matches before invalidate() catches up.
+          queryClient.setQueryData<Item[]>(["items"], (old) => {
+            if (!old) return old;
+            const minPos = old.reduce(
+              (acc, it) => (it.position < acc ? it.position : acc),
+              0,
+            );
+            const now = new Date().toISOString();
+            const userId = old[0]?.userId ?? "";
+            const newItem: Item = {
+              id: newId,
+              userId,
+              title: "",
+              url: "",
+              faviconUrl: null,
+              starred: false,
+              notes: null,
+              read: false,
+              readAt: null,
+              position: minPos - 1,
+              createdAt: now,
+              updatedAt: now,
+              tags: [],
+              flashcardCount: 0,
+            };
+            return [newItem, ...old];
+          });
+          invalidate();
+          router.push(`/item/${newId}`);
+        },
+        onError: () => {
+          toast.error("Could not create item. Please try again.");
+        },
+      },
+    );
+  }, [requestCreate, queryClient, invalidate, router]);
 
   const requestPasteCreate = React.useCallback(
     (url: string, tagNames: string[]) => {
@@ -240,16 +295,30 @@ export const ItemsList = () => {
   );
 
   const handlePasteUrl = React.useCallback(async () => {
+    // The dropdown menu's focus handoff hasn't settled by the time this
+    // handler runs synchronously — clipboard.readText() would reject with
+    // "Document is not focused". Wait one frame for focus to return to the
+    // trigger, then read.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    let text: string;
     try {
-      const text = (await navigator.clipboard.readText()).trim();
-      const url = new URL(text);
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        throw new Error("unsupported protocol");
-      }
-      requestPasteCreate(text, [...activeTags]);
+      text = (await navigator.clipboard.readText()).trim();
+    } catch {
+      toast.error("Couldn't read clipboard. Grant clipboard permission and try again.");
+      return;
+    }
+    let url: URL;
+    try {
+      url = new URL(text);
     } catch {
       toast.error("Clipboard doesn't contain a valid URL");
+      return;
     }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      toast.error("Clipboard doesn't contain a valid URL");
+      return;
+    }
+    requestPasteCreate(text, [...activeTags]);
   }, [requestPasteCreate, activeTags]);
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
@@ -282,7 +351,6 @@ export const ItemsList = () => {
 
   React.useEffect(() => {
     if (!items) return;
-    router.prefetch("/new");
     for (const item of items) {
       router.prefetch(`/item/${item.id}`);
     }
@@ -363,7 +431,7 @@ export const ItemsList = () => {
     <div>
       <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 bg-background">
+        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-5 pb-1 bg-background">
           <Toolbar
             activeTab={activeTab}
             setActiveTabAndUrl={setActiveTabAndUrl}
@@ -376,6 +444,7 @@ export const ItemsList = () => {
             setGroupBy={setGroupBy}
             onAdd={handleOpenNew}
             onPasteUrl={handlePasteUrl}
+            isCreating={isCreating}
           />
 
           <SearchBar
@@ -383,6 +452,8 @@ export const ItemsList = () => {
             queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
             onResults={handleSearchResults}
+            onQueryChange={handleSearchQueryChange}
+            initialQuery={initialSearchQuery}
             placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
           />
 
@@ -584,7 +655,7 @@ export const ItemsList = () => {
       <DeleteItemDialog
         item={itemToDelete}
         open={deleteOpen}
-        deleting={deleting}
+        deleting={false}
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
       />

@@ -188,7 +188,13 @@ export const CopyPromptsDialog = ({
   }, [updateScrollState, prompts.length, open]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen && eventDetails?.reason === "escape-key") return;
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="sm:max-w-3xl gap-3">
         <DialogHeader>
           <DialogTitle>Prompts</DialogTitle>
@@ -371,7 +377,7 @@ const PromptTab = ({
       role="button"
       tabIndex={0}
       className={cn(
-        "flex items-center rounded-md px-2 py-1 text-xs cursor-pointer shrink-0",
+        "flex items-center rounded-md px-2 py-1 text-xs cursor-pointer shrink-0 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-foreground/25",
         isSelected
           ? "bg-secondary text-foreground"
           : "text-muted-foreground hover:text-foreground hover:bg-accent",
