@@ -234,6 +234,7 @@ export const MarkdownEditor = ({
       }),
       Placeholder.configure({
         includeChildren: true,
+        showOnlyCurrent: false,
         placeholder: ({ pos, editor: e }) => {
           const parent = e.state.doc.resolve(pos).parent;
           if (parent.type.name === "cardFront") return "Front";

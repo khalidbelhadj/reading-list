@@ -313,8 +313,8 @@
   cursor: progress;
 }
 .markdown-editor .ProseMirror p.is-editor-empty:first-child::before,
-.markdown-editor .ProseMirror front p.is-empty::before,
-.markdown-editor .ProseMirror back p.is-empty::before {
+.markdown-editor .ProseMirror front > p.is-empty:only-child::before,
+.markdown-editor .ProseMirror back > p.is-empty:only-child::before {
   color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   content: attr(data-placeholder);
   float: left;

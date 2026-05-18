@@ -178,7 +178,8 @@ export const Card = Node.create({
       "Shift-Tab": ({ editor }) =>
         moveWithinCard(editor as Editor, "backward"),
       Enter: ({ editor }) => exitOnEmptyBackTrailing(editor as Editor),
-      "Mod-Enter": ({ editor }) => exitCard(editor as Editor),
+      "Mod-Enter": ({ editor }) => exitCard(editor as Editor, "forward"),
+      "Mod-Shift-Enter": ({ editor }) => exitCard(editor as Editor, "backward"),
       ArrowUp: ({ editor }) => escapeAtDocEdge(editor as Editor, "backward"),
       ArrowDown: ({ editor }) => escapeAtDocEdge(editor as Editor, "forward"),
       Backspace: ({ editor }) => escapeAtDocEdge(editor as Editor, "backward"),
