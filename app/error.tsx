@@ -41,11 +41,8 @@ const Error = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={reset}>
-            Reload
-          </Button>
+          <Button onClick={reset}>Reload</Button>
           <Button
-            size="sm"
             variant="ghost"
             onClick={() => {
               window.location.href = "/";

@@ -13,7 +13,7 @@ const NotFound = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" nativeButton={false} render={<Link href="/" />}>
+          <Button nativeButton={false} render={<Link href="/" />}>
             Go home
           </Button>
         </div>

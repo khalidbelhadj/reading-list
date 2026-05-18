@@ -377,6 +377,10 @@ export const SettingsMenu = ({
                 </span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <IconLogout />
+                  Log out
+                </DropdownMenuItem>
                 {email && (
                   <DropdownMenuGroup>
                     <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
@@ -384,10 +388,6 @@ export const SettingsMenu = ({
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
                 )}
-                <DropdownMenuItem onClick={handleLogout}>
-                  <IconLogout />
-                  Log out
-                </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>
