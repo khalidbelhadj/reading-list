@@ -16,6 +16,14 @@ const urlSchema = z
   .string()
   .max(2048, "URL must be under 2048 characters")
   .refine((s) => /^https?:\/\//i.test(s), "URL must use http or https");
+// Web-form variant: empty string is allowed (items can exist without a URL).
+const optionalUrlSchema = z
+  .string()
+  .max(2048, "URL must be under 2048 characters")
+  .refine(
+    (s) => s === "" || /^https?:\/\//i.test(s),
+    "URL must use http or https",
+  );
 const notesSchema = z.string().max(100000, "Notes must be under 100,000 characters");
 const tagNameSchema = z.string().max(100, "Tag name must be under 100 characters");
 const tagNamesSchema = z.array(tagNameSchema).max(50, "Cannot have more than 50 tags");
@@ -33,7 +41,7 @@ export const fetchPageTitleSchema = z.object({
 
 export const createItemSchema = z.object({
   title: titleSchema,
-  url: urlSchema,
+  url: optionalUrlSchema,
   tagNames: tagNamesSchema,
   faviconUrl: urlSchema.optional(),
   notes: notesSchema.optional(),
@@ -44,7 +52,7 @@ export const updateItemSchema = z.object({
   itemId: idSchema,
   fields: z.object({
     title: titleSchema.optional(),
-    url: urlSchema.optional(),
+    url: optionalUrlSchema.optional(),
     faviconUrl: urlSchema.optional(),
     starred: z.boolean().optional(),
     notes: notesSchema.optional(),

@@ -17,6 +17,7 @@ export type CreateCallbacks = {
   onProceed?: () => void;
   onCreated?: (itemId: string) => void;
   onOpenExisting?: (existingId: string) => void;
+  onError?: (error: Error) => void;
 };
 
 type UseCreateItemOptions = {
@@ -63,6 +64,9 @@ export const useCreateItem = (
         onSuccess: (newId) => {
           if (newId && callbacks.onCreated) callbacks.onCreated(newId);
         },
+        onError: (error) => {
+          callbacks.onError?.(error as Error);
+        },
       });
     },
     [items, createMutation],
@@ -87,6 +91,9 @@ export const useCreateItem = (
     createMutation.mutate(pending, {
       onSuccess: (newId) => {
         if (newId && callbacks.onCreated) callbacks.onCreated(newId);
+      },
+      onError: (error) => {
+        callbacks.onError?.(error as Error);
       },
     });
   }, [duplicateDialog, createMutation]);

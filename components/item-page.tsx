@@ -183,6 +183,18 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
     [updateMutation],
   );
 
+  const handleTogglePin = React.useCallback(async () => {
+    if (!item) return;
+    const newStarred = !item.starred;
+    queryClient.setQueryData<Item[]>(["items"], (old) =>
+      (old ?? []).map((it) =>
+        it.id === item.id ? { ...it, starred: newStarred } : it,
+      ),
+    );
+    await updateItem(item.id, { starred: newStarred });
+    invalidate();
+  }, [item, queryClient, invalidate]);
+
   const handleToggleRead = React.useCallback(async () => {
     if (!item) return;
     const newRead = !item.read;
@@ -266,6 +278,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           {item ? (
             <ItemDropdown
               item={item}
+              onTogglePin={handleTogglePin}
               onToggleRead={handleToggleRead}
               onDelete={() => setDeleteOpen(true)}
             >

@@ -1,7 +1,6 @@
 import React from "react";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "motion/react";
 
 import { useDebounced } from "@/lib/use-debounced";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,11 +15,20 @@ export const SearchBar = React.forwardRef<
     queryKey: string;
     searchFn: (query: string) => Promise<Array<{ id: string }>>;
     onResults: (ids: Set<string> | null) => void;
+    onQueryChange?: (query: string) => void;
+    initialQuery?: string;
     placeholder?: string;
   }
->(({ queryKey, searchFn, onResults, placeholder = "Search..." }, ref) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
+>(({
+  queryKey,
+  searchFn,
+  onResults,
+  onQueryChange,
+  initialQuery = "",
+  placeholder = "Search...",
+}, ref) => {
+  const [isOpen, setIsOpen] = React.useState(() => initialQuery.length > 0);
+  const [query, setQuery] = React.useState(initialQuery);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebounced(trimmedQuery, 200);
@@ -44,6 +52,12 @@ export const SearchBar = React.forwardRef<
       onResults(new Set(data.map((r) => r.id)));
     }
   }, [data, debouncedQuery, onResults]);
+
+  // Only sync the URL when the debounced query settles — typing should feel
+  // instant, not pay a history.replaceState cost on every keystroke.
+  React.useEffect(() => {
+    onQueryChange?.(debouncedQuery);
+  }, [debouncedQuery, onQueryChange]);
 
   React.useImperativeHandle(ref, () => ({
     open: () => {
@@ -89,11 +103,13 @@ export const SearchBar = React.forwardRef<
   const resultCount = debouncedQuery.length > 0 && data ? data.length : null;
 
   return (
-    <motion.div
-      initial={false}
-      animate={isOpen ? { height: "auto", marginBottom: 0 } : { height: 0, marginBottom: "-0.75rem" }}
-      transition={{ duration: 0.1 }}
-      className="overflow-hidden"
+    <div
+      className="overflow-hidden transition-[height,margin-bottom] duration-100"
+      style={
+        isOpen
+          ? { height: "auto", marginBottom: 0 }
+          : { height: 0, marginBottom: "-0.75rem" }
+      }
     >
       <div className="relative flex items-center">
         <IconSearch className="absolute left-2.5 size-4 text-muted-foreground pointer-events-none" />
@@ -132,7 +148,7 @@ export const SearchBar = React.forwardRef<
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 });
 

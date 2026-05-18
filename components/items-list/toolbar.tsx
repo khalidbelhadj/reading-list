@@ -30,6 +30,7 @@ export const Toolbar = ({
   setGroupBy,
   onAdd,
   onPasteUrl,
+  isCreating = false,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -42,6 +43,7 @@ export const Toolbar = ({
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
   onAdd: () => void;
   onPasteUrl: () => void;
+  isCreating?: boolean;
 }) => {
 
   const {
@@ -178,8 +180,8 @@ export const Toolbar = ({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button size="sm" className="ml-1">
-              <IconPlus />
+            <Button size="sm" className="ml-1" disabled={isCreating}>
+              {isCreating ? <Spinner className="size-3.5" /> : <IconPlus />}
               Add
             </Button>
           }
