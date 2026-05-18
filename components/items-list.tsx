@@ -62,7 +62,6 @@ export const ItemsList = () => {
   const searchParams = useSearchParams();
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [justDropped, setJustDropped] = React.useState(false);
@@ -172,15 +171,10 @@ export const ItemsList = () => {
     [items],
   );
 
-  const confirmDelete = React.useCallback(async () => {
+  const confirmDelete = React.useCallback(() => {
     if (!itemToDelete) return;
-    setDeleting(true);
-    try {
-      await handleDeleteSingle(itemToDelete.id);
-    } finally {
-      setDeleting(false);
-      setDeleteOpen(false);
-    }
+    handleDeleteSingle(itemToDelete.id);
+    setDeleteOpen(false);
   }, [itemToDelete, handleDeleteSingle]);
 
 
@@ -661,7 +655,7 @@ export const ItemsList = () => {
       <DeleteItemDialog
         item={itemToDelete}
         open={deleteOpen}
-        deleting={deleting}
+        deleting={false}
         onOpenChange={setDeleteOpen}
         onConfirm={confirmDelete}
       />

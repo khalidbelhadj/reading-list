@@ -53,7 +53,20 @@ export const useItemsMutations = ({
 
   const deleteMutation = useMutation({
     mutationFn: (itemId: string) => deleteItem(itemId),
-    onSuccess: invalidate,
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).filter((item) => item.id !== itemId),
+      );
+      return { previous };
+    },
+    onError: (_err, _itemId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["items"], context.previous);
+      }
+    },
+    onSettled: invalidate,
   });
 
   const handleReorder = React.useCallback(
@@ -76,11 +89,11 @@ export const useItemsMutations = ({
   );
 
   const handleDeleteSingle = React.useCallback(
-    async (itemId: string) => {
-      await deleteMutation.mutateAsync(itemId);
+    (itemId: string) => {
       const idx = filteredItems.findIndex((i) => i.id === itemId);
       const nextItem = filteredItems[idx + 1] ?? filteredItems[idx - 1];
       setCursor(nextItem?.id ?? null);
+      deleteMutation.mutate(itemId);
     },
     [filteredItems, setCursor, deleteMutation],
   );

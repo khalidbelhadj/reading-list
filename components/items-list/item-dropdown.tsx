@@ -136,6 +136,13 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered(true);
   }, [item.id]);
 
+  const handleCopyTitle = React.useCallback(() => {
+    navigator.clipboard.writeText(item.title);
+    setLastCopied("__title__");
+    setTimeout(() => setLastCopied(null), 2000);
+    setCopyTriggered(true);
+  }, [item.title]);
+
   const handleOpenInNewTab = React.useCallback(() => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
@@ -149,6 +156,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered,
     handleCopy,
     handleCopyId,
+    handleCopyTitle,
     handleOpenInNewTab,
     canOpenUrl,
   };
@@ -165,6 +173,7 @@ const ItemMenuItems = ({
   lastCopied,
   handleOpenInNewTab,
   handleCopyId,
+  handleCopyTitle,
   handleCopy,
   onTogglePin,
   onToggleRead,
@@ -186,6 +195,17 @@ const ItemMenuItems = ({
           {item.starred ? "Unpin" : "Pin"}
         </DropdownMenuItem>
       )}
+      <Tooltip open={lastCopied === "__title__"}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuItem closeOnClick={false} onClick={handleCopyTitle}>
+              <IconCopy />
+              Copy title
+            </DropdownMenuItem>
+          }
+        />
+        <TooltipContent side="right">Copied</TooltipContent>
+      </Tooltip>
       <Tooltip open={lastCopied === "__id__"}>
         <TooltipTrigger
           render={
@@ -406,30 +426,18 @@ const OpenInNewTabItem = ({
   }, []);
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <DropdownMenuItem
-            onClick={onOpen}
-            className="group/open-tab pr-1"
-          >
-            <IconExternalLink />
-            <span className="flex-1">Open in new tab</span>
-            <button
-              type="button"
-              aria-label={copied ? "Copied" : "Copy URL"}
-              onPointerDown={stopPointerDown}
-              onClick={handleCopyClick}
-              className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-secondary group-hover/open-tab:opacity-100 focus-visible:opacity-100"
-            >
-              {copied ? <IconCheck /> : <IconCopy />}
-            </button>
-          </DropdownMenuItem>
-        }
-      />
-      <TooltipContent side="right" className="max-w-xs truncate block">
-        {url}
-      </TooltipContent>
-    </Tooltip>
+    <DropdownMenuItem onClick={onOpen} className="group/open-tab pr-1">
+      <IconExternalLink />
+      <span className="flex-1">Open in new tab</span>
+      <button
+        type="button"
+        aria-label={copied ? "Copied" : "Copy URL"}
+        onPointerDown={stopPointerDown}
+        onClick={handleCopyClick}
+        className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-secondary group-hover/open-tab:opacity-100 focus-visible:opacity-100"
+      >
+        {copied ? <IconCheck /> : <IconCopy />}
+      </button>
+    </DropdownMenuItem>
   );
 };
