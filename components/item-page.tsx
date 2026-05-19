@@ -54,9 +54,9 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
 
   React.useEffect(() => {
     const THRESHOLD = 48;
-    const CONTENT_ICON = 20;
+    const CONTENT_ICON = 24;
     const HEADER_ICON = 14;
-    const CONTENT_FONT = 14;
+    const CONTENT_FONT = 24;
     const HEADER_FONT = 12;
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -338,13 +338,13 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           className="fixed top-0 left-0 z-20 flex items-center pointer-events-none"
           style={{ opacity: 0 }}
         >
-          <div data-morph-icon className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+          <div data-morph-icon className="shrink-0 flex items-center justify-center" style={{ width: 24, height: 24 }}>
             {faviconSrc ? (
               <Image
                 src={faviconSrc}
                 alt=""
-                width={20}
-                height={20}
+                width={24}
+                height={24}
                 className="w-full h-full rounded object-contain"
                 unoptimized
               />
@@ -352,7 +352,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
               <IconFileFilled className="w-full h-full text-muted-foreground" />
             )}
           </div>
-          <span className="font-content truncate">
+          <span className="font-content font-semibold truncate">
             {item.title || "Untitled"}
           </span>
         </div>

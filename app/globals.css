@@ -343,7 +343,6 @@
 .markdown-editor .ProseMirror front.card-side,
 .markdown-editor .ProseMirror back.card-side {
   display: block;
-  font-size: 0.75rem;
 }
 .markdown-editor .ProseMirror front.card-side {
   font-weight: 500;

@@ -93,7 +93,7 @@ export const DetailPanel = React.forwardRef<
     );
 
     // Refs
-    const titleRef = React.useRef<HTMLInputElement>(null);
+    const titleRef = React.useRef<HTMLTextAreaElement>(null);
     const urlInputRef = React.useRef<HTMLInputElement>(null);
 
     // Last-saved snapshot, for dirty detection. Initialized to the item's
@@ -336,7 +336,15 @@ export const DetailPanel = React.forwardRef<
     }, [item?.id, newFront, newBack, addCardMutation]);
 
     const handleSetTitle = React.useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value),
+      (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+        setTitle(e.target.value.replace(/\n/g, "")),
+      [],
+    );
+
+    const handleTitleKeyDown = React.useCallback(
+      (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter") e.preventDefault();
+      },
       [],
     );
 
@@ -385,31 +393,34 @@ export const DetailPanel = React.forwardRef<
         {/* Item form card */}
         <div className="flex flex-col gap-2">
           {/* Favicon + Title */}
-          <div data-title-row className="flex items-center gap-2">
+          <div data-title-row className="relative">
             <span
               aria-hidden="true"
-              className="relative inline-flex size-5 shrink-0 items-center justify-center rounded-[5px] overflow-hidden"
+              className="absolute left-0 top-0 inline-flex h-[30px] w-6 items-center justify-center overflow-hidden pointer-events-none"
             >
               {faviconSrc ? (
                 <Image
                   src={faviconSrc}
                   alt=""
-                  width={14}
-                  height={14}
-                  className="size-3.5 rounded-sm"
+                  width={24}
+                  height={24}
+                  className="size-6 rounded-sm"
                   unoptimized
                 />
               ) : (
-                <IconFileFilled className="size-3.5 text-muted-foreground" />
+                <IconFileFilled className="size-6 text-muted-foreground" />
               )}
             </span>
-            <input
+            <textarea
               ref={titleRef}
               data-detail-title
               value={title}
               onChange={handleSetTitle}
+              onKeyDown={handleTitleKeyDown}
               placeholder="Title"
-              className="font-content flex-1 min-w-0 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+              rows={1}
+              style={{ textIndent: "2rem" }}
+              className="font-content block w-full text-2xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content"
             />
             {showAutofill && (
               <Tooltip>
@@ -506,14 +517,14 @@ export const DetailPanel = React.forwardRef<
                   onChange={setNewFront}
                   placeholder="Front"
                   autoFocus
-                  className="text-xs font-medium"
+                  className="text-sm font-medium"
                   onKeyDown={handleAddingCardKeyDown}
                 />
                 <MarkdownEditor
                   value={newBack}
                   onChange={setNewBack}
                   placeholder="Back"
-                  className="text-xs text-muted-foreground"
+                  className="text-sm text-muted-foreground"
                   onKeyDown={handleAddingCardKeyDown}
                 />
               </div>

@@ -79,9 +79,15 @@ export const ItemsList = () => {
   // mount; subsequent URL changes go through replaceState below.
   const [initialSearchQuery] = React.useState(() => searchParams.get("q") ?? "");
   const [searchIds, setSearchIds] = React.useState<Set<string> | null>(null);
+  const [searchPending, setSearchPending] = React.useState(
+    () => initialSearchQuery.length > 0,
+  );
   const searchBarRef = React.useRef<SearchBarHandle | null>(null);
   const handleSearchResults = React.useCallback((ids: Set<string> | null) => {
     setSearchIds(ids);
+  }, []);
+  const handleSearchPendingChange = React.useCallback((pending: boolean) => {
+    setSearchPending(pending);
   }, []);
   const handleSearchQueryChange = React.useCallback((query: string) => {
     const params = new URLSearchParams(window.location.search);
@@ -453,6 +459,7 @@ export const ItemsList = () => {
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
             onResults={handleSearchResults}
             onQueryChange={handleSearchQueryChange}
+            onPendingChange={handleSearchPendingChange}
             initialQuery={initialSearchQuery}
             placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
           />
@@ -480,11 +487,12 @@ export const ItemsList = () => {
         {activeTab === "cards" ? (
           <CardsList
             searchIds={searchIds}
+            searchPending={searchPending}
             onOpenItem={handleOpenItem}
           />
         ) : (
         <LoadingFade
-          loading={isLoading}
+          loading={isLoading || searchPending}
           skeleton={
           <div className="flex flex-col">
             {Array.from({ length: 15 }).map((_, i) => {
