@@ -11,7 +11,7 @@ import { getFaviconSrc } from "./utils";
 
 export const ItemRowContent = ({
   item,
-  flashcardCount,
+  flashcardCount: _flashcardCount,
   isSelected,
   isTyping,
   menuOpen,

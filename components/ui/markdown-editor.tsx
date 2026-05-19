@@ -17,6 +17,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "@/lib/utils";
 import { uploadNoteImage } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
+import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
 
 const ImageLightbox = ({
   src,
@@ -43,6 +44,8 @@ const ImageLightbox = ({
           className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-100"
         >
           {src && (
+            // next/image needs known dimensions; previewed images are user-pasted with arbitrary sizes.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={alt}
@@ -114,12 +117,27 @@ const CodeBlockWithLineNav = CodeBlock.extend({
       }
       return true;
     };
+    const exitCodeBlock = (
+      direction: "above" | "below",
+      { editor }: { editor: Editor },
+    ) => {
+      const { $from, empty } = editor.state.selection;
+      if (!empty || $from.parent.type !== nodeType) return false;
+      const insertPos = direction === "above" ? $from.before() : $from.after();
+      return editor
+        .chain()
+        .insertContentAt(insertPos, { type: "paragraph" })
+        .setTextSelection(insertPos + 1)
+        .run();
+    };
     return {
       ...this.parent?.(),
       "Ctrl-e": (props) => moveWithinCodeBlock("lineEnd", props),
       End: (props) => moveWithinCodeBlock("lineEnd", props),
       "Ctrl-a": (props) => moveWithinCodeBlock("lineStart", props),
       Home: (props) => moveWithinCodeBlock("lineStart", props),
+      "Mod-Shift-Enter": (props) => exitCodeBlock("above", props),
+      "Mod-Enter": (props) => exitCodeBlock("below", props),
     };
   },
 });
@@ -197,6 +215,9 @@ export const MarkdownEditor = ({
       StarterKit.configure({ codeBlock: false }),
       CodeBlockWithLineNav,
       DeleteEmptyFirstBlock,
+      Card,
+      CardFront,
+      CardBack,
       ImageUpload.configure({
         upload: async (file) => {
           const formData = new FormData();
@@ -207,11 +228,20 @@ export const MarkdownEditor = ({
         onUploadError: (message) => toast.error(message),
       }),
       Markdown.configure({
-        html: false,
+        html: true,
         breaks: true,
         transformPastedText: true,
       }),
-      ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
+      Placeholder.configure({
+        includeChildren: true,
+        showOnlyCurrent: false,
+        placeholder: ({ pos, editor: e }) => {
+          const parent = e.state.doc.resolve(pos).parent;
+          if (parent.type.name === "cardFront") return "Front";
+          if (parent.type.name === "cardBack") return "Back";
+          return placeholder ?? "";
+        },
+      }),
     ],
     content: value,
     onUpdate: ({ editor }) => {

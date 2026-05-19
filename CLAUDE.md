@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 All commands use `bun` (not npm/npx):
 
 - `bun dev` — Start dev server with Turbopack
-- `bun x tsc --noEmit` — Type-check without building. **Use this instead of `bun run build` for verification.** A dev server is typically running in a separate process outside this chat — running a full build will conflict with it.
-- `bun run build` — Production build (avoid unless explicitly asked — use `tsc --noEmit` instead)
+- `bun run check` — **Run this before declaring any code change done.** Runs `tsc --noEmit` followed by `next lint --max-warnings 0`. Both must pass with zero errors *and* zero warnings. Warnings are not optional — fix them or `_`-prefix the identifier; do not ignore output.
+- `bun run typecheck` / `bun run lint` — Individual halves of `check`, if you need to isolate a failure.
+- `bun run build` — Production build (avoid unless explicitly asked — use `bun run check` instead)
 - `bun run start` — Start production server
 - `bun run db:push` — Push Drizzle schema to database
 - `bun run db:seed` — Seed database with sample data

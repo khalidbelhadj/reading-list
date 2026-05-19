@@ -16,6 +16,7 @@ export const SearchBar = React.forwardRef<
     searchFn: (query: string) => Promise<Array<{ id: string }>>;
     onResults: (ids: Set<string> | null) => void;
     onQueryChange?: (query: string) => void;
+    onPendingChange?: (pending: boolean) => void;
     initialQuery?: string;
     placeholder?: string;
   }
@@ -24,6 +25,7 @@ export const SearchBar = React.forwardRef<
   searchFn,
   onResults,
   onQueryChange,
+  onPendingChange,
   initialQuery = "",
   placeholder = "Search...",
 }, ref) => {
@@ -42,6 +44,18 @@ export const SearchBar = React.forwardRef<
     enabled: debouncedQuery.length > 0,
     staleTime: 30_000,
   });
+
+  // On cold mount with an initial query (e.g. user navigated back to ?q=foo),
+  // results aren't in yet. Signal pending to the parent so it can render a
+  // skeleton instead of the unfiltered list while we fetch the first batch.
+  const [hasLoadedOnce, setHasLoadedOnce] = React.useState(initialQuery.length === 0);
+  React.useEffect(() => {
+    if (data !== undefined && !hasLoadedOnce) setHasLoadedOnce(true);
+  }, [data, hasLoadedOnce]);
+  const initialPending = !hasLoadedOnce && trimmedQuery.length > 0;
+  React.useEffect(() => {
+    onPendingChange?.(initialPending);
+  }, [initialPending, onPendingChange]);
 
   React.useEffect(() => {
     if (debouncedQuery.length === 0 || queryRef.current.length === 0) {

@@ -54,9 +54,9 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
 
   React.useEffect(() => {
     const THRESHOLD = 48;
-    const CONTENT_ICON = 20;
+    const CONTENT_ICON = 24;
     const HEADER_ICON = 14;
-    const CONTENT_FONT = 14;
+    const CONTENT_FONT = 24;
     const HEADER_FONT = 12;
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -242,6 +242,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             </TooltipTrigger>
             <TooltipContent>Back</TooltipContent>
           </Tooltip>
+          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
           {item?.url && (
             <Tooltip>
               <TooltipTrigger
@@ -259,7 +260,6 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
               <TooltipContent>Open URL</TooltipContent>
             </Tooltip>
           )}
-          <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
           <Tooltip>
             <TooltipTrigger
               render={
@@ -321,13 +321,11 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
             <DetailPanel
               ref={detailRef}
               key={item.id}
-              focused
               item={item}
               isNew={false}
               onSave={handleSave}
               onCreate={() => {}}
               onDelete={() => setDeleteOpen(true)}
-              onToggleRead={handleToggleRead}
             />
           ) : null}
         </LoadingFade>
@@ -340,13 +338,13 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           className="fixed top-0 left-0 z-20 flex items-center pointer-events-none"
           style={{ opacity: 0 }}
         >
-          <div data-morph-icon className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+          <div data-morph-icon className="shrink-0 flex items-center justify-center" style={{ width: 24, height: 24 }}>
             {faviconSrc ? (
               <Image
                 src={faviconSrc}
                 alt=""
-                width={20}
-                height={20}
+                width={24}
+                height={24}
                 className="w-full h-full rounded object-contain"
                 unoptimized
               />
@@ -354,7 +352,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
               <IconFileFilled className="w-full h-full text-muted-foreground" />
             )}
           </div>
-          <span className="font-content truncate">
+          <span className="font-content font-semibold truncate">
             {item.title || "Untitled"}
           </span>
         </div>

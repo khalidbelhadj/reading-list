@@ -2,8 +2,6 @@
 // "at least 24 hours, less than 48," consistently.
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
 
 const plural = (n: number, unit: string) =>
   `${n} ${n === 1 ? unit : `${unit}s`} ago`;

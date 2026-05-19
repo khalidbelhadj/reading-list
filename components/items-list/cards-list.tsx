@@ -25,9 +25,11 @@ type AllFlashcard = Awaited<ReturnType<typeof getAllFlashcards>>[number];
 
 export const CardsList = ({
   searchIds,
+  searchPending,
   onOpenItem,
 }: {
   searchIds?: Set<string> | null;
+  searchPending?: boolean;
   onOpenItem?: (itemId: string) => void;
 }) => {
   const queryClient = useQueryClient();
@@ -135,7 +137,7 @@ export const CardsList = ({
   }
 
   return (
-    <LoadingFade loading={isLoading} skeleton={skeleton}>
+    <LoadingFade loading={isLoading || !!searchPending} skeleton={skeleton}>
       {content}
     </LoadingFade>
   );

@@ -315,21 +315,9 @@
   filter: grayscale(0.4);
   cursor: progress;
 }
-/* Hide ProseMirror's mandatory empty paragraphs that get auto-inserted
-   adjacent to non-paragraph blocks (lists, code blocks, etc.) so the
-   cursor can escape them. Only hides truly empty ones. */
-.markdown-editor
-  .ProseMirror
-  > :not(p)
-  + p:last-child:has(> br.ProseMirror-trailingBreak:only-child),
-.markdown-editor
-  .ProseMirror
-  > p:first-child:has(> br.ProseMirror-trailingBreak:only-child):has(
-    + :not(p)
-  ) {
-  display: none;
-}
-.markdown-editor .ProseMirror p.is-editor-empty:first-child::before {
+.markdown-editor .ProseMirror p.is-editor-empty:first-child::before,
+.markdown-editor .ProseMirror front > p.is-empty:only-child::before,
+.markdown-editor .ProseMirror back > p.is-empty:only-child::before {
   color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   content: attr(data-placeholder);
   float: left;
@@ -343,6 +331,29 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;
+}
+.markdown-editor .ProseMirror card.card-block {
+  display: block;
+  background: var(--card);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  margin: 0.5rem 0;
+  font-family: var(--font-content), serif;
+}
+.markdown-editor .ProseMirror front.card-side,
+.markdown-editor .ProseMirror back.card-side {
+  display: block;
+}
+.markdown-editor .ProseMirror front.card-side {
+  font-weight: 500;
+}
+.markdown-editor .ProseMirror back.card-side {
+  color: var(--muted-foreground);
+  margin-top: 0.125rem;
+}
+.markdown-editor .ProseMirror card.card-block > front.card-side > *:first-child,
+.markdown-editor .ProseMirror card.card-block > back.card-side > *:first-child {
+  margin-top: 0;
 }
 .preview-notes .markdown-editor .ProseMirror {
   font-size: 0.75rem;

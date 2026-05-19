@@ -102,7 +102,7 @@ export const FlashcardCard = ({
             value={editFront}
             onChange={setEditFront}
             autoFocus={focusField === "front"}
-            className="text-xs font-medium"
+            className="text-sm font-medium"
             onKeyDown={handleEditorKeyDown}
           />
           <MarkdownEditor
@@ -110,7 +110,7 @@ export const FlashcardCard = ({
             onChange={setEditBack}
             placeholder="Back"
             autoFocus={focusField === "back"}
-            className="text-xs text-muted-foreground"
+            className="text-sm text-muted-foreground"
             onKeyDown={handleEditorKeyDown}
           />
         </div>
@@ -120,7 +120,7 @@ export const FlashcardCard = ({
             <MarkdownEditor
               value={card.front}
               editable={false}
-              className="text-xs font-medium"
+              className="text-sm font-medium"
             />
           </div>
           {card.back && (
@@ -128,7 +128,7 @@ export const FlashcardCard = ({
               <MarkdownEditor
                 value={card.back}
                 editable={false}
-                className="text-xs text-muted-foreground"
+                className="text-sm text-muted-foreground"
               />
             </div>
           )}
