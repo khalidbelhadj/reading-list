@@ -417,10 +417,10 @@ export const DetailPanel = React.forwardRef<
               value={title}
               onChange={handleSetTitle}
               onKeyDown={handleTitleKeyDown}
-              placeholder="Title"
+              placeholder="Untitled"
               rows={1}
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-2xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content"
+              className="font-content block w-full text-2xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
             />
             {showAutofill && (
               <Tooltip>

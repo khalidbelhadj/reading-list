@@ -51,7 +51,7 @@ export const ItemRowContent = ({
       <span
         data-item-title
         className={cn(
-          "font-content text-sm truncate min-w-0",
+          "font-content text-sm/5 truncate min-w-0",
           !item.title && !isTyping && "text-muted-foreground",
         )}
       >

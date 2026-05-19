@@ -28,7 +28,7 @@ import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 
 import { fetchItems } from "@/lib/queries";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
-import { fetchPageTitle, updateItem, searchItems, searchFlashcards } from "@/app/actions";
+import { fetchPageTitle, searchItems, searchFlashcards } from "@/app/actions";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { useCreateItem } from "./items-list/use-create-item";
 import { SortableItemRow } from "./items-list/sortable-item-row";
@@ -212,30 +212,6 @@ export const ItemsList = () => {
     [],
   );
 
-  const handleAnimateTitle = React.useCallback(
-    async (itemId: string, url: string) => {
-      invalidate();
-      setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
-      const fetched = await fetchPageTitle(url);
-      const fallback = (() => {
-        try {
-          return new URL(url).hostname.replace(/^www\./, "");
-        } catch {
-          return url;
-        }
-      })();
-      const target = fetched?.trim() || fallback;
-      queryClient.setQueryData<Item[]>(["items"], (old) =>
-        (old ?? []).map((it) =>
-          it.id === itemId ? { ...it, title: target } : it,
-        ),
-      );
-      await animateTypingTitle(itemId, target);
-      await updateItem(itemId, { title: target });
-    },
-    [invalidate, queryClient, animateTypingTitle],
-  );
-
   const {
     requestCreate,
     isCreating,
@@ -243,7 +219,9 @@ export const ItemsList = () => {
     dismissDuplicateDialog,
     openExisting: handleDuplicateOpenExisting,
     createAnyway: handleDuplicateCreateAnyway,
-  } = useCreateItem(items, { onAnimateTitle: handleAnimateTitle });
+  } = useCreateItem(items);
+
+  const [isFetchingPasteTitle, setIsFetchingPasteTitle] = React.useState(false);
 
   const handleOpenNew = React.useCallback(() => {
     requestCreate(
@@ -291,13 +269,67 @@ export const ItemsList = () => {
   }, [requestCreate, queryClient, invalidate, router]);
 
   const requestPasteCreate = React.useCallback(
-    (url: string, tagNames: string[]) => {
+    async (url: string, tagNames: string[]) => {
+      setIsFetchingPasteTitle(true);
+      let fetched: string | null = null;
+      try {
+        fetched = await fetchPageTitle(url);
+      } finally {
+        setIsFetchingPasteTitle(false);
+      }
+      const fallback = (() => {
+        try {
+          return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+          return url;
+        }
+      })();
+      const title = fetched?.trim() || fallback;
       requestCreate(
-        { title: "", url, tagNames, animateTitle: true },
-        { onOpenExisting: handleOpenItem },
+        { title, url, tagNames },
+        {
+          onCreated: (newId) => {
+            // Optimistically insert so the row appears immediately; the
+            // animation typing overlay then replaces its title visually.
+            queryClient.setQueryData<Item[]>(["items"], (old) => {
+              if (!old) return old;
+              if (old.some((it) => it.id === newId)) return old;
+              const minPos = old.reduce(
+                (acc, it) => (it.position < acc ? it.position : acc),
+                0,
+              );
+              const now = new Date().toISOString();
+              const userId = old[0]?.userId ?? "";
+              const newItem: Item = {
+                id: newId,
+                userId,
+                title,
+                url,
+                faviconUrl: null,
+                starred: false,
+                notes: null,
+                read: false,
+                readAt: null,
+                position: minPos - 1,
+                createdAt: now,
+                updatedAt: now,
+                tags: tagNames.map((name, i) => ({
+                  id: -(i + 1),
+                  userId,
+                  name,
+                })),
+                flashcardCount: 0,
+              };
+              return [newItem, ...old];
+            });
+            invalidate();
+            void animateTypingTitle(newId, title);
+          },
+          onOpenExisting: handleOpenItem,
+        },
       );
     },
-    [requestCreate, handleOpenItem],
+    [requestCreate, handleOpenItem, invalidate, animateTypingTitle, queryClient],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
@@ -450,7 +482,7 @@ export const ItemsList = () => {
             setGroupBy={setGroupBy}
             onAdd={handleOpenNew}
             onPasteUrl={handlePasteUrl}
-            isCreating={isCreating}
+            isCreating={isCreating || isFetchingPasteTitle}
           />
 
           <SearchBar

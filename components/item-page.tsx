@@ -207,17 +207,29 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
     invalidate();
   }, [item, queryClient, invalidate]);
 
+  const goBack = React.useCallback(() => {
+    const sameOriginReferrer =
+      typeof document !== "undefined" &&
+      document.referrer &&
+      new URL(document.referrer).origin === window.location.origin;
+    if (sameOriginReferrer) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }, [router]);
+
   const handleDelete = React.useCallback(async () => {
     if (!item) return;
     setDeleting(true);
     await deleteItem(item.id);
     invalidate();
-    router.back();
-  }, [item, invalidate, router]);
+    goBack();
+  }, [item, invalidate, goBack]);
 
   const handleBack = React.useCallback(() => {
-    router.back();
-  }, [router]);
+    goBack();
+  }, [goBack]);
 
   const faviconSrc = item
     ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })

@@ -10,7 +10,6 @@ export type CreateArgs = {
   url: string;
   tagNames: string[];
   notes?: string;
-  animateTitle?: boolean;
 };
 
 export type CreateCallbacks = {
@@ -20,36 +19,16 @@ export type CreateCallbacks = {
   onError?: (error: Error) => void;
 };
 
-type UseCreateItemOptions = {
-  // Called after a successful create when args.animateTitle is true.
-  // The list view uses this to run the typing-title fetch/animate flow;
-  // the new-item page leaves it unset.
-  onAnimateTitle?: (itemId: string, url: string) => void | Promise<void>;
-};
-
-export const useCreateItem = (
-  items: Item[] | undefined,
-  { onAnimateTitle }: UseCreateItemOptions = {},
-) => {
+export const useCreateItem = (items: Item[] | undefined) => {
   const [duplicateDialog, setDuplicateDialog] = React.useState<{
     existing: Item;
     pending: CreateArgs;
     callbacks: CreateCallbacks;
   } | null>(null);
 
-  // Keep the callback in a ref so the mutation doesn't churn when the
-  // caller's closure identity changes.
-  const onAnimateTitleRef = React.useRef(onAnimateTitle);
-  onAnimateTitleRef.current = onAnimateTitle;
-
   const createMutation = useMutation({
     mutationFn: (args: CreateArgs) =>
       createItem(args.title, args.url, args.tagNames, undefined, args.notes),
-    onSuccess: (itemId, vars) => {
-      if (vars.animateTitle && itemId) {
-        void onAnimateTitleRef.current?.(itemId, vars.url);
-      }
-    },
   });
 
   const requestCreate = React.useCallback(

@@ -85,7 +85,7 @@ export const ReviewNudge = () => {
         size="sm"
         onClick={handleReview}
         disabled={startingMode !== null}
-        className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
+        className="bg-amber-600 border-amber-700 text-white shadow-[inset_0_-1px_0_0_oklch(0.48_0.13_60/0.5),0_1px_2px_0_rgb(0_0_0/0.12)]! hover:bg-amber-700 hover:border-amber-800 dark:bg-amber-500 dark:border-amber-600 dark:text-amber-950 dark:shadow-[inset_0_-1px_0_0_oklch(0.52_0.15_60/0.5),0_1px_2px_-1px_rgb(0_0_0/0.35)]! dark:hover:bg-amber-400 dark:hover:border-amber-500"
       >
         {startingMode === "due" && <Spinner className="size-3" />}
         Review
