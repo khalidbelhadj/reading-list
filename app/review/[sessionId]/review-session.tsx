@@ -15,6 +15,7 @@ import {
   skipCard,
   type ReviewSessionCard,
   type ReviewSessionData,
+  type SessionSummary,
 } from "@/app/actions";
 import {
   AlertDialog,
@@ -558,17 +559,22 @@ const safeHostname = (url: string): string | null => {
   }
 };
 
-const SessionSummaryView = ({
+export const SessionSummaryView = ({
   sessionId,
   cardCount,
+  mockSummary,
 }: {
   sessionId: string;
   cardCount: number;
+  mockSummary?: SessionSummary;
 }) => {
-  const { data: summary, isLoading } = useQuery({
+  const query = useQuery({
     queryKey: ["review-summary", sessionId],
     queryFn: () => getSessionSummary(sessionId),
+    enabled: !mockSummary,
   });
+  const summary = mockSummary ?? query.data;
+  const isLoading = mockSummary ? false : query.isLoading;
 
   const fireCompletionConfetti = useCompletionConfetti();
   const firedRef = React.useRef(false);
