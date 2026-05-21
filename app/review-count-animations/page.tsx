@@ -80,26 +80,24 @@ const VARIANTS: VariantDef[] = [
   },
   {
     id: "slide-right",
-    name: "Slide in from right (motion)",
+    name: "Width grows + fade (push-aside)",
     description:
-      "Translates in from a few pixels right while fading. Reads as if the count is arriving from off-button. Clipped by the button's overflow so it slides into the slot rather than past the edge.",
+      "Slot expands from 0 to auto width, absorbing the button's gap-1.5 via a matching negative margin so the button stays at exactly its 'Review' size until the digit has earned its space. Smooth, no phantom gap, no clip-popping.",
     Render: ({ value }) => (
-      <div className="overflow-hidden">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {value !== null && (
-            <motion.div
-              key={value}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: t(0.2), ease: "easeOut" }}
-              className="text-muted-foreground"
-            >
-              {value}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {value !== null && (
+          <motion.div
+            key={value}
+            initial={{ width: 0, marginLeft: -6, opacity: 0 }}
+            animate={{ width: "auto", marginLeft: 0, opacity: 1 }}
+            exit={{ width: 0, marginLeft: -6, opacity: 0 }}
+            transition={{ duration: t(0.25), ease: [0.4, 0, 0.2, 1] }}
+            className="text-muted-foreground overflow-hidden whitespace-nowrap"
+          >
+            {value}
+          </motion.div>
+        )}
+      </AnimatePresence>
     ),
   },
   {
