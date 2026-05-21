@@ -27,13 +27,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  experimental: {
-    // Default is 1 MB; bumped so image uploads from the markdown editor /
-    // detail panel can clear typical screenshot/photo sizes.
-    serverActions: {
-      bodySizeLimit: "10mb",
-    },
-  },
   async headers() {
     return [
       {

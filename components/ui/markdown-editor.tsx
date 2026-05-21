@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
 import { cn } from "@/lib/utils";
-import { uploadNoteImage } from "@/app/actions-storage";
+import { requestImageUpload } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
 
@@ -220,10 +220,21 @@ export const MarkdownEditor = ({
       CardBack,
       ImageUpload.configure({
         upload: async (file) => {
-          const formData = new FormData();
-          formData.append("file", file);
-          const { url } = await uploadNoteImage(formData);
-          return url;
+          // Two-step direct upload: ask the server for a signed URL, then PUT
+          // the bytes straight to Supabase. Our server only sees metadata.
+          const { uploadUrl, src } = await requestImageUpload({
+            contentType: file.type,
+            size: file.size,
+          });
+          const res = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+          if (!res.ok) {
+            throw new Error(`Upload failed (${res.status})`);
+          }
+          return src;
         },
         onUploadError: (message) => toast.error(message),
       }),
