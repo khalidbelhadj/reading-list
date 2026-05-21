@@ -409,7 +409,7 @@ export const getReviewSession = safeAction(async function getReviewSession(
 }, "Could not load review session. Please try again.");
 
 export type SessionSummary = {
-  mode: string;
+  mode: ReviewMode;
   totalCards: number;
   ratedCards: number;
   ratings: { again: number; hard: number; good: number; easy: number };
@@ -471,7 +471,7 @@ export const getSessionSummary = safeAction(async function getSessionSummary(
       new Date(endedAt).getTime() - new Date(session.startedAt).getTime();
 
     return {
-      mode: session.mode,
+      mode: session.mode as ReviewMode,
       totalCards: z.array(z.string()).parse(session.cardIds ?? []).length,
       ratedCards: reviews.length,
       ratings,

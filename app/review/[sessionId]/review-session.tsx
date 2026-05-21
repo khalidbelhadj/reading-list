@@ -36,9 +36,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getFaviconSrc } from "@/components/items-list/utils";
+import { useStartReview } from "@/components/items-list/use-start-review";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { intervalShort, duration } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import { useEventLogger } from "./use-event-logger";
 
@@ -578,6 +580,29 @@ const SessionSummaryView = ({
     }
   }, [summary, cardCount, fireCompletionConfetti]);
 
+  const { startingMode, startReview } = useStartReview();
+  const isStartingMore = startingMode !== null;
+  const previousRatedRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    // If a "Keep going" attempt resolved with no new cards available
+    // (the mutation silently resets startingMode), surface that.
+    if (
+      isStartingMore === false &&
+      previousRatedRef.current !== null &&
+      summary &&
+      summary.ratedCards === previousRatedRef.current
+    ) {
+      toast.info("No more cards to review right now.");
+    }
+    previousRatedRef.current = summary?.ratedCards ?? null;
+  }, [isStartingMore, summary]);
+
+  const handleKeepGoing = React.useCallback(() => {
+    if (!summary || isStartingMore) return;
+    const nextLimit = cardCount > 0 ? cardCount : 10;
+    startReview(summary.mode, nextLimit);
+  }, [summary, isStartingMore, startReview, cardCount]);
+
   if (isLoading || !summary) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -666,15 +691,24 @@ const SessionSummaryView = ({
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="lg"
-          className="w-fit mx-auto"
-          nativeButton={false}
-          render={<Link href="/" />}
-        >
-          Back to list
-        </Button>
+        <div className="flex items-center gap-2 mx-auto">
+          <Button
+            variant="ghost"
+            size="lg"
+            nativeButton={false}
+            render={<Link href="/" />}
+          >
+            Back to list
+          </Button>
+          <Button
+            size="lg"
+            onClick={handleKeepGoing}
+            disabled={isStartingMore}
+          >
+            {isStartingMore ? <Spinner className="size-4" /> : null}
+            Keep going
+          </Button>
+        </div>
       </div>
     </div>
   );
