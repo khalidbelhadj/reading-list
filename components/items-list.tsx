@@ -469,21 +469,23 @@ export const ItemsList = () => {
     <div>
       <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
-        <div className="electron-top-bar-inset sticky top-0 z-10 flex flex-col gap-3 pt-1.5 pb-1 bg-background">
-          <Toolbar
-            activeTab={activeTab}
-            setActiveTabAndUrl={setActiveTabAndUrl}
-            hasTags={allTags.length > 0}
-            tagsOpen={tagsOpen}
-            setTagsOpen={setTagsOpen}
-            showRead={showRead}
-            setShowRead={setShowRead}
-            groupBy={groupBy}
-            setGroupBy={setGroupBy}
-            onAdd={handleOpenNew}
-            onPasteUrl={handlePasteUrl}
-            isCreating={isCreating || isFetchingPasteTitle}
-          />
+        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-1.5 pb-1 bg-background">
+          <div className="electron-top-bar-inset">
+            <Toolbar
+              activeTab={activeTab}
+              setActiveTabAndUrl={setActiveTabAndUrl}
+              hasTags={allTags.length > 0}
+              tagsOpen={tagsOpen}
+              setTagsOpen={setTagsOpen}
+              showRead={showRead}
+              setShowRead={setShowRead}
+              groupBy={groupBy}
+              setGroupBy={setGroupBy}
+              onAdd={handleOpenNew}
+              onPasteUrl={handlePasteUrl}
+              isCreating={isCreating || isFetchingPasteTitle}
+            />
+          </div>
 
           <SearchBar
             ref={searchBarRef}
