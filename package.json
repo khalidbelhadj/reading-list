@@ -19,7 +19,8 @@
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:start": "bun run electron:build && electron .",
     "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"bun dev\" \"wait-on http://localhost:3000 && bun run electron:start\"",
-    "electron:pack": "bun run electron:build && electron-builder --mac --arm64"
+    "electron:pack": "bun run electron:build && electron-builder --mac --arm64",
+    "electron:release": "bun run electron:build && electron-builder --mac --arm64 --publish always"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

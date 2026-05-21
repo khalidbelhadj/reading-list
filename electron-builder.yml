@@ -1,6 +1,12 @@
 appId: com.khalidbelhadj.reading-list
 copyright: Copyright © 2026 Khalid Belhadj
 
+publish:
+  provider: github
+  owner: khalidbelhadj
+  repo: reading-list
+  releaseType: release
+
 directories:
   output: release
   buildResources: electron/assets
