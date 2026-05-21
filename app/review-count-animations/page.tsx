@@ -6,10 +6,16 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// Slow everything down ~4x for the demo so each variant's character is easy
+// to read. Production values are listed in the in-page descriptions.
+const SLOW = 4;
+const t = (seconds: number) => seconds * SLOW;
+
 type VariantId =
   | "baseline"
   | "fade-css"
   | "scale-fade"
+  | "slide-right"
   | "skeleton-cross"
   | "rolling";
 
@@ -41,9 +47,10 @@ const VARIANTS: VariantDef[] = [
     Render: ({ value }) => (
       <div
         className={cn(
-          "text-muted-foreground transition-opacity duration-200",
+          "text-muted-foreground transition-opacity",
           value === null && "opacity-0",
         )}
+        style={{ transitionDuration: `${t(0.2) * 1000}ms` }}
       >
         {value ?? 0}
       </div>
@@ -62,13 +69,37 @@ const VARIANTS: VariantDef[] = [
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            transition={{ duration: t(0.18), ease: "easeOut" }}
             className="text-muted-foreground origin-right"
           >
             {value}
           </motion.div>
         )}
       </AnimatePresence>
+    ),
+  },
+  {
+    id: "slide-right",
+    name: "Slide in from right (motion)",
+    description:
+      "Translates in from a few pixels right while fading. Reads as if the count is arriving from off-button. Clipped by the button's overflow so it slides into the slot rather than past the edge.",
+    Render: ({ value }) => (
+      <div className="overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {value !== null && (
+            <motion.div
+              key={value}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: t(0.2), ease: "easeOut" }}
+              className="text-muted-foreground"
+            >
+              {value}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     ),
   },
   {
@@ -85,7 +116,7 @@ const VARIANTS: VariantDef[] = [
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: t(0.15) }}
               className="size-1.5 rounded-full bg-muted-foreground/40 animate-pulse"
             />
           ) : (
@@ -94,7 +125,7 @@ const VARIANTS: VariantDef[] = [
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              transition={{ duration: t(0.18), ease: "easeOut" }}
               className="text-muted-foreground"
             >
               {value}
@@ -133,7 +164,7 @@ const RollingDigit = ({ digit }: { digit: number }) => {
     <div className="relative inline-block h-[1lh] w-[0.6em] overflow-hidden text-center">
       <motion.div
         animate={{ y: `calc(${-digit} * 1lh)` }}
-        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: t(0.3), ease: [0.4, 0, 0.2, 1] }}
         className="flex flex-col"
       >
         {Array.from({ length: 10 }, (_, i) => (
@@ -161,8 +192,8 @@ const Page = () => {
 
   const replay = React.useCallback((nextValue: number) => {
     setValue(null);
-    // Mimic a brief network delay so the entrance is observable.
-    window.setTimeout(() => setValue(nextValue), 350);
+    // Mimic a brief network delay so the loading state is observable.
+    window.setTimeout(() => setValue(nextValue), t(0.35) * 1000);
   }, []);
 
   // Auto-load on mount so first paint already shows a value entering.
