@@ -10,6 +10,7 @@ import {
   IconSparklesFilled,
 } from "@tabler/icons-react";
 import React from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -19,6 +20,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SettingsMenu } from "./settings-dialog";
 import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
 import { getReviewStatus, type ReviewMode } from "@/app/actions";
@@ -131,20 +137,48 @@ export const Toolbar = ({
       <div className="flex-1" />
 
       <ButtonGroup className="ml-1">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          disabled={isStarting}
-          onClick={handleReviewClick}
-          suppressHydrationWarning
-        >
-          {startingMode === "due" && <Spinner className="size-3" />}
-          Review
-          {dueLoading || dueError ? null : (
-            <div className="text-muted-foreground">{dueCount}</div>
-          )}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 overflow-hidden"
+                disabled={isStarting}
+                onClick={handleReviewClick}
+                suppressHydrationWarning
+              />
+            }
+          >
+            {startingMode === "due" && <Spinner className="size-3" />}
+            Review
+            <AnimatePresence mode="popLayout" initial={false}>
+              {!dueLoading && !dueError && (
+                <motion.div
+                  key={dueCount}
+                  initial={{ width: 0, marginLeft: -6, opacity: 0 }}
+                  animate={{ width: "auto", marginLeft: 0, opacity: 1 }}
+                  exit={{ width: 0, marginLeft: -6, opacity: 0 }}
+                  transition={{
+                    type: "tween",
+                    duration: 0.25,
+                    ease: [0.4, 0, 0.2, 1],
+                  }}
+                  className="text-muted-foreground whitespace-nowrap overflow-hidden flex justify-end"
+                >
+                  {dueCount}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </TooltipTrigger>
+          <TooltipContent>
+            {dueLoading || dueError
+              ? "Cards due for review"
+              : dueCount === 0
+                ? "All caught up — nothing due"
+                : `${dueCount} card${dueCount === 1 ? "" : "s"} due for review`}
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={

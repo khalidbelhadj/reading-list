@@ -36,3 +36,5 @@ db/*.db-journal
 .agents/
 /skills-lock.json
 /tmp
+
+.understand-anything

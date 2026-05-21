@@ -6,10 +6,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// Slow everything down ~4x for the demo so each variant's character is easy
-// to read. Production values are listed in the in-page descriptions.
-const SLOW = 4;
-const t = (seconds: number) => seconds * SLOW;
+// `t` scales every duration so a single slow-mode toggle controls the whole
+// page. `slow=1` → production timings; `slow=4` → comfy to read side-by-side.
+type Scale = (seconds: number) => number;
 
 type VariantId =
   | "baseline"
@@ -23,7 +22,7 @@ type VariantDef = {
   id: VariantId;
   name: string;
   description: string;
-  Render: (props: { value: number | null }) => React.ReactNode;
+  Render: (props: { value: number | null; t: Scale }) => React.ReactNode;
 };
 
 // Each variant only renders the trailing count slot — the rest of the
@@ -44,7 +43,7 @@ const VARIANTS: VariantDef[] = [
     name: "Fade + reserved slot (CSS only)",
     description:
       "Slot is always present, just opacity 0 while loading. No width jump, calm but characterless.",
-    Render: ({ value }) => (
+    Render: ({ value, t }) => (
       <div
         className={cn(
           "text-muted-foreground transition-opacity",
@@ -61,7 +60,7 @@ const VARIANTS: VariantDef[] = [
     name: "Scale + fade from right (motion)",
     description:
       "Scales 0.6 → 1 and fades 0 → 1 anchored to the right edge. Replays on every value change because of key={value}.",
-    Render: ({ value }) => (
+    Render: ({ value, t }) => (
       <AnimatePresence mode="popLayout" initial={false}>
         {value !== null && (
           <motion.div
@@ -80,19 +79,19 @@ const VARIANTS: VariantDef[] = [
   },
   {
     id: "slide-right",
-    name: "Width grows + fade (push-aside)",
+    name: "Slide in from right edge (push-aside)",
     description:
-      "Slot expands from 0 to auto width, absorbing the button's gap-1.5 via a matching negative margin so the button stays at exactly its 'Review' size until the digit has earned its space. Smooth, no phantom gap, no clip-popping.",
-    Render: ({ value }) => (
+      "The button clips at its border, so the digit travels through the right padding area into its slot. Slot width grows 0 → auto, the digit translates x → 0, and a matching negative margin absorbs the button's gap-1.5 while empty.",
+    Render: ({ value, t }) => (
       <AnimatePresence mode="popLayout" initial={false}>
         {value !== null && (
           <motion.div
             key={value}
-            initial={{ width: 0, marginLeft: -6, opacity: 0 }}
-            animate={{ width: "auto", marginLeft: 0, opacity: 1 }}
-            exit={{ width: 0, marginLeft: -6, opacity: 0 }}
-            transition={{ duration: t(0.25), ease: [0.4, 0, 0.2, 1] }}
-            className="text-muted-foreground overflow-hidden whitespace-nowrap"
+            initial={{ width: 0, marginLeft: -6, opacity: 0, x: 20 }}
+            animate={{ width: "auto", marginLeft: 0, opacity: 1, x: 0 }}
+            exit={{ width: 0, marginLeft: -6, opacity: 0, x: 20 }}
+            transition={{ type: "tween", duration: t(0.25), ease: [0.4, 0, 0.2, 1] }}
+            className="text-muted-foreground whitespace-nowrap"
           >
             {value}
           </motion.div>
@@ -105,7 +104,7 @@ const VARIANTS: VariantDef[] = [
     name: "Skeleton dot → number",
     description:
       "Small pulsing dot while loading, crossfades to the number when ready. Linear-style. Strobes on fast queries.",
-    Render: ({ value }) => (
+    Render: ({ value, t }) => (
       <div className="relative h-4 min-w-2 grid place-items-center">
         <AnimatePresence mode="wait" initial={false}>
           {value === null ? (
@@ -138,23 +137,27 @@ const VARIANTS: VariantDef[] = [
     name: "Rolling digit (per-digit)",
     description:
       "Each digit is a small reel that scrolls to its value. Most expressive on count changes; can feel busy at >2 digits.",
-    Render: ({ value }) =>
-      value === null ? null : <RollingNumber value={value} />,
+    Render: ({ value, t }) =>
+      value === null ? null : <RollingNumber value={value} t={t} />,
   },
 ];
 
-const RollingNumber = ({ value }: { value: number }) => {
+const RollingNumber = ({ value, t }: { value: number; t: Scale }) => {
   const digits = String(value).split("");
   return (
     <div className="flex text-muted-foreground tabular-nums">
       {digits.map((d, i) => (
-        <RollingDigit key={`${digits.length}-${i}`} digit={Number(d)} />
+        <RollingDigit
+          key={`${digits.length}-${i}`}
+          digit={Number(d)}
+          t={t}
+        />
       ))}
     </div>
   );
 };
 
-const RollingDigit = ({ digit }: { digit: number }) => {
+const RollingDigit = ({ digit, t }: { digit: number; t: Scale }) => {
   // Each digit reel: a 10-row column inside a 1lh-tall window. Translate by
   // `digit * 1lh` so the right number lines up. (Percentages here would be
   // relative to the column's full 10lh height, which scrolls out of view.)
@@ -177,7 +180,7 @@ const RollingDigit = ({ digit }: { digit: number }) => {
 
 const ReviewButtonShell = ({ children }: { children: React.ReactNode }) => {
   return (
-    <Button variant="outline" size="sm" className="gap-1.5">
+    <Button variant="outline" size="sm" className="gap-1.5 overflow-hidden">
       Review
       {children}
     </Button>
@@ -187,15 +190,27 @@ const ReviewButtonShell = ({ children }: { children: React.ReactNode }) => {
 const Page = () => {
   // null = "loading", number = "ready"
   const [value, setValue] = React.useState<number | null>(null);
+  const [slow, setSlow] = React.useState(true);
+  const slowFactor = slow ? 4 : 1;
+  const t: Scale = React.useCallback(
+    (seconds) => seconds * slowFactor,
+    [slowFactor],
+  );
 
-  const replay = React.useCallback((nextValue: number) => {
-    setValue(null);
-    // Mimic a brief network delay so the loading state is observable.
-    window.setTimeout(() => setValue(nextValue), t(0.35) * 1000);
-  }, []);
+  const replay = React.useCallback(
+    (nextValue: number) => {
+      setValue(null);
+      // Mimic a brief network delay so the loading state is observable.
+      window.setTimeout(() => setValue(nextValue), t(0.35) * 1000);
+    },
+    [t],
+  );
 
   // Auto-load on mount so first paint already shows a value entering.
+  const didAutoLoad = React.useRef(false);
   React.useEffect(() => {
+    if (didAutoLoad.current) return;
+    didAutoLoad.current = true;
     replay(7);
   }, [replay]);
 
@@ -210,7 +225,7 @@ const Page = () => {
           entrance or swap to a different number — animations that depend on
           value transitions (scale-fade, rolling) replay on value change.
         </p>
-        <div className="flex flex-wrap gap-2 pt-2">
+        <div className="flex flex-wrap items-center gap-2 pt-2">
           <Button size="sm" onClick={() => replay(7)}>
             Reload with 7
           </Button>
@@ -225,6 +240,15 @@ const Page = () => {
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setValue(null)}>
             Force loading
+          </Button>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            variant={slow ? "default" : "outline"}
+            onClick={() => setSlow((s) => !s)}
+            aria-pressed={slow}
+          >
+            Slow mode {slow ? "on" : "off"}
           </Button>
         </div>
       </header>
@@ -241,7 +265,7 @@ const Page = () => {
                 {v.description}
               </div>
             </div>
-            <ReviewButtonShell>{v.Render({ value })}</ReviewButtonShell>
+            <ReviewButtonShell>{v.Render({ value, t })}</ReviewButtonShell>
           </div>
         ))}
       </div>
