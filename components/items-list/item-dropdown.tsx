@@ -428,7 +428,7 @@ const OpenInNewTabItem = ({
   return (
     <DropdownMenuItem onClick={onOpen} className="group/open-tab pr-1">
       <IconExternalLink />
-      <span className="flex-1">Open in new tab</span>
+      <span className="flex-1">Open URL</span>
       <button
         type="button"
         aria-label={copied ? "Copied" : "Copy URL"}

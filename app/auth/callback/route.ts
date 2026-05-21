@@ -7,6 +7,19 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = sanitizeRedirect(searchParams.get("next"));
+  const from = searchParams.get("from");
+
+  // Electron flow: don't exchange the code here (the renderer that started the
+  // sign-in owns the PKCE verifier). Hand the code back via a deep link.
+  if (from === "electron" && code) {
+    const deepLink = new URL("readinglist://auth/complete");
+    deepLink.searchParams.set("code", code);
+    deepLink.searchParams.set("next", next);
+    return new Response(null, {
+      status: 307,
+      headers: { Location: deepLink.toString() },
+    });
+  }
 
   if (code) {
     const cookieStore = await cookies();

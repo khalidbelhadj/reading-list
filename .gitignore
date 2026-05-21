@@ -5,6 +5,10 @@ node_modules/
 .next/
 out/
 
+# electron
+dist-electron/
+release/
+
 # build
 *.tsbuildinfo
 

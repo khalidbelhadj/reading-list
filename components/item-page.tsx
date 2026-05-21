@@ -238,7 +238,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
   return (
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-175 px-5">
-        <div className="sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1.5 pb-1.5 bg-background">
+        <div className="electron-top-bar-inset sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1 pb-1 bg-background">
           <Tooltip>
             <TooltipTrigger
               render={

@@ -1,6 +1,11 @@
 {
   "name": "reading-list",
+  "productName": "Reading List",
+  "version": "0.1.0",
+  "description": "Reading list desktop client",
+  "author": "Khalid Belhadj",
   "private": true,
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -10,7 +15,11 @@
     "db:prune-orphan-tags": "bun scripts/prune-orphan-tags.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "check": "bun run typecheck && next lint --max-warnings 0"
+    "check": "bun run typecheck && next lint --max-warnings 0",
+    "electron:build": "tsc -p electron/tsconfig.json",
+    "electron:start": "bun run electron:build && electron .",
+    "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"bun dev\" \"wait-on http://localhost:3000 && bun run electron:start\"",
+    "electron:pack": "bun run electron:build && electron-builder --mac --arm64"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
@@ -50,13 +59,17 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.30.0",
-    "shadcn": "^3.8.2",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
     "eslint": "9",
     "eslint-config-next": "15.5.12",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "shadcn": "^3.8.2",
     "typescript": "~5.9.3",
+    "wait-on": "^9.0.10",
     "zod-validation-error": "^5.0.0"
   }
 }

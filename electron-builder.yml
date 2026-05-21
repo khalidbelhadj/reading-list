@@ -1,0 +1,47 @@
+appId: com.khalidbelhadj.reading-list
+copyright: Copyright © 2026 Khalid Belhadj
+
+directories:
+  output: release
+  buildResources: electron/assets
+
+files:
+  - dist-electron/**/*
+  - electron/assets/icon.png
+  - electron/assets/icon.icns
+  - package.json
+
+# Renderer loads https://reading-list.khalidbelhadj.com — no Next build to ship.
+asar: true
+
+# Register the readinglist:// URL scheme with macOS LaunchServices so the
+# OAuth redirect (browser → readinglist://auth/complete?code=...) can route
+# back into the desktop app.
+protocols:
+  - name: Reading List
+    schemes:
+      - readinglist
+
+mac:
+  category: public.app-category.productivity
+  icon: electron/assets/icon.icns
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  # No Apple Developer cert — ship unsigned. First open requires right-click → Open
+  # to bypass Gatekeeper.
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  title: Reading List
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

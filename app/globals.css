@@ -190,6 +190,53 @@
   transform: scaleX(1);
 }
 
+/* Electron: marked top bars reserve traffic-light space on narrow windows and
+   act as a drag region so the window can be moved by clicking the bar. Inset
+   interpolates continuously from 0 (wide windows where the centered container
+   is naturally clear of the lights) up to 66px. Buttons/inputs/links inside
+   stay interactive via no-drag. */
+html.electron .electron-top-bar-inset {
+  padding-left: clamp(0px, calc((832px - 100vw) / 2), 66px);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+html.electron .electron-top-bar-inset button,
+html.electron .electron-top-bar-inset a,
+html.electron .electron-top-bar-inset input,
+html.electron .electron-top-bar-inset textarea,
+html.electron .electron-top-bar-inset [role="menuitem"],
+html.electron .electron-top-bar-inset [role="combobox"],
+html.electron .electron-top-bar-inset [data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Global thin overlay-style scrollbar — no gutter, thumb floats over content. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.4 0 0 / 40%) transparent;
+}
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: oklch(0.4 0 0 / 40%);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.4 0 0 / 55%);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .hide-scrollbar {
   scrollbar-width: none;
 }
@@ -288,16 +335,34 @@
 .markdown-editor .ProseMirror h3 {
   font-weight: 600;
   color: var(--foreground);
+  line-height: 1.25;
 }
 .markdown-editor .ProseMirror h1 {
-  font-size: 0.95rem;
+  font-size: 1.375rem;
 }
 .markdown-editor .ProseMirror h2 {
-  font-size: 0.875rem;
+  font-size: 1.125rem;
 }
 .markdown-editor .ProseMirror h3 {
-  font-size: 0.8125rem;
+  font-size: 1rem;
 }
+.markdown-editor .ProseMirror h1::before,
+.markdown-editor .ProseMirror h2::before,
+.markdown-editor .ProseMirror h3::before {
+  display: inline-block;
+  margin-right: 0.5em;
+  vertical-align: middle;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+}
+.markdown-editor .ProseMirror h1::before { content: "H1"; }
+.markdown-editor .ProseMirror h2::before { content: "H2"; }
+.markdown-editor .ProseMirror h3::before { content: "H3"; }
 .markdown-editor .ProseMirror img {
   max-width: 100%;
   max-height: 320px;
