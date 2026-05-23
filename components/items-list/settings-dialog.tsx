@@ -12,6 +12,7 @@ import {
   IconDownload,
   IconEyeFilled,
   IconFilterFilled,
+  IconArrowsMaximize,
   IconLayoutListFilled,
   IconListDetailsFilled,
   IconLogout,
@@ -145,6 +146,8 @@ export const SettingsMenu = ({
     : null;
   const [theme, setTheme] = React.useState<ThemeKey>("system");
   const [mounted, setMounted] = React.useState(false);
+  const [isElectron, setIsElectron] = React.useState(false);
+  const [fullWidth, setFullWidth] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportFilename, setExportFilename] =
     React.useState(defaultCsvFilename());
@@ -227,9 +230,22 @@ export const SettingsMenu = ({
     [setGroupBy],
   );
 
+  const handleFullWidthChange = React.useCallback((checked: boolean) => {
+    setFullWidth(checked);
+    if (checked) {
+      localStorage.setItem("full-width", "1");
+      document.documentElement.classList.add("full-width");
+    } else {
+      localStorage.removeItem("full-width");
+      document.documentElement.classList.remove("full-width");
+    }
+  }, []);
+
 
   React.useEffect(() => {
     setMounted(true);
+    setIsElectron(document.documentElement.classList.contains("electron"));
+    setFullWidth(document.documentElement.classList.contains("full-width"));
     const stored = localStorage.getItem("theme");
     const initialTheme: ThemeKey =
       stored === "dark" || stored === "light" ? stored : "system";
@@ -354,6 +370,15 @@ export const SettingsMenu = ({
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        {mounted && isElectron && (
+          <DropdownMenuCheckboxItem
+            checked={fullWidth}
+            onCheckedChange={handleFullWidthChange}
+          >
+            <IconArrowsMaximize />
+            Full width
+          </DropdownMenuCheckboxItem>
+        )}
         <DropdownMenuItem onClick={openExport}>
           <IconDownload />
           Export as CSV

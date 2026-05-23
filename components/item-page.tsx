@@ -237,14 +237,14 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
 
   return (
     <div className="min-h-dvh">
-      <div className="mx-auto w-full max-w-175 px-5">
-        <div className="electron-top-bar-inset sticky top-0 z-10 flex items-center gap-0.5 -mx-1.5 pt-1 pb-1 bg-background">
+      <div className="mx-auto w-full max-w-175 px-1.5">
+        <div className="electron-top-bar-inset sticky top-0 z-10 flex items-center gap-0.5 pt-1.5 pb-1 bg-background">
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   className="text-muted-foreground"
                   onClick={handleBack}
                 />
@@ -261,7 +261,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
                 render={
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     className="text-muted-foreground"
                     onClick={() => window.open(item.url, "_blank")}
                   />
@@ -277,7 +277,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
               render={
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   className="text-muted-foreground"
                   onClick={() => detailRef.current?.startAddingCard()}
                 />
@@ -301,7 +301,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
                       render={
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="icon-sm"
                           className="text-muted-foreground"
                         />
                       }
@@ -316,7 +316,7 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
           ) : (
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-sm"
               className="text-muted-foreground"
               disabled
             >

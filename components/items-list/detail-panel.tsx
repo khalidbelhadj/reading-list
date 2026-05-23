@@ -117,7 +117,7 @@ export const DetailPanel = React.forwardRef<
     onSaveRef.current = onSave;
 
     // Hooks
-    const { showAutofill, fetching, handleAutofill, onUrlPaste } = useAutofill(
+    const { showAutofill, handleAutofill, onUrlPaste } = useAutofill(
       url,
       title,
       setTitle,
@@ -389,9 +389,9 @@ export const DetailPanel = React.forwardRef<
     });
 
     return (
-      <div data-detail-panel className="flex flex-col gap-2 w-full pb-12">
+      <div data-detail-panel className="flex flex-col gap-2 w-full pb-12 min-h-[calc(100dvh-3.5rem)]">
         {/* Item form card */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 flex-1">
           {/* Favicon + Title */}
           <div data-title-row className="relative">
             <span
@@ -431,11 +431,10 @@ export const DetailPanel = React.forwardRef<
                       size="icon"
                       className="text-muted-foreground/50"
                       onClick={handleAutofill}
-                      disabled={fetching}
                     />
                   }
                 >
-                  {fetching ? <Spinner className="size-3.5" /> : <IconWand />}
+                  <IconWand />
                 </TooltipTrigger>
                 <TooltipContent>Autofill title</TooltipContent>
               </Tooltip>
@@ -497,12 +496,29 @@ export const DetailPanel = React.forwardRef<
           <TagInput value={tags} onChange={setTags} />
 
           {/* Notes */}
-          <MarkdownEditor
-            value={notes}
-            onChange={setNotes}
-            placeholder="Notes..."
-            className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
-          />
+          <div
+            className="flex-1 min-h-32 cursor-text"
+            onClick={(event) => {
+              const target = event.target as HTMLElement;
+              if (target.closest(".ProseMirror")) return;
+              const editorEl = event.currentTarget.querySelector<HTMLElement>(".ProseMirror");
+              if (!editorEl) return;
+              editorEl.focus();
+              const range = document.createRange();
+              range.selectNodeContents(editorEl);
+              range.collapse(false);
+              const selection = window.getSelection();
+              selection?.removeAllRanges();
+              selection?.addRange(range);
+            }}
+          >
+            <MarkdownEditor
+              value={notes}
+              onChange={setNotes}
+              placeholder="Notes..."
+              className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
+            />
+          </div>
         </div>
 
         {item && !isNew && (

@@ -39,6 +39,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-border: var(--primary-border);
+  --color-destructive-border: var(--destructive-border);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -47,6 +48,7 @@
   --color-background: var(--background);
   --shadow-depth-button: var(--depth-button);
   --shadow-depth-button-primary: var(--depth-button-primary);
+  --shadow-depth-button-destructive: var(--depth-button-destructive);
   --shadow-depth-floating: var(--depth-floating);
   --shadow-depth-elevated: var(--depth-elevated);
   --shadow-depth-tooltip: var(--depth-tooltip);
@@ -99,7 +101,9 @@
   --toast-error-border: oklch(0.90 0.04 25);
   --depth-button: inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.48 0.07 150 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
+  --depth-button-destructive: inset 0 -1px 0 0 oklch(0.5 0.22 27 / 0.25), 0 1px 2px 0 rgb(0 0 0 / 0.08);
   --primary-border: oklch(0.56 0.065 150);
+  --destructive-border: oklch(0.62 0.2 27 / 0.35);
   --depth-floating: inset 0 -1px 0 0 rgb(0 0 0 / 0.06), 0 6px 14px -2px rgb(0 0 0 / 0.1), 0 16px 32px -8px rgb(0 0 0 / 0.08);
   --depth-elevated: inset 0 -1px 0 0 rgb(0 0 0 / 0.07), 0 12px 24px -4px rgb(0 0 0 / 0.14), 0 32px 56px -12px rgb(0 0 0 / 0.16);
   --depth-tooltip: inset 0 1px 0 0 rgb(255 255 255 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.2), 0 4px 16px -4px rgb(0 0 0 / 0.15);
@@ -144,7 +148,9 @@
   --toast-error-border: oklch(0.35 0.06 25);
   --depth-button: inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.52 0.1 150 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --depth-button-destructive: inset 0 -1px 0 0 oklch(0.55 0.18 22 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.3);
   --primary-border: oklch(0.61 0.1 150);
+  --destructive-border: oklch(0.6 0.18 22 / 0.5);
   --depth-floating: inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.4), 0 12px 24px -8px rgb(0 0 0 / 0.25);
   --depth-elevated: inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 24px 48px -12px rgb(0 0 0 / 0.4);
   --depth-tooltip: 0 2px 8px -2px rgb(0 0 0 / 0.5), 0 4px 16px -4px rgb(0 0 0 / 0.35);
@@ -196,10 +202,22 @@
    is naturally clear of the lights) up to 66px. Buttons/inputs/links inside
    stay interactive via no-drag. */
 html.electron .electron-top-bar-inset {
-  padding-left: clamp(0px, calc((832px - 100vw) / 2), 66px);
+  padding-left: clamp(0px, calc((880px - 100vw) / 2), 80px);
   -webkit-app-region: drag;
   app-region: drag;
 }
+/* Full-width mode: Electron only. Removes the 700px content cap so the app
+   uses the entire window width. Web ignores .full-width since this requires
+   .electron too. */
+html.electron.full-width .max-w-175 {
+  max-width: none;
+}
+/* Without the centered max-width, content sits flush against the left edge —
+   reserve the full traffic-light clearance unconditionally. */
+html.electron.full-width .electron-top-bar-inset {
+  padding-left: 80px;
+}
+
 html.electron .electron-top-bar-inset button,
 html.electron .electron-top-bar-inset a,
 html.electron .electron-top-bar-inset input,

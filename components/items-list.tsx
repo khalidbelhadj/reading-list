@@ -467,7 +467,7 @@ export const ItemsList = () => {
 
   return (
     <div>
-      <div className="mx-auto max-w-175 px-5 pb-5 flex flex-col gap-3">
+      <div className="mx-auto max-w-175 px-1.5 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 flex flex-col gap-3 pt-1.5 pb-1 bg-background">
           <div className="electron-top-bar-inset">

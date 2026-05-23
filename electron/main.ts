@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import path from "node:path";
 
-const DEV_URL = "http://localhost:3000";
+const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
 const PROD_URL = "https://reading-list.khalidbelhadj.com";
 const PROTOCOL = "readinglist";
 
