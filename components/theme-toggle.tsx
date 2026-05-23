@@ -20,15 +20,34 @@ export const ThemeToggle = () => {
       document.documentElement.classList.add("dark");
     }
 
-    // Listen for system theme changes (only applies when user hasn't manually chosen)
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => {
-      if (localStorage.getItem("theme")) return; // user has a manual preference
-      setDark(e.matches);
-      document.documentElement.classList.toggle("dark", e.matches);
+    // Apply a system-theme change only when the user hasn't pinned a manual
+    // preference. Shared by the browser matchMedia and Electron nativeTheme
+    // paths below.
+    const applySystem = (matches: boolean) => {
+      if (localStorage.getItem("theme")) return;
+      setDark(matches);
+      document.documentElement.classList.toggle("dark", matches);
     };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+
+    // Browser: matchMedia.change.
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const mqHandler = (e: MediaQueryListEvent) => applySystem(e.matches);
+    mq.addEventListener("change", mqHandler);
+
+    // Electron: matchMedia.change is unreliable when macOS appearance flips
+    // mid-session, so subscribe to the authoritative nativeTheme signal and
+    // re-sync the current value once on mount.
+    let unsubscribeElectron: (() => void) | undefined;
+    const bridge = window.readingList;
+    if (bridge) {
+      unsubscribeElectron = bridge.onNativeThemeChange((d) => applySystem(d));
+      bridge.getNativeTheme().then((d) => applySystem(d)).catch(() => {});
+    }
+
+    return () => {
+      mq.removeEventListener("change", mqHandler);
+      unsubscribeElectron?.();
+    };
   }, []);
 
   const toggle = useCallback(() => {

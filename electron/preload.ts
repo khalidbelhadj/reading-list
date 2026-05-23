@@ -10,6 +10,15 @@ contextBridge.exposeInMainWorld("readingList", {
       ipcRenderer.off("deep-link", listener);
     };
   },
+  getNativeTheme: (): Promise<boolean> =>
+    ipcRenderer.invoke("native-theme-current"),
+  onNativeThemeChange: (cb: (dark: boolean) => void) => {
+    const listener = (_event: unknown, dark: boolean) => cb(dark);
+    ipcRenderer.on("native-theme", listener);
+    return () => {
+      ipcRenderer.off("native-theme", listener);
+    };
+  },
 });
 
 // Tag the document so CSS can reserve a left buffer for the macOS traffic

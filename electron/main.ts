@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import path from "node:path";
 
 const DEV_URL = "http://localhost:3000";
@@ -122,6 +122,20 @@ if (!gotLock) {
   });
 
   ipcMain.handle("open-external", (_event, url: string) => shell.openExternal(url));
+
+  // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
+  // "change" listener when the macOS appearance flips while the app is
+  // running. nativeTheme.on("updated", ...) is the authoritative signal —
+  // forward it to the renderer so the theme follows the OS live.
+  ipcMain.handle("native-theme-current", () => nativeTheme.shouldUseDarkColors);
+  nativeTheme.on("updated", () => {
+    if (mainWindow) {
+      mainWindow.webContents.send(
+        "native-theme",
+        nativeTheme.shouldUseDarkColors,
+      );
+    }
+  });
 
   app.whenReady().then(() => {
     if (process.platform === "darwin") {
