@@ -39,6 +39,12 @@ export const ItemPage = ({ itemId }: { itemId: string }) => {
   }, [router]);
 
   React.useEffect(() => {
+    try {
+      localStorage.setItem("last-item-id", itemId);
+    } catch {}
+  }, [itemId]);
+
+  React.useEffect(() => {
     const pageTitle = item?.title?.trim() || "Untitled";
     document.title = `${pageTitle} — Reading List`;
     return () => {

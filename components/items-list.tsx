@@ -75,6 +75,29 @@ export const ItemsList = () => {
     return "reading-list";
   });
 
+  // On the first home-page visit per session, jump to the last-opened item if
+  // it still exists. Subsequent back-navigations stay on the list.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("home-visited") === "1") return;
+    if (!items) return;
+    sessionStorage.setItem("home-visited", "1");
+    let lastId: string | null = null;
+    try {
+      lastId = localStorage.getItem("last-item-id");
+    } catch {
+      return;
+    }
+    if (!lastId) return;
+    if (items.some((i) => i.id === lastId)) {
+      router.replace(`/item/${lastId}`);
+    } else {
+      try {
+        localStorage.removeItem("last-item-id");
+      } catch {}
+    }
+  }, [items, router]);
+
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
   // mount; subsequent URL changes go through replaceState below.

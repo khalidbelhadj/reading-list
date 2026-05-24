@@ -410,6 +410,10 @@ html.electron .electron-top-bar-inset [data-no-drag] {
 }
 .markdown-editor .ProseMirror a {
   text-decoration: underline;
+  color: oklch(0.55 0.16 250);
+}
+.dark .markdown-editor .ProseMirror a {
+  color: oklch(0.72 0.14 245);
 }
 .markdown-editor .ProseMirror hr {
   border: none;
