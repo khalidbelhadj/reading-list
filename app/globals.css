@@ -7,6 +7,7 @@
 @theme {
   --font-sans: "DM Sans Variable", sans-serif;
   --font-content: "DM Sans Variable", sans-serif;
+  --default-transition-duration: 50ms;
 }
 
 @theme inline {

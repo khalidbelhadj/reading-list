@@ -42,7 +42,7 @@ const DropdownMenuContent = ({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
-          className={cn("z-50 min-w-32 origin-(--transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-depth-floating ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0", className )}
+          className={cn("z-50 min-w-32 origin-(--transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-depth-floating ring-1 ring-foreground/10 duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0", className )}
           {...props}
         >
           <div className="max-h-(--available-height) overflow-x-hidden overflow-y-auto p-1">

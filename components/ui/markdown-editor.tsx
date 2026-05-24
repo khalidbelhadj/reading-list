@@ -37,11 +37,11 @@ const ImageLightbox = ({
   return (
     <DialogPrimitive.Root open={src !== null} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/85 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-100" />
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/85 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-75" />
         <DialogPrimitive.Popup
           aria-label="Image preview"
           onClick={handlePopupClick}
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-100"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-75"
         >
           {src && (
             // next/image needs known dimensions; previewed images are user-pasted with arbitrary sizes.

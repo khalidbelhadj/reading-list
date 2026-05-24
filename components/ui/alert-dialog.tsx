@@ -30,7 +30,7 @@ const AlertDialogOverlay = ({
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 duration-100 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 duration-75 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -53,7 +53,7 @@ const AlertDialogContent = ({
           data-slot="alert-dialog-content"
           data-size={size}
           className={cn(
-            "pointer-events-auto grid w-full max-w-sm gap-3 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 shadow-depth-elevated duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "pointer-events-auto grid w-full max-w-sm gap-3 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 shadow-depth-elevated duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
