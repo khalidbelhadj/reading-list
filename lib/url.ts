@@ -1,4 +1,9 @@
-import type { Item } from "@/lib/types";
+export type DuplicateItem = {
+  id: string;
+  title: string;
+  url: string;
+  faviconUrl: string | null;
+};
 
 export const sanitizeRedirect = (next: string | undefined | null): string => {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
@@ -28,14 +33,3 @@ export const normalizeUrl = (raw: string): string | null => {
   }
 };
 
-export const findDuplicateItem = (
-  items: Item[] | undefined,
-  rawUrl: string,
-): Item | null => {
-  const normalized = normalizeUrl(rawUrl);
-  if (!normalized || !items) return null;
-  for (const item of items) {
-    if (normalizeUrl(item.url) === normalized) return item;
-  }
-  return null;
-};

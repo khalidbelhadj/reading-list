@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { type Item } from "@/lib/types";
+import { type DuplicateItem } from "@/lib/url";
 import { getFaviconSrc } from "./utils";
 
 export const DuplicateDialog = ({
@@ -26,7 +26,7 @@ export const DuplicateDialog = ({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  existing: Item | null;
+  existing: DuplicateItem | null;
   onOpenExisting: () => void;
   onCreateAnyway: () => void;
 }) => {
@@ -42,7 +42,7 @@ export const DuplicateDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {existing && (
-          <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+          <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs min-w-0 overflow-hidden">
             <div className="size-4 shrink-0 flex items-center justify-center">
               {faviconSrc ? (
                 <Image

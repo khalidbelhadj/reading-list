@@ -319,7 +319,7 @@ export const ItemsList = () => {
     dismissDuplicateDialog,
     openExisting: handleDuplicateOpenExisting,
     createAnyway: handleDuplicateCreateAnyway,
-  } = useCreateItem(items);
+  } = useCreateItem();
 
   const [isFetchingPasteTitle, setIsFetchingPasteTitle] = React.useState(false);
 

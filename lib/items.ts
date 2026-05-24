@@ -6,6 +6,7 @@ import {
   syncItemTags,
   pruneOrphanTags,
 } from "@/lib/tags";
+import { normalizeUrl } from "@/lib/url";
 
 export type CreateItemInput = {
   title: string;
@@ -42,7 +43,7 @@ export const createItems = async (
       id: ids[idx],
       userId,
       title: input.title,
-      url: input.url,
+      url: normalizeUrl(input.url) ?? input.url,
       faviconUrl: input.faviconUrl ?? null,
       starred: false,
       notes: input.notes ?? null,

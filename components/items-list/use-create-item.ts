@@ -2,8 +2,7 @@ import React from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { createItem } from "@/app/actions";
-import { findDuplicateItem } from "@/lib/url";
-import { type Item } from "@/lib/types";
+import { type DuplicateItem } from "@/lib/url";
 
 export type CreateArgs = {
   title: string;
@@ -19,36 +18,57 @@ export type CreateCallbacks = {
   onError?: (error: Error) => void;
 };
 
-export const useCreateItem = (items: Item[] | undefined) => {
+export const useCreateItem = () => {
   const [duplicateDialog, setDuplicateDialog] = React.useState<{
-    existing: Item;
+    existing: DuplicateItem;
     pending: CreateArgs;
     callbacks: CreateCallbacks;
   } | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: (args: CreateArgs) =>
-      createItem(args.title, args.url, args.tagNames, undefined, args.notes),
+    mutationFn: (args: CreateArgs & { allowDuplicateUrl?: boolean }) =>
+      createItem(
+        args.title,
+        args.url,
+        args.tagNames,
+        undefined,
+        args.notes,
+        undefined,
+        args.allowDuplicateUrl,
+      ),
   });
+
+  const runCreate = React.useCallback(
+    (args: CreateArgs, callbacks: CreateCallbacks, allowDuplicateUrl: boolean) => {
+      callbacks.onProceed?.();
+      createMutation.mutate(
+        { ...args, allowDuplicateUrl },
+        {
+          onSuccess: (result) => {
+            if (result.ok) {
+              callbacks.onCreated?.(result.itemId);
+            } else {
+              setDuplicateDialog({
+                existing: result.duplicate,
+                pending: args,
+                callbacks,
+              });
+            }
+          },
+          onError: (error) => {
+            callbacks.onError?.(error as Error);
+          },
+        },
+      );
+    },
+    [createMutation],
+  );
 
   const requestCreate = React.useCallback(
     (args: CreateArgs, callbacks: CreateCallbacks = {}) => {
-      const existing = findDuplicateItem(items, args.url);
-      if (existing) {
-        setDuplicateDialog({ existing, pending: args, callbacks });
-        return;
-      }
-      callbacks.onProceed?.();
-      createMutation.mutate(args, {
-        onSuccess: (newId) => {
-          if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-        },
-        onError: (error) => {
-          callbacks.onError?.(error as Error);
-        },
-      });
+      runCreate(args, callbacks, false);
     },
-    [items, createMutation],
+    [runCreate],
   );
 
   const dismissDuplicateDialog = React.useCallback((open: boolean) => {
@@ -66,16 +86,8 @@ export const useCreateItem = (items: Item[] | undefined) => {
     if (!duplicateDialog) return;
     const { pending, callbacks } = duplicateDialog;
     setDuplicateDialog(null);
-    callbacks.onProceed?.();
-    createMutation.mutate(pending, {
-      onSuccess: (newId) => {
-        if (newId && callbacks.onCreated) callbacks.onCreated(newId);
-      },
-      onError: (error) => {
-        callbacks.onError?.(error as Error);
-      },
-    });
-  }, [duplicateDialog, createMutation]);
+    runCreate(pending, callbacks, true);
+  }, [duplicateDialog, runCreate]);
 
   return {
     requestCreate,

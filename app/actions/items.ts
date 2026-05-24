@@ -19,6 +19,7 @@ import {
   type FlashcardSearchResult,
 } from "@/lib/search";
 import { safeFetch } from "@/lib/url.server";
+import { normalizeUrl, type DuplicateItem } from "@/lib/url";
 import {
   parseInput,
   deleteItemSchema,
@@ -142,6 +143,10 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(url: stri
   }
 }, "Could not fetch page title. Please try again.");
 
+export type CreateItemResult =
+  | { ok: true; itemId: string }
+  | { ok: false; duplicate: DuplicateItem };
+
 export const createItem = safeAction(async function createItem(
   title: string,
   url: string,
@@ -149,14 +154,31 @@ export const createItem = safeAction(async function createItem(
   faviconUrl?: string,
   notes?: string,
   id?: string,
-) {
+  allowDuplicateUrl?: boolean,
+): Promise<CreateItemResult> {
   parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id });
   const userId = await getCurrentUserId();
   return withUser(userId, async (tx) => {
+    if (!allowDuplicateUrl) {
+      const normalized = normalizeUrl(url);
+      if (normalized) {
+        const [existing] = await tx
+          .select({
+            id: items.id,
+            title: items.title,
+            url: items.url,
+            faviconUrl: items.faviconUrl,
+          })
+          .from(items)
+          .where(and(eq(items.userId, userId), eq(items.url, normalized)))
+          .limit(1);
+        if (existing) return { ok: false as const, duplicate: existing };
+      }
+    }
     const [itemId] = await createItemsLib(tx, userId, [
       { title, url, tagNames, faviconUrl, notes, id },
     ]);
-    return itemId;
+    return { ok: true as const, itemId };
   });
 }, "Could not create item. Please try again.");
 
