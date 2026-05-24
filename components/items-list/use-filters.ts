@@ -113,7 +113,7 @@ const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
   return [];
 };
 
-export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, searchIds: Set<string> | null = null) => {
+export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, searchOrder: string[] | null = null) => {
   // Preferences are read synchronously on first client render so filters
   // apply from frame 1. Writes happen inside each setter (no extra effect),
   // which avoids the redundant initial write-back and per-keystroke
@@ -179,16 +179,26 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
     }
   }, [allTags, activeTags, setActiveTags]);
 
-  const filteredItems = React.useMemo(
-    () =>
-      tabItems.filter((item) => {
-        if (searchIds !== null && !searchIds.has(item.id)) return false;
-        if (!showRead && item.read) return false;
-        if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
-        return true;
-      }),
-    [tabItems, showRead, activeTags, searchIds],
-  );
+  // When a search is active, render in the order returned by the search (local
+  // matches first, server-only matches after). Otherwise preserve the natural
+  // position-sorted order from the cache.
+  const filteredItems = React.useMemo(() => {
+    const passesFilters = (item: Item) => {
+      if (!showRead && item.read) return false;
+      if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
+      return true;
+    };
+    if (searchOrder !== null) {
+      const byId = new Map(tabItems.map((i) => [i.id, i]));
+      const out: Item[] = [];
+      for (const id of searchOrder) {
+        const item = byId.get(id);
+        if (item && passesFilters(item)) out.push(item);
+      }
+      return out;
+    }
+    return tabItems.filter(passesFilters);
+  }, [tabItems, showRead, activeTags, searchOrder]);
 
   const toggleTag = React.useCallback((tagName: string) => {
     setActiveTags((prev) => {
@@ -202,19 +212,23 @@ export const useItemsFilters = (items: Item[] | undefined, activeTab: TabId, sea
     });
   }, [setActiveTags]);
 
+  // While searching, the results are already ordered (local-first, then
+  // server-only) — collapse pinned/grouped into the flat filtered list so the
+  // render path stays a single ordered column.
   const pinnedItems = React.useMemo(
-    () => filteredItems.filter((item) => item.starred),
-    [filteredItems],
+    () => (searchOrder !== null ? [] : filteredItems.filter((item) => item.starred)),
+    [filteredItems, searchOrder],
   );
 
   const unpinnedItems = React.useMemo(
-    () => filteredItems.filter((item) => !item.starred),
-    [filteredItems],
+    () =>
+      searchOrder !== null ? filteredItems : filteredItems.filter((item) => !item.starred),
+    [filteredItems, searchOrder],
   );
 
   const groups = React.useMemo(
-    () => buildGroups(unpinnedItems, groupBy),
-    [unpinnedItems, groupBy],
+    () => (searchOrder !== null ? [] : buildGroups(unpinnedItems, groupBy)),
+    [unpinnedItems, groupBy, searchOrder],
   );
 
   return {

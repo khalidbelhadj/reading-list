@@ -19,12 +19,12 @@ import {
 } from "./item-dropdown";
 import { getFaviconSrc } from "./utils";
 import { ItemPreview } from "./item-preview";
+import { useIsCursor } from "./cursor-store";
 
 const PREVIEW_DELAY = 1000;
 
 export function SortableItemRow({
   item,
-  isSelected,
   suppressHover,
   suppressTransition,
   isDragDisabled,
@@ -36,7 +36,6 @@ export function SortableItemRow({
 }: {
   item: Item;
   flashcardCount?: number;
-  isSelected?: boolean;
   suppressHover: boolean;
   suppressTransition?: boolean;
   isDragDisabled: boolean;
@@ -46,6 +45,7 @@ export function SortableItemRow({
   onSelect: () => void;
   onDelete?: () => void;
 }) {
+  const isSelected = useIsCursor(item.id);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const preview = useHoverPreview(PREVIEW_DELAY);

@@ -145,9 +145,18 @@ export const useKeyboardNavigation = ({
         return;
       }
 
-      // Ctrl+N/P — navigation
-      const isDown = e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
-      const isUp = e.code === "KeyP" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
+      const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
+      const isDown =
+        (e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.key === "ArrowDown" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.code === "KeyJ" && noMods && !e.shiftKey) ||
+        (e.key === "Tab" && noMods && !e.shiftKey);
+      const isUp =
+        (e.code === "KeyP" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.key === "ArrowUp" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.code === "KeyK" && noMods && !e.shiftKey) ||
+        (e.key === "Tab" && noMods && e.shiftKey);
       if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;

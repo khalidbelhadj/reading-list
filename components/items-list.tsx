@@ -43,6 +43,7 @@ import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grou
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
+import { setCursorId } from "./items-list/cursor-store";
 
 export const ItemsList = () => {
   // Data
@@ -78,14 +79,15 @@ export const ItemsList = () => {
   // away and back (e.g. clicking a result and hitting back). Captured once on
   // mount; subsequent URL changes go through replaceState below.
   const [initialSearchQuery] = React.useState(() => searchParams.get("q") ?? "");
-  const [searchIds, setSearchIds] = React.useState<Set<string> | null>(null);
+  const [searchOrder, setSearchOrder] = React.useState<string[] | null>(null);
   const [searchPending, setSearchPending] = React.useState(
     () => initialSearchQuery.length > 0,
   );
   const searchBarRef = React.useRef<SearchBarHandle | null>(null);
-  const handleSearchResults = React.useCallback((ids: Set<string> | null) => {
-    setSearchIds(ids);
+  const handleSearchResults = React.useCallback((ids: string[] | null) => {
+    setSearchOrder(ids);
   }, []);
+  const searchActive = searchOrder !== null;
   const handleSearchPendingChange = React.useCallback((pending: boolean) => {
     setSearchPending(pending);
   }, []);
@@ -109,10 +111,54 @@ export const ItemsList = () => {
     searchBarRef.current?.open();
   }, []);
 
-  // Refs
+  // Synchronous local search against the in-memory cache. Runs on every
+  // keystroke so the list narrows instantly while the deeper server query
+  // (trigram fuzzy on notes/flashcard text) is still in flight.
+  const localSearchItems = React.useCallback(
+    (query: string) => {
+      if (!items) return [];
+      const needle = query.toLowerCase();
+      const matches: string[] = [];
+      for (const item of items) {
+        if (
+          item.title.toLowerCase().includes(needle) ||
+          item.url.toLowerCase().includes(needle)
+        ) {
+          matches.push(item.id);
+        }
+      }
+      return matches;
+    },
+    [items],
+  );
+  const localSearchFlashcards = React.useCallback(
+    (query: string) => {
+      const cards = queryClient.getQueryData<Array<{ id: string; front: string; back: string }>>(
+        ["all-flashcards"],
+      );
+      if (!cards) return [];
+      const needle = query.toLowerCase();
+      const matches: string[] = [];
+      for (const card of cards) {
+        if (
+          card.front.toLowerCase().includes(needle) ||
+          card.back.toLowerCase().includes(needle)
+        ) {
+          matches.push(card.id);
+        }
+      }
+      return matches;
+    },
+    [queryClient],
+  );
+
+  // Cursor — driven through an imperative store so only the previously-active
+  // and newly-active rows re-render on each move. Keeping a ref mirror lets
+  // event handlers read the current id without stale closures.
   const cursorRef = React.useRef<string | null>(null);
   const setCursor = React.useCallback((id: string | null) => {
     cursorRef.current = id;
+    setCursorId(id);
   }, []);
 
   // Helpers
@@ -158,7 +204,7 @@ export const ItemsList = () => {
     groupBy,
     setGroupBy,
     groups,
-  } = useItemsFilters(items, activeTab, searchIds);
+  } = useItemsFilters(items, activeTab, searchOrder);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
@@ -166,6 +212,37 @@ export const ItemsList = () => {
       showRead,
       setCursor,
     });
+
+  // Cursor navigation driven from inside the search input — arrows / Ctrl+N/P
+  // move the cursor without unfocusing, so Enter opens the highlighted item.
+  const navigateCursor = React.useCallback(
+    (direction: "next" | "prev") => {
+      const ids = filteredItems.map((i) => i.id);
+      if (ids.length === 0) return;
+      const current = cursorRef.current;
+      const idx = current ? ids.indexOf(current) : -1;
+      const nextId =
+        idx === -1
+          ? direction === "next"
+            ? ids[0]
+            : ids[ids.length - 1]
+          : direction === "next"
+            ? ids[Math.min(idx + 1, ids.length - 1)]
+            : ids[Math.max(idx - 1, 0)];
+      setCursor(nextId);
+      const el = document.querySelector(`[data-item-id="${nextId}"]`);
+      el?.scrollIntoView({ block: "nearest" });
+    },
+    [filteredItems, setCursor],
+  );
+  // When the search filter narrows the list, pin the cursor to the first
+  // visible result so Enter from the search input opens the top match.
+  React.useEffect(() => {
+    if (searchOrder === null) return;
+    const current = cursorRef.current;
+    if (current && filteredItems.some((i) => i.id === current)) return;
+    setCursor(filteredItems[0]?.id ?? null);
+  }, [searchOrder, filteredItems, setCursor]);
 
   const requestDeleteItem = React.useCallback(
     (id: string) => {
@@ -395,7 +472,7 @@ export const ItemsList = () => {
   }, [items, router]);
 
   // DnD
-  const isDragDisabled = activeTags.size > 0 || groupBy !== "none";
+  const isDragDisabled = activeTags.size > 0 || groupBy !== "none" || searchActive;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -431,11 +508,12 @@ export const ItemsList = () => {
     if (filteredItems.length > 0) return null;
     if (tabItems.length === 0) return { message: "Nothing here yet", hasHiddenRead: false };
 
+    const searchSet = searchOrder ? new Set(searchOrder) : null;
     const hiddenReadCount = !showRead
       ? tabItems.filter(
           (item) =>
             item.read &&
-            (searchIds === null || searchIds.has(item.id)) &&
+            (searchSet === null || searchSet.has(item.id)) &&
             (activeTags.size === 0 ||
               item.tags.some((t) => activeTags.has(t.name))),
         ).length
@@ -448,7 +526,7 @@ export const ItemsList = () => {
       };
     }
     return { message: "No items match your filters", hasHiddenRead: false };
-  }, [filteredItems, tabItems, showRead, activeTags, searchIds]);
+  }, [filteredItems, tabItems, showRead, activeTags, searchOrder]);
 
   const emptyNode = emptyState && (
     <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
@@ -491,6 +569,8 @@ export const ItemsList = () => {
             ref={searchBarRef}
             queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
+            localSearchFn={activeTab === "cards" ? localSearchFlashcards : localSearchItems}
+            onCursorNav={navigateCursor}
             onResults={handleSearchResults}
             onQueryChange={handleSearchQueryChange}
             onPendingChange={handleSearchPendingChange}
@@ -520,7 +600,7 @@ export const ItemsList = () => {
         {/* Content */}
         {activeTab === "cards" ? (
           <CardsList
-            searchIds={searchIds}
+            searchIds={searchOrder ? new Set(searchOrder) : null}
             searchPending={searchPending}
             onOpenItem={handleOpenItem}
           />
@@ -530,7 +610,7 @@ export const ItemsList = () => {
           skeleton={
           <div className="flex flex-col">
             {Array.from({ length: 15 }).map((_, i) => {
-              const titleWidth = 30 + ((i * 17) % 55);
+              const titleRem = 10 + ((i * 7) % 26);
               return (
                 <div
                   key={i}
@@ -540,7 +620,7 @@ export const ItemsList = () => {
                   <Skeleton className="size-4 rounded-[3px] shrink-0" />
                   <Skeleton
                     className="h-3 rounded-md"
-                    style={{ width: `${titleWidth}%` }}
+                    style={{ width: `min(${titleRem}rem, 85%)` }}
                   />
                 </div>
               );
@@ -548,7 +628,7 @@ export const ItemsList = () => {
           </div>
           }
         >
-        {groupBy !== "none" ? (
+        {groupBy !== "none" && !searchActive ? (
           <div
             onMouseMove={
               suppressHover ? () => setSuppressHover(false) : undefined
