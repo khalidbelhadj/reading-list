@@ -20,6 +20,7 @@ import {
   updateFlashcards as updateFlashcardsLib,
   deleteFlashcards as deleteFlashcardsLib,
 } from "@/lib/flashcards";
+import { deleteTagById } from "@/lib/tags";
 import {
   parseInput,
   mcpGetItemsSchema,
@@ -33,6 +34,7 @@ import {
   mcpUpdateFlashcardsSchema,
   mcpDeleteFlashcardsSchema,
   mcpSearchFlashcardsSchema,
+  mcpDeleteTagSchema,
 } from "@/lib/schemas";
 import {
   toMcpItem,
@@ -49,6 +51,7 @@ import {
   type UpdateFlashcardsResponse,
   type DeleteFlashcardsResponse,
   type SearchFlashcardsResponse,
+  type DeleteTagResponse,
 } from "./types";
 
 const TOOLS = [
@@ -270,6 +273,21 @@ const TOOLS = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "delete_tag",
+    description:
+      "Delete a tag by name. Removes the tag from every item that uses it (items themselves are kept). Returns `deleted: false` if no tag with that name exists for the user.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string",
+          description: "Tag name to delete (exact match, case-sensitive).",
+        },
+      },
+      required: ["name"],
     },
   },
 ];
@@ -504,6 +522,19 @@ async function handleTool(name: string, args: unknown, userId: string) {
         }
         throw e;
       }
+    }
+
+    case "delete_tag": {
+      const parsed = parseInput(mcpDeleteTagSchema, args);
+      const deleted = await withUser(userId, async (tx) => {
+        const [tag] = await tx
+          .select({ id: tags.id })
+          .from(tags)
+          .where(and(eq(tags.userId, userId), eq(tags.name, parsed.name)));
+        if (!tag) return false;
+        return deleteTagById(tx, userId, tag.id);
+      });
+      return jsonText<DeleteTagResponse>({ deleted, name: parsed.name });
     }
 
     default:

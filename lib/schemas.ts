@@ -252,3 +252,7 @@ export const mcpSearchFlashcardsSchema = z.object({
   query: z.string().min(1, "Query must not be empty").max(500, "Query must be under 500 characters"),
 });
 
+export const mcpDeleteTagSchema = z.object({
+  name: tagNameSchema.min(1, "Tag name must not be empty"),
+});
+

@@ -5,6 +5,7 @@ import { itemsTags, tags } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction } from "@/lib/safe-action";
+import { deleteTagById } from "@/lib/tags";
 import {
   parseInput,
   renameTagSchema,
@@ -52,10 +53,5 @@ export const renameTag = safeAction(async function renameTag(tagId: number, newN
 export const deleteTag = safeAction(async function deleteTag(tagId: number) {
   parseInput(deleteTagSchema, { tagId });
   const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
-    await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
-    await tx
-      .delete(tags)
-      .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
-  });
+  await withUser(userId, (tx) => deleteTagById(tx, userId, tagId));
 }, "Could not delete tag. Please try again.");

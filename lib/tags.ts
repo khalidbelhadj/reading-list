@@ -3,6 +3,24 @@ import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { db, type Tx } from "@/db";
 import { itemsTags, tags } from "@/db/schema";
 
+export const deleteTagById = async (
+  tx: Tx | typeof db,
+  userId: string,
+  tagId: number,
+): Promise<boolean> => {
+  const [owned] = await tx
+    .select({ id: tags.id })
+    .from(tags)
+    .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+  if (!owned) return false;
+
+  await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
+  await tx
+    .delete(tags)
+    .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+  return true;
+};
+
 export const pruneOrphanTags = async (
   tx: Tx | typeof db,
   userId: string,

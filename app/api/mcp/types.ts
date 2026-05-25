@@ -150,3 +150,8 @@ export type SearchFlashcardsResponse = {
     matchedIn: ("front" | "back" | "item_title")[];
   }>;
 };
+
+export type DeleteTagResponse = {
+  deleted: boolean;
+  name: string;
+};
