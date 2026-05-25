@@ -11,6 +11,7 @@ import {
 const SCROLL_STEP = 200;
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -204,34 +205,38 @@ const ScrollStrip = ({ children }: { children: React.ReactNode }) => {
           canScrollRight ? "opacity-100" : "opacity-0",
         )}
       />
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         aria-label="Scroll lists back"
         onClick={() => handleScrollBy(-SCROLL_STEP)}
         tabIndex={canScrollLeft ? 0 : -1}
         className={cn(
-          "absolute left-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center size-6 rounded-md text-foreground cursor-pointer outline-none transition-all duration-150",
+          "absolute left-1 top-1/2 -translate-y-1/2 transition-all duration-150",
           canScrollLeft
             ? "opacity-0 -translate-x-1 group-hover/strip:opacity-100 group-hover/strip:translate-x-0"
             : "opacity-0 pointer-events-none",
         )}
       >
         <IconChevronLeft className="size-4" />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         aria-label="Scroll lists forward"
         onClick={() => handleScrollBy(SCROLL_STEP)}
         tabIndex={canScrollRight ? 0 : -1}
         className={cn(
-          "absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center size-6 rounded-md text-foreground cursor-pointer outline-none transition-all duration-150",
+          "absolute right-1 top-1/2 -translate-y-1/2 transition-all duration-150",
           canScrollRight
             ? "opacity-0 translate-x-1 group-hover/strip:opacity-100 group-hover/strip:translate-x-0"
             : "opacity-0 pointer-events-none",
         )}
       >
         <IconChevronRight className="size-4" />
-      </button>
+      </Button>
     </div>
   );
 };
@@ -284,21 +289,20 @@ const ListChip = ({
                 : "bg-card hover:bg-muted text-foreground",
             )}
           >
-            <button
+            <Button
               type="button"
               ref={iconAnchorRef}
+              variant="ghost"
+              size="icon-xs"
               aria-label="Change icon"
               onClick={(e) => {
                 e.stopPropagation();
                 onChangeIcon();
               }}
-              className={cn(
-                "shrink-0 inline-flex items-center justify-center cursor-pointer outline-none rounded",
-                selected ? "text-primary-foreground" : "text-muted-foreground",
-              )}
+              className="size-auto bg-transparent hover:bg-transparent hover:text-inherit shadow-none text-inherit"
             >
               <Icon className="size-3.5" />
-            </button>
+            </Button>
             {renaming ? (
               <RenameInput
                 initial={list.name}

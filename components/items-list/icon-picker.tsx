@@ -1,8 +1,14 @@
 import React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
-import { cn } from "@/lib/utils";
 import { LIST_ICONS } from "@/lib/list-icons";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const IconPicker = ({
   open,
@@ -61,47 +67,54 @@ export const IconPicker = ({
               placeholder="Search icons..."
               className="h-7 px-2 rounded-md bg-muted text-xs outline-none placeholder:text-muted-foreground/60"
             />
-            <div className="grid grid-cols-7 gap-1 max-h-56 overflow-y-auto">
-              {filtered.map((entry) => {
-                const Icon = entry.Component;
-                const isSelected = selectedIcon === entry.name;
-                return (
-                  <button
-                    key={entry.name}
-                    type="button"
-                    title={entry.name}
-                    onClick={() => {
-                      onSelect(entry.name);
-                      onOpenChange(false);
-                    }}
-                    className={cn(
-                      "size-7 flex items-center justify-center rounded-md cursor-pointer outline-none transition-colors",
-                      isSelected
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-4" />
-                  </button>
-                );
-              })}
-              {filtered.length === 0 && (
-                <div className="col-span-7 py-4 text-center text-xs text-muted-foreground">
-                  No matches
-                </div>
-              )}
-            </div>
+            <TooltipProvider delay={300} closeDelay={0}>
+              <div className="grid grid-cols-7 gap-1 max-h-56 overflow-y-auto">
+                {filtered.map((entry) => {
+                  const Icon = entry.Component;
+                  const isSelected = selectedIcon === entry.name;
+                  return (
+                    <Tooltip key={entry.name}>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              onSelect(entry.name);
+                              onOpenChange(false);
+                            }}
+                            className={isSelected ? "bg-muted" : undefined}
+                          >
+                            <Icon className="size-4" />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>{entry.name}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <div className="col-span-7 py-4 text-center text-xs text-muted-foreground">
+                    No matches
+                  </div>
+                )}
+              </div>
+            </TooltipProvider>
             {selectedIcon && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => {
                   onSelect(null);
                   onOpenChange(false);
                 }}
-                className="text-[0.65rem] text-muted-foreground hover:text-foreground cursor-pointer outline-none text-left px-1"
+                className="self-start text-muted-foreground hover:text-foreground"
               >
                 Reset to default
-              </button>
+              </Button>
             )}
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>
