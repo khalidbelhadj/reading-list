@@ -47,6 +47,8 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 800,
+    minWidth: 400,
+    minHeight: 400,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 18, y: 18 },
     backgroundColor: themeBg(),

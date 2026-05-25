@@ -199,13 +199,18 @@
 
 /* Electron: marked top bars reserve traffic-light space on narrow windows and
    act as a drag region so the window can be moved by clicking the bar. Inset
-   interpolates continuously from 0 (wide windows where the centered container
-   is naturally clear of the lights) up to 66px. Buttons/inputs/links inside
-   stay interactive via no-drag. */
+   snaps in as a hard step at 880px so the content doesn't visibly glide
+   across the traffic-light area while the window is being resized.
+   Buttons/inputs/links inside stay interactive via no-drag. */
 html.electron .electron-top-bar-inset {
-  padding-left: clamp(0px, calc((880px - 100vw) / 2), 80px);
+  padding-left: 0;
   -webkit-app-region: drag;
   app-region: drag;
+}
+@media (max-width: 880px) {
+  html.electron .electron-top-bar-inset {
+    padding-left: 80px;
+  }
 }
 /* Full-width mode: Electron only. Removes the 700px content cap so the app
    uses the entire window width. Web ignores .full-width since this requires

@@ -10,6 +10,7 @@ import confetti from "canvas-confetti";
 import {
   endReviewSession,
   getReviewSession,
+  getReviewStatus,
   getSessionSummary,
   rateCard,
   skipCard,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -41,7 +43,6 @@ import { useStartReview } from "@/components/items-list/use-start-review";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { intervalShort, duration } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 import { useEventLogger } from "./use-event-logger";
 
@@ -386,38 +387,40 @@ const ReviewSessionInner = ({
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col px-6 py-6 max-w-3xl mx-auto w-full">
-      <header className="flex items-center gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen flex flex-col">
+      <header className="electron-top-bar-inset sticky top-0 z-10 bg-background pt-3 pb-2">
+        <div className="max-w-3xl mx-auto w-full flex items-center gap-4 px-6 h-7 text-xs text-muted-foreground">
           <span className="tabular-nums">
             {currentIndex + 1} of {cards.length}
           </span>
+          <div className="flex-1 flex items-center gap-1">
+            {cards.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-0.5 flex-1 rounded-full",
+                  i < currentIndex
+                    ? "bg-primary"
+                    : i === currentIndex
+                      ? "bg-primary/60 animate-pulse"
+                      : "bg-border",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleRequestEnd}
+            disabled={endMutation.isPending}
+            className="flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-60"
+          >
+            {endMutation.isPending && <Spinner className="size-3" />}
+            End session
+          </button>
         </div>
-        <div className="flex-1 flex items-center gap-1">
-          {cards.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-0.5 flex-1 rounded-full",
-                i < currentIndex
-                  ? "bg-primary"
-                  : i === currentIndex
-                    ? "bg-primary/60 animate-pulse"
-                    : "bg-border",
-              )}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={handleRequestEnd}
-          disabled={endMutation.isPending}
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-60"
-        >
-          {endMutation.isPending && <Spinner className="size-3" />}
-          End session
-        </button>
       </header>
+
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-6 pb-6">
 
       <main className="flex-1 flex flex-col justify-center py-12">
         <div className="flex flex-col gap-6">
@@ -446,7 +449,7 @@ const ReviewSessionInner = ({
             <MarkdownEditor
               value={currentCard.front}
               editable={false}
-              className="text-2xl leading-snug"
+              className="[&_.ProseMirror]:text-2xl! [&_.ProseMirror]:leading-snug"
             />
           </div>
 
@@ -457,7 +460,7 @@ const ReviewSessionInner = ({
                 <MarkdownEditor
                   value={currentCard.back}
                   editable={false}
-                  className="text-xl leading-relaxed text-foreground"
+                  className="[&_.ProseMirror]:text-xl! [&_.ProseMirror]:leading-relaxed text-foreground"
                 />
               </div>
             </>
@@ -465,16 +468,7 @@ const ReviewSessionInner = ({
         </div>
       </main>
 
-      <footer className="flex items-center justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
-          {revealed ? (
-            <span>Rate 1–4</span>
-          ) : (
-            <span>
-              Press <kbd className="font-mono">Space</kbd> to reveal
-            </span>
-          )}
-        </div>
+      <footer className="flex items-center justify-end gap-3">
         {revealed ? (
           <div className="flex items-center gap-2">
             {RATINGS.map((r) => {
@@ -505,19 +499,19 @@ const ReviewSessionInner = ({
                   <span className="text-muted-foreground text-[0.6875rem]">
                     {interval}
                   </span>
-                  <kbd className="text-[0.625rem] text-muted-foreground font-mono">
-                    {r.key}
-                  </kbd>
+                  <Kbd>{r.key}</Kbd>
                 </Button>
               );
             })}
           </div>
         ) : (
-          <Button size="lg" onClick={handleReveal}>
+          <Button size="lg" onClick={handleReveal} className="gap-2">
             Reveal answer
+            <Kbd>Space</Kbd>
           </Button>
         )}
       </footer>
+      </div>
 
       <AlertDialog
         open={endConfirmOpen}
@@ -574,7 +568,17 @@ export const SessionSummaryView = ({
     enabled: !mockSummary,
   });
   const summary = mockSummary ?? query.data;
-  const isLoading = mockSummary ? false : query.isLoading;
+  const isSummaryLoading = mockSummary ? false : query.isLoading;
+
+  // Fetch up-front so the "Keep going" button never pops in after render —
+  // either it's there from the first paint, or it's not.
+  const statusQuery = useQuery({
+    queryKey: ["review-status"],
+    queryFn: getReviewStatus,
+    enabled: !mockSummary,
+  });
+  const reviewStatus = statusQuery.data;
+  const isStatusLoading = mockSummary ? false : statusQuery.isLoading;
 
   const fireCompletionConfetti = useCompletionConfetti();
   const firedRef = React.useRef(false);
@@ -588,28 +592,30 @@ export const SessionSummaryView = ({
 
   const { startingMode, startReview } = useStartReview();
   const isStartingMore = startingMode !== null;
-  const previousRatedRef = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    // If a "Keep going" attempt resolved with no new cards available
-    // (the mutation silently resets startingMode), surface that.
-    if (
-      isStartingMore === false &&
-      previousRatedRef.current !== null &&
-      summary &&
-      summary.ratedCards === previousRatedRef.current
-    ) {
-      toast.info("No more cards to review right now.");
+
+  const hasMoreCards = React.useMemo(() => {
+    if (!summary || !reviewStatus) return false;
+    switch (summary.mode) {
+      case "due":
+        return reviewStatus.dueCount > 0;
+      case "new":
+        return reviewStatus.newCount > 0;
+      case "cram":
+        return reviewStatus.totalCardCount > 0;
+      default:
+        // "item" / "filter" sessions need item context we don't have here;
+        // hide "Keep going" rather than show a button that might no-op.
+        return false;
     }
-    previousRatedRef.current = summary?.ratedCards ?? null;
-  }, [isStartingMore, summary]);
+  }, [summary, reviewStatus]);
 
   const handleKeepGoing = React.useCallback(() => {
-    if (!summary || isStartingMore) return;
+    if (!summary || isStartingMore || !hasMoreCards) return;
     const nextLimit = cardCount > 0 ? cardCount : 10;
     startReview(summary.mode, nextLimit);
-  }, [summary, isStartingMore, startReview, cardCount]);
+  }, [summary, isStartingMore, hasMoreCards, startReview, cardCount]);
 
-  if (isLoading || !summary) {
+  if (isSummaryLoading || isStatusLoading || !summary) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="size-5 text-muted-foreground" />
@@ -706,14 +712,16 @@ export const SessionSummaryView = ({
           >
             Back to list
           </Button>
-          <Button
-            size="lg"
-            onClick={handleKeepGoing}
-            disabled={isStartingMore}
-          >
-            {isStartingMore ? <Spinner className="size-4" /> : null}
-            Keep going
-          </Button>
+          {hasMoreCards && (
+            <Button
+              size="lg"
+              onClick={handleKeepGoing}
+              disabled={isStartingMore}
+            >
+              {isStartingMore ? <Spinner className="size-4" /> : null}
+              Keep going
+            </Button>
+          )}
         </div>
       </div>
     </div>
