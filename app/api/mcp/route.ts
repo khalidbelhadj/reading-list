@@ -75,7 +75,7 @@ const TOOLS = [
   {
     name: "get_items",
     description:
-      "List reading list items. Optionally filter by tag or list membership. Supports sorting, limit, and offset for pagination. For text search, use search_items.",
+      "Browse items in order — use this only when you need everything, or items filtered by tag or list membership. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports sort, limit, and offset for pagination.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -122,7 +122,7 @@ const TOOLS = [
   {
     name: "search_items",
     description:
-      "Regex search across the user's reading list. The pattern is matched (POSIX regex, via Postgres `~`/`~*`) against each item's title, url, notes, and the concatenated front+back text of its flashcards. Returns matched items with a `matchedIn` array indicating which fields hit. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout.",
+      "PREFERRED tool for finding items by content. Use whenever the user asks for items matching a word, phrase, domain, or pattern — including 'items about X', 'links from Y', 'anything mentioning Z'. POSIX regex via Postgres `~`/`~*`, matched against title, url, notes, and the concatenated front+back of each item's flashcards. Returns a `matchedIn` array per item indicating which fields hit. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout. For pure browsing/pagination, use get_items.",
     inputSchema: {
       type: "object" as const,
       properties: {

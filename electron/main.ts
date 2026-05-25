@@ -105,7 +105,16 @@ const createWindow = () => {
   });
 };
 
-app.setName("Reading List");
+// Use a distinct identity in dev so the dev Electron and the packaged app
+// don't share a userData dir (which would also share the single-instance
+// lock — launching the packaged app while dev is running would otherwise
+// trigger requestSingleInstanceLock() === false and silently quit).
+if (app.isPackaged) {
+  app.setName("Reading List");
+} else {
+  app.setName("Reading List Dev");
+  app.setPath("userData", path.join(app.getPath("appData"), "Reading List Dev"));
+}
 
 // Custom protocol registration. macOS dispatches via open-url; Windows/Linux
 // pass the URL as a process argument and we forward via the single-instance lock.
