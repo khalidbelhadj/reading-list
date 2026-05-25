@@ -15,6 +15,15 @@ export {
 export { renameTag, deleteTag } from "./tags";
 
 export {
+  fetchLists,
+  createList,
+  updateList,
+  deleteList,
+  addItemsToList,
+  removeItemFromList,
+} from "./lists";
+
+export {
   getFlashcards,
   getAllFlashcards,
   createFlashcard,

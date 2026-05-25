@@ -15,6 +15,7 @@ export const ItemRowContent = ({
   isSelected,
   isTyping,
   menuOpen,
+  suppressHover,
   onMenuOpenChange,
   onTogglePin,
   onToggleRead,
@@ -25,6 +26,7 @@ export const ItemRowContent = ({
   isSelected: boolean;
   isTyping?: boolean;
   menuOpen: boolean;
+  suppressHover?: boolean;
   onMenuOpenChange: (open: boolean) => void;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
@@ -51,7 +53,7 @@ export const ItemRowContent = ({
       <span
         data-item-title
         className={cn(
-          "font-content text-sm/5 truncate min-w-0",
+          "font-content text-sm/5 fade-r min-w-0 flex-1",
           !item.title && !isTyping && "text-muted-foreground",
         )}
       >
@@ -67,7 +69,10 @@ export const ItemRowContent = ({
         onToggleRead={onToggleRead}
         onDelete={onDelete}
       >
-        <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
+        <div className={cn(
+          "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
+          !suppressHover && "group-hover:visible",
+        )}>
           <div
             className={cn(
               "absolute inset-0 bg-gradient-to-r from-transparent",

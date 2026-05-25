@@ -27,6 +27,13 @@ const iconPath = (file: string) =>
 let mainWindow: BrowserWindow | null = null;
 let pendingDeepLink: string | null = null;
 
+// Approximations of --background tokens from app/globals.css. Used as the
+// window background color so fast resizes don't expose a white (or dark)
+// strip that mismatches the page until React paints.
+const LIGHT_BG = "#fcfbf9";
+const DARK_BG = "#1a1a17";
+const themeBg = () => (nativeTheme.shouldUseDarkColors ? DARK_BG : LIGHT_BG);
+
 const sendDeepLink = (url: string) => {
   if (mainWindow && !mainWindow.webContents.isLoading()) {
     mainWindow.webContents.send("deep-link", url);
@@ -41,7 +48,8 @@ const createWindow = () => {
     width: 1100,
     height: 800,
     titleBarStyle: "hiddenInset",
-    backgroundColor: "#ffffff",
+    trafficLightPosition: { x: 18, y: 18 },
+    backgroundColor: themeBg(),
     icon: iconPath("icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -86,7 +94,13 @@ const createWindow = () => {
   const url = app.isPackaged ? PROD_URL : DEV_URL;
   mainWindow.loadURL(url);
 
+  const onThemeUpdate = () => {
+    mainWindow?.setBackgroundColor(themeBg());
+  };
+  nativeTheme.on("updated", onThemeUpdate);
+
   mainWindow.on("closed", () => {
+    nativeTheme.off("updated", onThemeUpdate);
     mainWindow = null;
   });
 };

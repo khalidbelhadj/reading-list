@@ -335,6 +335,7 @@ export const PlainItemRow = ({
         isSelected={!!isSelected}
         isTyping={isTyping}
         menuOpen={menuOpen}
+        suppressHover={suppressHover}
         onMenuOpenChange={setMenuOpen}
         onTogglePin={onTogglePin}
         onToggleRead={onToggleRead}

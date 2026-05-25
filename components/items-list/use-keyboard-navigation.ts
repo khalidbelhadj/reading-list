@@ -124,7 +124,13 @@ export const useKeyboardNavigation = ({
       const elementTag = (e.target as HTMLElement)?.tagName;
       if (elementTag === "BUTTON" || elementTag === "A") return;
 
-      const ids = filteredItems.map((i) => i.id);
+      // Use the live render order from the DOM (grouped / pinned / collapsed
+      // sections diverge from filteredItems' raw position order).
+      const ids = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-item-id]"),
+      )
+        .map((el) => el.dataset.itemId)
+        .filter((id): id is string => !!id);
       const currentCursor = cursorRef.current;
       const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
 
@@ -160,14 +166,28 @@ export const useKeyboardNavigation = ({
       if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;
-        let nextId: string;
+        // No cursor yet — adopt the mouse-hovered row as the starting point
+        // so the first arrow press picks it up instead of jumping to an edge.
         if (cursorIdx === -1) {
-          nextId = isDown ? ids[0] : ids[ids.length - 1];
-        } else {
-          nextId = isDown
-            ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
-            : ids[Math.max(cursorIdx - 1, 0)];
+          const hovered = document.querySelector<HTMLElement>(
+            "[data-item-id]:hover",
+          );
+          const hoveredId = hovered?.dataset.itemId;
+          if (hoveredId && ids.includes(hoveredId)) {
+            setCursor(hoveredId);
+            setSuppressHover(true);
+            scrollWithMargin(hoveredId);
+            return;
+          }
         }
+        const nextId =
+          cursorIdx === -1
+            ? isDown
+              ? ids[0]
+              : ids[ids.length - 1]
+            : isDown
+              ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
+              : ids[Math.max(cursorIdx - 1, 0)];
         setCursor(nextId);
         setSuppressHover(true);
         scrollWithMargin(nextId);

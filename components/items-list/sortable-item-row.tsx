@@ -125,7 +125,7 @@ export function SortableItemRow({
       <span
         data-item-title
         className={cn(
-          "font-content text-sm truncate min-w-0",
+          "font-content text-sm fade-r min-w-0 flex-1",
           !item.title && !isTyping && "text-muted-foreground",
         )}
       >
@@ -140,7 +140,10 @@ export function SortableItemRow({
         onToggleRead={onToggleRead}
         onDelete={onDelete}
       >
-        <div className="absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-hover:visible group-data-[menu-open]:visible">
+        <div className={cn(
+          "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
+          !suppressHover && "group-hover:visible",
+        )}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-card to-card" />
           <DropdownMenuTrigger
             className="relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none bg-card"

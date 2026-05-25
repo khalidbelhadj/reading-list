@@ -9,26 +9,24 @@ bun install
 bun run db:push
 bun dev   # needs DATABASE_URL in .env.local
 ```
-
-<img width="736" height="498" alt="Screenshot 2026-05-24 at 5 19 31 pm" src="https://github.com/user-attachments/assets/3ce215ab-6a9e-46ee-a843-a907e45583b3" />
+<img width="1824" height="1246" alt="Screenshot 2026-05-03 at 1 42 01 pm" src="https://github.com/user-attachments/assets/851ee094-238c-41b0-815d-82d606766828" />
 
 ---
 
 UI fixes:
-- delete button should have a red border
+- notes links should be blue
 - image loading ui is not good
 - line for dragging images should be nicer
-- highlighting images should show in the image
-- Spinner when fetching the title after pasting url is bad
-- primary buttons look bigger than ghost ones
-- notes links should be blue
 - fix the skeleton for the item page, sizes of the rows
+- highlighting images should show in the image
+
+- primary buttons look bigger than ghost ones
 
 Functional fixes:
 - deleting list item leaves a gap, and splits the list in two
-- clicking anywhere under the notes should focus on the notes
 
 Features requests:
+- We should have an "archived", then have a cleanup routine
 - In-app AI features
     - We need native llm features, I way to run a (useful) agent to convert my stuff to flashcards, maybe a versioning and approval flow sort of thing.
 - Another llm flow I would like is having the reader open and asking questions and the model points me to the right place, draws diagrams, explains things inline. This would be sick with a voice model too (speech to text) and maybe text to speech. We need a good in app reader experience though.

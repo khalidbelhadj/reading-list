@@ -19,6 +19,7 @@ export const SearchBar = React.forwardRef<
     onQueryChange?: (query: string) => void;
     onPendingChange?: (pending: boolean) => void;
     onCursorNav?: (direction: "next" | "prev") => void;
+    onCursorOpen?: (modifier: { meta: boolean }) => void;
     initialQuery?: string;
     placeholder?: string;
   }
@@ -30,6 +31,7 @@ export const SearchBar = React.forwardRef<
   onQueryChange,
   onPendingChange,
   onCursorNav,
+  onCursorOpen,
   initialQuery = "",
   placeholder = "Search...",
 }, ref) => {
@@ -116,6 +118,16 @@ export const SearchBar = React.forwardRef<
     },
   }), []);
 
+  // If we land mounted with an active query (e.g. user navigated back from an
+  // item page while a search was in progress), put focus on the input so they
+  // can keep refining without an extra click.
+  React.useEffect(() => {
+    if (initialQuery.length === 0) return;
+    requestAnimationFrame(() => inputRef.current?.focus());
+    // initialQuery is captured once at mount on the parent side, so this only
+    // fires on the initial mount.
+  }, [initialQuery]);
+
   const handleClose = React.useCallback(() => {
     setQuery("");
     onResults(null);
@@ -145,8 +157,13 @@ export const SearchBar = React.forwardRef<
         onCursorNav?.("prev");
         return;
       }
+      if (e.key === "Enter" && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        onCursorOpen?.({ meta: e.metaKey || e.ctrlKey });
+        return;
+      }
     },
-    [onCursorNav],
+    [onCursorNav, onCursorOpen],
   );
 
   const handleBlur = React.useCallback(() => {

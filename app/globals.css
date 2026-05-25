@@ -454,6 +454,15 @@ html.electron .electron-top-bar-inset [data-no-drag] {
   display: none;
 }
 
+/* Single-line overflow that fades out on the right instead of using
+   an ellipsis. Pair with min-w-0 inside flex parents. */
+.fade-r {
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
+}
+
 /* Slow view transitions for debugging — uncomment to enable. */
 /*
 ::view-transition-group(*),

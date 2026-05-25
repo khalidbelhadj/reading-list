@@ -43,6 +43,13 @@
       "when": 1778112238780,
       "tag": "0005_cool_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779664368541,
+      "tag": "0006_lists_rls",
+      "breakpoints": true
     }
   ]
 }

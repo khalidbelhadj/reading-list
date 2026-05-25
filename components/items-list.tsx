@@ -37,6 +37,8 @@ import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
+import { ListsStrip } from "./items-list/lists-strip";
+import { useLists } from "./items-list/use-lists";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grouped-list";
@@ -74,6 +76,40 @@ export const ItemsList = () => {
     if (tab === "cards") return "cards";
     return "reading-list";
   });
+  const [selectedListId, setSelectedListId] = React.useState<string | null>(
+    () => searchParams.get("list"),
+  );
+  const [creatingList, setCreatingList] = React.useState(false);
+
+  const { data: lists } = useLists();
+  const listMemberIds = React.useMemo(() => {
+    if (!selectedListId || !lists) return null;
+    const list = lists.find((l) => l.id === selectedListId);
+    if (!list) return null;
+    return new Set(list.itemIds);
+  }, [selectedListId, lists]);
+
+  // If the selected list disappears (deleted elsewhere), clear selection so
+  // the items view doesn't get stuck filtering to an empty set.
+  React.useEffect(() => {
+    if (!selectedListId || !lists) return;
+    if (!lists.some((l) => l.id === selectedListId)) {
+      setSelectedListId(null);
+    }
+  }, [selectedListId, lists]);
+
+  const handleSelectList = React.useCallback((listId: string | null) => {
+    setSelectedListId(listId);
+    const params = new URLSearchParams(window.location.search);
+    if (listId) params.set("list", listId);
+    else params.delete("list");
+    const queryString = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      queryString ? `?${queryString}` : window.location.pathname,
+    );
+  }, []);
 
   // On the first home-page visit per session, jump to the last-opened item if
   // it still exists. Subsequent back-navigations stay on the list.
@@ -227,7 +263,7 @@ export const ItemsList = () => {
     groupBy,
     setGroupBy,
     groups,
-  } = useItemsFilters(items, activeTab, searchOrder);
+  } = useItemsFilters(items, activeTab, searchOrder, listMemberIds);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
@@ -240,10 +276,33 @@ export const ItemsList = () => {
   // move the cursor without unfocusing, so Enter opens the highlighted item.
   const navigateCursor = React.useCallback(
     (direction: "next" | "prev") => {
-      const ids = filteredItems.map((i) => i.id);
+      // Read the live render order from the DOM so nav matches what's visible
+      // — grouped, pinned, and collapsed sections all reshuffle relative to
+      // filteredItems (which is in raw position order).
+      const ids = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-item-id]"),
+      )
+        .map((el) => el.dataset.itemId)
+        .filter((id): id is string => !!id);
       if (ids.length === 0) return;
       const current = cursorRef.current;
       const idx = current ? ids.indexOf(current) : -1;
+      // No cursor yet — start from the row the mouse is hovering over so the
+      // first arrow press picks it up instead of jumping to the list edge.
+      if (idx === -1) {
+        const hovered = document.querySelector<HTMLElement>(
+          "[data-item-id]:hover",
+        );
+        const hoveredId = hovered?.dataset.itemId;
+        if (hoveredId) {
+          const hoveredIdx = ids.indexOf(hoveredId);
+          if (hoveredIdx !== -1) {
+            setCursor(hoveredId);
+            hovered?.scrollIntoView({ block: "nearest" });
+            return;
+          }
+        }
+      }
       const nextId =
         idx === -1
           ? direction === "next"
@@ -256,7 +315,7 @@ export const ItemsList = () => {
       const el = document.querySelector(`[data-item-id="${nextId}"]`);
       el?.scrollIntoView({ block: "nearest" });
     },
-    [filteredItems, setCursor],
+    [setCursor],
   );
   // When the search filter narrows the list, pin the cursor to the first
   // visible result so Enter from the search input opens the top match.
@@ -495,7 +554,8 @@ export const ItemsList = () => {
   }, [items, router]);
 
   // DnD
-  const isDragDisabled = activeTags.size > 0 || groupBy !== "none" || searchActive;
+  const isDragDisabled =
+    activeTags.size > 0 || groupBy !== "none" || searchActive || selectedListId !== null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -568,9 +628,9 @@ export const ItemsList = () => {
 
   return (
     <div>
-      <div className="mx-auto max-w-175 px-1.5 pb-5 flex flex-col gap-3">
+      <div className="mx-auto max-w-175 px-3 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-1.5 pb-1 bg-background">
+        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-3 pb-1 bg-background">
           <div className="electron-top-bar-inset">
             <Toolbar
               activeTab={activeTab}
@@ -584,6 +644,7 @@ export const ItemsList = () => {
               setGroupBy={setGroupBy}
               onAdd={handleOpenNew}
               onPasteUrl={handlePasteUrl}
+              onNewList={() => setCreatingList(true)}
               isCreating={isCreating || isFetchingPasteTitle}
             />
           </div>
@@ -594,6 +655,10 @@ export const ItemsList = () => {
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
             localSearchFn={activeTab === "cards" ? localSearchFlashcards : localSearchItems}
             onCursorNav={navigateCursor}
+            onCursorOpen={() => {
+              const id = cursorRef.current;
+              if (id) handleOpenItem(id);
+            }}
             onResults={handleSearchResults}
             onQueryChange={handleSearchQueryChange}
             onPendingChange={handleSearchPendingChange}
@@ -621,6 +686,14 @@ export const ItemsList = () => {
         </div>
 
         {/* Content */}
+        {activeTab !== "cards" && (
+          <ListsStrip
+            selectedListId={selectedListId}
+            onSelectList={handleSelectList}
+            creating={creatingList}
+            onCreatingChange={setCreatingList}
+          />
+        )}
         {activeTab === "cards" ? (
           <CardsList
             searchIds={searchOrder ? new Set(searchOrder) : null}

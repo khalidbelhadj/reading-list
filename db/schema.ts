@@ -35,6 +35,38 @@ export const items = pgTable(
   (table) => [index("items_user_position_idx").on(table.userId, table.position)],
 );
 
+export const lists = pgTable(
+  "lists",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    icon: text("icon"),
+    position: doublePrecision("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
+  },
+  (table) => [index("lists_user_position_idx").on(table.userId, table.position)],
+);
+
+export const itemsLists = pgTable(
+  "items_lists",
+  {
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    listId: text("list_id")
+      .notNull()
+      .references(() => lists.id, { onDelete: "cascade" }),
+    position: doublePrecision("position").notNull().default(0),
+    addedAt: timestamp("added_at", { withTimezone: true, mode: "string" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.itemId, table.listId] }),
+    index("items_lists_list_position_idx").on(table.listId, table.position),
+  ],
+);
+
 export const tags = pgTable(
   "tags",
   {
@@ -159,6 +191,16 @@ export const reviewEvents = pgTable(
 export const itemsRelations = relations(items, ({ many }) => ({
   itemsTags: many(itemsTags),
   flashcards: many(flashcards),
+  itemsLists: many(itemsLists),
+}));
+
+export const listsRelations = relations(lists, ({ many }) => ({
+  itemsLists: many(itemsLists),
+}));
+
+export const itemsListsRelations = relations(itemsLists, ({ one }) => ({
+  item: one(items, { fields: [itemsLists.itemId], references: [items.id] }),
+  list: one(lists, { fields: [itemsLists.listId], references: [lists.id] }),
 }));
 
 export const flashcardsRelations = relations(flashcards, ({ one, many }) => ({
