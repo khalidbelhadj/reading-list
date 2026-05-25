@@ -299,7 +299,12 @@ const ListChip = ({
                 e.stopPropagation();
                 onChangeIcon();
               }}
-              className="size-auto bg-transparent hover:bg-transparent hover:text-inherit shadow-none text-inherit"
+              className={cn(
+                "size-auto bg-transparent hover:bg-transparent shadow-none",
+                selected
+                  ? "text-primary-foreground hover:text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               <Icon className="size-3.5" />
             </Button>

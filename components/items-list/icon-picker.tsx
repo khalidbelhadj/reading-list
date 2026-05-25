@@ -1,6 +1,7 @@
 import React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
+import { cn } from "@/lib/utils";
 import { LIST_ICONS } from "@/lib/list-icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,7 +86,10 @@ export const IconPicker = ({
                               onSelect(entry.name);
                               onOpenChange(false);
                             }}
-                            className={isSelected ? "bg-muted" : undefined}
+                            className={cn(
+                              "text-muted-foreground hover:text-foreground",
+                              isSelected && "bg-muted text-foreground",
+                            )}
                           >
                             <Icon className="size-4" />
                           </Button>
