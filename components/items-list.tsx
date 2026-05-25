@@ -37,8 +37,6 @@ import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { Toolbar } from "./items-list/toolbar";
 import { TagFilters } from "./items-list/tag-filters";
-import { ListsStrip } from "./items-list/lists-strip";
-import { useLists } from "./items-list/use-lists";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grouped-list";
@@ -76,41 +74,6 @@ export const ItemsList = () => {
     if (tab === "cards") return "cards";
     return "reading-list";
   });
-  const [selectedListId, setSelectedListId] = React.useState<string | null>(
-    () => searchParams.get("list"),
-  );
-  const [creatingList, setCreatingList] = React.useState(false);
-
-  const { data: lists } = useLists();
-  const listMemberIds = React.useMemo(() => {
-    if (!selectedListId || !lists) return null;
-    const list = lists.find((l) => l.id === selectedListId);
-    if (!list) return null;
-    return new Set(list.itemIds);
-  }, [selectedListId, lists]);
-
-  // If the selected list disappears (deleted elsewhere), clear selection so
-  // the items view doesn't get stuck filtering to an empty set.
-  React.useEffect(() => {
-    if (!selectedListId || !lists) return;
-    if (!lists.some((l) => l.id === selectedListId)) {
-      setSelectedListId(null);
-    }
-  }, [selectedListId, lists]);
-
-  const handleSelectList = React.useCallback((listId: string | null) => {
-    setSelectedListId(listId);
-    const params = new URLSearchParams(window.location.search);
-    if (listId) params.set("list", listId);
-    else params.delete("list");
-    const queryString = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      queryString ? `?${queryString}` : window.location.pathname,
-    );
-  }, []);
-
   // On the first home-page visit per session, jump to the last-opened item if
   // it still exists. Subsequent back-navigations stay on the list.
   React.useEffect(() => {
@@ -263,7 +226,7 @@ export const ItemsList = () => {
     groupBy,
     setGroupBy,
     groups,
-  } = useItemsFilters(items, activeTab, searchOrder, listMemberIds);
+  } = useItemsFilters(items, activeTab, searchOrder);
 
   const { handleReorder, handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
@@ -555,7 +518,7 @@ export const ItemsList = () => {
 
   // DnD
   const isDragDisabled =
-    activeTags.size > 0 || groupBy !== "none" || searchActive || selectedListId !== null;
+    activeTags.size > 0 || groupBy !== "none" || searchActive;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -644,7 +607,6 @@ export const ItemsList = () => {
               setGroupBy={setGroupBy}
               onAdd={handleOpenNew}
               onPasteUrl={handlePasteUrl}
-              onNewList={() => setCreatingList(true)}
               isCreating={isCreating || isFetchingPasteTitle}
             />
           </div>
@@ -686,14 +648,6 @@ export const ItemsList = () => {
         </div>
 
         {/* Content */}
-        {activeTab !== "cards" && (
-          <ListsStrip
-            selectedListId={selectedListId}
-            onSelectList={handleSelectList}
-            creating={creatingList}
-            onCreatingChange={setCreatingList}
-          />
-        )}
         {activeTab === "cards" ? (
           <CardsList
             searchIds={searchOrder ? new Set(searchOrder) : null}

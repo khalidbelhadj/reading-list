@@ -5,7 +5,6 @@ import {
   IconBoltFilled,
   IconChevronDown,
   IconClipboardFilled,
-  IconListFilled,
   IconPlus,
   IconSquareRoundedPlusFilled,
   IconSparklesFilled,
@@ -44,7 +43,6 @@ export const Toolbar = ({
   setGroupBy,
   onAdd,
   onPasteUrl,
-  onNewList,
   isCreating = false,
 }: {
   activeTab: TabId;
@@ -58,7 +56,6 @@ export const Toolbar = ({
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
   onAdd: () => void;
   onPasteUrl: () => void;
-  onNewList: () => void;
   isCreating?: boolean;
 }) => {
 
@@ -240,10 +237,6 @@ export const Toolbar = ({
           <DropdownMenuItem onClick={onAdd}>
             <IconSquareRoundedPlusFilled />
             New item
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onNewList}>
-            <IconListFilled />
-            New list
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

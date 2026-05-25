@@ -6,7 +6,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { withUser } from "@/db";
-import { items, tags, itemsTags, itemsLists, flashcards } from "@/db/schema";
+import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { searchItems as searchItemsQuery, searchFlashcards } from "@/lib/search";
@@ -21,15 +21,6 @@ import {
   deleteFlashcards as deleteFlashcardsLib,
 } from "@/lib/flashcards";
 import {
-  addItemsToList as addItemsToListLib,
-  createList as createListLib,
-  deleteList as deleteListLib,
-  fetchLists as fetchListsLib,
-  removeItemsFromList as removeItemsFromListLib,
-  updateList as updateListLib,
-} from "@/lib/lists";
-import { LIST_ICON_NAMES } from "@/lib/list-icons";
-import {
   parseInput,
   mcpGetItemsSchema,
   mcpGetItemSchema,
@@ -42,12 +33,6 @@ import {
   mcpUpdateFlashcardsSchema,
   mcpDeleteFlashcardsSchema,
   mcpSearchFlashcardsSchema,
-  mcpGetListsSchema,
-  mcpCreateListSchema,
-  mcpUpdateListSchema,
-  mcpDeleteListSchema,
-  mcpAddItemsToListSchema,
-  mcpRemoveItemsFromListSchema,
 } from "@/lib/schemas";
 import {
   toMcpItem,
@@ -64,26 +49,17 @@ import {
   type UpdateFlashcardsResponse,
   type DeleteFlashcardsResponse,
   type SearchFlashcardsResponse,
-  type GetListsResponse,
-  type CreateListResponse,
-  type UpdateListResponse,
-  type DeleteListResponse,
-  type ListMembershipResponse,
 } from "./types";
 
 const TOOLS = [
   {
     name: "get_items",
     description:
-      "Browse items in order — use this only when you need everything, or items filtered by tag or list membership. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports sort, limit, and offset for pagination.",
+      "Browse items in order — use this only when you need everything, or items filtered by tag. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports sort, limit, and offset for pagination.",
     inputSchema: {
       type: "object" as const,
       properties: {
         tag: { type: "string", description: "Filter by tag name" },
-        listId: {
-          type: "string",
-          description: "Only return items that belong to this list (see get_lists for IDs).",
-        },
         sort: {
           type: "string",
           enum: ["position", "created_at", "updated_at", "title"],
@@ -281,90 +257,6 @@ const TOOLS = [
     },
   },
   {
-    name: "get_lists",
-    description:
-      "Return all of the user's lists with their id, name, icon, and item count. Use get_items with listId to fetch a list's contents.",
-    inputSchema: { type: "object" as const, properties: {} },
-  },
-  {
-    name: "create_list",
-    description:
-      "Create a new list. Optionally seed it with existing items via itemIds. Icon must be one of the allowed icon names — use get_lists or read the enum to see valid values.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        name: {
-          type: "string",
-          description: "Display name. Empty string is allowed (renders as 'Untitled').",
-        },
-        icon: {
-          type: ["string", "null"],
-          enum: [...LIST_ICON_NAMES, null],
-          description:
-            "Icon registry key (e.g. 'Brain', 'YouTube'). null clears to the default list icon. Unknown values are rejected.",
-        },
-        itemIds: {
-          type: "array",
-          items: { type: "string" },
-          description: "Optional ids of existing items to add immediately (up to 100).",
-        },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "update_list",
-    description: "Rename a list or change its icon. Omitted fields are left unchanged.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        id: { type: "string", description: "List id" },
-        name: { type: "string" },
-        icon: {
-          type: ["string", "null"],
-          enum: [...LIST_ICON_NAMES, null],
-          description: "Icon registry key. null clears to the default list icon.",
-        },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "delete_list",
-    description: "Delete a list. Items belonging to the list are not deleted, only their membership.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        id: { type: "string", description: "List id" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "add_items_to_list",
-    description: "Add one or more existing items to a list. Items already in the list are skipped silently.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        listId: { type: "string" },
-        itemIds: { type: "array", items: { type: "string" } },
-      },
-      required: ["listId", "itemIds"],
-    },
-  },
-  {
-    name: "remove_items_from_list",
-    description: "Remove one or more items from a list. Items not in the list are skipped silently.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        listId: { type: "string" },
-        itemIds: { type: "array", items: { type: "string" } },
-      },
-      required: ["listId", "itemIds"],
-    },
-  },
-  {
     name: "search_flashcards",
     description:
       "Search flashcards by front/back text and parent item title. Supports fuzzy search (space-separated tokens matched via ILIKE) by default. Wrap the pattern in slashes (`/pattern/`) to use POSIX regex (case-insensitive). Capped at 100 results with a 10s timeout.",
@@ -417,16 +309,6 @@ async function handleTool(name: string, args: unknown, userId: string) {
         ),
       );
       if (parsed.tag) result = result.filter((i) => i.tags.includes(parsed.tag!));
-      if (parsed.listId) {
-        const memberIds = await withUser(userId, (tx) =>
-          tx
-            .select({ itemId: itemsLists.itemId })
-            .from(itemsLists)
-            .where(eq(itemsLists.listId, parsed.listId!)),
-        );
-        const allowed = new Set(memberIds.map((r) => r.itemId));
-        result = result.filter((i) => allowed.has(i.id));
-      }
       const total = result.length;
       const offset = parsed.offset ?? 0;
       if (offset > 0) result = result.slice(offset);
@@ -594,73 +476,6 @@ async function handleTool(name: string, args: unknown, userId: string) {
         deleteFlashcardsLib(tx, userId, parsed.ids),
       );
       return jsonText<DeleteFlashcardsResponse>(result);
-    }
-
-    case "get_lists": {
-      parseInput(mcpGetListsSchema, args);
-      const all = await withUser(userId, (tx) => fetchListsLib(tx, userId));
-      return jsonText<GetListsResponse>({
-        lists: all.map((l) => ({
-          id: l.id,
-          name: l.name,
-          icon: l.icon,
-          itemCount: l.itemIds.length,
-        })),
-      });
-    }
-
-    case "create_list": {
-      const parsed = parseInput(mcpCreateListSchema, args);
-      const id = await withUser(userId, async (tx) => {
-        const newId = await createListLib(tx, userId, {
-          name: parsed.name,
-          icon: parsed.icon ?? null,
-        });
-        if (parsed.itemIds && parsed.itemIds.length > 0) {
-          await addItemsToListLib(tx, userId, newId, parsed.itemIds);
-        }
-        return newId;
-      });
-      return jsonText<CreateListResponse>({ id });
-    }
-
-    case "update_list": {
-      const parsed = parseInput(mcpUpdateListSchema, args);
-      const { id, ...fields } = parsed;
-      const updated = await withUser(userId, (tx) =>
-        updateListLib(tx, userId, id, fields),
-      );
-      return jsonText<UpdateListResponse>({ updated });
-    }
-
-    case "delete_list": {
-      const parsed = parseInput(mcpDeleteListSchema, args);
-      const deleted = await withUser(userId, (tx) =>
-        deleteListLib(tx, userId, parsed.id),
-      );
-      return jsonText<DeleteListResponse>({ deleted });
-    }
-
-    case "add_items_to_list": {
-      const parsed = parseInput(mcpAddItemsToListSchema, args);
-      await withUser(userId, (tx) =>
-        addItemsToListLib(tx, userId, parsed.listId, parsed.itemIds),
-      );
-      return jsonText<ListMembershipResponse>({
-        listId: parsed.listId,
-        affected: parsed.itemIds,
-      });
-    }
-
-    case "remove_items_from_list": {
-      const parsed = parseInput(mcpRemoveItemsFromListSchema, args);
-      await withUser(userId, (tx) =>
-        removeItemsFromListLib(tx, userId, parsed.listId, parsed.itemIds),
-      );
-      return jsonText<ListMembershipResponse>({
-        listId: parsed.listId,
-        affected: parsed.itemIds,
-      });
     }
 
     case "search_flashcards": {

@@ -135,35 +135,6 @@ export type DeleteFlashcardsResponse = {
   notFound: string[];
 };
 
-export type McpList = {
-  id: string;
-  name: string;
-  icon: string | null;
-  itemCount: number;
-};
-
-export type GetListsResponse = {
-  lists: McpList[];
-};
-
-export type CreateListResponse = {
-  id: string;
-};
-
-export type UpdateListResponse = {
-  updated: boolean;
-};
-
-export type DeleteListResponse = {
-  deleted: boolean;
-};
-
-export type ListMembershipResponse = {
-  listId: string;
-  /** Items whose membership was changed (skipping non-owned / non-existent ids). */
-  affected: string[];
-};
-
 export type SearchFlashcardsResponse = {
   query: string;
   total: number;

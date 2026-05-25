@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ActionError } from "@/lib/safe-action";
-import { LIST_ICON_NAMES } from "@/lib/list-icons";
 
 export const parseInput = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
   const result = schema.safeParse(data);
@@ -84,45 +83,6 @@ export const bulkTagSchema = z.object({
 export const bulkMarkReadSchema = z.object({
   itemIds: z.array(idSchema).max(100, "Cannot update more than 100 items at once"),
   read: z.boolean(),
-});
-
-const listNameSchema = z
-  .string()
-  .max(100, "List name must be under 100 characters");
-const listIconSchema = z
-  .string()
-  .max(64, "Icon name must be under 64 characters")
-  .nullable();
-
-export const createListSchema = z.object({
-  name: listNameSchema,
-  icon: listIconSchema.optional(),
-  id: idSchema.optional(),
-});
-
-export const updateListSchema = z.object({
-  listId: idSchema,
-  fields: z.object({
-    name: listNameSchema.optional(),
-    icon: listIconSchema.optional(),
-  }),
-});
-
-export const deleteListSchema = z.object({
-  listId: idSchema,
-});
-
-export const addItemsToListSchema = z.object({
-  listId: idSchema,
-  itemIds: z
-    .array(idSchema)
-    .min(1, "Must provide at least one item")
-    .max(100, "Cannot add more than 100 items at once"),
-});
-
-export const removeItemFromListSchema = z.object({
-  listId: idSchema,
-  itemId: idSchema,
 });
 
 export const renameTagSchema = z.object({
@@ -223,7 +183,6 @@ export const mcpGetItemsSchema = z.object({
   sort: z.enum(["position", "created_at", "updated_at", "title"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
   tag: z.string().max(100).optional(),
-  listId: idSchema.optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
 });
@@ -293,43 +252,3 @@ export const mcpSearchFlashcardsSchema = z.object({
   query: z.string().min(1, "Query must not be empty").max(500, "Query must be under 500 characters"),
 });
 
-const mcpListIconSchema = z
-  .enum(LIST_ICON_NAMES as [string, ...string[]])
-  .nullable();
-
-export const mcpGetListsSchema = z.object({}).optional();
-
-export const mcpCreateListSchema = z.object({
-  name: listNameSchema,
-  icon: mcpListIconSchema.optional(),
-  itemIds: z
-    .array(idSchema)
-    .max(100, "Cannot seed more than 100 items at once")
-    .optional(),
-});
-
-export const mcpUpdateListSchema = z.object({
-  id: idSchema,
-  name: listNameSchema.optional(),
-  icon: mcpListIconSchema.optional(),
-});
-
-export const mcpDeleteListSchema = z.object({
-  id: idSchema,
-});
-
-export const mcpAddItemsToListSchema = z.object({
-  listId: idSchema,
-  itemIds: z
-    .array(idSchema)
-    .min(1, "Must provide at least one item")
-    .max(100, "Cannot add more than 100 items at once"),
-});
-
-export const mcpRemoveItemsFromListSchema = z.object({
-  listId: idSchema,
-  itemIds: z
-    .array(idSchema)
-    .min(1, "Must provide at least one item")
-    .max(100, "Cannot remove more than 100 items at once"),
-});

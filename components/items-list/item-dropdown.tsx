@@ -5,7 +5,6 @@ import {
   IconExternalLink,
   IconEyeFilled,
   IconEyeOff,
-  IconListFilled,
   IconPinFilled,
   IconPinnedOff,
   IconSparklesFilled,
@@ -13,8 +12,6 @@ import {
 } from "@tabler/icons-react";
 
 import { type Item } from "@/lib/types";
-import { useLists, useListMutations } from "./use-lists";
-import { getListIcon } from "@/lib/list-icons";
 import {
   ContextMenu as ContextMenuRoot,
   ContextMenuContent,
@@ -244,8 +241,6 @@ const ItemMenuItems = ({
           {isRead ? "Mark as unread" : "Mark as read"}
         </DropdownMenuItem>
       )}
-      <ListsSubmenu itemId={item.id} />
-
       {onDelete && (
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <IconTrashFilled />
@@ -362,53 +357,6 @@ export const ItemContextMenu = ({
 };
 
 export { ContextMenuTrigger as ItemContextMenuTrigger };
-
-const ListsSubmenu = ({ itemId }: { itemId: string }) => {
-  const { data: lists } = useLists();
-  const { addItemsToList, removeItemFromList } = useListMutations();
-
-  if (!lists || lists.length === 0) return null;
-
-  const memberCount = lists.reduce(
-    (count, list) => (list.itemIds.includes(itemId) ? count + 1 : count),
-    0,
-  );
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <IconListFilled />
-        Lists
-        {memberCount > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {memberCount}
-          </span>
-        )}
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        {lists.map((list) => {
-          const inList = list.itemIds.includes(itemId);
-          const Icon = getListIcon(list.icon);
-          return (
-            <DropdownMenuItem
-              key={list.id}
-              closeOnClick={false}
-              onClick={() => {
-                if (inList) removeItemFromList({ listId: list.id, itemId });
-                else addItemsToList({ listId: list.id, itemIds: [itemId] });
-              }}
-            >
-              {inList ? <IconCheck /> : <Icon />}
-              <span className="truncate">
-                {list.name || "Untitled"}
-              </span>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
-};
 
 const PromptMenuItem = ({
   prompt,

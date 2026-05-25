@@ -117,7 +117,6 @@ export const useItemsFilters = (
   items: Item[] | undefined,
   activeTab: TabId,
   searchOrder: string[] | null = null,
-  listMemberIds: Set<string> | null = null,
 ) => {
   // Preferences are read synchronously on first client render so filters
   // apply from frame 1. Writes happen inside each setter (no extra effect),
@@ -191,7 +190,6 @@ export const useItemsFilters = (
     const passesFilters = (item: Item) => {
       if (!showRead && item.read) return false;
       if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
-      if (listMemberIds !== null && !listMemberIds.has(item.id)) return false;
       return true;
     };
     if (searchOrder !== null) {
@@ -204,7 +202,7 @@ export const useItemsFilters = (
       return out;
     }
     return tabItems.filter(passesFilters);
-  }, [tabItems, showRead, activeTags, searchOrder, listMemberIds]);
+  }, [tabItems, showRead, activeTags, searchOrder]);
 
   const toggleTag = React.useCallback((tagName: string) => {
     setActiveTags((prev) => {

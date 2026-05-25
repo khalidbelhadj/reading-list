@@ -50,6 +50,13 @@
       "when": 1779664368541,
       "tag": "0006_lists_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779743675823,
+      "tag": "0007_smart_korvac",
+      "breakpoints": true
     }
   ]
 }
