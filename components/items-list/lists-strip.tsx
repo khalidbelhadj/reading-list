@@ -1,11 +1,14 @@
 import React from "react";
 import {
+  IconChevronLeft,
   IconChevronRight,
   IconListFilled,
   IconMoodSmile,
   IconPencil,
   IconTrash,
 } from "@tabler/icons-react";
+
+const SCROLL_STEP = 200;
 
 import { cn } from "@/lib/utils";
 import {
@@ -99,33 +102,31 @@ export const ListsStrip = ({
         />
       </button>
       <CollapsibleSection open={open}>
-        <div className="-mx-3">
-          <div className="flex gap-1.5 overflow-x-auto px-3 py-0.5 scrollbar-thin">
-            {lists.map((list) => (
-          <ListChip
-            key={list.id}
-            list={list}
-            selected={selectedListId === list.id}
-            renaming={renamingId === list.id}
-            onSelect={() =>
-              onSelectList(selectedListId === list.id ? null : list.id)
-            }
-            onStartRename={() => setRenamingId(list.id)}
-            onRename={(name) => handleRename(list.id, name)}
-            onCancelRename={() => setRenamingId(null)}
-            onChangeIcon={() => setIconPickerListId(list.id)}
-            onDelete={() => handleDelete(list.id)}
-            iconAnchorRef={(el) => setIconAnchor(list.id, el)}
-          />
-        ))}
-            {creating && (
-              <NewChipInput
-                onCommit={handleCreate}
-                onCancel={() => onCreatingChange(false)}
-              />
-            )}
-          </div>
-        </div>
+        <ScrollStrip>
+          {lists.map((list) => (
+            <ListChip
+              key={list.id}
+              list={list}
+              selected={selectedListId === list.id}
+              renaming={renamingId === list.id}
+              onSelect={() =>
+                onSelectList(selectedListId === list.id ? null : list.id)
+              }
+              onStartRename={() => setRenamingId(list.id)}
+              onRename={(name) => handleRename(list.id, name)}
+              onCancelRename={() => setRenamingId(null)}
+              onChangeIcon={() => setIconPickerListId(list.id)}
+              onDelete={() => handleDelete(list.id)}
+              iconAnchorRef={(el) => setIconAnchor(list.id, el)}
+            />
+          ))}
+          {creating && (
+            <NewChipInput
+              onCommit={handleCreate}
+              onCancel={() => onCreatingChange(false)}
+            />
+          )}
+        </ScrollStrip>
       </CollapsibleSection>
       <IconPicker
         open={iconPickerListId !== null}
@@ -147,6 +148,90 @@ export const ListsStrip = ({
           setListIcon({ listId: iconPickerListId, icon });
         }}
       />
+    </div>
+  );
+};
+
+const ScrollStrip = ({ children }: { children: React.ReactNode }) => {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const update = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+  }, []);
+
+  React.useEffect(() => {
+    update();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [update, children]);
+
+  const handleScrollBy = React.useCallback((delta: number) => {
+    scrollRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  }, []);
+
+  return (
+    <div className="relative -mx-3 group/strip">
+      <div
+        ref={scrollRef}
+        className="flex gap-1.5 overflow-x-auto px-3 py-0.5 scrollbar-thin"
+      >
+        {children}
+      </div>
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-background to-transparent transition-opacity duration-150",
+          canScrollLeft ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent transition-opacity duration-150",
+          canScrollRight ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <button
+        type="button"
+        aria-label="Scroll lists back"
+        onClick={() => handleScrollBy(-SCROLL_STEP)}
+        tabIndex={canScrollLeft ? 0 : -1}
+        className={cn(
+          "absolute left-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center size-6 rounded-md text-foreground cursor-pointer outline-none transition-all duration-150",
+          canScrollLeft
+            ? "opacity-0 -translate-x-1 group-hover/strip:opacity-100 group-hover/strip:translate-x-0"
+            : "opacity-0 pointer-events-none",
+        )}
+      >
+        <IconChevronLeft className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Scroll lists forward"
+        onClick={() => handleScrollBy(SCROLL_STEP)}
+        tabIndex={canScrollRight ? 0 : -1}
+        className={cn(
+          "absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center size-6 rounded-md text-foreground cursor-pointer outline-none transition-all duration-150",
+          canScrollRight
+            ? "opacity-0 translate-x-1 group-hover/strip:opacity-100 group-hover/strip:translate-x-0"
+            : "opacity-0 pointer-events-none",
+        )}
+      >
+        <IconChevronRight className="size-4" />
+      </button>
     </div>
   );
 };
@@ -224,7 +309,7 @@ const ListChip = ({
               <span
                 className={cn(
                   "text-xs truncate min-w-16",
-                  !list.name && "italic text-muted-foreground/70",
+                  !list.name && "text-muted-foreground/70",
                 )}
                 title={list.name || "Untitled"}
               >
