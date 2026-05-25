@@ -309,7 +309,8 @@ const ListChip = ({
               <span
                 className={cn(
                   "text-xs truncate min-w-16",
-                  !list.name && "text-muted-foreground/70",
+                  !list.name && !selected && "text-muted-foreground/70",
+                  !list.name && selected && "text-primary-foreground/70",
                 )}
                 title={list.name || "Untitled"}
               >
