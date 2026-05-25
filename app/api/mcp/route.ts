@@ -98,7 +98,7 @@ const TOOLS = [
         },
         limit: {
           type: "number",
-          description: "Maximum number of items to return",
+          description: "Maximum number of items to return (1-100, capped at 100)",
         },
         offset: {
           type: "number",

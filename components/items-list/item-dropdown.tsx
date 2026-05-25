@@ -369,11 +369,21 @@ const ListsSubmenu = ({ itemId }: { itemId: string }) => {
 
   if (!lists || lists.length === 0) return null;
 
+  const memberCount = lists.reduce(
+    (count, list) => (list.itemIds.includes(itemId) ? count + 1 : count),
+    0,
+  );
+
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <IconListFilled />
         Lists
+        {memberCount > 0 && (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {memberCount}
+          </span>
+        )}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {lists.map((list) => {
