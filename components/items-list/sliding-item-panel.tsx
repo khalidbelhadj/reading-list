@@ -39,9 +39,7 @@ export type OpenPhase = "side" | "fullw" | "full";
 export type Phase = "closed" | OpenPhase;
 
 const WIDTH_MS = 280; // side ↔ fullw
-export const EDGE_MS = 220; // fullw ↔ full
 const OPEN_MS = 280; // closed ↔ side (slide in/out)
-const PAUSE_MS = 90;
 export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 // Outer spacing is owned by PanelLayout (p-2). 8 here is the slide-off
 // distance — how far the panel must translate to clear the layout's outer
@@ -51,11 +49,102 @@ const SLIDE_OFFSET = 8;
 const NARROW_BREAKPOINT = 768;
 
 type Orientation = "side" | "bottom";
+type ResizeAxis = "width" | "height";
 
-// Primary axis size in the "side" phase. fullw/full size comes from filling
-// the layout container (width/height: 100%) rather than from this function.
-const sidePrimaryFor = (o: Orientation) =>
-  o === "side" ? "min(50vw, 720px)" : "min(50dvh, 760px)";
+// Side orientation resizes width (handle on the panel's left edge);
+// bottom orientation resizes height (handle on the panel's top edge).
+// Stored as separate localStorage keys so each axis remembers its own size.
+const PANEL_SIZE_CONFIG: Record<
+  ResizeAxis,
+  {
+    storageKey: string;
+    min: number;
+    default: number;
+    // Minimum room the rest of the viewport must keep on that axis. For
+    // width, this protects the list column toolbar (settings menu, Review
+    // group, Add button) and the macOS traffic-light inset from squishing.
+    // This is also the *only* upper bound — there's no absolute max, so on
+    // wide monitors the panel can grow as large as the viewport allows.
+    viewportGutter: number;
+  }
+> = {
+  width: {
+    storageKey: "panel-width",
+    min: 360,
+    default: 520,
+    viewportGutter: 480,
+  },
+  height: {
+    storageKey: "panel-height",
+    min: 320,
+    default: 520,
+    viewportGutter: 240,
+  },
+};
+
+const axisForOrientation = (o: Orientation): ResizeAxis =>
+  o === "side" ? "width" : "height";
+
+// Lower-bound clamp: only enforces the absolute min, ignores viewport.
+// This is what gets persisted — captures the user's *desired* size. No
+// upper bound here so a user who drags to "max" on a wide monitor records
+// that intent even if they later open the app on a narrower one.
+const clampDesired = (axis: ResizeAxis, value: number) => {
+  const cfg = PANEL_SIZE_CONFIG[axis];
+  return Math.max(cfg.min, value);
+};
+
+// Effective clamp: applied at render time. Layers the viewport gutter on
+// top of the absolute clamp. Computed from desired on every render so the
+// panel re-expands when the window grows back — the desired value isn't
+// destructively shrunk by a transient narrow window.
+//
+// Pass the live viewport dimension explicitly (read from state, not
+// window.innerWidth) so React re-renders this on every resize event
+// instead of going stale until something else triggers a render.
+const clampEffective = (
+  axis: ResizeAxis,
+  desired: number,
+  viewportDim: number,
+) => {
+  const cfg = PANEL_SIZE_CONFIG[axis];
+  const viewportMax = Math.max(cfg.min, viewportDim - cfg.viewportGutter);
+  return Math.max(cfg.min, Math.min(viewportMax, clampDesired(axis, desired)));
+};
+
+const useViewportSize = () => {
+  const [size, setSize] = React.useState(() => {
+    if (typeof window === "undefined") return { w: 1024, h: 768 };
+    return { w: window.innerWidth, h: window.innerHeight };
+  });
+  React.useEffect(() => {
+    const onResize = () =>
+      setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return size;
+};
+
+const usePanelSize = (axis: ResizeAxis) => {
+  const cfg = PANEL_SIZE_CONFIG[axis];
+  const [desired, setDesiredState] = React.useState<number>(() => {
+    if (typeof window === "undefined") return cfg.default;
+    const stored = window.localStorage.getItem(cfg.storageKey);
+    const parsed = stored ? parseInt(stored, 10) : NaN;
+    return clampDesired(axis, Number.isFinite(parsed) ? parsed : cfg.default);
+  });
+  const setDesired = React.useCallback(
+    (next: number) => {
+      setDesiredState(clampDesired(axis, next));
+    },
+    [axis],
+  );
+  React.useEffect(() => {
+    window.localStorage.setItem(cfg.storageKey, String(desired));
+  }, [cfg.storageKey, desired]);
+  return [desired, setDesired] as const;
+};
 
 const radiusFor = (p: OpenPhase) => (p === "full" ? 0 : 8);
 
@@ -143,55 +232,20 @@ export const SlidingItemPanel = ({
     if (itemId) return;
     const startPhase = phaseRef.current;
     if (startPhase === "closed") return;
-    // From "full" we first restore the insets (full → fullw) so the panel
-    // shrinks back to its windowed shape, then slide off. From any other
-    // phase we slide off directly.
-    const goFromFull = startPhase === "full";
-    if (goFromFull) {
-      setPhase("fullw");
-      const tStage = setTimeout(() => setPhase("closed"), EDGE_MS + PAUSE_MS);
-      const tUnmount = setTimeout(
-        () => setRenderedId(null),
-        EDGE_MS + PAUSE_MS + OPEN_MS,
-      );
-      return () => {
-        clearTimeout(tStage);
-        clearTimeout(tUnmount);
-      };
-    }
     setPhase("closed");
     const tUnmount = setTimeout(() => setRenderedId(null), OPEN_MS);
     return () => clearTimeout(tUnmount);
   }, [itemId]);
 
-  // Expand: side → fullw → full (staged).
-  const expandTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  // Expand: side ↔ fullw. The "full" (edge-to-edge) phase was removed —
+  // expanding now stops at fullw so the panel keeps its outer padding.
   const expand = React.useCallback(() => {
     setPhase((p) => (p === "side" ? "fullw" : p));
-    if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-    expandTimerRef.current = setTimeout(() => {
-      setPhase((p) => (p === "fullw" ? "full" : p));
-      expandTimerRef.current = null;
-    }, WIDTH_MS + PAUSE_MS);
   }, []);
 
   const restore = React.useCallback(() => {
-    setPhase((p) => (p === "full" ? "fullw" : p));
-    if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-    expandTimerRef.current = setTimeout(() => {
-      setPhase((p) => (p === "fullw" ? "side" : p));
-      expandTimerRef.current = null;
-    }, EDGE_MS + PAUSE_MS);
+    setPhase((p) => (p === "fullw" ? "side" : p));
   }, []);
-
-  React.useEffect(
-    () => () => {
-      if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
-    },
-    [],
-  );
 
   // Expand-on-open: when expandTrigger changes, queue an expand that fires
   // once the panel reaches side phase. One-shot per trigger change.
@@ -240,6 +294,60 @@ export const SlidingItemPanel = ({
 
   const isNarrow = useIsNarrow();
   const orientation: Orientation = isNarrow ? "bottom" : "side";
+  const axis = axisForOrientation(orientation);
+
+  // Persist width and height independently so each orientation remembers
+  // its own size. Effective sizes are re-clamped against the live viewport
+  // on every render — desired stays put when the window shrinks, so the
+  // panel re-expands when the window grows back.
+  const [desiredWidth, setDesiredWidth] = usePanelSize("width");
+  const [desiredHeight, setDesiredHeight] = usePanelSize("height");
+  const viewport = useViewportSize();
+  const panelWidth = clampEffective("width", desiredWidth, viewport.w);
+  const panelHeight = clampEffective("height", desiredHeight, viewport.h);
+  const effectiveSize = axis === "width" ? panelWidth : panelHeight;
+  const setDesiredSize = axis === "width" ? setDesiredWidth : setDesiredHeight;
+  const resetSize = React.useCallback(() => {
+    const cfg = PANEL_SIZE_CONFIG[axis];
+    setDesiredSize(cfg.default);
+  }, [axis, setDesiredSize]);
+
+  const [isDraggingResize, setIsDraggingResize] = React.useState(false);
+
+  const handleResizeStart = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const startCoord = axis === "width" ? e.clientX : e.clientY;
+      // Drag baselines on the *effective* (rendered) size so the panel
+      // responds immediately even if desired exceeds the viewport cap.
+      const startSize = effectiveSize;
+      const cursor = axis === "width" ? "col-resize" : "row-resize";
+      setIsDraggingResize(true);
+      const prevCursor = document.body.style.cursor;
+      const prevUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = cursor;
+      document.body.style.userSelect = "none";
+      const onMove = (ev: PointerEvent) => {
+        // Panel sits on the right (side) or bottom (bottom) edge — dragging
+        // toward the opposite edge grows it. Desired absorbs the full delta
+        // even if it exceeds the viewport cap, so the user's intent to
+        // "max out" survives a transient window resize.
+        const coord = axis === "width" ? ev.clientX : ev.clientY;
+        setDesiredSize(startSize + (startCoord - coord));
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        document.body.style.cursor = prevCursor;
+        document.body.style.userSelect = prevUserSelect;
+        setIsDraggingResize(false);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [axis, effectiveSize, setDesiredSize],
+  );
 
   // If the orientation flips while the panel is closed (user resized across
   // the breakpoint), suppress transitions for that frame — otherwise the
@@ -270,9 +378,12 @@ export const SlidingItemPanel = ({
   }, []);
 
   const suppressTransitions =
-    (phase === "closed" && orientationJustChanged) || resizing;
+    (phase === "closed" && orientationJustChanged) || resizing || isDraggingResize;
 
-  const sidePrimary = sidePrimaryFor(orientation);
+  // Primary axis size for the "side" phase. fullw/full sizes come from
+  // filling the viewport rather than from this value.
+  const sidePrimary =
+    orientation === "side" ? `${panelWidth}px` : `${panelHeight}px`;
   const visualRadius = radiusFor(visualPhase);
 
   // Placeholder reserves flex space so the list shrinks to make room for the
@@ -290,8 +401,6 @@ export const SlidingItemPanel = ({
   // inside PanelInner so the toolbar settles in sync.
   const ms = (() => {
     if (phase === "closed") return OPEN_MS;
-    if (phase === "fullw") return WIDTH_MS;
-    if (phase === "full") return EDGE_MS;
     return WIDTH_MS;
   })();
 
@@ -408,6 +517,62 @@ export const SlidingItemPanel = ({
           />
         )}
       </div>
+
+      {/* Resize handle — lives in the SLIDE_OFFSET gap between list and
+          panel, not inside the panel itself. Follows the panel via the
+          same slide transform so it appears/disappears with it. */}
+      {(phase === "side" || phase === "closed") && (
+        <div
+          role="separator"
+          aria-orientation={orientation === "side" ? "vertical" : "horizontal"}
+          onPointerDown={handleResizeStart}
+          onDoubleClick={resetSize}
+          className={cn(
+            "group/resize fixed z-40",
+            orientation === "side" ? "cursor-col-resize" : "cursor-row-resize",
+            phase === "closed" && "pointer-events-none",
+          )}
+          style={
+            orientation === "side"
+              ? {
+                  top: SLIDE_OFFSET,
+                  bottom: SLIDE_OFFSET,
+                  right: `${SLIDE_OFFSET + panelWidth}px`,
+                  width: SLIDE_OFFSET,
+                  transform:
+                    phase === "closed"
+                      ? `translate3d(calc(100% + ${SLIDE_OFFSET}px), 0, 0)`
+                      : "translate3d(0px, 0px, 0px)",
+                  transition: suppressTransitions
+                    ? "none"
+                    : `transform ${OPEN_MS}ms ${EASE}, right ${OPEN_MS}ms ${EASE}`,
+                }
+              : {
+                  left: SLIDE_OFFSET,
+                  right: SLIDE_OFFSET,
+                  bottom: `${SLIDE_OFFSET + panelHeight}px`,
+                  height: SLIDE_OFFSET,
+                  transform:
+                    phase === "closed"
+                      ? `translate3d(0, calc(100% + ${SLIDE_OFFSET}px), 0)`
+                      : "translate3d(0px, 0px, 0px)",
+                  transition: suppressTransitions
+                    ? "none"
+                    : `transform ${OPEN_MS}ms ${EASE}, bottom ${OPEN_MS}ms ${EASE}`,
+                }
+          }
+        >
+          <div
+            className={cn(
+              "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[opacity,background-color] duration-150",
+              orientation === "side" ? "h-10 w-[3px]" : "w-10 h-[3px]",
+              isDraggingResize
+                ? "opacity-100 bg-foreground/70"
+                : "opacity-0 bg-muted-foreground/50 group-hover/resize:opacity-100",
+            )}
+          />
+        </div>
+      )}
     </>
   );
 };
