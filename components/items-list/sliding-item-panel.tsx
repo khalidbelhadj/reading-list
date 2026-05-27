@@ -357,7 +357,7 @@ export const SlidingItemPanel = ({
         ref={visualRef}
         data-phase={phase}
         className={cn(
-          "fixed flex flex-col overflow-hidden bg-background dark:bg-card pointer-events-auto",
+          "fixed flex flex-col overflow-hidden bg-card pointer-events-auto",
           phase !== "closed" && "border border-border shadow-sm",
         )}
         style={{
