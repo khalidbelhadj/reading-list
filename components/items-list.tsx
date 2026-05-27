@@ -12,7 +12,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,11 +43,11 @@ import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grou
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
-import { setCursorId } from "./items-list/cursor-store";
+import { setCursorId, setOpenItemId as setOpenItemIdStore } from "./items-list/cursor-store";
+import { SlidingItemPanel } from "./items-list/sliding-item-panel";
 
 export const ItemsList = () => {
   // Data
-  const router = useRouter();
   const queryClient = useQueryClient();
   const {
     data: items,
@@ -74,13 +74,30 @@ export const ItemsList = () => {
     if (tab === "cards") return "cards";
     return "reading-list";
   });
-  // On the first home-page visit per session, jump to the last-opened item if
-  // it still exists. Subsequent back-navigations stay on the list.
+  // Sliding panel: track which item is open via ?item=ID URL state so back/
+  // forward/refresh restore the panel naturally.
+  const [openItemId, setOpenItemId] = React.useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("item");
+  });
+
+  React.useEffect(() => {
+    const onPop = () => {
+      const id = new URLSearchParams(window.location.search).get("item");
+      setOpenItemId(id);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // On the first home-page visit per session, restore the last-opened item in
+  // the panel if it still exists.
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     if (sessionStorage.getItem("home-visited") === "1") return;
     if (!items) return;
     sessionStorage.setItem("home-visited", "1");
+    if (openItemId) return;
     let lastId: string | null = null;
     try {
       lastId = localStorage.getItem("last-item-id");
@@ -89,13 +106,30 @@ export const ItemsList = () => {
     }
     if (!lastId) return;
     if (items.some((i) => i.id === lastId)) {
-      router.replace(`/item/${lastId}`);
+      const params = new URLSearchParams(window.location.search);
+      params.set("item", lastId);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+      setOpenItemId(lastId);
     } else {
       try {
         localStorage.removeItem("last-item-id");
       } catch {}
     }
-  }, [items, router]);
+  }, [items, openItemId]);
+
+  React.useEffect(() => {
+    if (!openItemId) return;
+    try {
+      localStorage.setItem("last-item-id", openItemId);
+    } catch {}
+  }, [openItemId]);
+
+  // Mirror to the imperative store so rows can highlight the open item
+  // without forcing the full list to re-render on open/close.
+  React.useEffect(() => {
+    setOpenItemIdStore(openItemId);
+    return () => setOpenItemIdStore(null);
+  }, [openItemId]);
 
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
@@ -202,11 +236,38 @@ export const ItemsList = () => {
     );
   }, []);
 
+  const handleCloseItem = React.useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("item")) {
+      params.delete("item");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        qs ? `?${qs}` : window.location.pathname,
+      );
+    }
+    setOpenItemId(null);
+  }, []);
+
   const handleOpenItem = React.useCallback(
     (id: string) => {
-      router.push(`/item/${id}`);
+      const params = new URLSearchParams(window.location.search);
+      const current = params.get("item");
+      if (current === id) {
+        handleCloseItem();
+        return;
+      }
+      params.set("item", id);
+      const url = `?${params.toString()}`;
+      if (current) {
+        window.history.replaceState(null, "", url);
+      } else {
+        window.history.pushState(null, "", url);
+      }
+      setOpenItemId(id);
     },
-    [router],
+    [handleCloseItem],
   );
 
   // Hooks
@@ -381,14 +442,14 @@ export const ItemsList = () => {
             return [newItem, ...old];
           });
           invalidate();
-          router.push(`/item/${newId}`);
+          handleOpenItem(newId);
         },
         onError: () => {
           toast.error("Could not create item. Please try again.");
         },
       },
     );
-  }, [requestCreate, queryClient, invalidate, router]);
+  }, [requestCreate, queryClient, invalidate, handleOpenItem]);
 
   const requestPasteCreate = React.useCallback(
     async (url: string, tagNames: string[]) => {
@@ -502,19 +563,15 @@ export const ItemsList = () => {
   });
 
   // Effects
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 0);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollTop > 0);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
-
-  React.useEffect(() => {
-    if (!items) return;
-    for (const item of items) {
-      router.prefetch(`/item/${item.id}`);
-    }
-  }, [items, router]);
 
   // DnD
   const isDragDisabled =
@@ -590,7 +647,11 @@ export const ItemsList = () => {
   );
 
   return (
-    <div>
+    <div className="flex flex-col md:flex-row w-full h-dvh overflow-hidden">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
+      >
       <div className="mx-auto max-w-175 px-3 pb-5 flex flex-col gap-3">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 flex flex-col gap-3 pt-3 pb-1 bg-background">
@@ -839,6 +900,9 @@ export const ItemsList = () => {
         onOpenExisting={handleDuplicateOpenExisting}
         onCreateAnyway={handleDuplicateCreateAnyway}
       />
+      </div>
+
+      <SlidingItemPanel itemId={openItemId} onClose={handleCloseItem} />
     </div>
   );
 };

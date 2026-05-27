@@ -224,6 +224,14 @@ html.electron.full-width .electron-top-bar-inset {
   padding-left: 80px;
 }
 
+/* The side-panel toolbar covers the top-left of the window once it starts
+   expanding, so the traffic-light clearance must always be reserved —
+   regardless of viewport width. Higher specificity than the wide-mode rule
+   above so it overrides padding-left: 0. */
+html.electron .panel-toolbar.electron-top-bar-inset {
+  padding-left: 80px;
+}
+
 html.electron .electron-top-bar-inset button,
 html.electron .electron-top-bar-inset a,
 html.electron .electron-top-bar-inset input,

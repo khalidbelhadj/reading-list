@@ -60,7 +60,11 @@ async function fetchOembedTitle(url: string): Promise<string | null> {
     const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.title || null;
+    const title = typeof data.title === "string" ? data.title : null;
+    if (!title) return null;
+    const channel =
+      typeof data.author_name === "string" ? data.author_name.trim() : "";
+    return channel ? `${title} - ${channel}` : title;
   } catch {
     return null;
   }

@@ -29,7 +29,7 @@ import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useHoverPreview, HoverPreviewContent } from "@/components/ui/preview-card";
 import { ItemPreview } from "./item-preview";
-import { useIsCursor } from "./cursor-store";
+import { useIsCursor, useIsOpenItem } from "./cursor-store";
 
 export const CollapsibleSection = ({
   open,
@@ -291,7 +291,9 @@ export const PlainItemRow = ({
   onToggleRead?: () => void;
   onTogglePin?: () => void;
 }) => {
-  const isSelected = useIsCursor(item.id);
+  const isCursor = useIsCursor(item.id);
+  const isOpen = useIsOpenItem(item.id);
+  const isSelected = isCursor || isOpen;
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const preview = useHoverPreview(PREVIEW_DELAY);
