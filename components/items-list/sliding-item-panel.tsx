@@ -461,13 +461,14 @@ const PanelInner = ({
           // same inset back as internal padding — the buttons stay at the
           // same absolute position as the margin animates away.
           phase === "full" && "pt-3 pr-3 pl-3",
+          // The panel toolbar is always a window drag region in Electron
+          // (you can grab anywhere along the top bar to move the window).
+          "electron-top-bar-inset",
           // Reserve macOS traffic-light space once the panel starts covering
-          // the top-left of the window. Applied from fullw onward so the
-          // padding animates in alongside the width expansion, not after it.
-          // The `panel-toolbar` companion class forces the 80px clearance
-          // regardless of viewport width (see globals.css).
-          (phase === "fullw" || phase === "full") &&
-            "electron-top-bar-inset panel-toolbar",
+          // the top-left of the window. `panel-toolbar` forces the 80px
+          // clearance regardless of viewport width (see globals.css). In
+          // side mode the panel is on the right edge and doesn't need it.
+          (phase === "fullw" || phase === "full") && "panel-toolbar",
         )}
       >
         <Tooltip>

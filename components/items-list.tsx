@@ -567,7 +567,7 @@ export const ItemsList = ({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
+      className="electron-toolbar-container flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
     >
       <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
         {/* Sticky header */}

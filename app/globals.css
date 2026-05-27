@@ -197,21 +197,34 @@
   transform: scaleX(1);
 }
 
-/* Electron: marked top bars reserve traffic-light space on narrow windows and
-   act as a drag region so the window can be moved by clicking the bar. Inset
-   snaps in as a hard step at 880px so the content doesn't visibly glide
-   across the traffic-light area while the window is being resized.
-   Buttons/inputs/links inside stay interactive via no-drag. */
+/* Electron: marked top bars act as a drag region so the window can be moved
+   by clicking the bar. Buttons/inputs/links inside stay interactive via the
+   no-drag rule below. */
 html.electron .electron-top-bar-inset {
   padding-left: 0;
   -webkit-app-region: drag;
   app-region: drag;
 }
-@media (max-width: 880px) {
-  html.electron .electron-top-bar-inset {
-    padding-left: 80px;
+
+/* Traffic-light clearance for the list panel's top bar. Uses a container
+   query so the padding kicks in based on the list's *own* width, not the
+   viewport — which matters when the item panel is open and the list is
+   squeezed even on a wide window. Gradient: 0 → 80px as the list's width
+   shrinks from 860px to 700px (the content max-width). Below 700px the
+   content fills the list, so 80px stays constant. */
+.electron-toolbar-container {
+  container-type: inline-size;
+}
+@container (max-width: 860px) {
+  html.electron .electron-toolbar-container .electron-top-bar-inset {
+    padding-left: clamp(
+      0px,
+      calc(80px - max(0px, (100cqw - 700px) / 2)),
+      80px
+    );
   }
 }
+
 /* Full-width mode: Electron only. Removes the 700px content cap so the app
    uses the entire window width. Web ignores .full-width since this requires
    .electron too. */
@@ -220,14 +233,13 @@ html.electron.full-width .max-w-175 {
 }
 /* Without the centered max-width, content sits flush against the left edge —
    reserve the full traffic-light clearance unconditionally. */
-html.electron.full-width .electron-top-bar-inset {
+html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
   padding-left: 80px;
 }
 
 /* The side-panel toolbar covers the top-left of the window once it starts
    expanding, so the traffic-light clearance must always be reserved —
-   regardless of viewport width. Higher specificity than the wide-mode rule
-   above so it overrides padding-left: 0. */
+   regardless of viewport width. */
 html.electron .panel-toolbar.electron-top-bar-inset {
   padding-left: 80px;
 }
@@ -239,6 +251,18 @@ html.electron .electron-top-bar-inset textarea,
 html.electron .electron-top-bar-inset [role="menuitem"],
 html.electron .electron-top-bar-inset [role="combobox"],
 html.electron .electron-top-bar-inset [data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Any open popup/dialog/menu disables drag on the top bars — otherwise the
+   OS consumes the click for window-drag and the popup doesn't dismiss when
+   the user clicks the bar. */
+html.electron:has([data-slot="dropdown-menu-content"]) .electron-top-bar-inset,
+html.electron:has([data-slot="context-menu-content"]) .electron-top-bar-inset,
+html.electron:has([data-slot="popover-content"]) .electron-top-bar-inset,
+html.electron:has([role="dialog"]) .electron-top-bar-inset,
+html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
