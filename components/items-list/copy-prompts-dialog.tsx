@@ -255,7 +255,7 @@ export const CopyPromptsDialog = ({
             value={selectedPrompt.template}
             onChange={handleTemplateChange}
             spellCheck={false}
-            placeholder="Write your prompt template..."
+            placeholder="Write your prompt template"
             className="font-mono w-full h-96 resize-none rounded-md bg-card p-3 text-xs outline-none ring-1 ring-foreground/10 focus:ring-foreground/25 detail-panel-scroll"
           />
         ) : (

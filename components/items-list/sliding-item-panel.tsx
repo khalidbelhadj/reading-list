@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
   IconDots,
   IconExternalLink,
+  IconFileFilled,
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
@@ -28,7 +30,7 @@ import { DetailPanelSkeleton } from "./detail-panel-skeleton";
 import { ItemDropdown } from "./item-dropdown";
 import { DeleteItemDialog } from "./delete-item-dialog";
 import { useItemMutations } from "./use-item-mutations";
-import { type EditFields } from "./utils";
+import { getFaviconSrc, type EditFields } from "./utils";
 
 // Open phase machine. "closed" represents both "never opened" and "after
 // slide-off"; while closed, the visual layer keeps the dimensions of the
@@ -41,10 +43,11 @@ export const EDGE_MS = 220; // fullw ↔ full
 const OPEN_MS = 280; // closed ↔ side (slide in/out)
 const PAUSE_MS = 90;
 export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-// Outer spacing is owned by PanelLayout (p-3 / gap-3). 12 here is the slide-off
+// Outer spacing is owned by PanelLayout (p-2). 8 here is the slide-off
 // distance — how far the panel must translate to clear the layout's outer
-// padding when it slides off-screen.
-const SLIDE_OFFSET = 12;
+// padding when it slides off-screen. Must match PanelLayout's padding so
+// the panel toolbar's buttons line up with the list toolbar's buttons.
+const SLIDE_OFFSET = 8;
 const NARROW_BREAKPOINT = 768;
 
 type Orientation = "side" | "bottom";
@@ -52,14 +55,21 @@ type Orientation = "side" | "bottom";
 // Primary axis size in the "side" phase. fullw/full size comes from filling
 // the layout container (width/height: 100%) rather than from this function.
 const sidePrimaryFor = (o: Orientation) =>
-  o === "side" ? "min(50vw, 720px)" : "min(75dvh, 760px)";
+  o === "side" ? "min(50vw, 720px)" : "min(50dvh, 760px)";
 
 const radiusFor = (p: OpenPhase) => (p === "full" ? 0 : 8);
 
 const useIsNarrow = () => {
-  // Always start `false` so SSR and the first client render match. The actual
-  // viewport is read after hydration in the effect below.
-  const [isNarrow, setIsNarrow] = React.useState(false);
+  // Read matchMedia synchronously in the initializer so the panel knows
+  // the correct orientation on its very first client render — otherwise
+  // the open animation starts in side orientation, then mid-flight flips
+  // to bottom when the post-mount effect catches up. SSR still returns
+  // false (window undefined), but the panel is closed during SSR so
+  // there's no visible orientation to mismatch.
+  const [isNarrow, setIsNarrow] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(`(max-width: ${NARROW_BREAKPOINT - 1}px)`).matches;
+  });
   React.useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT - 1}px)`);
     const update = () => setIsNarrow(mq.matches);
@@ -240,7 +250,27 @@ export const SlidingItemPanel = ({
   React.useLayoutEffect(() => {
     prevOrientationRef.current = orientation;
   }, [orientation]);
-  const suppressTransitions = phase === "closed" && orientationJustChanged;
+
+  // Window resize suppresses transitions: the panel's width/top/right/etc.
+  // use vw/dvh values, so resizing makes the computed values change and the
+  // CSS transition tries to animate every step, lagging behind the window.
+  const [resizing, setResizing] = React.useState(false);
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onResize = () => {
+      setResizing(true);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setResizing(false), 120);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const suppressTransitions =
+    (phase === "closed" && orientationJustChanged) || resizing;
 
   const sidePrimary = sidePrimaryFor(orientation);
   const visualRadius = radiusFor(visualPhase);
@@ -404,7 +434,104 @@ const PanelInner = ({
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [scrolled, setScrolled] = React.useState(false);
   const detailRef = React.useRef<DetailPanelHandle>(null);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const morphRef = React.useRef<HTMLDivElement | null>(null);
+  const headerSlotRef = React.useRef<HTMLDivElement | null>(null);
+
+  const faviconSrc = item
+    ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })
+    : null;
+
+  // Title morph: as the user scrolls the panel's inner container, the title
+  // row in the content interpolates toward the empty slot in the toolbar,
+  // shrinking and fading from content position into the header.
+  React.useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const THRESHOLD = 48;
+    const CONTENT_ICON = 24;
+    const HEADER_ICON = 14;
+    const CONTENT_FONT = 20; // text-xl on the title in DetailPanel
+    const HEADER_FONT = 12;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const ease = (t: number) => t * (2 - t);
+    let scrolledLocal = false;
+
+    const update = () => {
+      const morph = morphRef.current;
+      const headerSlot = headerSlotRef.current;
+      const contentRow = scrollEl.querySelector<HTMLElement>(
+        "[data-title-row]",
+      );
+      const containingBlock = morph?.parentElement;
+      if (!morph || !headerSlot || !contentRow || !containingBlock) return;
+
+      const panelRect = containingBlock.getBoundingClientRect();
+      const scrollY = Math.max(0, scrollEl.scrollTop);
+      const rawT = Math.min(scrollY / THRESHOLD, 1);
+      const t = ease(rawT);
+
+      const isScrolled = scrollY > 0;
+      if (isScrolled !== scrolledLocal) {
+        scrolledLocal = isScrolled;
+        setScrolled(isScrolled);
+      }
+
+      if (rawT <= 0) {
+        morph.style.opacity = "0";
+        contentRow.style.visibility = "";
+        return;
+      }
+
+      contentRow.style.visibility = "hidden";
+
+      const contentRect = contentRow.getBoundingClientRect();
+      const headerRect = headerSlot.getBoundingClientRect();
+      const x = lerp(
+        contentRect.left - panelRect.left,
+        headerRect.left - panelRect.left,
+        t,
+      );
+      const y = lerp(
+        contentRect.top - panelRect.top,
+        headerRect.top - panelRect.top,
+        t,
+      );
+      const iconSize = lerp(CONTENT_ICON, HEADER_ICON, t);
+      const fontSize = lerp(CONTENT_FONT, HEADER_FONT, t);
+      const gap = lerp(8, 6, t);
+      const maxWidth = lerp(contentRect.width, headerRect.width, t);
+
+      morph.style.transform = `translate(${x}px, ${y}px)`;
+      morph.style.fontSize = `${fontSize}px`;
+      morph.style.gap = `${gap}px`;
+      morph.style.maxWidth = `${maxWidth}px`;
+      morph.style.opacity = "1";
+
+      const icon = morph.querySelector<HTMLElement>("[data-morph-icon]");
+      if (icon) {
+        icon.style.width = `${iconSize}px`;
+        icon.style.height = `${iconSize}px`;
+      }
+    };
+
+    update();
+    scrollEl.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const raf = requestAnimationFrame(update);
+    return () => {
+      scrollEl.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      cancelAnimationFrame(raf);
+      const contentRow = scrollEl.querySelector<HTMLElement>(
+        "[data-title-row]",
+      );
+      if (contentRow) contentRow.style.visibility = "";
+    };
+  }, [item]);
 
   const { toggleReadMutation, togglePinMutation, deleteMutation, updateMutation } =
     useItemMutations();
@@ -456,7 +583,7 @@ const PanelInner = ({
     <>
       <div
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-0.5 bg-inherit transition-[padding] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "sticky top-0 z-10 flex items-center gap-0.5 p-1 bg-inherit transition-[padding] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
           // In "full" mode the panel has lost its outer margins, so put the
           // same inset back as internal padding — the buttons stay at the
           // same absolute position as the margin animates away.
@@ -501,7 +628,7 @@ const PanelInner = ({
           </TooltipTrigger>
           <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
         </Tooltip>
-        <div className="flex-1" />
+        <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
         {item?.url && (
           <Tooltip>
             <TooltipTrigger
@@ -570,11 +697,21 @@ const PanelInner = ({
             <IconDots />
           </Button>
         )}
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-card to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            scrolled ? "opacity-100" : "opacity-0",
+          )}
+        />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-175 px-3 pt-1 pb-12">
-          <LoadingFade loading={!item} skeleton={<DetailPanelSkeleton />}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-175 px-3 pt-1 pb-12 min-h-full flex flex-col">
+          <LoadingFade
+            loading={!item}
+            skeleton={<DetailPanelSkeleton />}
+            className="flex-1 flex flex-col"
+          >
             {item ? (
               <DetailPanel
                 ref={detailRef}
@@ -589,6 +726,36 @@ const PanelInner = ({
           </LoadingFade>
         </div>
       </div>
+
+      {item && (
+        <div
+          ref={morphRef}
+          className="absolute top-0 left-0 z-20 flex items-center pointer-events-none"
+          style={{ opacity: 0 }}
+        >
+          <div
+            data-morph-icon
+            className="shrink-0 flex items-center justify-center"
+            style={{ width: 24, height: 24 }}
+          >
+            {faviconSrc ? (
+              <Image
+                src={faviconSrc}
+                alt=""
+                width={24}
+                height={24}
+                className="w-full h-full rounded object-contain"
+                unoptimized
+              />
+            ) : (
+              <IconFileFilled className="w-full h-full text-muted-foreground" />
+            )}
+          </div>
+          <span className="font-content font-semibold truncate">
+            {item.title || "Untitled"}
+          </span>
+        </div>
+      )}
 
       <DeleteItemDialog
         item={item}

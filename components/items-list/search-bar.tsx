@@ -33,7 +33,7 @@ export const SearchBar = React.forwardRef<
   onCursorNav,
   onCursorOpen,
   initialQuery = "",
-  placeholder = "Search...",
+  placeholder = "Search",
 }, ref) => {
   const [isOpen, setIsOpen] = React.useState(() => initialQuery.length > 0);
   const [query, setQuery] = React.useState(initialQuery);

@@ -201,7 +201,6 @@
    by clicking the bar. Buttons/inputs/links inside stay interactive via the
    no-drag rule below. */
 html.electron .electron-top-bar-inset {
-  padding-left: 0;
   -webkit-app-region: drag;
   app-region: drag;
 }

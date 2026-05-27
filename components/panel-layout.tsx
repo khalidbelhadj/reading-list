@@ -24,6 +24,13 @@ export const PanelLayout = () => {
   // once it reaches side phase. Used by Cmd+Enter on a list row.
   const [expandTrigger, setExpandTrigger] = React.useState(0);
 
+  // Mount the panel only after client hydration. The panel's inline styles
+  // depend on orientation (matchMedia), which differs between server and
+  // client — deferring avoids the hydration mismatch that would otherwise
+  // force React to keep the (wrong) server-rendered orientation.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   React.useEffect(() => {
     const onPop = () => {
       const id = new URLSearchParams(window.location.search).get("item");
@@ -131,17 +138,19 @@ export const PanelLayout = () => {
 
   return (
     <div className="h-dvh overflow-hidden">
-      <div className="h-full p-3">
+      <div className="h-full p-2">
         <div className="h-full flex flex-col md:flex-row">
           <ItemsList
             onOpenItem={handleOpenItem}
             onOpenItemExpanded={handleOpenItemExpanded}
           />
-          <SlidingItemPanel
-            itemId={openItemId}
-            onClose={handleCloseItem}
-            expandTrigger={expandTrigger}
-          />
+          {mounted && (
+            <SlidingItemPanel
+              itemId={openItemId}
+              onClose={handleCloseItem}
+              expandTrigger={expandTrigger}
+            />
+          )}
         </div>
       </div>
     </div>

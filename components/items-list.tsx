@@ -565,14 +565,11 @@ export const ItemsList = ({
   );
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="electron-toolbar-container flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
-    >
-      <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex flex-col gap-3 pb-1 bg-background">
-          <div className="electron-top-bar-inset">
+    <div className="electron-toolbar-container relative flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+      {/* Header — outside the scroll container so the scrollbar starts
+          below it instead of reaching all the way to the top of the panel. */}
+      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-1 bg-background">
+        <div className="electron-top-bar-inset">
             <Toolbar
               activeTab={activeTab}
               setActiveTabAndUrl={setActiveTabAndUrl}
@@ -614,7 +611,7 @@ export const ItemsList = ({
             onQueryChange={handleSearchQueryChange}
             onPendingChange={handleSearchPendingChange}
             initialQuery={initialSearchQuery}
-            placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
+            placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
           />
 
           <ReviewNudge />
@@ -631,11 +628,20 @@ export const ItemsList = ({
 
           {activeTab === "cards" && <CardsStateBar />}
 
-          {scrolled && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            scrolled ? "opacity-100" : "opacity-0",
           )}
-        </div>
+        />
+      </div>
 
+      {/* Scrollable content */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
+      >
+        <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
         {/* Content */}
         {activeTab === "cards" ? (
           <CardsList
@@ -685,7 +691,7 @@ export const ItemsList = ({
                 <button
                   type="button"
                   onClick={() => setPinnedOpen((p) => !p)}
-                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
                 >
                   <IconPinFilled className="size-3" />
                   Pinned
@@ -755,7 +761,7 @@ export const ItemsList = ({
                     <button
                       type="button"
                       onClick={() => setPinnedOpen((p) => !p)}
-                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
                     >
                       <IconPinFilled className="size-3" />
                       Pinned
@@ -811,7 +817,13 @@ export const ItemsList = ({
         )}
         </LoadingFade>
         )}
+        </div>
       </div>
+
+      {/* Bottom-of-list fade — softens the boundary where the list ends, so
+          items don't get sliced in half by the item panel's top edge in
+          bottom orientation. */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-background to-transparent pointer-events-none z-10" />
 
       <DeleteItemDialog
         item={itemToDelete}

@@ -389,7 +389,7 @@ export const DetailPanel = React.forwardRef<
     });
 
     return (
-      <div data-detail-panel className="flex flex-col gap-2 w-full pb-12 min-h-[calc(100dvh-3.5rem)]">
+      <div data-detail-panel className="flex flex-1 flex-col gap-2 w-full pb-12">
         {/* Item form card */}
         <div className="flex flex-col gap-2 flex-1">
           {/* Favicon + Title */}
@@ -515,7 +515,7 @@ export const DetailPanel = React.forwardRef<
             <MarkdownEditor
               value={notes}
               onChange={setNotes}
-              placeholder="Notes..."
+              placeholder="Notes"
               className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
             />
           </div>

@@ -118,7 +118,7 @@ export const Toolbar = ({
   const showFilters = activeTab !== "cards";
 
   return (
-    <div className="flex items-center relative">
+    <div className="flex items-center relative pt-1">
       <SettingsMenu
         activeTab={activeTab}
         setActiveTabAndUrl={setActiveTabAndUrl}
