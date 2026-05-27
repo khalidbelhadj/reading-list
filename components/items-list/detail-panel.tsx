@@ -420,7 +420,7 @@ export const DetailPanel = React.forwardRef<
               placeholder="Untitled"
               rows={1}
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-2xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
+              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
             />
             {showAutofill && (
               <Tooltip>

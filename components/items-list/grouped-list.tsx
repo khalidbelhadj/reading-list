@@ -293,7 +293,6 @@ export const PlainItemRow = ({
 }) => {
   const isCursor = useIsCursor(item.id);
   const isOpen = useIsOpenItem(item.id);
-  const isSelected = isCursor || isOpen;
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const preview = useHoverPreview(PREVIEW_DELAY);
@@ -322,9 +321,10 @@ export const PlainItemRow = ({
           onMouseLeave={preview.onMouseLeave}
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
-            isSelected && "bg-secondary",
-            !isSelected && !suppressHover && "hover:bg-card",
-            !isSelected && (menuOpen || contextMenuOpen) && "bg-card",
+            isOpen && "bg-secondary",
+            !isOpen && isCursor && "bg-card",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-card",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-card",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
@@ -334,7 +334,7 @@ export const PlainItemRow = ({
       <ItemRowContent
         item={item}
         flashcardCount={item.flashcardCount}
-        isSelected={!!isSelected}
+        isSelected={isOpen}
         isTyping={isTyping}
         menuOpen={menuOpen}
         suppressHover={suppressHover}

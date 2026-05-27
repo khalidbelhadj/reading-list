@@ -29,6 +29,7 @@ Features requests:
 - We should have an "archived", then have a cleanup routine
 - In-app AI features
     - We need native llm features, I way to run a (useful) agent to convert my stuff to flashcards, maybe a versioning and approval flow sort of thing.
+    - "Find or Ask" in the search bar: when a search returns no results, prompt the user to run an agentic search and ask an LLM instead of just showing an empty state.
 - Another llm flow I would like is having the reader open and asking questions and the model points me to the right place, draws diagrams, explains things inline. This would be sick with a voice model too (speech to text) and maybe text to speech. We need a good in app reader experience though.
 - Content in-app
     - support PDF uploads

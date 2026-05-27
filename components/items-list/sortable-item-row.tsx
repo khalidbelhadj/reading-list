@@ -47,7 +47,6 @@ export function SortableItemRow({
 }) {
   const isCursor = useIsCursor(item.id);
   const isOpen = useIsOpenItem(item.id);
-  const isSelected = isCursor || isOpen;
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const preview = useHoverPreview(PREVIEW_DELAY);
@@ -95,9 +94,10 @@ export function SortableItemRow({
           data-item-id={item.id}
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
-            isSelected && "bg-secondary",
-            !isSelected && !suppressHover && "hover:bg-card",
-            !isSelected && (menuOpen || contextMenuOpen) && "bg-card",
+            isOpen && "bg-secondary",
+            !isOpen && isCursor && "bg-card",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-card",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-card",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
@@ -146,9 +146,15 @@ export function SortableItemRow({
           "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
           !suppressHover && "group-hover:visible",
         )}>
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-card to-card" />
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-r from-transparent",
+            isOpen ? "via-secondary to-secondary" : "via-card to-card",
+          )} />
           <DropdownMenuTrigger
-            className="relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none bg-card"
+            className={cn(
+              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+              isOpen ? "bg-secondary" : "bg-card",
+            )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}
           >

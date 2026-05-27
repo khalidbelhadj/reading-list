@@ -6,7 +6,6 @@ import {
   IconChevronDown,
   IconClipboardFilled,
   IconPlus,
-  IconSquareRoundedPlusFilled,
   IconSparklesFilled,
 } from "@tabler/icons-react";
 import React from "react";
@@ -235,7 +234,7 @@ export const Toolbar = ({
             Paste URL
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onAdd}>
-            <IconSquareRoundedPlusFilled />
+            <IconPlus />
             New item
           </DropdownMenuItem>
         </DropdownMenuContent>

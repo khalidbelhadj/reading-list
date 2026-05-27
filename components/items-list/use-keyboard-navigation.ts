@@ -16,6 +16,7 @@ export const useKeyboardNavigation = ({
   onRequestDelete,
   activeTags,
   onOpenItem,
+  onOpenItemExpanded,
   onOpenNew,
   onPasteCreate,
   onSearchOpen,
@@ -31,6 +32,7 @@ export const useKeyboardNavigation = ({
   onRequestDelete?: () => void;
   activeTags: Set<string>;
   onOpenItem: (id: string) => void;
+  onOpenItemExpanded: (id: string) => void;
   onOpenNew: () => void;
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
@@ -65,6 +67,14 @@ export const useKeyboardNavigation = ({
     const handleGlobal = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (isOverlayOpen()) return;
+        // If the item panel is open, ESC closes the panel — let it do so
+        // without clearing the cursor, so the user can keep navigating from
+        // where they were.
+        if (
+          document.querySelector('[data-phase]:not([data-phase="closed"])')
+        ) {
+          return;
+        }
         setCursor(null);
         return;
       }
@@ -108,14 +118,24 @@ export const useKeyboardNavigation = ({
   // Ctrl+N/P navigation, Alt+Ctrl+N/P to reorder
   React.useEffect(() => {
     const scrollWithMargin = (id: string) => {
-      const el = document.querySelector(`[data-item-id="${id}"]`);
+      const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
       if (!el) return;
+      // Walk up to find the row's scrollable ancestor — the list now lives
+      // inside a scrolling container, not the window.
+      let container: HTMLElement | null = el.parentElement;
+      while (container) {
+        const overflowY = getComputedStyle(container).overflowY;
+        if (overflowY === "auto" || overflowY === "scroll") break;
+        container = container.parentElement;
+      }
+      if (!container) return;
       const rect = el.getBoundingClientRect();
+      const cRect = container.getBoundingClientRect();
       const margin = rect.height * 3;
-      if (rect.top - margin < 0) {
-        window.scrollBy({ top: rect.top - margin });
-      } else if (rect.bottom + margin > window.innerHeight) {
-        window.scrollBy({ top: rect.bottom + margin - window.innerHeight });
+      if (rect.top - margin < cRect.top) {
+        container.scrollBy({ top: rect.top - cRect.top - margin });
+      } else if (rect.bottom + margin > cRect.bottom) {
+        container.scrollBy({ top: rect.bottom - cRect.bottom + margin });
       }
     };
 
@@ -194,26 +214,34 @@ export const useKeyboardNavigation = ({
         return;
       }
 
-      // Enter to open item page
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && currentCursor !== null) {
+      // Enter to open item in side panel
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.shiftKey && currentCursor !== null) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         onOpenItem(currentCursor);
         return;
       }
 
-      // Cmd+Enter to open in new tab
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && currentCursor !== null) {
+      // Cmd+Shift+Enter to open the item's URL in a new tab
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && currentCursor !== null) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         const item = filteredItems.find((i) => i.id === currentCursor);
         if (item?.url && URL.canParse(item.url)) window.open(item.url, "_blank");
         return;
       }
+
+      // Cmd+Enter to open the item expanded
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && currentCursor !== null) {
+        if (isOverlayOpen()) return;
+        e.preventDefault();
+        onOpenItemExpanded(currentCursor);
+        return;
+      }
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [filteredItems, tabItems, setSuppressHover, cursorRef, setCursor, onOpenItem, onReorder]);
+  }, [filteredItems, tabItems, setSuppressHover, cursorRef, setCursor, onOpenItem, onOpenItemExpanded, onReorder]);
 
   return {
     suppressHover,

@@ -33,32 +33,27 @@ import { type EditFields } from "./utils";
 // Open phase machine. "closed" represents both "never opened" and "after
 // slide-off"; while closed, the visual layer keeps the dimensions of the
 // last open phase so the slide-off animation doesn't reshape content.
-type OpenPhase = "side" | "fullw" | "full";
-type Phase = "closed" | OpenPhase;
+export type OpenPhase = "side" | "fullw" | "full";
+export type Phase = "closed" | OpenPhase;
 
 const WIDTH_MS = 280; // side ↔ fullw
-const EDGE_MS = 220; // fullw ↔ full
+export const EDGE_MS = 220; // fullw ↔ full
 const OPEN_MS = 280; // closed ↔ side (slide in/out)
 const PAUSE_MS = 90;
-const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-const INSET = 12;
+export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+// Outer spacing is owned by PanelLayout (p-3 / gap-3). 12 here is the slide-off
+// distance — how far the panel must translate to clear the layout's outer
+// padding when it slides off-screen.
+const SLIDE_OFFSET = 12;
 const NARROW_BREAKPOINT = 768;
 
 type Orientation = "side" | "bottom";
 
-// Primary axis size (width for side orientation, height for bottom).
-const primaryFor = (p: OpenPhase, o: Orientation) => {
-  if (o === "side") {
-    if (p === "side") return "min(50vw, 720px)";
-    if (p === "fullw") return `calc(100vw - ${INSET * 2}px)`;
-    return "100vw";
-  }
-  if (p === "side") return "min(75dvh, 760px)";
-  if (p === "fullw") return `calc(100dvh - ${INSET * 2}px)`;
-  return "100dvh";
-};
+// Primary axis size in the "side" phase. fullw/full size comes from filling
+// the layout container (width/height: 100%) rather than from this function.
+const sidePrimaryFor = (o: Orientation) =>
+  o === "side" ? "min(50vw, 720px)" : "min(75dvh, 760px)";
 
-const insetFor = (p: OpenPhase) => (p === "full" ? 0 : INSET);
 const radiusFor = (p: OpenPhase) => (p === "full" ? 0 : 8);
 
 const useIsNarrow = () => {
@@ -78,9 +73,13 @@ const useIsNarrow = () => {
 export const SlidingItemPanel = ({
   itemId,
   onClose,
+  expandTrigger,
 }: {
   itemId: string | null;
   onClose: () => void;
+  // Incremented by the parent to request expand-on-open (Cmd+Enter). Each
+  // change triggers exactly one expand once the panel reaches side phase.
+  expandTrigger?: number;
 }) => {
   // Always start at "closed" so a remount with itemId already set still
   // plays the open animation (closed → side via rAF). Some parent re-mounts
@@ -184,19 +183,39 @@ export const SlidingItemPanel = ({
     [],
   );
 
-  // ESC closes
+  // Expand-on-open: when expandTrigger changes, queue an expand that fires
+  // once the panel reaches side phase. One-shot per trigger change.
+  const [pendingExpand, setPendingExpand] = React.useState(false);
+  const lastExpandTriggerRef = React.useRef(expandTrigger);
+  React.useEffect(() => {
+    if (expandTrigger === undefined) return;
+    if (expandTrigger !== lastExpandTriggerRef.current) {
+      lastExpandTriggerRef.current = expandTrigger;
+      setPendingExpand(true);
+    }
+  }, [expandTrigger]);
+  React.useEffect(() => {
+    if (pendingExpand && phase === "side") {
+      setPendingExpand(false);
+      expand();
+    }
+  }, [pendingExpand, phase, expand]);
+
+  // ESC closes. Bail only when the focused editable is *inside* the panel
+  // (e.g. the title/notes editor) — focused inputs elsewhere on the page
+  // (like the search bar) should not block closing.
+  const visualRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     if (phase === "closed") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const ae = document.activeElement as HTMLElement | null;
-      if (
+      const isEditable =
         ae &&
         (ae.tagName === "INPUT" ||
           ae.tagName === "TEXTAREA" ||
-          ae.isContentEditable)
-      )
-        return;
+          ae.isContentEditable);
+      if (isEditable && visualRef.current?.contains(ae)) return;
       e.preventDefault();
       onClose();
     };
@@ -223,21 +242,22 @@ export const SlidingItemPanel = ({
   }, [orientation]);
   const suppressTransitions = phase === "closed" && orientationJustChanged;
 
-  const primarySize = primaryFor(visualPhase, orientation);
-  const visualInset = insetFor(visualPhase);
+  const sidePrimary = sidePrimaryFor(orientation);
   const visualRadius = radiusFor(visualPhase);
 
-  // The placeholder reserves layout space — panel size plus a single inset
-  // on the viewport-edge side so the panel still has its outer gap. The
-  // list's own padding provides the visual gap on the other side, avoiding
-  // a double gap. Animates to 0 on close so the list reclaims the space.
+  // Placeholder reserves flex space so the list shrinks to make room for the
+  // panel in side mode. Frozen at the side size regardless of expand state —
+  // when expanded, the visual layer overlays the list rather than pushing it.
+  // The +SLIDE_OFFSET bakes the visual gap between the list and the panel
+  // into the placeholder, since PanelLayout has p-3 but no flex gap.
   const layoutSize =
     phase === "closed"
       ? 0
-      : `calc(${primarySize} + ${visualInset}px)`;
+      : `calc(${sidePrimary} + ${SLIDE_OFFSET}px)`;
 
-  // Duration per stage. Staged expand uses WIDTH_MS for the size jump and
-  // EDGE_MS for the inset break-out; everything else uses OPEN_MS.
+  // Animation durations per transition stage. Used both for the per-phase
+  // size/position changes and for matching the toolbar's padding transition
+  // inside PanelInner so the toolbar settles in sync.
   const ms = (() => {
     if (phase === "closed") return OPEN_MS;
     if (phase === "fullw") return WIDTH_MS;
@@ -248,49 +268,74 @@ export const SlidingItemPanel = ({
   const sizeProp = orientation === "side" ? "width" : "height";
   const layoutTransition = suppressTransitions
     ? "none"
-    : `${sizeProp} ${ms}ms ${EASE}`;
+    : `${sizeProp} ${OPEN_MS}ms ${EASE}`;
 
   const visualTransition = suppressTransitions
     ? "none"
     : [
         `transform ${OPEN_MS}ms ${EASE}`,
-        `width ${ms}ms ${EASE}`,
-        `height ${ms}ms ${EASE}`,
         `top ${ms}ms ${EASE}`,
         `right ${ms}ms ${EASE}`,
         `bottom ${ms}ms ${EASE}`,
         `left ${ms}ms ${EASE}`,
+        `width ${ms}ms ${EASE}`,
+        `height ${ms}ms ${EASE}`,
         `border-radius ${ms}ms ${EASE}`,
       ].join(", ");
 
   const visualTransform =
     phase === "closed"
       ? orientation === "side"
-        ? `translate3d(calc(${primarySize} + ${visualInset}px), 0, 0)`
-        : `translate3d(0, calc(${primarySize} + ${visualInset}px), 0)`
+        ? `translate3d(calc(100% + ${SLIDE_OFFSET}px), 0, 0)`
+        : `translate3d(0, calc(100% + ${SLIDE_OFFSET}px), 0)`
       : "translate3d(0px, 0px, 0px)";
 
-  // Visual position depends on orientation:
-  //   side  → anchored top/right/bottom, fixed width
-  //   bottom → anchored bottom/left/right, fixed height
-  const visualPosition: React.CSSProperties =
-    orientation === "side"
-      ? {
-          top: visualInset,
-          right: visualInset,
-          bottom: visualInset,
-          left: "auto",
-          width: primarySize,
-          height: "auto",
-        }
-      : {
-          top: "auto",
-          right: visualInset,
-          bottom: visualInset,
-          left: visualInset,
-          height: primarySize,
-          width: "auto",
+  // Fixed positioning relative to the viewport. Each phase has explicit,
+  // viewport-anchored values so the panel animates its own dimensions/offsets
+  // independently of any parent reflow — this avoids the stutter that
+  // happened when the panel's size was driven by an animating parent.
+  //
+  //   side: panel sits in the corner with SLIDE_OFFSET breathing room
+  //   fullw: panel fills the layout's padded area (still SLIDE_OFFSET in)
+  //   full: panel goes edge-to-edge (SLIDE_OFFSET → 0)
+  const visualPosition: React.CSSProperties = (() => {
+    if (orientation === "side") {
+      if (visualPhase === "full") {
+        return { top: 0, right: 0, bottom: 0, width: "100vw" };
+      }
+      if (visualPhase === "fullw") {
+        return {
+          top: SLIDE_OFFSET,
+          right: SLIDE_OFFSET,
+          bottom: SLIDE_OFFSET,
+          width: `calc(100vw - ${SLIDE_OFFSET * 2}px)`,
         };
+      }
+      return {
+        top: SLIDE_OFFSET,
+        right: SLIDE_OFFSET,
+        bottom: SLIDE_OFFSET,
+        width: sidePrimary,
+      };
+    }
+    if (visualPhase === "full") {
+      return { left: 0, right: 0, bottom: 0, height: "100dvh" };
+    }
+    if (visualPhase === "fullw") {
+      return {
+        left: SLIDE_OFFSET,
+        right: SLIDE_OFFSET,
+        bottom: SLIDE_OFFSET,
+        height: `calc(100dvh - ${SLIDE_OFFSET * 2}px)`,
+      };
+    }
+    return {
+      left: SLIDE_OFFSET,
+      right: SLIDE_OFFSET,
+      bottom: SLIDE_OFFSET,
+      height: sidePrimary,
+    };
+  })();
 
   return (
     <>
@@ -306,9 +351,10 @@ export const SlidingItemPanel = ({
         }}
       />
 
-      {/* Visual panel — fixed positioning so its transform-driven slide-off
-          doesn't depend on the surrounding flex layout. */}
+      {/* Visual panel — fixed positioning so the panel's own transitions
+          drive every visual change, with no dependency on parent layout. */}
       <div
+        ref={visualRef}
         data-phase={phase}
         className={cn(
           "fixed flex flex-col overflow-hidden bg-background dark:bg-card pointer-events-auto",
@@ -410,7 +456,7 @@ const PanelInner = ({
     <>
       <div
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-0.5 bg-inherit transition-[padding] duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "sticky top-0 z-10 flex items-center gap-0.5 bg-inherit transition-[padding] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
           // In "full" mode the panel has lost its outer margins, so put the
           // same inset back as internal padding — the buttons stay at the
           // same absolute position as the margin animates away.
