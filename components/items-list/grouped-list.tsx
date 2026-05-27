@@ -161,8 +161,8 @@ export const GroupedList = ({
             variant="ghost"
             onClick={() => toggle(group.key)}
             className={cn(
-              "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-card outline-none cursor-pointer w-full justify-start",
-              isContextMenuOpen && "bg-card",
+              "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-muted outline-none cursor-pointer w-full justify-start",
+              isContextMenuOpen && "bg-muted",
             )}
           >
             <IconChevronRight
@@ -322,9 +322,9 @@ export const PlainItemRow = ({
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && "bg-card",
-            !isOpen && !isCursor && !suppressHover && "hover:bg-card",
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-card",
+            !isOpen && isCursor && "bg-muted",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-muted",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-muted",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}

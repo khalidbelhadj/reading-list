@@ -95,9 +95,9 @@ export function SortableItemRow({
           className={cn(
             "group relative flex items-center gap-2 p-1 overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && "bg-card",
-            !isOpen && !isCursor && !suppressHover && "hover:bg-card",
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-card",
+            !isOpen && isCursor && "bg-muted",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-muted",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-muted",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
@@ -148,12 +148,12 @@ export function SortableItemRow({
         )}>
           <div className={cn(
             "absolute inset-0 bg-gradient-to-r from-transparent",
-            isOpen ? "via-secondary to-secondary" : "via-card to-card",
+            isOpen ? "via-secondary to-secondary" : "via-muted to-muted",
           )} />
           <DropdownMenuTrigger
             className={cn(
               "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isOpen ? "bg-secondary" : "bg-card",
+              isOpen ? "bg-secondary" : "bg-muted",
             )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}
