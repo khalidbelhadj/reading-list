@@ -1,7 +1,7 @@
-import { ItemsList } from "@/components/items-list";
+import { PanelLayout } from "@/components/panel-layout";
 
 const Page = () => {
-  return <ItemsList />;
+  return <PanelLayout />;
 };
 
 export default Page;

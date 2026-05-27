@@ -389,7 +389,7 @@ export const DetailPanel = React.forwardRef<
     });
 
     return (
-      <div data-detail-panel className="flex flex-col gap-2 w-full pb-12 min-h-[calc(100dvh-3.5rem)]">
+      <div data-detail-panel className="flex flex-1 flex-col gap-2 w-full pb-12">
         {/* Item form card */}
         <div className="flex flex-col gap-2 flex-1">
           {/* Favicon + Title */}
@@ -420,7 +420,7 @@ export const DetailPanel = React.forwardRef<
               placeholder="Untitled"
               rows={1}
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-2xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
+              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
             />
             {showAutofill && (
               <Tooltip>
@@ -515,7 +515,7 @@ export const DetailPanel = React.forwardRef<
             <MarkdownEditor
               value={notes}
               onChange={setNotes}
-              placeholder="Notes..."
+              placeholder="Notes"
               className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
             />
           </div>

@@ -42,3 +42,41 @@ export const useIsCursor = (id: string): boolean => {
     () => false,
   );
 };
+
+// Same imperative pattern for "currently open in the side panel". Lives next
+// to the cursor store so rows can subscribe to both without re-rendering the
+// whole list on every change.
+let openId: string | null = null;
+const openListeners = new Map<string, Set<() => void>>();
+
+const getOpenListeners = (id: string): Set<() => void> => {
+  let set = openListeners.get(id);
+  if (!set) {
+    set = new Set();
+    openListeners.set(id, set);
+  }
+  return set;
+};
+
+export const setOpenItemId = (id: string | null): void => {
+  const prev = openId;
+  if (prev === id) return;
+  openId = id;
+  if (prev !== null) openListeners.get(prev)?.forEach((cb) => cb());
+  if (id !== null) openListeners.get(id)?.forEach((cb) => cb());
+};
+
+export const useIsOpenItem = (id: string): boolean => {
+  return useSyncExternalStore(
+    (cb) => {
+      const set = getOpenListeners(id);
+      set.add(cb);
+      return () => {
+        set.delete(cb);
+        if (set.size === 0) openListeners.delete(id);
+      };
+    },
+    () => openId === id,
+    () => false,
+  );
+};

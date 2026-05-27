@@ -6,7 +6,6 @@ import {
   IconChevronDown,
   IconClipboardFilled,
   IconPlus,
-  IconSquareRoundedPlusFilled,
   IconSparklesFilled,
 } from "@tabler/icons-react";
 import React from "react";
@@ -119,7 +118,7 @@ export const Toolbar = ({
   const showFilters = activeTab !== "cards";
 
   return (
-    <div className="flex items-center relative">
+    <div className="flex items-center relative pt-1">
       <SettingsMenu
         activeTab={activeTab}
         setActiveTabAndUrl={setActiveTabAndUrl}
@@ -235,7 +234,7 @@ export const Toolbar = ({
             Paste URL
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onAdd}>
-            <IconSquareRoundedPlusFilled />
+            <IconPlus />
             New item
           </DropdownMenuItem>
         </DropdownMenuContent>

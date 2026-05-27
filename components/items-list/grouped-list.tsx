@@ -29,7 +29,7 @@ import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useHoverPreview, HoverPreviewContent } from "@/components/ui/preview-card";
 import { ItemPreview } from "./item-preview";
-import { useIsCursor } from "./cursor-store";
+import { useIsCursor, useIsOpenItem } from "./cursor-store";
 
 export const CollapsibleSection = ({
   open,
@@ -161,8 +161,8 @@ export const GroupedList = ({
             variant="ghost"
             onClick={() => toggle(group.key)}
             className={cn(
-              "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-card outline-none cursor-pointer w-full justify-start",
-              isContextMenuOpen && "bg-card",
+              "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-muted outline-none w-full justify-start",
+              isContextMenuOpen && "bg-muted",
             )}
           >
             <IconChevronRight
@@ -227,7 +227,7 @@ export const GroupedList = ({
               <button
                 type="button"
                 onClick={() => toggleDateGroup(group.key)}
-                className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
               >
                 {group.label}
                 <IconChevronRight
@@ -291,7 +291,8 @@ export const PlainItemRow = ({
   onToggleRead?: () => void;
   onTogglePin?: () => void;
 }) => {
-  const isSelected = useIsCursor(item.id);
+  const isCursor = useIsCursor(item.id);
+  const isOpen = useIsOpenItem(item.id);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const preview = useHoverPreview(PREVIEW_DELAY);
@@ -319,10 +320,11 @@ export const PlainItemRow = ({
           onMouseMove={preview.onMouseMove}
           onMouseLeave={preview.onMouseLeave}
           className={cn(
-            "group relative flex items-center gap-2 p-1 overflow-hidden select-none cursor-pointer outline-none rounded-lg",
-            isSelected && "bg-secondary",
-            !isSelected && !suppressHover && "hover:bg-card",
-            !isSelected && (menuOpen || contextMenuOpen) && "bg-card",
+            "group relative flex items-center gap-2 p-1 overflow-hidden select-none outline-none rounded-lg",
+            isOpen && "bg-secondary",
+            !isOpen && isCursor && "bg-muted",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-muted",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-muted",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
@@ -332,7 +334,7 @@ export const PlainItemRow = ({
       <ItemRowContent
         item={item}
         flashcardCount={item.flashcardCount}
-        isSelected={!!isSelected}
+        isSelected={isOpen}
         isTyping={isTyping}
         menuOpen={menuOpen}
         suppressHover={suppressHover}

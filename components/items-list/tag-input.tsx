@@ -187,7 +187,7 @@ export const TagInput = ({
         onCut={handleCut}
         onPaste={handlePaste}
         onBlur={handleBlur}
-        placeholder={value.length === 0 ? "Tags..." : ""}
+        placeholder={value.length === 0 ? "Tags" : ""}
         className="text-sm bg-transparent outline-none min-w-8 flex-1 h-5 placeholder:text-muted-foreground/30"
       />
     </div>

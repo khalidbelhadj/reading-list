@@ -112,7 +112,7 @@ export const ReviewConfirmDialog = ({
                     "flex flex-col items-start gap-0.5 rounded-md px-4 py-3 text-left transition-colors disabled:opacity-50",
                     isSelected
                       ? "bg-secondary"
-                      : "bg-card hover:bg-card/70",
+                      : "bg-muted hover:bg-muted/70",
                   )}
                 >
                   <span className="font-content text-2xl tabular-nums">

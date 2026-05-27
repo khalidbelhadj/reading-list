@@ -19,7 +19,7 @@ export const SearchBar = React.forwardRef<
     onQueryChange?: (query: string) => void;
     onPendingChange?: (pending: boolean) => void;
     onCursorNav?: (direction: "next" | "prev") => void;
-    onCursorOpen?: (modifier: { meta: boolean }) => void;
+    onCursorOpen?: (modifier: { meta: boolean; shift: boolean }) => void;
     initialQuery?: string;
     placeholder?: string;
   }
@@ -33,7 +33,7 @@ export const SearchBar = React.forwardRef<
   onCursorNav,
   onCursorOpen,
   initialQuery = "",
-  placeholder = "Search...",
+  placeholder = "Search",
 }, ref) => {
   const [isOpen, setIsOpen] = React.useState(() => initialQuery.length > 0);
   const [query, setQuery] = React.useState(initialQuery);
@@ -137,6 +137,11 @@ export const SearchBar = React.forwardRef<
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Defer ESC to the item panel when it's open — first ESC should
+        // close the panel, leaving the search query/focus intact.
+        if (document.querySelector('[data-phase]:not([data-phase="closed"])')) {
+          return;
+        }
         e.stopPropagation();
         inputRef.current?.blur();
         return;
@@ -157,9 +162,9 @@ export const SearchBar = React.forwardRef<
         onCursorNav?.("prev");
         return;
       }
-      if (e.key === "Enter" && !e.altKey && !e.shiftKey) {
+      if (e.key === "Enter" && !e.altKey) {
         e.preventDefault();
-        onCursorOpen?.({ meta: e.metaKey || e.ctrlKey });
+        onCursorOpen?.({ meta: e.metaKey || e.ctrlKey, shift: e.shiftKey });
         return;
       }
     },

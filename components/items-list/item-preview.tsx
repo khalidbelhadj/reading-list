@@ -5,6 +5,7 @@ import { IconFileFilled } from "@tabler/icons-react";
 import { type Item } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { getYouTubeVideoId } from "@/lib/url";
 import { getFaviconSrc } from "./utils";
 
 const MAX_LINES = 5;
@@ -26,6 +27,7 @@ const formatCreatedAt = (iso: string) => {
 
 export const ItemPreview = ({ item }: { item: Item }) => {
   const faviconSrc = getFaviconSrc(item);
+  const youtubeId = item.url ? getYouTubeVideoId(item.url) : null;
   const notes = item.notes?.trim() ?? "";
   const { text: truncatedNotes, truncated } = React.useMemo(
     () => truncateLines(notes),
@@ -34,6 +36,16 @@ export const ItemPreview = ({ item }: { item: Item }) => {
 
   return (
     <div className="flex flex-col gap-2">
+      {youtubeId && (
+        <Image
+          src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`}
+          alt=""
+          width={480}
+          height={360}
+          className="-mx-3 -mt-3 w-[calc(100%+1.5rem)] max-w-none aspect-video object-cover rounded-t-lg"
+          unoptimized
+        />
+      )}
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <div className="relative size-4 shrink-0">

@@ -12,7 +12,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,9 +45,14 @@ import { LoadingFade } from "@/components/ui/loading-fade";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
 import { setCursorId } from "./items-list/cursor-store";
 
-export const ItemsList = () => {
+export const ItemsList = ({
+  onOpenItem,
+  onOpenItemExpanded,
+}: {
+  onOpenItem: (id: string) => void;
+  onOpenItemExpanded: (id: string) => void;
+}) => {
   // Data
-  const router = useRouter();
   const queryClient = useQueryClient();
   const {
     data: items,
@@ -74,28 +79,6 @@ export const ItemsList = () => {
     if (tab === "cards") return "cards";
     return "reading-list";
   });
-  // On the first home-page visit per session, jump to the last-opened item if
-  // it still exists. Subsequent back-navigations stay on the list.
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (sessionStorage.getItem("home-visited") === "1") return;
-    if (!items) return;
-    sessionStorage.setItem("home-visited", "1");
-    let lastId: string | null = null;
-    try {
-      lastId = localStorage.getItem("last-item-id");
-    } catch {
-      return;
-    }
-    if (!lastId) return;
-    if (items.some((i) => i.id === lastId)) {
-      router.replace(`/item/${lastId}`);
-    } else {
-      try {
-        localStorage.removeItem("last-item-id");
-      } catch {}
-    }
-  }, [items, router]);
 
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
@@ -202,12 +185,7 @@ export const ItemsList = () => {
     );
   }, []);
 
-  const handleOpenItem = React.useCallback(
-    (id: string) => {
-      router.push(`/item/${id}`);
-    },
-    [router],
-  );
+  const handleOpenItem = onOpenItem;
 
   // Hooks
   const {
@@ -381,14 +359,14 @@ export const ItemsList = () => {
             return [newItem, ...old];
           });
           invalidate();
-          router.push(`/item/${newId}`);
+          handleOpenItem(newId);
         },
         onError: () => {
           toast.error("Could not create item. Please try again.");
         },
       },
     );
-  }, [requestCreate, queryClient, invalidate, router]);
+  }, [requestCreate, queryClient, invalidate, handleOpenItem]);
 
   const requestPasteCreate = React.useCallback(
     async (url: string, tagNames: string[]) => {
@@ -495,6 +473,7 @@ export const ItemsList = () => {
     }, [requestDeleteItem]),
     activeTags,
     onOpenItem: handleOpenItem,
+    onOpenItemExpanded,
     onOpenNew: handleOpenNew,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
@@ -502,19 +481,15 @@ export const ItemsList = () => {
   });
 
   // Effects
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 0);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollTop > 0);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
-
-  React.useEffect(() => {
-    if (!items) return;
-    for (const item of items) {
-      router.prefetch(`/item/${item.id}`);
-    }
-  }, [items, router]);
 
   // DnD
   const isDragDisabled =
@@ -590,11 +565,11 @@ export const ItemsList = () => {
   );
 
   return (
-    <div>
-      <div className="mx-auto max-w-175 px-3 pb-5 flex flex-col gap-3">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex flex-col gap-3 pt-3 pb-1 bg-background">
-          <div className="electron-top-bar-inset">
+    <div className="electron-toolbar-container relative flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+      {/* Header — outside the scroll container so the scrollbar starts
+          below it instead of reaching all the way to the top of the panel. */}
+      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-1 bg-background">
+        <div className="electron-top-bar-inset">
             <Toolbar
               activeTab={activeTab}
               setActiveTabAndUrl={setActiveTabAndUrl}
@@ -617,15 +592,26 @@ export const ItemsList = () => {
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
             localSearchFn={activeTab === "cards" ? localSearchFlashcards : localSearchItems}
             onCursorNav={navigateCursor}
-            onCursorOpen={() => {
+            onCursorOpen={({ meta, shift }) => {
               const id = cursorRef.current;
-              if (id) handleOpenItem(id);
+              if (!id) return;
+              if (meta && shift) {
+                const item = items?.find((i) => i.id === id);
+                if (item?.url && URL.canParse(item.url))
+                  window.open(item.url, "_blank");
+                return;
+              }
+              if (meta) {
+                onOpenItemExpanded(id);
+                return;
+              }
+              handleOpenItem(id);
             }}
             onResults={handleSearchResults}
             onQueryChange={handleSearchQueryChange}
             onPendingChange={handleSearchPendingChange}
             initialQuery={initialSearchQuery}
-            placeholder={activeTab === "cards" ? "Search cards..." : "Search items..."}
+            placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
           />
 
           <ReviewNudge />
@@ -642,11 +628,20 @@ export const ItemsList = () => {
 
           {activeTab === "cards" && <CardsStateBar />}
 
-          {scrolled && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none" />
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            scrolled ? "opacity-100" : "opacity-0",
           )}
-        </div>
+        />
+      </div>
 
+      {/* Scrollable content */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
+      >
+        <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
         {/* Content */}
         {activeTab === "cards" ? (
           <CardsList
@@ -696,7 +691,7 @@ export const ItemsList = () => {
                 <button
                   type="button"
                   onClick={() => setPinnedOpen((p) => !p)}
-                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
                 >
                   <IconPinFilled className="size-3" />
                   Pinned
@@ -766,7 +761,7 @@ export const ItemsList = () => {
                     <button
                       type="button"
                       onClick={() => setPinnedOpen((p) => !p)}
-                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground cursor-pointer outline-none"
+                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
                     >
                       <IconPinFilled className="size-3" />
                       Pinned
@@ -822,7 +817,13 @@ export const ItemsList = () => {
         )}
         </LoadingFade>
         )}
+        </div>
       </div>
+
+      {/* Bottom-of-list fade — softens the boundary where the list ends, so
+          items don't get sliced in half by the item panel's top edge in
+          bottom orientation. */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-background to-transparent pointer-events-none z-10" />
 
       <DeleteItemDialog
         item={itemToDelete}

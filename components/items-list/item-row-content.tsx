@@ -76,13 +76,13 @@ export const ItemRowContent = ({
           <div
             className={cn(
               "absolute inset-0 bg-gradient-to-r from-transparent",
-              isSelected ? "via-secondary to-secondary" : "via-card to-card",
+              isSelected ? "via-secondary to-secondary" : "via-muted to-muted",
             )}
           />
           <DropdownMenuTrigger
             className={cn(
               "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isSelected ? "bg-secondary" : "bg-card",
+              isSelected ? "bg-secondary" : "bg-muted",
             )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}
