@@ -18,7 +18,6 @@ import {
   IconLogout,
   IconMoon,
   IconPalette,
-  IconSparkles,
   IconSun,
   IconTag,
 } from "@tabler/icons-react";
@@ -51,7 +50,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
-import { CopyPromptsDialog } from "./copy-prompts-dialog";
 
 type ThemeKey = "system" | "light" | "dark";
 
@@ -151,7 +149,6 @@ export const SettingsMenu = ({
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportFilename, setExportFilename] =
     React.useState(defaultCsvFilename());
-  const [promptsOpen, setPromptsOpen] = React.useState(false);
 
   const logoutMutation = useMutation({
     mutationFn: () => logout(),
@@ -212,8 +209,6 @@ export const SettingsMenu = ({
   const handleCancelExport = React.useCallback(() => {
     setExportOpen(false);
   }, []);
-
-  const openPrompts = React.useCallback(() => setPromptsOpen(true), []);
 
   const handleTagsOpenChange = React.useCallback(
     (checked: boolean) => setTagsOpen(checked),
@@ -383,10 +378,6 @@ export const SettingsMenu = ({
           <IconDownload />
           Export as CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={openPrompts}>
-          <IconSparkles />
-          Edit prompts
-        </DropdownMenuItem>
         {mounted && (fullName || email) && (
           <>
             <DropdownMenuSeparator />
@@ -447,7 +438,6 @@ export const SettingsMenu = ({
         </DialogContent>
       </Dialog>
 
-      <CopyPromptsDialog open={promptsOpen} onOpenChange={setPromptsOpen} />
     </DropdownMenu>
   );
 };
