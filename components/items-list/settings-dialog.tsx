@@ -4,23 +4,23 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  IconCalendarFilled,
-  IconCardsFilled,
+  IconCalendar,
+  IconCards,
   IconChevronDown,
   IconCircleOff,
-  IconDeviceDesktopFilled,
+  IconDeviceDesktop,
   IconDownload,
-  IconEyeFilled,
-  IconFilterFilled,
+  IconEye,
+  IconFilter,
   IconArrowsMaximize,
-  IconLayoutListFilled,
-  IconListDetailsFilled,
+  IconLayoutList,
+  IconListDetails,
   IconLogout,
-  IconMoonFilled,
-  IconPaletteFilled,
-  IconSparklesFilled,
-  IconSunFilled,
-  IconTagFilled,
+  IconMoon,
+  IconPalette,
+  IconSparkles,
+  IconSun,
+  IconTag,
 } from "@tabler/icons-react";
 
 import { logout } from "@/app/logout/actions";
@@ -65,9 +65,9 @@ const THEME_ICONS: Record<
   ThemeKey,
   React.ComponentType<{ className?: string }>
 > = {
-  system: IconDeviceDesktopFilled,
-  light: IconSunFilled,
-  dark: IconMoonFilled,
+  system: IconDeviceDesktop,
+  light: IconSun,
+  dark: IconMoon,
 };
 
 const applyTheme = (theme: ThemeKey) => {
@@ -84,8 +84,8 @@ const TAB_LABELS: Record<TabId, string> = {
 };
 
 const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
-  "reading-list": IconListDetailsFilled,
-  cards: IconCardsFilled,
+  "reading-list": IconListDetails,
+  cards: IconCards,
 };
 
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
@@ -99,8 +99,8 @@ const GROUP_BY_ICONS: Record<
   React.ComponentType<{ className?: string }>
 > = {
   none: IconCircleOff,
-  tag: IconTagFilled,
-  day: IconCalendarFilled,
+  tag: IconTag,
+  day: IconCalendar,
 };
 
 export const SettingsMenu = ({
@@ -310,7 +310,7 @@ export const SettingsMenu = ({
                 checked={showRead}
                 onCheckedChange={handleShowReadChange}
                 >
-                <IconEyeFilled />
+                <IconEye />
                 Show read items
               </DropdownMenuCheckboxItem>
             )}
@@ -319,13 +319,13 @@ export const SettingsMenu = ({
               onCheckedChange={handleTagsOpenChange}
               disabled={!hasTags}
             >
-              <IconFilterFilled />
+              <IconFilter />
               Filter by tags
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconLayoutListFilled />
+                <IconLayoutList />
                 Group by
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -350,7 +350,7 @@ export const SettingsMenu = ({
         )}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <IconPaletteFilled />
+            <IconPalette />
             Theme
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -384,7 +384,7 @@ export const SettingsMenu = ({
           Export as CSV
         </DropdownMenuItem>
         <DropdownMenuItem onClick={openPrompts}>
-          <IconSparklesFilled />
+          <IconSparkles />
           Edit prompts
         </DropdownMenuItem>
         {mounted && (fullName || email) && (

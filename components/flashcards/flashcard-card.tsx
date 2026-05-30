@@ -5,7 +5,7 @@ import {
   IconCopy,
   IconDots,
   IconMarkdown,
-  IconTrashFilled,
+  IconTrash,
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
@@ -226,7 +226,7 @@ const FlashcardDropdown = ({
           <TooltipContent side="right">Copied</TooltipContent>
         </Tooltip>
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-          <IconTrashFilled />
+          <IconTrash />
           Delete
         </DropdownMenuItem>
       </DropdownMenuContent>

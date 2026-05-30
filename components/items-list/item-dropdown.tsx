@@ -3,12 +3,12 @@ import {
   IconCheck,
   IconCopy,
   IconExternalLink,
-  IconEyeFilled,
+  IconEye,
   IconEyeOff,
-  IconPinFilled,
+  IconPin,
   IconPinnedOff,
-  IconSparklesFilled,
-  IconTrashFilled,
+  IconSparkles,
+  IconTrash,
 } from "@tabler/icons-react";
 
 import { type Item } from "@/lib/types";
@@ -191,7 +191,7 @@ const ItemMenuItems = ({
       )}
       {onTogglePin && (
         <DropdownMenuItem onClick={onTogglePin}>
-          {item.starred ? <IconPinnedOff /> : <IconPinFilled />}
+          {item.starred ? <IconPinnedOff /> : <IconPin />}
           {item.starred ? "Unpin" : "Pin"}
         </DropdownMenuItem>
       )}
@@ -220,7 +220,7 @@ const ItemMenuItems = ({
       {prompts.length > 0 && (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <IconSparklesFilled />
+            <IconSparkles />
             Prompts
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-w-72">
@@ -237,13 +237,13 @@ const ItemMenuItems = ({
       )}
       {onToggleRead && (
         <DropdownMenuItem onClick={onToggleRead}>
-          {isRead ? <IconEyeOff /> : <IconEyeFilled />}
+          {isRead ? <IconEyeOff /> : <IconEye />}
           {isRead ? "Mark as unread" : "Mark as read"}
         </DropdownMenuItem>
       )}
       {onDelete && (
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
-          <IconTrashFilled />
+          <IconTrash />
           Delete
         </DropdownMenuItem>
       )}

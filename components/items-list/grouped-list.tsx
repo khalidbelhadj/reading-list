@@ -1,7 +1,7 @@
 import {
   IconChevronRight,
   IconPencil,
-  IconTrashFilled,
+  IconTrash,
 } from "@tabler/icons-react";
 import React from "react";
 
@@ -215,7 +215,7 @@ export const GroupedList = ({
                       variant="destructive"
                       onClick={() => setPendingDeleteTag(tagForGroup)}
                     >
-                      <IconTrashFilled />
+                      <IconTrash />
                       Delete
                     </ContextMenuItem>
                   </ContextMenuContent>

@@ -2,11 +2,11 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  IconBoltFilled,
+  IconBolt,
   IconChevronDown,
-  IconClipboardFilled,
+  IconClipboard,
   IconPlus,
-  IconSparklesFilled,
+  IconSparkles,
 } from "@tabler/icons-react";
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -198,7 +198,7 @@ export const Toolbar = ({
           />
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleNewClick}>
-              <IconSparklesFilled />
+              <IconSparkles />
               New cards
               {!dueLoading && !dueError && (
                 <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
@@ -207,7 +207,7 @@ export const Toolbar = ({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCramClick}>
-              <IconBoltFilled />
+              <IconBolt />
               Cram
               {!dueLoading && !dueError && (
                 <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
@@ -230,7 +230,7 @@ export const Toolbar = ({
         />
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onPasteUrl}>
-            <IconClipboardFilled />
+            <IconClipboard />
             Paste URL
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onAdd}>
