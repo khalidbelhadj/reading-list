@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const pages = [
+  { href: "/debug/design-system", title: "Design system" },
   { href: "/debug/review-count-animations", title: "Review count animations" },
   { href: "/debug/review-dialogs", title: "Review dialogs" },
   { href: "/debug/review-summary-preview", title: "Review summary preview" },

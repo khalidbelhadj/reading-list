@@ -497,7 +497,7 @@ export const DetailPanel = React.forwardRef<
 
           {/* Notes */}
           <div
-            className="flex-1 min-h-32 cursor-text"
+            className="flex-1 min-h-32 cursor-text flex flex-col"
             onClick={(event) => {
               const target = event.target as HTMLElement;
               if (target.closest(".ProseMirror")) return;
@@ -516,7 +516,7 @@ export const DetailPanel = React.forwardRef<
               value={notes}
               onChange={setNotes}
               placeholder="Notes"
-              className="text-sm text-foreground [&_.ProseMirror]:min-h-8!"
+              className="fill text-sm text-foreground"
             />
           </div>
         </div>

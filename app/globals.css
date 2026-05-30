@@ -100,6 +100,8 @@
   --toast-error-bg: oklch(0.97 0.015 25);
   --toast-error-text: oklch(0.45 0.18 25);
   --toast-error-border: oklch(0.90 0.04 25);
+  --selection: oklch(0.78 0.12 248 / 0.45);
+  --selection-foreground: oklch(0.18 0.003 85);
   --depth-button: inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.48 0.07 150 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
   --depth-button-destructive: inset 0 -1px 0 0 oklch(0.5 0.22 27 / 0.25), 0 1px 2px 0 rgb(0 0 0 / 0.08);
@@ -147,6 +149,8 @@
   --toast-error-bg: oklch(0.27 0.04 25);
   --toast-error-text: oklch(0.80 0.14 25);
   --toast-error-border: oklch(0.35 0.06 25);
+  --selection: oklch(0.6 0.15 248 / 0.55);
+  --selection-foreground: oklch(0.982 0.002 85);
   --depth-button: inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.52 0.1 150 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
   --depth-button-destructive: inset 0 -1px 0 0 oklch(0.55 0.18 22 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.3);
@@ -166,6 +170,10 @@
   }
   html {
     @apply font-sans;
+  }
+  ::selection {
+    background: var(--selection);
+    color: var(--selection-foreground);
   }
 }
 
@@ -430,10 +438,83 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 .markdown-editor .ProseMirror img:active {
   cursor: grabbing;
 }
-.markdown-editor .ProseMirror img[data-uploading="true"] {
-  opacity: 0.5;
-  filter: grayscale(0.4);
+.markdown-editor.fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.markdown-editor.fill > div {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.markdown-editor.fill .ProseMirror {
+  flex: 1 1 auto;
+  min-height: 100%;
+}
+.markdown-editor .ProseMirror .image-upload-wrap {
+  position: relative;
+  display: inline-block;
+  margin: 0.25rem 0;
+  max-width: 100%;
+}
+.markdown-editor .ProseMirror .image-upload-wrap img {
+  margin: 0;
+  transition: opacity 200ms ease;
+}
+.markdown-editor .ProseMirror .image-upload-wrap[data-loading="true"] {
+  min-width: 14rem;
+  min-height: 8rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  animation: image-skeleton-pulse 1.6s ease-in-out infinite;
+}
+.markdown-editor .ProseMirror .image-upload-wrap[data-loading="true"] img {
+  opacity: 0;
+}
+@keyframes image-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.markdown-editor .ProseMirror .image-upload-wrap[data-uploading="true"] img {
+  opacity: 0.55;
+  filter: grayscale(0.35);
   cursor: progress;
+}
+.markdown-editor .ProseMirror .image-upload-wrap .image-upload-overlay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.markdown-editor .ProseMirror .image-upload-wrap .image-upload-overlay[data-visible="true"] {
+  opacity: 1;
+}
+.markdown-editor .ProseMirror .image-upload-wrap[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--selection);
+  border-radius: 0.375rem;
+  pointer-events: none;
+}
+.markdown-editor .ProseMirror .image-upload-broken {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--muted-foreground);
+  border: 1px dashed var(--border);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  max-width: 100%;
+  cursor: default;
 }
 .markdown-editor .ProseMirror p.is-editor-empty:first-child::before,
 .markdown-editor .ProseMirror front > p.is-empty:only-child::before,
