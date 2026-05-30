@@ -7,10 +7,10 @@ import {
   IconEyeOff,
   IconPin,
   IconPinnedOff,
-  IconSparkles,
   IconTrash,
 } from "@tabler/icons-react";
 
+import { IconClaude } from "@/components/ui/claude-icon";
 import { type Item } from "@/lib/types";
 import {
   ContextMenu as ContextMenuRoot,
@@ -21,20 +21,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  applyTemplate,
-  type CopyPrompt,
-  useCopyPrompts,
-} from "@/lib/copy-prompts";
 
 const AUTO_CLOSE_MS = 3000;
 
@@ -106,28 +98,11 @@ type ItemMenuActionsProps = {
 };
 
 // Internal hook returning the action handlers + visible-state needed to render
-// the menu items. Used by both ItemDropdown and ItemContextMenu so that the
-// underlying behaviour (copy feedback, prompts, etc.) stays consistent.
+// the menu items. Used by both ItemDropdown and ItemContextMenu so the copy
+// feedback behaviour stays consistent across both entry points.
 const useItemMenuActions = ({ item }: { item: Item }) => {
-  const [prompts] = useCopyPrompts();
   const [lastCopied, setLastCopied] = React.useState<string | null>(null);
   const [copyTriggered, setCopyTriggered] = React.useState(false);
-
-  const handleCopy = React.useCallback(
-    (promptId: string, template: string) => {
-      const output = applyTemplate(template, {
-        title: item.title,
-        url: item.url,
-        id: item.id,
-        notes: item.notes ?? "",
-      });
-      navigator.clipboard.writeText(output);
-      setLastCopied(promptId);
-      setTimeout(() => setLastCopied(null), 2000);
-      setCopyTriggered(true);
-    },
-    [item.id, item.title, item.url, item.notes],
-  );
 
   const handleCopyId = React.useCallback(() => {
     navigator.clipboard.writeText(item.id);
@@ -147,17 +122,29 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
 
+  const handleChatWithClaude = React.useCallback(() => {
+    const lines = ["This is an item from my reading list:", ""];
+    lines.push(`- **ID:** ${item.id}`);
+    if (item.title) lines.push(`- **Title:** ${item.title}`);
+    if (item.url) lines.push(`- **URL:** ${item.url}`);
+    if (item.notes) lines.push("", "**Notes:**", "", item.notes);
+    const prompt = lines.join("\n");
+    window.open(
+      `claude://claude.ai/new?q=${encodeURIComponent(prompt)}`,
+      "_self",
+    );
+  }, [item.id, item.title, item.url, item.notes]);
+
   const canOpenUrl = !!item.url && URL.canParse(item.url);
 
   return {
-    prompts,
     lastCopied,
     copyTriggered,
     setCopyTriggered,
-    handleCopy,
     handleCopyId,
     handleCopyTitle,
     handleOpenInNewTab,
+    handleChatWithClaude,
     canOpenUrl,
   };
 };
@@ -168,13 +155,12 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
 // items render correctly inside either context.
 const ItemMenuItems = ({
   item,
-  prompts,
   canOpenUrl,
   lastCopied,
   handleOpenInNewTab,
+  handleChatWithClaude,
   handleCopyId,
   handleCopyTitle,
-  handleCopy,
   onTogglePin,
   onToggleRead,
   onDelete,
@@ -217,24 +203,10 @@ const ItemMenuItems = ({
         />
         <TooltipContent side="right">Copied</TooltipContent>
       </Tooltip>
-      {prompts.length > 0 && (
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <IconSparkles />
-            Prompts
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-w-72">
-            {prompts.map((prompt) => (
-              <PromptMenuItem
-                key={prompt.id}
-                prompt={prompt}
-                isCopied={lastCopied === prompt.id}
-                onCopy={handleCopy}
-              />
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      )}
+      <DropdownMenuItem onClick={handleChatWithClaude}>
+        <IconClaude />
+        Chat with Claude
+      </DropdownMenuItem>
       {onToggleRead && (
         <DropdownMenuItem onClick={onToggleRead}>
           {isRead ? <IconEyeOff /> : <IconEye />}
@@ -357,49 +329,6 @@ export const ItemContextMenu = ({
 };
 
 export { ContextMenuTrigger as ItemContextMenuTrigger };
-
-const PromptMenuItem = ({
-  prompt,
-  isCopied,
-  onCopy,
-}: {
-  prompt: CopyPrompt;
-  isCopied: boolean;
-  onCopy: (id: string, template: string) => void;
-}) => {
-  const handleClick = React.useCallback(() => {
-    onCopy(prompt.id, prompt.template);
-  }, [onCopy, prompt.id, prompt.template]);
-
-  const description = prompt.description ?? "";
-  const hasDescription = description.trim().length > 0;
-
-  return (
-    <Tooltip open={isCopied}>
-      <TooltipTrigger
-        render={
-          <DropdownMenuItem
-            closeOnClick={false}
-            onClick={handleClick}
-            className={hasDescription ? "items-start" : undefined}
-          >
-            {hasDescription ? (
-              <div className="flex flex-col">
-                <span>{prompt.name}</span>
-                <span className="text-[0.65rem] text-muted-foreground/70">
-                  {description}
-                </span>
-              </div>
-            ) : (
-              prompt.name
-            )}
-          </DropdownMenuItem>
-        }
-      />
-      <TooltipContent side="right">Copied</TooltipContent>
-    </Tooltip>
-  );
-};
 
 const OpenInNewTabItem = ({
   url,

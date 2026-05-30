@@ -39,6 +39,14 @@ const getQueryClient = () => {
 export const QueryProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = getQueryClient();
 
+  // One-shot cleanup for the removed Prompts feature's localStorage entry.
+  // Safe to remove once it has shipped to all clients.
+  React.useEffect(() => {
+    try {
+      localStorage.removeItem("copy-prompts");
+    } catch {}
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
