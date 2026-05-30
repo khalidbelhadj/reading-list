@@ -595,10 +595,21 @@ const PanelInner = ({
     queryFn: fetchItems,
     staleTime: Infinity,
   });
-  const item = items?.find((i) => i.id === itemId) ?? null;
+  const liveItem = items?.find((i) => i.id === itemId) ?? null;
+
+  // Hold onto the last-seen item so the panel keeps rendering its content
+  // during the close animation after an optimistic delete removes the item
+  // from the cache. Reset when the panel switches to a different itemId.
+  const [snapshot, setSnapshot] = React.useState<Item | null>(liveItem);
+  React.useEffect(() => {
+    setSnapshot(null);
+  }, [itemId]);
+  React.useEffect(() => {
+    if (liveItem) setSnapshot(liveItem);
+  }, [liveItem]);
+  const item = liveItem ?? snapshot;
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const detailRef = React.useRef<DetailPanelHandle>(null);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -730,16 +741,11 @@ const PanelInner = ({
     toggleReadMutation.mutate({ itemId: item.id, read: !item.read });
   }, [item, toggleReadMutation]);
 
-  const handleDelete = React.useCallback(async () => {
+  const handleDelete = React.useCallback(() => {
     if (!item) return;
-    setDeleting(true);
-    try {
-      await deleteMutation.mutateAsync(item.id);
-    } finally {
-      setDeleteOpen(false);
-      setDeleting(false);
-    }
+    setDeleteOpen(false);
     onClose();
+    deleteMutation.mutate(item.id);
   }, [item, deleteMutation, onClose]);
 
   const isExpanded = phase === "full" || phase === "fullw";
@@ -925,7 +931,7 @@ const PanelInner = ({
       <DeleteItemDialog
         item={item}
         open={deleteOpen}
-        deleting={deleting}
+        deleting={false}
         onOpenChange={setDeleteOpen}
         onConfirm={handleDelete}
       />

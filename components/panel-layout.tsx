@@ -95,6 +95,15 @@ export const PanelLayout = () => {
     setOpenItemId(null);
   }, []);
 
+  // If the open item disappears from the cache (deleted from anywhere —
+  // row dropdown, keyboard shortcut, server refetch), close the panel.
+  React.useEffect(() => {
+    if (!openItemId || !items) return;
+    if (!items.some((i) => i.id === openItemId)) {
+      handleCloseItem();
+    }
+  }, [openItemId, items, handleCloseItem]);
+
   const handleOpenItem = React.useCallback(
     (id: string) => {
       const params = new URLSearchParams(window.location.search);
