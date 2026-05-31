@@ -571,6 +571,15 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   display: none;
 }
 
+/* Empty-state placeholder for contenteditable elements. The element drives
+   the placeholder color via --ce-placeholder-color so each caller can
+   match the per-field opacity the old <input>/<textarea> had. */
+.ce-placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ce-placeholder-color, var(--muted-foreground));
+  pointer-events: none;
+}
+
 /* Single-line overflow that fades out on the right instead of using
    an ellipsis. Pair with min-w-0 inside flex parents. */
 .fade-r {
