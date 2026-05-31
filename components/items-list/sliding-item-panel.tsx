@@ -1,8 +1,5 @@
 "use client";
 
-import React from "react";
-import Image from "next/image";
-import { useQuery } from "@tanstack/react-query";
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
@@ -12,27 +9,30 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
+import React from "react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LoadingFade } from "@/components/ui/loading-fade";
 import {
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
-import { LoadingFade } from "@/components/ui/loading-fade";
+import { type Item } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
+import { DeleteItemDialog } from "./delete-item-dialog";
 import { DetailPanel, type DetailPanelHandle } from "./detail-panel";
 import { DetailPanelSkeleton } from "./detail-panel-skeleton";
-import { ItemDropdown } from "./item-dropdown";
-import { DeleteItemDialog } from "./delete-item-dialog";
-import { useItemMutations } from "./use-item-mutations";
-import { getFaviconSrc, type EditFields } from "./utils";
-import { usePanelFind } from "./use-panel-find";
 import { FindBar } from "./find-bar";
+import { ItemDropdown } from "./item-dropdown";
+import { useItemMutations } from "./use-item-mutations";
+import { usePanelFind } from "./use-panel-find";
+import { getFaviconSrc, type EditFields } from "./utils";
 
 // Open phase machine. "closed" represents both "never opened" and "after
 // slide-off"; while closed, the visual layer keeps the dimensions of the
@@ -198,7 +198,9 @@ export const SlidingItemPanel = ({
   // Open: while phase=closed, an itemId triggers the open animation.
   // setTimeout rather than rAF so the next-tick callback survives the effect
   // cleanup that React fires on rapid re-renders.
-  const openTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   React.useEffect(() => {
     if (!itemId) return;
     if (phase === "closed") {
@@ -380,7 +382,9 @@ export const SlidingItemPanel = ({
   }, []);
 
   const suppressTransitions =
-    (phase === "closed" && orientationJustChanged) || resizing || isDraggingResize;
+    (phase === "closed" && orientationJustChanged) ||
+    resizing ||
+    isDraggingResize;
 
   // Primary axis size for the "side" phase. fullw/full sizes come from
   // filling the viewport rather than from this value.
@@ -394,9 +398,7 @@ export const SlidingItemPanel = ({
   // The +SLIDE_OFFSET bakes the visual gap between the list and the panel
   // into the placeholder, since PanelLayout has p-3 but no flex gap.
   const layoutSize =
-    phase === "closed"
-      ? 0
-      : `calc(${sidePrimary} + ${SLIDE_OFFSET}px)`;
+    phase === "closed" ? 0 : `calc(${sidePrimary} + ${SLIDE_OFFSET}px)`;
 
   // Animation durations per transition stage. Used both for the per-phase
   // size/position changes and for matching the toolbar's padding transition
@@ -641,9 +643,8 @@ const PanelInner = ({
     const update = () => {
       const morph = morphRef.current;
       const headerSlot = headerSlotRef.current;
-      const contentRow = scrollEl.querySelector<HTMLElement>(
-        "[data-title-row]",
-      );
+      const contentRow =
+        scrollEl.querySelector<HTMLElement>("[data-title-row]");
       const containingBlock = morph?.parentElement;
       if (!morph || !headerSlot || !contentRow || !containingBlock) return;
 
@@ -704,15 +705,18 @@ const PanelInner = ({
       scrollEl.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       cancelAnimationFrame(raf);
-      const contentRow = scrollEl.querySelector<HTMLElement>(
-        "[data-title-row]",
-      );
+      const contentRow =
+        scrollEl.querySelector<HTMLElement>("[data-title-row]");
       if (contentRow) contentRow.style.visibility = "";
     };
   }, [item]);
 
-  const { toggleReadMutation, togglePinMutation, deleteMutation, updateMutation } =
-    useItemMutations();
+  const {
+    toggleReadMutation,
+    togglePinMutation,
+    deleteMutation,
+    updateMutation,
+  } = useItemMutations();
 
   const handleSave = React.useCallback(
     (id: string, fields: EditFields) => {
@@ -799,7 +803,11 @@ const PanelInner = ({
               />
             }
           >
-            {isExpanded ? <IconArrowsDiagonalMinimize2 /> : <IconArrowsDiagonal />}
+            {isExpanded ? (
+              <IconArrowsDiagonalMinimize2 />
+            ) : (
+              <IconArrowsDiagonal />
+            )}
           </TooltipTrigger>
           <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
         </Tooltip>
@@ -874,7 +882,7 @@ const PanelInner = ({
         )}
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-card to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-surface to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
             scrolled ? "opacity-100" : "opacity-0",
           )}
         />
