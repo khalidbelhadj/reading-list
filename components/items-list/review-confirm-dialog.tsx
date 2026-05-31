@@ -110,9 +110,12 @@ export const ReviewConfirmDialog = ({
                   disabled={isStarting}
                   className={cn(
                     "flex flex-col items-start gap-0.5 rounded-md px-4 py-3 text-left transition-colors disabled:opacity-50",
+                    // Translucent tints rather than --secondary/--muted —
+                    // those tokens are identical in dark mode so the
+                    // selected tile was indistinguishable from the others.
                     isSelected
-                      ? "bg-secondary"
-                      : "bg-muted hover:bg-muted/70",
+                      ? "bg-foreground/15"
+                      : "bg-foreground/5 hover:bg-foreground/10",
                   )}
                 >
                   <span className="font-content text-2xl tabular-nums">

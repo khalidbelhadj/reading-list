@@ -20,23 +20,22 @@ const getYouTubeThumb = (item: Pick<Item, "url">): string | null => {
   return null;
 };
 
-// Returns true if the item's URL is one we know how to generate a PDF-based
-// preview for (arxiv abs/pdf or any direct .pdf link).
-const hasPdfPreview = (item: Pick<Item, "url">): boolean => {
-  if (!item.url) return false;
+// Single-flight set so we don't fire duplicate generation requests for the
+// same item across re-mounts (e.g. virtualized rows scrolling in and out).
+const inFlight = new Set<string>();
+
+// Cheap pre-filter to skip URLs we won't probe (e.g. mailto:, magnet:). We
+// don't try to detect PDF-ness here — that's the server's job via magic-
+// byte sniff. We only want to avoid wasted server actions on non-http(s).
+const isProbeableUrl = (raw: string | null | undefined): boolean => {
+  if (!raw) return false;
   try {
-    const url = new URL(item.url);
-    const host = url.hostname.replace(/^www\./, "").toLowerCase();
-    if (host === "arxiv.org" && /^\/(abs|pdf)\//.test(url.pathname)) return true;
-    return url.pathname.toLowerCase().endsWith(".pdf");
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
 };
-
-// Single-flight set so we don't fire duplicate generation requests for the
-// same item across re-mounts (e.g. virtualized rows scrolling in and out).
-const inFlight = new Set<string>();
 
 const getDomain = (raw: string | null | undefined): string | null => {
   if (!raw) return null;
@@ -129,9 +128,12 @@ export const CozyRowContent = ({
     onSettled: (_d, _e, itemId) => inFlight.delete(itemId),
   });
   React.useEffect(() => {
-    if (item.previewImageUrl) return;
+    // previewImageUrl === null  → never attempted; probe now.
+    // previewImageUrl === ""    → checked, not a PDF; skip.
+    // previewImageUrl === data: → already rendered; skip.
+    if (item.previewImageUrl !== null) return;
     if (youtubeThumb) return;
-    if (!hasPdfPreview({ url: item.url })) return;
+    if (!isProbeableUrl(item.url)) return;
     if (inFlight.has(item.id)) return;
     inFlight.add(item.id);
     triggerGenerate(item.id);

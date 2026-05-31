@@ -20,7 +20,12 @@ import {
 } from "@/lib/search";
 import { safeFetch } from "@/lib/url.server";
 import { normalizeUrl, type DuplicateItem } from "@/lib/url";
-import { getPdfUrlForItem, renderPdfFirstPage } from "@/lib/pdf-preview";
+import {
+  extractPdfTitleOnly,
+  getPdfUrlForItem,
+  getPdfUrlForItemSync,
+  renderPdfFirstPage,
+} from "@/lib/pdf-preview";
 import {
   parseInput,
   deleteItemSchema,
@@ -98,6 +103,18 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(url: stri
     if (isYouTube) {
       const title = await fetchOembedTitle(url);
       if (title) return title;
+    }
+
+    // PDF short-circuit: if the URL clearly points at a PDF (suffix or
+    // arxiv abs/pdf), extract title straight from the document. This
+    // beats HTML parsing because arxiv's <title> includes the paper id
+    // prefix, and direct PDFs have no HTML at all.
+    const pdfUrl = getPdfUrlForItemSync(url);
+    if (pdfUrl) {
+      const pdfTitle = await extractPdfTitleOnly(pdfUrl);
+      if (pdfTitle) return pdfTitle;
+      // Fall through to HTML parse on miss — some arxiv abs pages have
+      // useful <title> tags even when the PDF extraction fails.
     }
 
     const res = await safeFetch(url, {
@@ -301,29 +318,76 @@ export const bulkTag = safeAction(async function bulkTag(itemIds: string[], tagN
 }, "Could not tag items. Please try again.");
 
 // Generate (or refresh) the preview image for a single item. Returns the
-// resulting data URL, or null if the item's URL doesn't support previews or
-// rendering failed. Idempotent — caller can fire-and-forget.
+// resulting data URL, or null if the item's URL doesn't support previews.
+//
+// Three terminal states for the row's preview_image_url column:
+//   - data URL → has a preview, render it.
+//   - ""       → checked, not a PDF; don't probe again.
+//   - null     → not yet attempted, or render failed transiently — retry.
+//
+// Idempotent: callers can fire-and-forget; calling on a row that's already
+// been resolved returns the existing value without re-doing the work.
+// A title is "junk" if it's clearly a placeholder that the user would want
+// auto-corrected. Anything they've actually typed is left alone.
+const isJunkTitle = (title: string, url: string): boolean => {
+  const t = title.trim();
+  if (!t) return true;
+  if (t.toLowerCase() === "untitled") return true;
+  if (t === url) return true;
+  // arxiv abs-page <title>: "[2103.00020] Real Title". We don't auto-replace
+  // because there IS a real title in there, just with a paper-id prefix.
+  return false;
+};
+
 export const generateItemPreview = safeAction(async function generateItemPreview(
   itemId: string,
 ): Promise<string | null> {
   const userId = await getCurrentUserId();
   return withUser(userId, async (tx) => {
     const [item] = await tx
-      .select({ id: items.id, url: items.url, previewImageUrl: items.previewImageUrl })
+      .select({
+        id: items.id,
+        title: items.title,
+        url: items.url,
+        previewImageUrl: items.previewImageUrl,
+      })
       .from(items)
       .where(and(eq(items.id, itemId), eq(items.userId, userId)))
       .limit(1);
     if (!item) return null;
-    if (item.previewImageUrl) return item.previewImageUrl;
-    const pdfUrl = getPdfUrlForItem(item.url);
-    if (!pdfUrl) return null;
-    const dataUrl = await renderPdfFirstPage(pdfUrl);
-    if (!dataUrl) return null;
+    if (item.previewImageUrl !== null) return item.previewImageUrl || null;
+
+    const pdfUrl = await getPdfUrlForItem(item.url);
+    if (!pdfUrl) {
+      // Confirmed not a PDF — stamp empty string so we don't probe again on
+      // every cozy mount.
+      await tx
+        .update(items)
+        .set({ previewImageUrl: "", updatedAt: new Date().toISOString() })
+        .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+      return null;
+    }
+
+    const result = await renderPdfFirstPage(pdfUrl);
+    // If render failed (network/timeout/oversized), leave previewImageUrl
+    // null so the next cozy mount retries. Non-PDFs already returned above.
+    if (!result) return null;
+
+    const now = new Date().toISOString();
+    const patch: Partial<typeof items.$inferInsert> = {
+      previewImageUrl: result.imageDataUrl,
+      updatedAt: now,
+    };
+    // Only auto-fill the title if the user clearly hasn't set one. Never
+    // clobber a real title — manual edits win.
+    if (result.title && isJunkTitle(item.title, item.url)) {
+      patch.title = result.title;
+    }
     await tx
       .update(items)
-      .set({ previewImageUrl: dataUrl, updatedAt: new Date().toISOString() })
+      .set(patch)
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-    return dataUrl;
+    return result.imageDataUrl;
   });
 }, "Could not generate preview.");
 
