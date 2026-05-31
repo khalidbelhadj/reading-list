@@ -520,7 +520,7 @@ export const DetailPanel = React.forwardRef<
           <div className="flex flex-col gap-2">
             {addingCard && (
               <div
-                className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
+                className="font-content rounded-lg bg-flashcard px-4 py-3 flex flex-col gap-1.5"
                 onBlur={handleAddingCardBlur}
               >
                 <MarkdownEditor
