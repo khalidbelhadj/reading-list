@@ -218,7 +218,7 @@ export const CozyRowContent = ({
           <DropdownMenuTrigger
             className={cn(
               "pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isSelected ? "bg-secondary" : "bg-foreground/10",
+              isSelected && "bg-secondary",
             )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}
