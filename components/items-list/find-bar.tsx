@@ -68,7 +68,7 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
   return (
     <div
       data-find-bar
-      className="absolute top-10 right-3 z-30 flex items-center gap-1 rounded-md border border-border bg-card/95 backdrop-blur-sm shadow-md p-1 [&>button+button]:-ml-1"
+      className="absolute top-10 right-3 z-30 flex items-center gap-1 rounded-md border border-border bg-surface/95 backdrop-blur-sm shadow-md p-1 [&>button+button]:-ml-1"
     >
       <input
         ref={inputRef}

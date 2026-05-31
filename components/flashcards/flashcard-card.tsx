@@ -91,7 +91,7 @@ export const FlashcardCard = ({
 
   return (
     <div
-      className="font-content group relative rounded-lg bg-flashcard px-4 py-3 flex flex-col"
+      className="font-content group relative rounded-lg bg-card px-4 py-3 flex flex-col"
       onBlur={editing ? handleFocusOut : undefined}
     >
       <FlashcardDropdown card={card} deleting={deleting} onDelete={onDelete} />

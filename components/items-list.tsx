@@ -588,7 +588,7 @@ export const ItemsList = ({
 
           <SearchBar
             ref={searchBarRef}
-            queryKey={activeTab === "cards" ? "search-cards" : "search-items"}
+            queryKey={activeTab === "cards" ? ["all-flashcards", "search"] : ["items", "search"]}
             searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
             localSearchFn={activeTab === "cards" ? localSearchFlashcards : localSearchItems}
             onCursorNav={navigateCursor}

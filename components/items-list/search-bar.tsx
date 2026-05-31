@@ -12,7 +12,7 @@ export type SearchBarHandle = {
 export const SearchBar = React.forwardRef<
   SearchBarHandle,
   {
-    queryKey: string;
+    queryKey: readonly unknown[];
     searchFn: (query: string) => Promise<Array<{ id: string }>>;
     localSearchFn?: (query: string) => string[];
     onResults: (ids: string[] | null) => void;
@@ -58,10 +58,10 @@ export const SearchBar = React.forwardRef<
   );
 
   const { data, isFetching } = useQuery({
-    queryKey: [queryKey, debouncedQuery],
+    queryKey: [...queryKey, debouncedQuery],
     queryFn: () => searchFn(debouncedQuery),
     enabled: debouncedQuery.length > 0,
-    staleTime: 30_000,
+    staleTime: Infinity,
   });
 
   // On cold mount with an initial query (e.g. user navigated back to ?q=foo),

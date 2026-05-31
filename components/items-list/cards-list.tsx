@@ -56,12 +56,14 @@ export const CardsList = ({
       if (card?.itemId) {
         queryClient.invalidateQueries({ queryKey: ["flashcards", card.itemId] });
       }
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     },
     onDeleteSettled: (id) => {
       const card = cards.find((c) => c.id === id);
       if (card?.itemId) {
         queryClient.invalidateQueries({ queryKey: ["flashcards", card.itemId] });
       }
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
