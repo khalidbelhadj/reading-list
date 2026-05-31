@@ -1,9 +1,4 @@
-import {
-  IconCheck,
-  IconFileFilled,
-  IconWand,
-  IconX,
-} from "@tabler/icons-react";
+import { IconCheck, IconFileFilled, IconX } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -118,11 +113,7 @@ export const DetailPanel = React.forwardRef<
     onSaveRef.current = onSave;
 
     // Hooks
-    const { showAutofill, handleAutofill, onUrlPaste } = useAutofill(
-      url,
-      title,
-      setTitle,
-    );
+    const { onUrlPaste } = useAutofill(url, title, setTitle);
     const queryClient = useQueryClient();
     const currentId = item?.id ?? (isNew ? "new" : null);
 
@@ -410,23 +401,6 @@ export const DetailPanel = React.forwardRef<
               style={{ textIndent: "2rem" }}
               className="font-content block w-full text-xl font-semibold leading-tight bg-transparent placeholder:text-muted-foreground break-words"
             />
-            {showAutofill && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground/50"
-                      onClick={handleAutofill}
-                    />
-                  }
-                >
-                  <IconWand />
-                </TooltipTrigger>
-                <TooltipContent>Autofill title</TooltipContent>
-              </Tooltip>
-            )}
             {isNew && (
               <>
                 {onCancel && (

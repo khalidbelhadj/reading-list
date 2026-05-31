@@ -34,6 +34,39 @@ const ImageLightbox = ({
     },
     [onOpenChange],
   );
+
+  React.useEffect(() => {
+    if (!src) return;
+    const handler = async (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key !== "c") return;
+      if (window.getSelection()?.toString()) return;
+      event.preventDefault();
+      try {
+        const response = await fetch(src);
+        const sourceBlob = await response.blob();
+        const bitmap = await createImageBitmap(sourceBlob);
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no canvas context");
+        ctx.drawImage(bitmap, 0, 0);
+        const pngBlob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/png"),
+        );
+        if (!pngBlob) throw new Error("encode failed");
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": pngBlob }),
+        ]);
+        toast.success("Image copied");
+      } catch {
+        toast.error("Failed to copy image");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [src]);
+
   return (
     <DialogPrimitive.Root open={src !== null} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>

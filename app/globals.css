@@ -528,6 +528,11 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   height: 0;
   pointer-events: none;
 }
+.markdown-editor .ProseMirror.ProseMirror-focused p.is-editor-empty:first-child::before,
+.markdown-editor .ProseMirror.ProseMirror-focused front > p.is-empty:only-child::before,
+.markdown-editor .ProseMirror.ProseMirror-focused back > p.is-empty:only-child::before {
+  content: "";
+}
 .markdown-editor .ProseMirror a {
   text-decoration: underline;
   color: oklch(0.55 0.16 250);
