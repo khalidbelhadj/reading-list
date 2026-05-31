@@ -24,7 +24,8 @@ import {
   ItemContextMenu,
   ItemContextMenuTrigger,
 } from "./item-dropdown";
-import { resolveRowItem } from "./utils";
+import { resolveRowItem, type ViewMode } from "./utils";
+import { CozyRowContent } from "./cozy-row-content";
 import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
 import { useHoverPreview, HoverPreviewContent } from "@/components/ui/preview-card";
@@ -88,6 +89,7 @@ type GroupedListProps = {
   items: Item[];
   typingTitles: Record<string, string>;
   suppressHover: boolean;
+  viewMode?: ViewMode;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
@@ -99,6 +101,7 @@ export const GroupedList = ({
   items,
   typingTitles,
   suppressHover,
+  viewMode = "compact",
   onSelect,
   onDelete,
   onToggleRead,
@@ -247,6 +250,7 @@ export const GroupedList = ({
                     key={`${group.key}:${item.id}`}
                     item={rowItem}
                     suppressHover={suppressHover}
+                    viewMode={viewMode}
                     isTyping={typingTitle !== undefined}
                     onSelect={() => onSelect(item.id)}
                     onDelete={() => onDelete(item.id)}
@@ -278,6 +282,7 @@ export const PlainItemRow = ({
   item,
   suppressHover,
   isTyping,
+  viewMode = "compact",
   onSelect,
   onDelete,
   onToggleRead,
@@ -286,6 +291,7 @@ export const PlainItemRow = ({
   item: Item;
   suppressHover: boolean;
   isTyping?: boolean;
+  viewMode?: ViewMode;
   onSelect: () => void;
   onDelete?: () => void;
   onToggleRead?: () => void;
@@ -316,38 +322,57 @@ export const PlainItemRow = ({
         <div
           data-item-id={item.id}
           onClick={onSelect}
-          onMouseEnter={preview.onMouseEnter}
-          onMouseMove={preview.onMouseMove}
-          onMouseLeave={preview.onMouseLeave}
+          onMouseEnter={viewMode === "cozy" ? undefined : preview.onMouseEnter}
+          onMouseMove={viewMode === "cozy" ? undefined : preview.onMouseMove}
+          onMouseLeave={viewMode === "cozy" ? undefined : preview.onMouseLeave}
           className={cn(
-            "group relative flex items-center gap-2 p-1 overflow-hidden select-none outline-none rounded-lg",
+            "group relative flex overflow-hidden select-none outline-none rounded-lg",
+            viewMode === "cozy"
+              ? "items-stretch gap-3 p-2"
+              : "items-center gap-2 p-1",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && "bg-muted",
-            !isOpen && !isCursor && !suppressHover && "hover:bg-muted",
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-muted",
+            !isOpen && isCursor && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            !isOpen && !isCursor && !suppressHover && (viewMode === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
         />
       }
     >
-      <ItemRowContent
-        item={item}
-        flashcardCount={item.flashcardCount}
-        isSelected={isOpen}
-        isTyping={isTyping}
-        menuOpen={menuOpen}
-        suppressHover={suppressHover}
-        onMenuOpenChange={setMenuOpen}
-        onTogglePin={onTogglePin}
-        onToggleRead={onToggleRead}
-        onDelete={onDelete}
-      />
+      {viewMode === "cozy" ? (
+        <CozyRowContent
+          item={item}
+          isSelected={isOpen}
+          isTyping={isTyping}
+          menuOpen={menuOpen}
+          suppressHover={suppressHover}
+          onMenuOpenChange={setMenuOpen}
+          onTogglePin={onTogglePin}
+          onToggleRead={onToggleRead}
+          onDelete={onDelete}
+        />
+      ) : (
+        <ItemRowContent
+          item={item}
+          flashcardCount={item.flashcardCount}
+          isSelected={isOpen}
+          isTyping={isTyping}
+          menuOpen={menuOpen}
+          suppressHover={suppressHover}
+          onMenuOpenChange={setMenuOpen}
+          onTogglePin={onTogglePin}
+          onToggleRead={onToggleRead}
+          onDelete={onDelete}
+        />
+      )}
     </ItemContextMenuTrigger>
     </ItemContextMenu>
-    <HoverPreviewContent open={preview.open} position={preview.position}>
-      <ItemPreview item={item} />
-    </HoverPreviewContent>
+    {viewMode !== "cozy" && (
+      <HoverPreviewContent open={preview.open} position={preview.position}>
+        <ItemPreview item={item} />
+      </HoverPreviewContent>
+    )}
     </>
   );
 };

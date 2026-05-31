@@ -2,6 +2,8 @@ import { type Item } from "@/lib/types";
 
 export { relativeTime } from "@/lib/format-time";
 
+export type ViewMode = "compact" | "cozy";
+
 export type EditFields = {
   title: string;
   url: string;

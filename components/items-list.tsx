@@ -79,6 +79,15 @@ export const ItemsList = ({
     if (tab === "cards") return "cards";
     return "reading-list";
   });
+  const [viewMode, setViewModeState] = React.useState<"compact" | "cozy">("compact");
+  React.useEffect(() => {
+    const stored = localStorage.getItem("view-mode");
+    if (stored === "cozy" || stored === "compact") setViewModeState(stored);
+  }, []);
+  const setViewMode = React.useCallback((mode: "compact" | "cozy") => {
+    setViewModeState(mode);
+    localStorage.setItem("view-mode", mode);
+  }, []);
 
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
@@ -346,6 +355,7 @@ export const ItemsList = ({
               title: "",
               url: "",
               faviconUrl: null,
+              previewImageUrl: null,
               starred: false,
               notes: null,
               read: false,
@@ -406,6 +416,7 @@ export const ItemsList = ({
                 title,
                 url,
                 faviconUrl: null,
+                previewImageUrl: null,
                 starred: false,
                 notes: null,
                 read: false,
@@ -580,6 +591,8 @@ export const ItemsList = ({
               setShowRead={setShowRead}
               groupBy={groupBy}
               setGroupBy={setGroupBy}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
               onAdd={handleOpenNew}
               onPasteUrl={handlePasteUrl}
               isCreating={isCreating || isFetchingPasteTitle}
@@ -711,6 +724,7 @@ export const ItemsList = ({
                         key={item.id}
                         item={rowItem}
                         suppressHover={suppressHover}
+                        viewMode={viewMode}
                         isTyping={typingTitle !== undefined}
                         onSelect={() => handleOpenItem(item.id)}
                         onDelete={() => requestDeleteItem(item.id)}
@@ -727,6 +741,7 @@ export const ItemsList = ({
               items={items ?? []}
               typingTitles={typingTitles}
               suppressHover={suppressHover}
+              viewMode={viewMode}
               onSelect={handleOpenItem}
               onDelete={requestDeleteItem}
               onToggleRead={handleToggleRead}
@@ -781,6 +796,7 @@ export const ItemsList = ({
                             key={item.id}
                             item={rowItem}
                             suppressHover={suppressHover}
+                            viewMode={viewMode}
                             isDragDisabled={true}
                             isTyping={typingTitle !== undefined}
                             onTogglePin={() => handleTogglePin(item.id, !item.starred)}
@@ -801,6 +817,7 @@ export const ItemsList = ({
                     key={item.id}
                     item={rowItem}
                     suppressHover={suppressHover}
+                    viewMode={viewMode}
                     isDragDisabled={isDragDisabled}
                     isTyping={typingTitle !== undefined}
                     suppressTransition={justDropped}

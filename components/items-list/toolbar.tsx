@@ -40,6 +40,8 @@ export const Toolbar = ({
   setShowRead,
   groupBy,
   setGroupBy,
+  viewMode,
+  setViewMode,
   onAdd,
   onPasteUrl,
   isCreating = false,
@@ -53,6 +55,8 @@ export const Toolbar = ({
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   groupBy: GroupBy;
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
+  viewMode: "compact" | "cozy";
+  setViewMode: (mode: "compact" | "cozy") => void;
   onAdd: () => void;
   onPasteUrl: () => void;
   isCreating?: boolean;
@@ -131,6 +135,8 @@ export const Toolbar = ({
         setShowRead={setShowRead}
         groupBy={groupBy}
         setGroupBy={setGroupBy}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
       />
 
       <div className="flex-1" />

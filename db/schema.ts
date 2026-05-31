@@ -24,6 +24,7 @@ export const items = pgTable(
     title: text("title").notNull(),
     url: text("url").notNull(),
     faviconUrl: text("favicon_url"),
+    previewImageUrl: text("preview_image_url"),
     starred: boolean("starred").notNull().default(false),
     notes: text("notes"),
     read: boolean("read").notNull().default(false),

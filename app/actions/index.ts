@@ -10,6 +10,7 @@ export {
   bulkDeleteItems,
   bulkTag,
   bulkMarkRead,
+  generateItemPreview,
 } from "./items";
 
 export { renameTag, deleteTag } from "./tags";

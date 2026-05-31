@@ -13,7 +13,9 @@ import {
   IconEye,
   IconFilter,
   IconArrowsMaximize,
+  IconBook,
   IconLayoutList,
+  IconList,
   IconListDetails,
   IconLogout,
   IconMoon,
@@ -82,7 +84,7 @@ const TAB_LABELS: Record<TabId, string> = {
 };
 
 const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
-  "reading-list": IconListDetails,
+  "reading-list": IconBook,
   cards: IconCards,
 };
 
@@ -113,6 +115,8 @@ export const SettingsMenu = ({
   setShowRead,
   groupBy,
   setGroupBy,
+  viewMode,
+  setViewMode,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -125,6 +129,8 @@ export const SettingsMenu = ({
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   groupBy: GroupBy;
   setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
+  viewMode: "compact" | "cozy";
+  setViewMode: (mode: "compact" | "cozy") => void;
 }) => {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -223,6 +229,11 @@ export const SettingsMenu = ({
   const handleGroupByChange = React.useCallback(
     (value: string) => setGroupBy(value as GroupBy),
     [setGroupBy],
+  );
+
+  const handleViewModeChange = React.useCallback(
+    (value: string) => setViewMode(value === "cozy" ? "cozy" : "compact"),
+    [setViewMode],
   );
 
   const handleFullWidthChange = React.useCallback((checked: boolean) => {
@@ -337,6 +348,27 @@ export const SettingsMenu = ({
                       </DropdownMenuRadioItem>
                     );
                   })}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconList />
+                View
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={viewMode}
+                  onValueChange={handleViewModeChange}
+                >
+                  <DropdownMenuRadioItem value="compact">
+                    <IconList />
+                    Compact
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="cozy">
+                    <IconListDetails />
+                    Cozy
+                  </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>

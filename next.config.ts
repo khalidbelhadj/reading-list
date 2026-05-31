@@ -27,6 +27,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // pdfjs (legacy build) and @napi-rs/canvas both ship native or
+  // platform-specific bits that Next's bundler garbles — keep them external.
+  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
   async headers() {
     return [
       {

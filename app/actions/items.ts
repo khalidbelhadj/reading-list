@@ -20,6 +20,7 @@ import {
 } from "@/lib/search";
 import { safeFetch } from "@/lib/url.server";
 import { normalizeUrl, type DuplicateItem } from "@/lib/url";
+import { getPdfUrlForItem, renderPdfFirstPage } from "@/lib/pdf-preview";
 import {
   parseInput,
   deleteItemSchema,
@@ -298,6 +299,33 @@ export const bulkTag = safeAction(async function bulkTag(itemIds: string[], tagN
     await ensureTagsLinkedForItems(tx, userId, ownedIds, tagNames);
   });
 }, "Could not tag items. Please try again.");
+
+// Generate (or refresh) the preview image for a single item. Returns the
+// resulting data URL, or null if the item's URL doesn't support previews or
+// rendering failed. Idempotent — caller can fire-and-forget.
+export const generateItemPreview = safeAction(async function generateItemPreview(
+  itemId: string,
+): Promise<string | null> {
+  const userId = await getCurrentUserId();
+  return withUser(userId, async (tx) => {
+    const [item] = await tx
+      .select({ id: items.id, url: items.url, previewImageUrl: items.previewImageUrl })
+      .from(items)
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)))
+      .limit(1);
+    if (!item) return null;
+    if (item.previewImageUrl) return item.previewImageUrl;
+    const pdfUrl = getPdfUrlForItem(item.url);
+    if (!pdfUrl) return null;
+    const dataUrl = await renderPdfFirstPage(pdfUrl);
+    if (!dataUrl) return null;
+    await tx
+      .update(items)
+      .set({ previewImageUrl: dataUrl, updatedAt: new Date().toISOString() })
+      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+    return dataUrl;
+  });
+}, "Could not generate preview.");
 
 export const bulkMarkRead = safeAction(async function bulkMarkRead(itemIds: string[], read: boolean) {
   parseInput(bulkMarkReadSchema, { itemIds, read });
