@@ -45,6 +45,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-flashcard: var(--flashcard);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --shadow-depth-button: var(--depth-button);
@@ -67,6 +68,7 @@
   --foreground: oklch(0.18 0.003 85);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.18 0.003 85);
+  --flashcard: oklch(0.96 0.003 85);
   --popover: oklch(0.992 0.001 85);
   --popover-foreground: oklch(0.18 0.003 85);
   --primary: oklch(0.62 0.06 150);
@@ -117,6 +119,7 @@
   --foreground: oklch(0.982 0.002 85);
   --card: oklch(0.25 0.003 85);
   --card-foreground: oklch(0.982 0.002 85);
+  --flashcard: oklch(0.17 0.003 85);
   --popover: oklch(0.225 0.003 85);
   --popover-foreground: oklch(0.982 0.002 85);
   --primary: oklch(0.7 0.1 150);
@@ -539,7 +542,7 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 }
 .markdown-editor .ProseMirror card.card-block {
   display: block;
-  background: var(--card);
+  background: var(--flashcard);
   border-radius: 0.5rem;
   padding: 0.5rem 1rem;
   margin: 0.5rem 0;
@@ -569,6 +572,15 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 }
 .preview-notes .markdown-editor .ProseMirror img {
   display: none;
+}
+
+/* Empty-state placeholder for contenteditable elements. The element drives
+   the placeholder color via --ce-placeholder-color so each caller can
+   match the per-field opacity the old <input>/<textarea> had. */
+.ce-placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ce-placeholder-color, var(--muted-foreground));
+  pointer-events: none;
 }
 
 /* Single-line overflow that fades out on the right instead of using

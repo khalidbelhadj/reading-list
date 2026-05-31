@@ -93,7 +93,7 @@ export const useAutofill = (
   }, [url, autofillMutation]);
 
   const onUrlPaste = React.useCallback(
-    (e: React.ClipboardEvent<HTMLInputElement>) => {
+    (e: React.ClipboardEvent<Element>) => {
       const pasted = e.clipboardData.getData("text/plain").trim();
       if (isValidUrl(pasted) && !title.trim()) {
         autofillMutation.mutate(pasted);

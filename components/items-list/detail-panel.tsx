@@ -27,6 +27,7 @@ import { useAutofill } from "./use-autofill";
 import { TagInput } from "./tag-input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { useFlashcardMutations } from "./use-flashcard-mutations";
+import { PlainEditable } from "./plain-editable";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
 // from outside the panel (rename/delete via the filter bar) and the server
@@ -93,8 +94,8 @@ export const DetailPanel = React.forwardRef<
     );
 
     // Refs
-    const titleRef = React.useRef<HTMLTextAreaElement>(null);
-    const urlInputRef = React.useRef<HTMLInputElement>(null);
+    const titleRef = React.useRef<HTMLDivElement>(null);
+    const urlInputRef = React.useRef<HTMLDivElement>(null);
 
     // Last-saved snapshot, for dirty detection. Initialized to the item's
     // persisted values (or seeded defaults for a new item) and updated after
@@ -203,10 +204,7 @@ export const DetailPanel = React.forwardRef<
       [baseDeleteCard, item?.id, queryClient],
     );
 
-    // Focus the title when a new item's form first mounts.
-    React.useEffect(() => {
-      if (isNew) requestAnimationFrame(() => titleRef.current?.focus());
-    }, [isNew]);
+    // Title autofocus for new items is handled by PlainEditable's autoFocus prop.
 
     const tagsPayload = tags.join(", ");
     const localTagsKey = tagsKey(tags);
@@ -336,22 +334,11 @@ export const DetailPanel = React.forwardRef<
     }, [item?.id, newFront, newBack, addCardMutation]);
 
     const handleSetTitle = React.useCallback(
-      (e: React.ChangeEvent<HTMLTextAreaElement>) =>
-        setTitle(e.target.value.replace(/\n/g, "")),
+      (next: string) => setTitle(next.replace(/\n/g, "")),
       [],
     );
 
-    const handleTitleKeyDown = React.useCallback(
-      (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter") e.preventDefault();
-      },
-      [],
-    );
-
-    const handleSetUrl = React.useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value),
-      [],
-    );
+    const handleSetUrl = React.useCallback((next: string) => setUrl(next), []);
 
     const handleSave = React.useCallback(() => {
       if (title.trim() || url.trim()) {
@@ -411,16 +398,17 @@ export const DetailPanel = React.forwardRef<
                 <IconFileFilled className="size-6 text-muted-foreground" />
               )}
             </span>
-            <textarea
+            <PlainEditable
               ref={titleRef}
               data-detail-title
               value={title}
               onChange={handleSetTitle}
-              onKeyDown={handleTitleKeyDown}
+              singleLine
+              autoFocus={isNew}
               placeholder="Untitled"
-              rows={1}
+              spellCheck
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent outline-none placeholder:text-muted-foreground resize-none field-sizing-content overflow-hidden"
+              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent placeholder:text-muted-foreground break-words"
             />
             {showAutofill && (
               <Tooltip>
@@ -483,13 +471,20 @@ export const DetailPanel = React.forwardRef<
           </div>
 
           {/* URL */}
-          <input
+          <PlainEditable
             ref={urlInputRef}
             value={url}
             onChange={handleSetUrl}
             onPaste={onUrlPaste}
+            singleLine
             placeholder="https://example.com"
-            className="text-sm text-muted-foreground/70 bg-transparent outline-none placeholder:text-muted-foreground/40"
+            style={{
+              // 40% opacity placeholder matches the prior <input>'s
+              // `placeholder:text-muted-foreground/40` styling.
+              "--ce-placeholder-color":
+                "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
+            } as React.CSSProperties}
+            className="text-sm text-muted-foreground/70 bg-transparent break-all"
           />
 
           {/* Tags */}
@@ -525,7 +520,7 @@ export const DetailPanel = React.forwardRef<
           <div className="flex flex-col gap-2">
             {addingCard && (
               <div
-                className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
+                className="font-content rounded-lg bg-flashcard px-4 py-3 flex flex-col gap-1.5"
                 onBlur={handleAddingCardBlur}
               >
                 <MarkdownEditor

@@ -31,6 +31,8 @@ import { ItemDropdown } from "./item-dropdown";
 import { DeleteItemDialog } from "./delete-item-dialog";
 import { useItemMutations } from "./use-item-mutations";
 import { getFaviconSrc, type EditFields } from "./utils";
+import { usePanelFind } from "./use-panel-find";
+import { FindBar } from "./find-bar";
 
 // Open phase machine. "closed" represents both "never opened" and "after
 // slide-off"; while closed, the visual layer keeps the dimensions of the
@@ -750,6 +752,8 @@ const PanelInner = ({
 
   const isExpanded = phase === "full" || phase === "fullw";
 
+  const find = usePanelFind({ scrollRef, enabled: phase !== "closed" });
+
   return (
     <>
       <div
@@ -876,6 +880,7 @@ const PanelInner = ({
         />
       </div>
 
+      <FindBar find={find} />
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-175 px-3 pt-1 pb-12 min-h-full flex flex-col">
           <LoadingFade
