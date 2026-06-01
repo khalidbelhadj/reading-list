@@ -496,10 +496,22 @@ const ReviewSessionInner = ({
                   className="gap-2"
                 >
                   <span className="font-medium">{r.label}</span>
-                  <span className="text-muted-foreground text-[0.6875rem]">
+                  <span
+                    className={cn(
+                      "text-[0.6875rem]",
+                      r.value === "again"
+                        ? "text-destructive/70"
+                        : "text-muted-foreground",
+                    )}
+                  >
                     {interval}
                   </span>
-                  <Kbd>{r.key}</Kbd>
+                  <Kbd
+                    variant={r.value === "again" ? "destructive" : "default"}
+                    size="xs"
+                  >
+                    {r.key}
+                  </Kbd>
                 </Button>
               );
             })}
@@ -507,7 +519,7 @@ const ReviewSessionInner = ({
         ) : (
           <Button size="lg" onClick={handleReveal} className="gap-2">
             Reveal answer
-            <Kbd>Space</Kbd>
+            <Kbd variant="primary" size="xs">Space</Kbd>
           </Button>
         )}
       </footer>
