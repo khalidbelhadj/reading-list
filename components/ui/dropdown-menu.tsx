@@ -45,7 +45,7 @@ const DropdownMenuContent = ({
           className={cn("z-50 min-w-32 origin-(--transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-depth-floating ring-1 ring-foreground/10 duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0", className )}
           {...props}
         >
-          <div className="max-h-(--available-height) overflow-x-hidden overflow-y-auto p-1">
+          <div className="flex max-h-(--available-height) flex-col gap-px overflow-x-hidden overflow-y-auto p-1">
             {children}
           </div>
         </MenuPrimitive.Popup>
@@ -54,8 +54,17 @@ const DropdownMenuContent = ({
   )
 }
 
-const DropdownMenuGroup = ({ ...props }: MenuPrimitive.Group.Props) => {
-  return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+const DropdownMenuGroup = ({
+  className,
+  ...props
+}: MenuPrimitive.Group.Props) => {
+  return (
+    <MenuPrimitive.Group
+      data-slot="dropdown-menu-group"
+      className={cn("flex flex-col gap-px", className)}
+      {...props}
+    />
+  )
 }
 
 const DropdownMenuLabel = ({
@@ -164,7 +173,7 @@ const DropdownMenuCheckboxItem = ({
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
       className={cn(
-        "relative flex min-h-6 cursor-default items-center gap-1.5 rounded-md py-0.5 pr-7 pl-2 text-xs outline-hidden select-none focus:bg-muted data-checked:bg-secondary data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5",
+        "relative flex min-h-6 cursor-default items-center gap-1.5 rounded-md py-0.5 pr-7 pl-2 text-xs outline-hidden select-none focus:bg-muted data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       checked={checked}
@@ -184,10 +193,14 @@ const DropdownMenuCheckboxItem = ({
   )
 }
 
-const DropdownMenuRadioGroup = ({ ...props }: MenuPrimitive.RadioGroup.Props) => {
+const DropdownMenuRadioGroup = ({
+  className,
+  ...props
+}: MenuPrimitive.RadioGroup.Props) => {
   return (
     <MenuPrimitive.RadioGroup
       data-slot="dropdown-menu-radio-group"
+      className={cn("flex flex-col gap-px", className)}
       {...props}
     />
   )
@@ -206,7 +219,7 @@ const DropdownMenuRadioItem = ({
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={cn(
-        "relative flex min-h-6 cursor-default items-center gap-1.5 rounded-md py-0.5 pr-7 pl-2 text-xs outline-hidden select-none focus:bg-muted data-checked:bg-secondary data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5",
+        "relative flex min-h-6 cursor-default items-center gap-1.5 rounded-md py-0.5 pr-7 pl-2 text-xs outline-hidden select-none focus:bg-muted data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5",
         className
       )}
       {...props}

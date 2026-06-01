@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   IconCalendar,
   IconCards,
+  IconCheck,
   IconChevronDown,
   IconCircleOff,
   IconDeviceDesktop,
@@ -26,7 +27,6 @@ import {
 
 import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
 import { useSettings } from "@/lib/use-settings";
 import {
@@ -274,12 +274,13 @@ export const SettingsMenu = ({
             <DropdownMenuItem
               key={key}
               onClick={() => setActiveTabAndUrl(key)}
-              className={cn(
-                activeTab === key && "bg-secondary focus:bg-secondary",
-              )}
+              className="pr-7"
             >
               <TabIcon />
               {TAB_LABELS[key]}
+              {activeTab === key && (
+                <IconCheck className="pointer-events-none absolute right-2" />
+              )}
             </DropdownMenuItem>
           );
         })}
