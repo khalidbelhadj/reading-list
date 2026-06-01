@@ -1,7 +1,7 @@
 "use client"
 
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { IconCircleCheck, IconInfoCircle, IconAlertTriangle, IconAlertOctagon, IconLoader2 } from "@tabler/icons-react"
+import { IconCircleCheckFilled, IconInfoCircleFilled, IconAlertTriangleFilled, IconLoader2 } from "@tabler/icons-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
@@ -9,17 +9,19 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <IconCircleCheck className="size-4" />
+          <IconCircleCheckFilled className="size-4" />
         ),
         info: (
-          <IconInfoCircle className="size-4" />
+          <IconInfoCircleFilled className="size-4" />
         ),
         warning: (
-          <IconAlertTriangle className="size-4" />
+          <IconAlertTriangleFilled className="size-4" />
         ),
-        error: (
-          <IconAlertOctagon className="size-4" />
-        ),
+        // Error toasts intentionally render no icon — they communicate
+        // severity through destructive text color (see toastOptions below)
+        // instead of taking up space with an icon. `null` skips both the icon
+        // and the layout slot it would have reserved.
+        error: null,
         loading: (
           <IconLoader2 className="size-4 animate-spin" />
         ),
@@ -34,7 +36,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast:
+            "cn-toast group/toast data-[type=error]:!text-destructive",
+          description:
+            "group-data-[type=error]/toast:!text-destructive/70",
         },
       }}
       {...props}

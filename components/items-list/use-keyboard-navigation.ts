@@ -56,7 +56,9 @@ export const useKeyboardNavigation = ({
       } catch {
         // fall through to error toast
       }
-      toast.error("Clipboard doesn't contain a valid URL");
+      toast.error("Invalid URL", {
+        description: "Your clipboard doesn't contain a valid URL.",
+      });
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);

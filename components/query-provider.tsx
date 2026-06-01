@@ -21,7 +21,14 @@ const makeQueryClient = () => {
           window.location.href = "/login";
           return;
         }
-        toast.error(error instanceof Error ? error.message : "Something went wrong");
+        const message =
+          error instanceof Error ? error.message : "Something went wrong";
+        const [title, ...rest] = message.split(". ");
+        const description = rest.join(". ");
+        toast.error(
+          title.replace(/\.$/, ""),
+          description ? { description } : undefined,
+        );
       },
     }),
   });

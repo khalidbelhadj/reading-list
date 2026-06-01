@@ -58,9 +58,11 @@ const ImageLightbox = ({
         await navigator.clipboard.write([
           new ClipboardItem({ "image/png": pngBlob }),
         ]);
-        toast.success("Image copied");
+        toast("Image copied");
       } catch {
-        toast.error("Failed to copy image");
+        toast.error("Couldn't copy image", {
+          description: "Your browser may have blocked clipboard access.",
+        });
       }
     };
     window.addEventListener("keydown", handler);
@@ -269,7 +271,8 @@ export const MarkdownEditor = ({
           }
           return src;
         },
-        onUploadError: (message) => toast.error(message),
+        onUploadError: (message) =>
+          toast.error("Image upload failed", { description: message }),
       }),
       Markdown.configure({
         html: true,

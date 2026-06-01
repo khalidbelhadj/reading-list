@@ -370,7 +370,9 @@ export const ItemsList = ({
           handleOpenItem(newId);
         },
         onError: () => {
-          toast.error("Could not create item. Please try again.");
+          toast.error("Could not create item", {
+            description: "Please try again.",
+          });
         },
       },
     );
@@ -451,18 +453,24 @@ export const ItemsList = ({
     try {
       text = (await navigator.clipboard.readText()).trim();
     } catch {
-      toast.error("Couldn't read clipboard. Grant clipboard permission and try again.");
+      toast.error("Couldn't read clipboard", {
+        description: "Grant clipboard permission and try again.",
+      });
       return;
     }
     let url: URL;
     try {
       url = new URL(text);
     } catch {
-      toast.error("Clipboard doesn't contain a valid URL");
+      toast.error("Invalid URL", {
+        description: "Your clipboard doesn't contain a valid URL.",
+      });
       return;
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      toast.error("Clipboard doesn't contain a valid URL");
+      toast.error("Invalid URL", {
+        description: "Your clipboard doesn't contain a valid URL.",
+      });
       return;
     }
     requestPasteCreate(text, [...activeTags]);
