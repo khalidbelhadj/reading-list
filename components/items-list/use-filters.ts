@@ -2,10 +2,8 @@ import React from "react";
 
 import { type Item, type DbTag } from "@/lib/types";
 import { useLocalStorage } from "@/lib/use-local-storage";
+import { useSettings } from "@/lib/use-settings";
 
-const parseBool = (raw: string) => raw === "true";
-const parseGroupBy = (raw: string): GroupBy =>
-  raw === "tag" || raw === "none" ? raw : "day";
 const parseActiveTagsMap = (raw: string): Record<string, string[]> => {
   const value = JSON.parse(raw);
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -118,11 +116,9 @@ export const useItemsFilters = (
   activeTab: TabId,
   searchOrder: string[] | null = null,
 ) => {
-  // Preferences are read synchronously on first client render so filters
-  // apply from frame 1. Writes happen inside each setter (no extra effect),
-  // which avoids the redundant initial write-back and per-keystroke
-  // JSON.stringify on every state change.
-  // Toolbar elements that reflect these values wrap their mismatching
+  // activeTagsMap is tab-keyed local-only state — stays in localStorage rather
+  // than the server-backed settings blob.
+  // Toolbar elements that reflect settings values wrap their mismatching
   // content in `<span suppressHydrationWarning>` to silence the structural
   // mismatch warning when SSR defaults differ from the stored value.
   const [activeTagsMap, setActiveTagsMap] = useLocalStorage<
@@ -137,23 +133,19 @@ export const useItemsFilters = (
     });
   }, [activeTab, setActiveTagsMap]);
 
-  const [tagsOpen, setTagsOpen] = useLocalStorage(
-    "tagsOpen",
-    false,
-    parseBool,
-    String,
+  const { settings, setSetting } = useSettings();
+  const { tagsOpen, showRead, groupBy } = settings;
+  const setTagsOpen = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
+    (next) => setSetting("tagsOpen", next),
+    [setSetting],
   );
-  const [showRead, setShowRead] = useLocalStorage(
-    "showRead",
-    false,
-    parseBool,
-    String,
+  const setShowRead = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
+    (next) => setSetting("showRead", next),
+    [setSetting],
   );
-  const [groupBy, setGroupBy] = useLocalStorage<GroupBy>(
-    "groupBy",
-    "day",
-    parseGroupBy,
-    (v) => v,
+  const setGroupBy = React.useCallback<React.Dispatch<React.SetStateAction<GroupBy>>>(
+    (next) => setSetting("groupBy", next),
+    [setSetting],
   );
 
   const tabItems = React.useMemo(() => items ?? [], [items]);

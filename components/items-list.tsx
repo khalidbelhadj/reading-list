@@ -29,6 +29,7 @@ import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 import { fetchItems } from "@/lib/queries";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { fetchPageTitle, searchItems, searchFlashcards } from "@/app/actions";
+import { useSettings } from "@/lib/use-settings";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { useCreateItem } from "./items-list/use-create-item";
 import { SortableItemRow } from "./items-list/sortable-item-row";
@@ -66,6 +67,8 @@ export const ItemsList = ({
 
   // UI state
   const searchParams = useSearchParams();
+  const { settings, setSetting } = useSettings();
+  const density = settings.density;
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
@@ -74,20 +77,15 @@ export const ItemsList = ({
   const [typingTitles, setTypingTitles] = React.useState<
     Record<string, string>
   >({});
+  // URL ?tab= wins; otherwise fall back to the user's last-used tab from
+  // settings. Local state because the URL still drives intra-session tab
+  // changes — settings just remembers the default across reloads.
   const [activeTab, setActiveTab] = React.useState<TabId>(() => {
     const tab = searchParams.get("tab");
     if (tab === "cards") return "cards";
-    return "reading-list";
+    if (tab === "reading-list") return "reading-list";
+    return settings.activeTab;
   });
-  const [viewMode, setViewModeState] = React.useState<"compact" | "cozy">("compact");
-  React.useEffect(() => {
-    const stored = localStorage.getItem("view-mode");
-    if (stored === "cozy" || stored === "compact") setViewModeState(stored);
-  }, []);
-  const setViewMode = React.useCallback((mode: "compact" | "cozy") => {
-    setViewModeState(mode);
-    localStorage.setItem("view-mode", mode);
-  }, []);
 
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
@@ -180,6 +178,7 @@ export const ItemsList = ({
 
   const setActiveTabAndUrl = React.useCallback((tab: TabId) => {
     setActiveTab(tab);
+    setSetting("activeTab", tab);
     const params = new URLSearchParams(window.location.search);
     if (tab === "reading-list") {
       params.delete("tab");
@@ -192,7 +191,7 @@ export const ItemsList = ({
       "",
       queryString ? `?${queryString}` : window.location.pathname,
     );
-  }, []);
+  }, [setSetting]);
 
   const handleOpenItem = onOpenItem;
 
@@ -211,7 +210,6 @@ export const ItemsList = ({
     showRead,
     setShowRead,
     groupBy,
-    setGroupBy,
     groups,
   } = useItemsFilters(items, activeTab, searchOrder);
 
@@ -585,14 +583,6 @@ export const ItemsList = ({
               activeTab={activeTab}
               setActiveTabAndUrl={setActiveTabAndUrl}
               hasTags={allTags.length > 0}
-              tagsOpen={tagsOpen}
-              setTagsOpen={setTagsOpen}
-              showRead={showRead}
-              setShowRead={setShowRead}
-              groupBy={groupBy}
-              setGroupBy={setGroupBy}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
               onAdd={handleOpenNew}
               onPasteUrl={handlePasteUrl}
               isCreating={isCreating || isFetchingPasteTitle}
@@ -724,7 +714,7 @@ export const ItemsList = ({
                         key={item.id}
                         item={rowItem}
                         suppressHover={suppressHover}
-                        viewMode={viewMode}
+                        density={density}
                         isTyping={typingTitle !== undefined}
                         onSelect={() => handleOpenItem(item.id)}
                         onDelete={() => requestDeleteItem(item.id)}
@@ -741,7 +731,7 @@ export const ItemsList = ({
               items={items ?? []}
               typingTitles={typingTitles}
               suppressHover={suppressHover}
-              viewMode={viewMode}
+              density={density}
               onSelect={handleOpenItem}
               onDelete={requestDeleteItem}
               onToggleRead={handleToggleRead}
@@ -796,7 +786,7 @@ export const ItemsList = ({
                             key={item.id}
                             item={rowItem}
                             suppressHover={suppressHover}
-                            viewMode={viewMode}
+                            density={density}
                             isDragDisabled={true}
                             isTyping={typingTitle !== undefined}
                             onTogglePin={() => handleTogglePin(item.id, !item.starred)}
@@ -817,7 +807,7 @@ export const ItemsList = ({
                     key={item.id}
                     item={rowItem}
                     suppressHover={suppressHover}
-                    viewMode={viewMode}
+                    density={density}
                     isDragDisabled={isDragDisabled}
                     isTyping={typingTitle !== undefined}
                     suppressTransition={justDropped}

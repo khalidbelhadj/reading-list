@@ -28,6 +28,7 @@ import { logout } from "@/app/logout/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
+import { useSettings } from "@/lib/use-settings";
 import {
   Dialog,
   DialogContent,
@@ -109,32 +110,18 @@ export const SettingsMenu = ({
   showFilters,
   showReadingListFilters,
   hasTags,
-  tagsOpen,
-  setTagsOpen,
-  showRead,
-  setShowRead,
-  groupBy,
-  setGroupBy,
-  viewMode,
-  setViewMode,
 }: {
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
   showFilters: boolean;
   showReadingListFilters: boolean;
   hasTags: boolean;
-  tagsOpen: boolean;
-  setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  showRead: boolean;
-  setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
-  groupBy: GroupBy;
-  setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
-  viewMode: "compact" | "cozy";
-  setViewMode: (mode: "compact" | "cozy") => void;
 }) => {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: user } = useCurrentUser();
+  const { settings, setSetting } = useSettings();
+  const { theme, density, fullWidth, groupBy, showRead, tagsOpen } = settings;
   const email = user?.email ?? null;
   const fullName =
     (user?.user_metadata?.full_name as string) ??
@@ -148,10 +135,8 @@ export const SettingsMenu = ({
         .toUpperCase()
         .slice(0, 2)
     : null;
-  const [theme, setTheme] = React.useState<ThemeKey>("system");
   const [mounted, setMounted] = React.useState(false);
   const [isElectron, setIsElectron] = React.useState(false);
-  const [fullWidth, setFullWidth] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportFilename, setExportFilename] =
     React.useState(defaultCsvFilename());
@@ -164,16 +149,10 @@ export const SettingsMenu = ({
     },
   });
 
-  const handleThemeChange = React.useCallback((value: string) => {
-    const key = value as ThemeKey;
-    setTheme(key);
-    if (key === "system") {
-      localStorage.removeItem("theme");
-    } else {
-      localStorage.setItem("theme", key);
-    }
-    applyTheme(key);
-  }, []);
+  const handleThemeChange = React.useCallback(
+    (value: string) => setSetting("theme", value as ThemeKey),
+    [setSetting],
+  );
 
   const openExport = React.useCallback(() => {
     setExportFilename(defaultCsvFilename());
@@ -217,53 +196,49 @@ export const SettingsMenu = ({
   }, []);
 
   const handleTagsOpenChange = React.useCallback(
-    (checked: boolean) => setTagsOpen(checked),
-    [setTagsOpen],
+    (checked: boolean) => setSetting("tagsOpen", checked),
+    [setSetting],
   );
 
   const handleShowReadChange = React.useCallback(
-    (checked: boolean) => setShowRead(checked),
-    [setShowRead],
+    (checked: boolean) => setSetting("showRead", checked),
+    [setSetting],
   );
 
   const handleGroupByChange = React.useCallback(
-    (value: string) => setGroupBy(value as GroupBy),
-    [setGroupBy],
+    (value: string) => setSetting("groupBy", value as GroupBy),
+    [setSetting],
   );
 
-  const handleViewModeChange = React.useCallback(
-    (value: string) => setViewMode(value === "cozy" ? "cozy" : "compact"),
-    [setViewMode],
+  const handleDensityChange = React.useCallback(
+    (value: string) => setSetting("density", value === "cozy" ? "cozy" : "compact"),
+    [setSetting],
   );
 
-  const handleFullWidthChange = React.useCallback((checked: boolean) => {
-    setFullWidth(checked);
-    if (checked) {
-      localStorage.setItem("full-width", "1");
-      document.documentElement.classList.add("full-width");
-    } else {
-      localStorage.removeItem("full-width");
-      document.documentElement.classList.remove("full-width");
-    }
-  }, []);
-
+  const handleFullWidthChange = React.useCallback(
+    (checked: boolean) => setSetting("fullWidth", checked),
+    [setSetting],
+  );
 
   React.useEffect(() => {
     setMounted(true);
     setIsElectron(document.documentElement.classList.contains("electron"));
-    setFullWidth(document.documentElement.classList.contains("full-width"));
-    const stored = localStorage.getItem("theme");
-    const initialTheme: ThemeKey =
-      stored === "dark" || stored === "light" ? stored : "system";
-    setTheme(initialTheme);
+  }, []);
+
+  // Apply theme to <html>. Watches both settings.theme and the system dark
+  // media query so "system" tracks OS changes without a manual toggle.
+  React.useEffect(() => {
+    applyTheme(theme);
+    if (theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      if (localStorage.getItem("theme")) return;
-      applyTheme("system");
-    };
+    const handler = () => applyTheme("system");
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, []);
+  }, [theme]);
+
+  React.useEffect(() => {
+    document.documentElement.classList.toggle("full-width", fullWidth);
+  }, [fullWidth]);
 
 
   return (
@@ -328,7 +303,11 @@ export const SettingsMenu = ({
               <IconFilter />
               Filter by tags
             </DropdownMenuCheckboxItem>
-
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {showFilters && (
+          <>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <IconLayoutList />
@@ -354,12 +333,12 @@ export const SettingsMenu = ({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <IconList />
-                View
+                Density
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
-                  value={viewMode}
-                  onValueChange={handleViewModeChange}
+                  value={density}
+                  onValueChange={handleDensityChange}
                 >
                   <DropdownMenuRadioItem value="compact">
                     <IconList />
@@ -372,7 +351,6 @@ export const SettingsMenu = ({
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSeparator />
           </>
         )}
         <DropdownMenuSub>
@@ -406,39 +384,37 @@ export const SettingsMenu = ({
             Full width
           </DropdownMenuCheckboxItem>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={openExport}>
           <IconDownload />
           Export as CSV
         </DropdownMenuItem>
         {mounted && (fullName || email) && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <span className="flex items-center gap-2">
-                  {initials && (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-                      {initials}
-                    </span>
-                  )}
-                  {fullName ?? email}
-                </span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <IconLogout />
-                  Log out
-                </DropdownMenuItem>
-                {email && (
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-                      {email}
-                    </DropdownMenuLabel>
-                  </DropdownMenuGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <span className="flex items-center gap-2">
+                {initials && (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                    {initials}
+                  </span>
                 )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </>
+                {fullName ?? email}
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={handleLogout}>
+                <IconLogout />
+                Log out
+              </DropdownMenuItem>
+              {email && (
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                    {email}
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         )}
       </DropdownMenuContent>
 

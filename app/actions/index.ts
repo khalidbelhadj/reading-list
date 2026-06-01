@@ -15,6 +15,8 @@ export {
 
 export { renameTag, deleteTag } from "./tags";
 
+export { getSettings, updateSettings } from "./settings";
+
 export {
   getFlashcards,
   getAllFlashcards,
