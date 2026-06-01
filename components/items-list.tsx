@@ -666,11 +666,38 @@ export const ItemsList = ({
           skeleton={
           <div className="flex flex-col">
             {Array.from({ length: 15 }).map((_, i) => {
-              const titleRem = 10 + ((i * 7) % 26);
+              // One width sequence drives both densities so the rhythm down
+              // the list reads the same, and the url bar in cozy mode is
+              // derived from the same row width so each row looks coherent.
+              const titleWidths = [24, 18, 30, 14, 22, 28, 16, 26];
+              const titleRem = titleWidths[i % titleWidths.length];
+              const urlRem = titleRem * 0.55;
+              const opacity = Math.max(1 - i * 0.07, 0.1);
+              if (density === "cozy") {
+                return (
+                  <div
+                    key={i}
+                    style={{ opacity }}
+                    className="flex items-stretch gap-3 p-2"
+                  >
+                    <Skeleton className="aspect-video w-32 shrink-0 rounded-md" />
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+                      <Skeleton
+                        className="h-3.5 rounded-md"
+                        style={{ width: `min(${titleRem}rem, 85%)` }}
+                      />
+                      <Skeleton
+                        className="h-3 rounded-md"
+                        style={{ width: `min(${urlRem}rem, 60%)` }}
+                      />
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div
                   key={i}
-                  style={{ opacity: Math.max(1 - i * 0.07, 0.1) }}
+                  style={{ opacity }}
                   className="flex items-center gap-2 p-1 h-7"
                 >
                   <Skeleton className="size-4 rounded-[3px] shrink-0" />
