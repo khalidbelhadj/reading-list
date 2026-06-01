@@ -139,6 +139,14 @@ export const cardReviews = pgTable(
   ],
 );
 
+export const userSettings = pgTable("user_settings", {
+  userId: uuid("user_id").primaryKey(),
+  data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .notNull()
+    .default(sql`now()`),
+});
+
 export const reviewEvents = pgTable(
   "review_events",
   {

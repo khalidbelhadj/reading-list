@@ -24,8 +24,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { SettingsMenu } from "./settings-dialog";
-import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
+import { SettingsMenu } from "./settings-menu";
+import { type TabId } from "@/components/items-list/use-filters";
 import { getReviewStatus, type ReviewMode } from "@/app/actions";
 import { useStartReview } from "./use-start-review";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
@@ -34,14 +34,6 @@ export const Toolbar = ({
   activeTab,
   setActiveTabAndUrl,
   hasTags,
-  tagsOpen,
-  setTagsOpen,
-  showRead,
-  setShowRead,
-  groupBy,
-  setGroupBy,
-  viewMode,
-  setViewMode,
   onAdd,
   onPasteUrl,
   isCreating = false,
@@ -49,14 +41,6 @@ export const Toolbar = ({
   activeTab: TabId;
   setActiveTabAndUrl: (tab: TabId) => void;
   hasTags: boolean;
-  tagsOpen: boolean;
-  setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  showRead: boolean;
-  setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
-  groupBy: GroupBy;
-  setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
-  viewMode: "compact" | "cozy";
-  setViewMode: (mode: "compact" | "cozy") => void;
   onAdd: () => void;
   onPasteUrl: () => void;
   isCreating?: boolean;
@@ -129,14 +113,6 @@ export const Toolbar = ({
         showFilters={showFilters}
         showReadingListFilters={showFilters}
         hasTags={hasTags}
-        tagsOpen={tagsOpen}
-        setTagsOpen={setTagsOpen}
-        showRead={showRead}
-        setShowRead={setShowRead}
-        groupBy={groupBy}
-        setGroupBy={setGroupBy}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
       />
 
       <div className="flex-1" />

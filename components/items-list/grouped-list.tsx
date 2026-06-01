@@ -24,7 +24,7 @@ import {
   ItemContextMenu,
   ItemContextMenuTrigger,
 } from "./item-dropdown";
-import { resolveRowItem, type ViewMode } from "./utils";
+import { resolveRowItem, type Density } from "./utils";
 import { CozyRowContent } from "./cozy-row-content";
 import { type ItemGroup } from "./use-filters";
 import { ItemRowContent } from "./item-row-content";
@@ -89,7 +89,7 @@ type GroupedListProps = {
   items: Item[];
   typingTitles: Record<string, string>;
   suppressHover: boolean;
-  viewMode?: ViewMode;
+  density?: Density;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
@@ -101,7 +101,7 @@ export const GroupedList = ({
   items,
   typingTitles,
   suppressHover,
-  viewMode = "compact",
+  density = "compact",
   onSelect,
   onDelete,
   onToggleRead,
@@ -250,7 +250,7 @@ export const GroupedList = ({
                     key={`${group.key}:${item.id}`}
                     item={rowItem}
                     suppressHover={suppressHover}
-                    viewMode={viewMode}
+                    density={density}
                     isTyping={typingTitle !== undefined}
                     onSelect={() => onSelect(item.id)}
                     onDelete={() => onDelete(item.id)}
@@ -282,7 +282,7 @@ export const PlainItemRow = ({
   item,
   suppressHover,
   isTyping,
-  viewMode = "compact",
+  density = "compact",
   onSelect,
   onDelete,
   onToggleRead,
@@ -291,7 +291,7 @@ export const PlainItemRow = ({
   item: Item;
   suppressHover: boolean;
   isTyping?: boolean;
-  viewMode?: ViewMode;
+  density?: Density;
   onSelect: () => void;
   onDelete?: () => void;
   onToggleRead?: () => void;
@@ -322,25 +322,25 @@ export const PlainItemRow = ({
         <div
           data-item-id={item.id}
           onClick={onSelect}
-          onMouseEnter={viewMode === "cozy" ? undefined : preview.onMouseEnter}
-          onMouseMove={viewMode === "cozy" ? undefined : preview.onMouseMove}
-          onMouseLeave={viewMode === "cozy" ? undefined : preview.onMouseLeave}
+          onMouseEnter={density === "cozy" ? undefined : preview.onMouseEnter}
+          onMouseMove={density === "cozy" ? undefined : preview.onMouseMove}
+          onMouseLeave={density === "cozy" ? undefined : preview.onMouseLeave}
           className={cn(
             "group relative flex overflow-hidden select-none outline-none rounded-lg",
-            viewMode === "cozy"
+            density === "cozy"
               ? "items-stretch gap-3 p-2"
               : "items-center gap-2 p-1",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
-            !isOpen && !isCursor && !suppressHover && (viewMode === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            !isOpen && isCursor && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            !isOpen && !isCursor && !suppressHover && (density === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
         />
       }
     >
-      {viewMode === "cozy" ? (
+      {density === "cozy" ? (
         <CozyRowContent
           item={item}
           isSelected={isOpen}
@@ -368,7 +368,7 @@ export const PlainItemRow = ({
       )}
     </ItemContextMenuTrigger>
     </ItemContextMenu>
-    {viewMode !== "cozy" && (
+    {density !== "cozy" && (
       <HoverPreviewContent open={preview.open} position={preview.position}>
         <ItemPreview item={item} />
       </HoverPreviewContent>

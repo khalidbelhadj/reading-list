@@ -13,7 +13,7 @@ import {
   ItemContextMenu,
   ItemContextMenuTrigger,
 } from "./item-dropdown";
-import { type ViewMode } from "./utils";
+import { type Density } from "./utils";
 import { ItemPreview } from "./item-preview";
 import { ItemRowContent } from "./item-row-content";
 import { CozyRowContent } from "./cozy-row-content";
@@ -27,7 +27,7 @@ export function SortableItemRow({
   suppressTransition,
   isDragDisabled,
   isTyping,
-  viewMode = "compact",
+  density = "compact",
   onTogglePin,
   onToggleRead,
   onSelect,
@@ -39,7 +39,7 @@ export function SortableItemRow({
   suppressTransition?: boolean;
   isDragDisabled: boolean;
   isTyping?: boolean;
-  viewMode?: ViewMode;
+  density?: Density;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
   onSelect: () => void;
@@ -94,26 +94,26 @@ export function SortableItemRow({
           data-item-id={item.id}
           className={cn(
             "group relative flex overflow-hidden select-none active:cursor-grabbing outline-none rounded-lg",
-            viewMode === "cozy"
+            density === "cozy"
               ? "items-stretch gap-3 p-2"
               : "items-center gap-2 p-1",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
-            !isOpen && !isCursor && !suppressHover && (viewMode === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (viewMode === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            !isOpen && isCursor && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            !isOpen && !isCursor && !suppressHover && (density === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}
           onClick={onSelect}
-          onMouseEnter={viewMode === "cozy" ? undefined : preview.onMouseEnter}
-          onMouseMove={viewMode === "cozy" ? undefined : preview.onMouseMove}
-          onMouseLeave={viewMode === "cozy" ? undefined : preview.onMouseLeave}
+          onMouseEnter={density === "cozy" ? undefined : preview.onMouseEnter}
+          onMouseMove={density === "cozy" ? undefined : preview.onMouseMove}
+          onMouseLeave={density === "cozy" ? undefined : preview.onMouseLeave}
           {...attributes}
           {...listeners}
         />
       }
     >
-      {viewMode === "cozy" ? (
+      {density === "cozy" ? (
         <CozyRowContent
           item={item}
           isSelected={isOpen}
@@ -141,7 +141,7 @@ export function SortableItemRow({
       )}
     </ItemContextMenuTrigger>
     </ItemContextMenu>
-    {viewMode !== "cozy" && (
+    {density !== "cozy" && (
       <HoverPreviewContent open={preview.open} position={preview.position}>
         <ItemPreview item={item} />
       </HoverPreviewContent>
