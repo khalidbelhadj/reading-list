@@ -98,9 +98,13 @@ export function SortableItemRow({
               ? "items-stretch gap-3 p-2"
               : "items-center gap-2 p-1",
             isOpen && "bg-secondary",
-            !isOpen && isCursor && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
-            !isOpen && !isCursor && !suppressHover && (density === "cozy" ? "hover:bg-foreground/5" : "hover:bg-muted"),
-            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && (density === "cozy" ? "bg-foreground/5" : "bg-muted"),
+            // Hover/cursor/menu-open all use a translucent fill (matching cozy
+            // mode) rather than bg-muted — in dark mode bg-muted resolves to the
+            // same token as bg-secondary, so the compact hover was identical to
+            // the active state.
+            !isOpen && isCursor && "bg-foreground/5",
+            !isOpen && !isCursor && !suppressHover && "hover:bg-foreground/5",
+            !isOpen && !isCursor && (menuOpen || contextMenuOpen) && "bg-foreground/5",
             isRead && "opacity-50",
           )}
           data-menu-open={menuOpen || contextMenuOpen || undefined}

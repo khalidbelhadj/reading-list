@@ -4,6 +4,7 @@ import React from "react";
 import { IconChevronDown, IconChevronUp, IconX } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
+import { isModKey } from "@/lib/input-context";
 import { Button } from "@/components/ui/button";
 import type { PanelFind } from "./use-panel-find";
 
@@ -26,7 +27,7 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
   React.useEffect(() => {
     if (!find.isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if (isModKey(e) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         inputRef.current?.focus();
         inputRef.current?.select();

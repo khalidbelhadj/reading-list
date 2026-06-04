@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
+import { subscribePanelCommand } from "@/lib/panel-events";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./delete-item-dialog";
@@ -290,6 +291,23 @@ export const SlidingItemPanel = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, onClose]);
+
+  // Keyboard-driven view transitions, dispatched from the central shortcut
+  // handler (Cmd+] / Cmd+[ / Cmd+K). Read the live phase from phaseRef so the
+  // subscription doesn't need to re-bind on every phase change.
+  React.useEffect(() => {
+    return subscribePanelCommand((command) => {
+      const current = phaseRef.current;
+      if (command === "expand") {
+        if (current === "side") setPhase("fullw");
+      } else if (command === "peek") {
+        if (current === "fullw") setPhase("side");
+      } else if (command === "collapse") {
+        if (current === "fullw") setPhase("side");
+        else if (current === "side") onClose();
+      }
+    });
+  }, [onClose]);
 
   // Phase used to compute the *visual* layer's dimensions. While closed we
   // freeze on the last open phase so the slide-off keeps the same shape.
@@ -624,6 +642,16 @@ const PanelInner = ({
     ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })
     : null;
 
+  // The scroll container persists across items, so opening a *different* item
+  // would otherwise inherit the previous one's scroll offset — and a stuck
+  // top fade. Reset both to the top when the item id changes. Keyed on id (not
+  // the item object) so editing the current item doesn't jump the scroll.
+  React.useLayoutEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (scrollEl) scrollEl.scrollTop = 0;
+    setScrolled(false);
+  }, [item?.id]);
+
   // Title morph: as the user scrolls the panel's inner container, the title
   // row in the content interpolates toward the empty slot in the toolbar,
   // shrinking and fading from content position into the header.
@@ -638,7 +666,6 @@ const PanelInner = ({
     const HEADER_FONT = 12;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
     const ease = (t: number) => t * (2 - t);
-    let scrolledLocal = false;
 
     const update = () => {
       const morph = morphRef.current;
@@ -653,11 +680,10 @@ const PanelInner = ({
       const rawT = Math.min(scrollY / THRESHOLD, 1);
       const t = ease(rawT);
 
-      const isScrolled = scrollY > 0;
-      if (isScrolled !== scrolledLocal) {
-        scrolledLocal = isScrolled;
-        setScrolled(isScrolled);
-      }
+      // React bails out of the re-render when the value is unchanged, so a
+      // direct set is correct and avoids the stale effect-local guard that
+      // left the fade stuck on after navigating to an unscrolled item.
+      setScrolled(scrollY > 0);
 
       if (rawT <= 0) {
         morph.style.opacity = "0";

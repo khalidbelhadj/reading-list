@@ -19,6 +19,7 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { isModKey } from "@/lib/input-context";
 
 export type FlashcardCardData = {
   id: string;
@@ -73,7 +74,7 @@ export const FlashcardCard = ({
 
   const handleEditorKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "Enter" && isModKey(e)) {
         saveAndClose();
         return true;
       }

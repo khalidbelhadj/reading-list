@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { isModKey } from "@/lib/input-context";
 import { type DbTag } from "@/lib/types";
 
 type DeleteTagDialogProps = {
@@ -39,7 +40,7 @@ export const DeleteTagDialog = ({
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
       if (deleting) return;
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "Enter" && isModKey(e)) {
         e.preventDefault();
         onConfirm();
       }

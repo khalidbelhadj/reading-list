@@ -9,12 +9,15 @@ import {
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import CodeBlock from "@tiptap/extension-code-block";
+import Paragraph from "@tiptap/extension-paragraph";
 import Placeholder from "@tiptap/extension-placeholder";
+import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Markdown } from "tiptap-markdown";
 import { toast } from "sonner";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
 import { cn } from "@/lib/utils";
+import { isModKey } from "@/lib/input-context";
 import { requestImageUpload } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
@@ -38,7 +41,7 @@ const ImageLightbox = ({
   React.useEffect(() => {
     if (!src) return;
     const handler = async (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key !== "c") return;
+      if (!isModKey(event) || event.key !== "c") return;
       if (window.getSelection()?.toString()) return;
       event.preventDefault();
       try {
@@ -177,6 +180,36 @@ const CodeBlockWithLineNav = CodeBlock.extend({
   },
 });
 
+// tiptap-markdown serializes an empty paragraph to a blank line, and plain
+// markdown collapses consecutive blank lines on re-parse — so a deliberate
+// empty line between two paragraphs silently disappears on the next load. Emit
+// a non-breaking space for empty paragraphs instead: markdown-it parses it back
+// into a paragraph, so intentional blank lines survive the round-trip.
+type MarkdownSerializeState = {
+  write: (content: string) => void;
+  closeBlock: (node: ProseMirrorNode) => void;
+  renderInline: (node: ProseMirrorNode) => void;
+};
+
+const ParagraphWithBlankLines = Paragraph.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: MarkdownSerializeState, node: ProseMirrorNode) {
+          if (node.content.size === 0) {
+            state.write("&nbsp;");
+            state.closeBlock(node);
+            return;
+          }
+          state.renderInline(node);
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
 export const MarkdownEditor = ({
   value,
   onChange,
@@ -247,7 +280,8 @@ export const MarkdownEditor = ({
     editable,
     autofocus: autoFocus ? "end" : false,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, paragraph: false }),
+      ParagraphWithBlankLines,
       CodeBlockWithLineNav,
       DeleteEmptyFirstBlock,
       Card,
@@ -278,6 +312,11 @@ export const MarkdownEditor = ({
         html: true,
         breaks: true,
         transformPastedText: true,
+        // Serialize the selection as markdown on copy. Without this, copying
+        // falls back to ProseMirror's default text serializer, which joins
+        // every block with a blank line — so a tight bullet list comes out
+        // with an empty line between each item.
+        transformCopiedText: true,
       }),
       Placeholder.configure({
         includeChildren: true,

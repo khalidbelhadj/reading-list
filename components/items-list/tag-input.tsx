@@ -4,6 +4,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isModKey } from "@/lib/input-context";
 
 const splitTags = (raw: string) =>
   raw
@@ -101,7 +102,7 @@ export const TagInput = ({
 
   const handleInputKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      const isMod = e.metaKey || e.ctrlKey;
+      const isMod = isModKey(e);
 
       if (isMod && e.key.toLowerCase() === "a" && !input && value.length > 0) {
         e.preventDefault();

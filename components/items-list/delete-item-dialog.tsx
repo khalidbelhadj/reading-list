@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { type Item } from "@/lib/types";
+import { isModKey } from "@/lib/input-context";
 import { getFaviconSrc } from "@/components/items-list/utils";
 
 type DeleteItemDialogProps = {
@@ -42,7 +43,7 @@ export const DeleteItemDialog = ({
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !deleting) {
+      if (e.key === "Enter" && isModKey(e) && !deleting) {
         e.preventDefault();
         onConfirm();
       }

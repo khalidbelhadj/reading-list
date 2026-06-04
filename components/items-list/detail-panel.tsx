@@ -15,7 +15,7 @@ import {
 import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { createFlashcard, getFlashcards } from "@/app/actions";
 
-import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
+import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
 
 import { type EditFields, getFaviconSrc } from "./utils";
 import { useAutofill } from "./use-autofill";
@@ -276,7 +276,7 @@ export const DetailPanel = React.forwardRef<
         const panel = document.querySelector("[data-detail-panel]");
         if (!panel?.contains(e.target as Node)) return;
 
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        if (e.key === "Enter" && isModKey(e)) {
           e.preventDefault();
           e.stopPropagation();
           const payload = tags.join(", ");
@@ -289,7 +289,7 @@ export const DetailPanel = React.forwardRef<
             lastSavedRef.current = { title, url, tags: tagsKey(tags), notes };
           }
         }
-        if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && onDelete) {
+        if (e.key === "Backspace" && isModKey(e) && onDelete) {
           if (isTypingContext(e)) return;
           e.preventDefault();
           e.stopPropagation();
@@ -353,7 +353,7 @@ export const DetailPanel = React.forwardRef<
 
     const handleAddingCardKeyDown = React.useCallback(
       (e: KeyboardEvent) => {
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        if (e.key === "Enter" && isModKey(e)) {
           if (newFront.trim()) handleAddCard();
           return true;
         }

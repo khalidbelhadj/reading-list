@@ -20,18 +20,22 @@ export const getYouTubeVideoId = (raw: string): string | null => {
   try {
     const url = new URL(raw);
     const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    // Tolerate trailing slashes on the path (e.g. /watch/, /embed/ID/,
+    // youtu.be/ID/) — otherwise the exact "/watch" match below drops the
+    // preview for any URL with a trailing slash.
+    const path = url.pathname.replace(/\/+$/, "");
     if (host === "youtu.be") {
-      const id = url.pathname.slice(1).split("/")[0];
+      const id = path.slice(1).split("/")[0];
       return /^[\w-]{11}$/.test(id) ? id : null;
     }
     if (host === "youtube.com" || host === "m.youtube.com") {
-      if (url.pathname === "/watch") {
+      if (path === "/watch") {
         const id = url.searchParams.get("v");
         return id && /^[\w-]{11}$/.test(id) ? id : null;
       }
-      const shortsMatch = url.pathname.match(/^\/shorts\/([\w-]{11})/);
+      const shortsMatch = path.match(/^\/shorts\/([\w-]{11})/);
       if (shortsMatch) return shortsMatch[1];
-      const embedMatch = url.pathname.match(/^\/embed\/([\w-]{11})/);
+      const embedMatch = path.match(/^\/embed\/([\w-]{11})/);
       if (embedMatch) return embedMatch[1];
     }
     return null;

@@ -3,6 +3,7 @@ import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useDebounced } from "@/lib/use-debounced";
+import { isModKey } from "@/lib/input-context";
 import { Spinner } from "@/components/ui/spinner";
 
 export type SearchBarHandle = {
@@ -82,9 +83,12 @@ export const SearchBar = React.forwardRef<
       onResults(null);
       return;
     }
-    // Server data is only considered fresh when its debounced query matches
-    // the current input and a fetch isn't in flight.
-    const serverFresh = debouncedQuery === trimmedQuery && !isFetching && !!data;
+    // Server data is fresh as long as its debounced query matches the current
+    // input and we have results. We intentionally do NOT gate on isFetching:
+    // when items are invalidated (e.g. after editing an item) the search query
+    // refetches in the background, and React Query keeps the prior data for the
+    // same key — so we keep showing it instead of flashing the unfiltered list.
+    const serverFresh = debouncedQuery === trimmedQuery && !!data;
     const serverOrder = serverFresh && data ? data.map((r) => r.id) : null;
 
     if (localOrder && serverOrder) {
@@ -164,7 +168,7 @@ export const SearchBar = React.forwardRef<
       }
       if (e.key === "Enter" && !e.altKey) {
         e.preventDefault();
-        onCursorOpen?.({ meta: e.metaKey || e.ctrlKey, shift: e.shiftKey });
+        onCursorOpen?.({ meta: isModKey(e), shift: e.shiftKey });
         return;
       }
     },
@@ -189,9 +193,18 @@ export const SearchBar = React.forwardRef<
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, handleClose]);
 
+  // When the bar collapses (height 0), drop focus from the now-hidden input.
+  // A focused-but-hidden input keeps swallowing keystrokes, which blocks the
+  // global list-navigation shortcuts (j/k, Ctrl+N/P, etc.).
+  React.useEffect(() => {
+    if (!isOpen && document.activeElement === inputRef.current) {
+      inputRef.current?.blur();
+    }
+  }, [isOpen]);
+
   const resultCount = React.useMemo(() => {
     if (trimmedQuery.length === 0) return null;
-    const serverFresh = debouncedQuery === trimmedQuery && !isFetching && !!data;
+    const serverFresh = debouncedQuery === trimmedQuery && !!data;
     if (localIdSet && serverFresh && data) {
       let extra = 0;
       for (const r of data) if (!localIdSet.has(r.id)) extra++;
@@ -200,7 +213,7 @@ export const SearchBar = React.forwardRef<
     if (localIdSet) return localIdSet.size;
     if (serverFresh && data) return data.length;
     return null;
-  }, [localIdSet, data, debouncedQuery, trimmedQuery, isFetching]);
+  }, [localIdSet, data, debouncedQuery, trimmedQuery]);
 
   return (
     <div
@@ -231,12 +244,16 @@ export const SearchBar = React.forwardRef<
                 regex
               </span>
             )}
-            {isFetching ? (
-              <Spinner className="size-3.5" />
-            ) : resultCount !== null ? (
+            {/* Keep the count visible whenever we have one — including while a
+                background refetch is in flight (e.g. an item edit invalidated
+                the search). Only fall back to the spinner when there's nothing
+                to show yet, so a background refetch doesn't flash "searching". */}
+            {resultCount !== null ? (
               <span className="text-[11px] tabular-nums text-muted-foreground select-none">
                 {resultCount}
               </span>
+            ) : isFetching ? (
+              <Spinner className="size-3.5" />
             ) : null}
             <button
               type="button"

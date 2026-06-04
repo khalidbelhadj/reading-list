@@ -73,16 +73,22 @@ export const ItemRowContent = ({
           "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
           !suppressHover && "group-hover:visible",
         )}>
-          <div
-            className={cn(
-              "absolute inset-0 bg-gradient-to-r from-transparent",
-              isSelected ? "via-secondary to-secondary" : "via-muted to-muted",
-            )}
-          />
+          {/* Occluder so the title fades out cleanly behind the menu button.
+              Must match the row's background: active rows are a solid
+              bg-secondary, while hovered rows are the page background lifted by
+              a translucent foreground/5 — so stack both layers to match. */}
+          {isSelected ? (
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-secondary to-secondary" />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background to-background" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-foreground/5" />
+            </>
+          )}
           <DropdownMenuTrigger
             className={cn(
               "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
-              isSelected ? "bg-secondary" : "bg-muted",
+              isSelected && "bg-secondary",
             )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}

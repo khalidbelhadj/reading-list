@@ -2,7 +2,8 @@ import React from "react";
 import { toast } from "sonner";
 
 import { type Item } from "@/lib/types";
-import { isTypingContext, isOverlayOpen } from "@/lib/input-context";
+import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
+import { dispatchPanelCommand } from "@/lib/panel-events";
 import type { TabId } from "@/components/items-list/use-filters";
 
 export const useKeyboardNavigation = ({
@@ -104,11 +105,40 @@ export const useKeyboardNavigation = ({
     return () => document.removeEventListener("keydown", handleGlobal);
   }, [setActiveTabAndUrl, setTagsOpen, setShowRead, setCursor, onOpenNew, onSearchOpen]);
 
+  // Command shortcuts for search + panel view transitions. Unlike the shortcuts
+  // above, these are NOT gated on isTypingContext: Cmd+K should jump to search
+  // and Cmd+[ should collapse the panel even while the cursor is in the panel's
+  // title/notes editor.
+  //   Cmd/Ctrl+K — focus search; if an item is in full view, pop it back to
+  //                side view so the list (and search box) are visible.
+  //   Cmd/Ctrl+[ — expand the panel a step (side → fullw).
+  //   Cmd/Ctrl+] — collapse the panel a step (fullw → side → closed).
+  React.useEffect(() => {
+    const handleCommand = (e: KeyboardEvent) => {
+      if (!isModKey(e) || e.altKey || e.shiftKey) return;
+      if (isOverlayOpen()) return;
+      const key = e.key.toLowerCase();
+      if (key === "k") {
+        e.preventDefault();
+        dispatchPanelCommand("peek");
+        onSearchOpen();
+      } else if (e.key === "[") {
+        e.preventDefault();
+        dispatchPanelCommand("expand");
+      } else if (e.key === "]") {
+        e.preventDefault();
+        dispatchPanelCommand("collapse");
+      }
+    };
+    document.addEventListener("keydown", handleCommand);
+    return () => document.removeEventListener("keydown", handleCommand);
+  }, [onSearchOpen]);
+
   // Cmd+Backspace to delete cursor item
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isTypingContext(e) || isOverlayOpen()) return;
-      if (e.key === "Backspace" && (e.metaKey || e.ctrlKey) && cursorRef.current !== null) {
+      if (e.key === "Backspace" && isModKey(e) && cursorRef.current !== null) {
         e.preventDefault();
         onRequestDelete?.();
       }
@@ -225,7 +255,7 @@ export const useKeyboardNavigation = ({
       }
 
       // Cmd+Shift+Enter to open the item's URL in a new tab
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && currentCursor !== null) {
+      if (e.key === "Enter" && isModKey(e) && e.shiftKey && currentCursor !== null) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         const item = filteredItems.find((i) => i.id === currentCursor);
@@ -234,7 +264,7 @@ export const useKeyboardNavigation = ({
       }
 
       // Cmd+Enter to open the item expanded
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && currentCursor !== null) {
+      if (e.key === "Enter" && isModKey(e) && !e.shiftKey && currentCursor !== null) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         onOpenItemExpanded(currentCursor);

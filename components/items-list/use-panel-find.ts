@@ -2,6 +2,8 @@
 
 import React from "react";
 
+import { isModKey } from "@/lib/input-context";
+
 // Panel-scoped Cmd+F search. Highlighting is done via the CSS Custom
 // Highlights API (CSS.highlights) — Range objects are registered under
 // named highlights and painted by `::highlight(name)` CSS rules. No DOM
@@ -365,7 +367,7 @@ export const usePanelFind = ({
     if (!enabled) return;
     ensureHighlightStyles();
     const onKey = (e: KeyboardEvent) => {
-      const isFind = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f";
+      const isFind = isModKey(e) && e.key.toLowerCase() === "f";
       if (!isFind) return;
       e.preventDefault();
       setIsOpen(true);
