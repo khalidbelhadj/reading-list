@@ -73,7 +73,7 @@ export const CollapsibleSection = ({
       ref={outerRef}
       className="overflow-hidden transition-[height] duration-250 ease-in-out"
     >
-      <div ref={innerRef}>{children}</div>
+      <div ref={innerRef} className="space-y-px">{children}</div>
     </div>
   );
 };
@@ -334,7 +334,7 @@ export const PlainItemRow = ({
                 density === "cozy" ? undefined : preview.onMouseLeave
               }
               className={cn(
-                "group relative flex overflow-hidden select-none outline-none rounded-lg",
+                "group relative flex overflow-hidden select-none outline-none rounded-sm",
                 density === "cozy"
                   ? "items-stretch gap-3 p-2"
                   : "items-center gap-2 p-1",

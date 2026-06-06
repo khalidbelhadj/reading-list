@@ -20,7 +20,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isOverlayOpen } from "@/lib/input-context";
 import { subscribePanelCommand } from "@/lib/panel-events";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -285,27 +287,39 @@ export const SlidingItemPanel = ({
     else if (!expanded && phase === "fullw") setPhase("side");
   }, [itemId, expanded, phase]);
 
-  // ESC closes. Bail only when the focused editable is *inside* the panel
-  // (e.g. the title/notes editor) — focused inputs elsewhere on the page
-  // (like the search bar) should not block closing.
+  // ESC closes the panel via the dismiss stack (lib/dismiss-stack.ts): it's a
+  // layer that's active whenever the panel is open, so Escape closes it in LIFO
+  // order relative to search, transient edits, etc. `contains` lets re-focusing
+  // the panel promote it back above an older layer (e.g. a still-open search).
   const visualRef = React.useRef<HTMLDivElement | null>(null);
+  useDismissLayer({
+    active: phase !== "closed",
+    onDismiss: onClose,
+    contains: (node) => visualRef.current?.contains(node) ?? false,
+  });
+
+  // First Escape inside a panel field (title/notes editor) just blurs it; the
+  // panel itself only closes on the next Escape, once focus has left the field.
+  // Runs in the capture phase so it consumes the event before the stack
+  // dispatcher would otherwise close the panel.
   React.useEffect(() => {
     if (phase === "closed") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+    const onKeyCapture = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || isOverlayOpen()) return;
       const ae = document.activeElement as HTMLElement | null;
       const isEditable =
         ae &&
         (ae.tagName === "INPUT" ||
           ae.tagName === "TEXTAREA" ||
           ae.isContentEditable);
-      if (isEditable && visualRef.current?.contains(ae)) return;
-      e.preventDefault();
-      onClose();
+      if (isEditable && visualRef.current?.contains(ae)) {
+        e.stopPropagation();
+        ae.blur();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [phase, onClose]);
+    document.addEventListener("keydown", onKeyCapture, true);
+    return () => document.removeEventListener("keydown", onKeyCapture, true);
+  }, [phase]);
 
   // Keyboard-driven view transitions, dispatched from the central shortcut
   // handler (Cmd+] / Cmd+[ / Cmd+K). Read the live phase from phaseRef so the

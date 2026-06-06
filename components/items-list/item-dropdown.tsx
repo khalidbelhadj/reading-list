@@ -12,6 +12,7 @@ import {
 
 import { IconClaude } from "@/components/ui/claude-icon";
 import { type Item } from "@/lib/types";
+import { stripBlankLineSentinel } from "@/lib/markdown";
 import {
   ContextMenu as ContextMenuRoot,
   ContextMenuContent,
@@ -118,6 +119,14 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered(true);
   }, [item.title]);
 
+  const handleCopyNotes = React.useCallback(() => {
+    if (!item.notes) return;
+    navigator.clipboard.writeText(stripBlankLineSentinel(item.notes));
+    setLastCopied("__notes__");
+    setTimeout(() => setLastCopied(null), 2000);
+    setCopyTriggered(true);
+  }, [item.notes]);
+
   const handleOpenInNewTab = React.useCallback(() => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
@@ -127,7 +136,8 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     lines.push(`- **ID:** ${item.id}`);
     if (item.title) lines.push(`- **Title:** ${item.title}`);
     if (item.url) lines.push(`- **URL:** ${item.url}`);
-    if (item.notes) lines.push("", "**Notes:**", "", item.notes);
+    if (item.notes)
+      lines.push("", "**Notes:**", "", stripBlankLineSentinel(item.notes));
     const prompt = lines.join("\n");
     window.open(
       `claude://claude.ai/new?q=${encodeURIComponent(prompt)}`,
@@ -136,6 +146,8 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
   }, [item.id, item.title, item.url, item.notes]);
 
   const canOpenUrl = !!item.url && URL.canParse(item.url);
+  const hasNotes =
+    !!item.notes && stripBlankLineSentinel(item.notes).trim().length > 0;
 
   return {
     lastCopied,
@@ -143,9 +155,11 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     setCopyTriggered,
     handleCopyId,
     handleCopyTitle,
+    handleCopyNotes,
     handleOpenInNewTab,
     handleChatWithClaude,
     canOpenUrl,
+    hasNotes,
   };
 };
 
@@ -156,11 +170,13 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
 const ItemMenuItems = ({
   item,
   canOpenUrl,
+  hasNotes,
   lastCopied,
   handleOpenInNewTab,
   handleChatWithClaude,
   handleCopyId,
   handleCopyTitle,
+  handleCopyNotes,
   onTogglePin,
   onToggleRead,
   onDelete,
@@ -203,6 +219,19 @@ const ItemMenuItems = ({
         />
         <TooltipContent side="right">Copied</TooltipContent>
       </Tooltip>
+      {hasNotes && (
+        <Tooltip open={lastCopied === "__notes__"}>
+          <TooltipTrigger
+            render={
+              <DropdownMenuItem closeOnClick={false} onClick={handleCopyNotes}>
+                <IconCopy />
+                Copy notes as Markdown
+              </DropdownMenuItem>
+            }
+          />
+          <TooltipContent side="right">Copied</TooltipContent>
+        </Tooltip>
+      )}
       <DropdownMenuItem onClick={handleChatWithClaude}>
         <IconClaude />
         Chat with Claude

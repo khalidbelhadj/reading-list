@@ -15,7 +15,6 @@ import { resolveRowItem } from "./items-list/utils";
 
 import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
-import { Skeleton } from "@/components/ui/skeleton";
 import { fetchItems } from "@/lib/queries";
 import { useSettings } from "@/lib/use-settings";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
@@ -26,9 +25,10 @@ import {
   GroupedList,
   PlainItemRow,
 } from "./items-list/grouped-list";
+import { ItemRow } from "./items-list/item-row";
+import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
-import { ItemRow } from "./items-list/item-row";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { useCreateItem } from "./items-list/use-create-item";
@@ -87,6 +87,10 @@ export const ItemsList = ({
   const [searchPending, setSearchPending] = React.useState(
     () => initialSearchQuery.length > 0,
   );
+  // Backend (trigram) search still resolving for the current query — the local
+  // keyword pass is already on screen, so we append loading rows under it
+  // rather than replacing the whole list (that's `searchPending`).
+  const [searchBackendPending, setSearchBackendPending] = React.useState(false);
   const searchBarRef = React.useRef<SearchBarHandle | null>(null);
   const handleSearchResults = React.useCallback((ids: string[] | null) => {
     setSearchOrder(ids);
@@ -95,6 +99,12 @@ export const ItemsList = ({
   const handleSearchPendingChange = React.useCallback((pending: boolean) => {
     setSearchPending(pending);
   }, []);
+  const handleSearchBackendPendingChange = React.useCallback(
+    (pending: boolean) => {
+      setSearchBackendPending(pending);
+    },
+    [],
+  );
   const handleSearchQueryChange = React.useCallback((query: string) => {
     const params = new URLSearchParams(window.location.search);
     const existing = params.get("q") ?? "";
@@ -520,7 +530,10 @@ export const ItemsList = ({
     return { message: "No items match your filters", hasHiddenRead: false };
   }, [filteredItems, tabItems, showRead, activeTags, searchOrder]);
 
-  const emptyNode = emptyState && (
+  // Hold the "no matches" message while the backend search is still resolving —
+  // otherwise a query with no local keyword hits flashes "no results" before the
+  // trigram pass gets a chance to return any. The skeletons cover that window.
+  const emptyNode = emptyState && !searchBackendPending && (
     <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
       <span>{emptyState.message}</span>
       {emptyState.hasHiddenRead && (
@@ -535,7 +548,7 @@ export const ItemsList = ({
     <div className="electron-toolbar-container relative flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
       {/* Header — outside the scroll container so the scrollbar starts
           below it instead of reaching all the way to the top of the panel. */}
-      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-1 bg-background">
+      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-2 pb-3 bg-background">
         <div className="electron-top-bar-inset">
           <Toolbar
             activeTab={activeTab}
@@ -577,6 +590,7 @@ export const ItemsList = ({
           onResults={handleSearchResults}
           onQueryChange={handleSearchQueryChange}
           onPendingChange={handleSearchPendingChange}
+          onBackendPendingChange={handleSearchBackendPendingChange}
           initialQuery={initialSearchQuery}
           placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
         />
@@ -619,53 +633,7 @@ export const ItemsList = ({
           ) : (
             <LoadingFade
               loading={isLoading || searchPending}
-              skeleton={
-                <div className="flex flex-col">
-                  {Array.from({ length: 15 }).map((_, i) => {
-                    // One width sequence drives both densities so the rhythm down
-                    // the list reads the same, and the url bar in cozy mode is
-                    // derived from the same row width so each row looks coherent.
-                    const titleWidths = [24, 18, 30, 14, 22, 28, 16, 26];
-                    const titleRem = titleWidths[i % titleWidths.length];
-                    const urlRem = titleRem * 0.55;
-                    const opacity = Math.max(1 - i * 0.07, 0.1);
-                    if (density === "cozy") {
-                      return (
-                        <div
-                          key={i}
-                          style={{ opacity }}
-                          className="flex items-stretch gap-3 p-2"
-                        >
-                          <Skeleton className="aspect-video w-32 shrink-0 rounded-md" />
-                          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-                            <Skeleton
-                              className="h-3.5 rounded-md"
-                              style={{ width: `min(${titleRem}rem, 85%)` }}
-                            />
-                            <Skeleton
-                              className="h-3 rounded-md"
-                              style={{ width: `min(${urlRem}rem, 60%)` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div
-                        key={i}
-                        style={{ opacity }}
-                        className="flex items-center gap-2 p-1 h-7"
-                      >
-                        <Skeleton className="size-4 rounded-[3px] shrink-0" />
-                        <Skeleton
-                          className="h-3 rounded-md"
-                          style={{ width: `min(${titleRem}rem, 85%)` }}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              }
+              skeleton={<ItemsSkeleton density={density} />}
             >
               {groupBy !== "none" && !searchActive ? (
                 <div
@@ -736,9 +704,7 @@ export const ItemsList = ({
               ) : (
                 <div
                   onMouseMove={
-                    suppressHover
-                      ? () => setSuppressHover(false)
-                      : undefined
+                    suppressHover ? () => setSuppressHover(false) : undefined
                   }
                 >
                   {itemsError ? (
@@ -810,6 +776,13 @@ export const ItemsList = ({
                       />
                     );
                   })}
+                  {/* Backend (trigram) pass still running: append loading rows
+                      under the instant keyword hits so the search reads as
+                      "more coming," not finished. Same count as the full-list
+                      loader; the rows fade out further down. */}
+                  {searchActive && searchBackendPending && (
+                    <ItemsSkeleton density={density} />
+                  )}
                 </div>
               )}
             </LoadingFade>

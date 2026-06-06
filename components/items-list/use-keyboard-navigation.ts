@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
 import { dispatchPanelCommand } from "@/lib/panel-events";
+import { setDismissFallback } from "@/lib/dismiss-stack";
 import type { TabId } from "@/components/items-list/use-filters";
 
 export const useKeyboardNavigation = ({
@@ -61,22 +62,15 @@ export const useKeyboardNavigation = ({
     return () => document.removeEventListener("paste", handlePaste);
   }, [onPasteCreate, activeTags]);
 
+  // Escape's fall-through default (lib/dismiss-stack.ts rule 5): when nothing
+  // dismissible is open — no overlay, no panel, no search — Escape clears the
+  // list cursor. Every other Escape behavior is owned by a dismiss layer, so we
+  // no longer hand-check panel/overlay state here.
+  React.useEffect(() => setDismissFallback(() => setCursor(null)), [setCursor]);
+
   // Global keyboard shortcuts
   React.useEffect(() => {
     const handleGlobal = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isOverlayOpen()) return;
-        // If the item panel is open, ESC closes the panel — let it do so
-        // without clearing the cursor, so the user can keep navigating from
-        // where they were.
-        if (
-          document.querySelector('[data-phase]:not([data-phase="closed"])')
-        ) {
-          return;
-        }
-        setCursor(null);
-        return;
-      }
       if (isTypingContext(e)) return;
       if (e.key === "1" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("reading-list");
       if (e.key === "2" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("cards");

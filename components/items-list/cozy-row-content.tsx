@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getYouTubeVideoId } from "@/lib/url";
 import { generateItemPreview } from "@/app/actions";
@@ -62,7 +61,7 @@ const PagePreview = ({
     <div className="absolute inset-0 bg-muted">
       {/* The mini page — narrower than the container, anchored to the bottom
           and extending past it so only the top portion is visible. */}
-      <div className="absolute inset-x-5 top-3 bottom-[-30%] overflow-hidden rounded-t-[3px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.18)] dark:bg-zinc-100">
+      <div className="absolute inset-x-3 top-3 bottom-[-30%] overflow-hidden rounded-t-[3px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.18)] dark:bg-zinc-100">
         {item.previewImageUrl ? (
           <Image
             src={item.previewImageUrl}
@@ -141,7 +140,7 @@ export const CozyRowContent = ({
 
   return (
     <>
-      <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-foreground/5">
+      <div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-[3px] bg-muted ring-1 ring-foreground/5">
         {youtubeThumb && !thumbFailed ? (
           <Image
             src={youtubeThumb}
@@ -188,19 +187,22 @@ export const CozyRowContent = ({
             {item.url}
           </span>
         )}
-        {item.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {item.tags.map((tag) => (
-              <Badge
-                key={tag.id}
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0"
-              >
-                {tag.name}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/*
+          Tags are intentionally NOT rendered in cozy mode (they are shown in
+          compact mode and the detail panel). Considerations:
+          - Row height: the thumbnail is a fixed aspect-video (~54px) while the
+            content column drives row height. Title + url sits under the
+            thumbnail height, so tagless rows settle at one uniform height. A
+            tag row pushes the content column past the thumbnail, making tagged
+            rows ~10px taller than their neighbours and breaking the list's
+            vertical rhythm.
+          - Thumbnail stretch: rows use `items-stretch`, so a taller tagged row
+            also stretches the thumbnail, distorting its 16:9 aspect ratio.
+          Dropping tags here keeps every cozy row the same height and the
+          previews undistorted. If tags are wanted back, also reserve constant
+          space for them (so heights stay uniform) and switch the row off
+          `items-stretch` so the thumbnail keeps its ratio.
+        */}
       </div>
 
       <ItemDropdown

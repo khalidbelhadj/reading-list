@@ -13,6 +13,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import Placeholder from "@tiptap/extension-placeholder";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Plugin } from "@tiptap/pm/state";
 import { Markdown } from "tiptap-markdown";
 import { toast } from "sonner";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -24,6 +25,7 @@ import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
 import { CodeBlockNodeView } from "@/components/ui/code-block-node-view";
 import { lowlight } from "@/lib/lowlight";
+import { BLANK_LINE_SENTINEL, stripBlankLineSentinel } from "@/lib/markdown";
 
 const ImageLightbox = ({
   src,
@@ -177,8 +179,19 @@ const CodeBlockWithLineNav = CodeBlockLowlight.extend({
         .setTextSelection(insertPos + 1)
         .run();
     };
+    const insertIndent = ({ editor }: { editor: Editor }) => {
+      // Tab indents within a code block (4 spaces) instead of moving focus out
+      // of the editor. Handles a collapsed caret or a selection (replaced with
+      // the indent); returns false elsewhere so Tab keeps its default behavior.
+      // Insert a text node, not a plain string — tiptap parses a string as HTML
+      // and collapses the leading spaces, so "    " would vanish.
+      const { $from } = editor.state.selection;
+      if ($from.parent.type !== nodeType) return false;
+      return editor.commands.insertContent({ type: "text", text: "    " });
+    };
     return {
       ...this.parent?.(),
+      Tab: (props) => insertIndent(props),
       "Ctrl-e": (props) => moveWithinCodeBlock("lineEnd", props),
       End: (props) => moveWithinCodeBlock("lineEnd", props),
       "Ctrl-a": (props) => moveWithinCodeBlock("lineStart", props),
@@ -206,7 +219,7 @@ const ParagraphWithBlankLines = Paragraph.extend({
       markdown: {
         serialize(state: MarkdownSerializeState, node: ProseMirrorNode) {
           if (node.content.size === 0) {
-            state.write("&nbsp;");
+            state.write(BLANK_LINE_SENTINEL);
             state.closeBlock(node);
             return;
           }
@@ -216,6 +229,35 @@ const ParagraphWithBlankLines = Paragraph.extend({
         parse: {},
       },
     };
+  },
+});
+
+// tiptap-markdown's `transformCopiedText` serializes the selection to markdown on
+// copy, which emits the blank-line sentinel (see above) into the clipboard. Strip
+// it here so every in-editor copy — notes or flashcards, anywhere the editor is
+// used — yields clean markdown. Higher priority than the Markdown extension (50)
+// so this clipboardTextSerializer wins over tiptap-markdown's.
+type MarkdownSerializer = {
+  markdown: { serializer: { serialize: (content: ProseMirrorNode["content"]) => string } };
+};
+
+const CleanClipboardMarkdown = Extension.create({
+  name: "cleanClipboardMarkdown",
+  priority: 100,
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        props: {
+          clipboardTextSerializer: (slice) => {
+            const storage = editor.storage as unknown as MarkdownSerializer;
+            return stripBlankLineSentinel(
+              storage.markdown.serializer.serialize(slice.content),
+            );
+          },
+        },
+      }),
+    ];
   },
 });
 
@@ -317,6 +359,7 @@ export const MarkdownEditor = ({
         onUploadError: (message) =>
           toast.error("Image upload failed", { description: message }),
       }),
+      CleanClipboardMarkdown,
       Markdown.configure({
         html: true,
         breaks: true,

@@ -114,32 +114,13 @@ const CodeBlockToolbar = ({
         zIndex: 40,
       }}
     >
-      <Tooltip open={copied}>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              aria-label={copied ? "Copied" : "Copy code"}
-              onClick={handleCopy}
-              className="inline-flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none"
-            />
-          }
-        >
-          {copied ? (
-            <IconCheck className="size-3.5" />
-          ) : (
-            <IconCopy className="size-3.5" />
-          )}
-        </TooltipTrigger>
-        <TooltipContent>Copied</TooltipContent>
-      </Tooltip>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger
           disabled={disabled}
           render={
             <button
               type="button"
-              className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none data-popup-open:text-foreground"
+              className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-1 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none data-popup-open:text-foreground"
             />
           }
         >
@@ -160,6 +141,25 @@ const CodeBlockToolbar = ({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Tooltip open={copied}>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              aria-label={copied ? "Copied" : "Copy code"}
+              onClick={handleCopy}
+              className="inline-flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none"
+            />
+          }
+        >
+          {copied ? (
+            <IconCheck className="size-3.5" />
+          ) : (
+            <IconCopy className="size-3.5" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>Copied</TooltipContent>
+      </Tooltip>
     </div>,
     document.body,
   );

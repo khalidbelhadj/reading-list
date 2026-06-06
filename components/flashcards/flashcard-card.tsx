@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isModKey } from "@/lib/input-context";
+import { stripBlankLineSentinel } from "@/lib/markdown";
 
 export type FlashcardCardData = {
   id: string;
@@ -166,7 +167,7 @@ const FlashcardDropdown = ({
 
   const handleCopyMarkdown = React.useCallback(() => {
     const markdown = card.back ? `${card.front}\n\n${card.back}` : card.front;
-    navigator.clipboard.writeText(markdown);
+    navigator.clipboard.writeText(stripBlankLineSentinel(markdown));
     markCopied("markdown");
   }, [card.front, card.back, markCopied]);
 

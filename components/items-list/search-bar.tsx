@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useDebounced } from "@/lib/use-debounced";
 import { isModKey } from "@/lib/input-context";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { Spinner } from "@/components/ui/spinner";
 
 export type SearchBarHandle = {
@@ -19,6 +20,7 @@ export const SearchBar = React.forwardRef<
     onResults: (ids: string[] | null) => void;
     onQueryChange?: (query: string) => void;
     onPendingChange?: (pending: boolean) => void;
+    onBackendPendingChange?: (pending: boolean) => void;
     onCursorNav?: (direction: "next" | "prev") => void;
     onCursorOpen?: (modifier: { meta: boolean; shift: boolean }) => void;
     initialQuery?: string;
@@ -31,6 +33,7 @@ export const SearchBar = React.forwardRef<
   onResults,
   onQueryChange,
   onPendingChange,
+  onBackendPendingChange,
   onCursorNav,
   onCursorOpen,
   initialQuery = "",
@@ -39,6 +42,7 @@ export const SearchBar = React.forwardRef<
   const [isOpen, setIsOpen] = React.useState(() => initialQuery.length > 0);
   const [query, setQuery] = React.useState(initialQuery);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebounced(trimmedQuery, 200);
   const isRegex = /^\/.*\/$/.test(trimmedQuery);
@@ -77,6 +81,19 @@ export const SearchBar = React.forwardRef<
   React.useEffect(() => {
     onPendingChange?.(initialPending);
   }, [initialPending, onPendingChange]);
+
+  // The backend (trigram) pass hasn't settled for the *current* input yet —
+  // either we're still inside the debounce window (debounced query lags the
+  // input) or its fetch is in flight (no data for that key). Drives the
+  // "more results loading" skeletons appended under the instant local hits. We
+  // gate on data being present rather than isFetching, so a background refetch
+  // (e.g. an item edit invalidating the query) doesn't re-flash the skeletons.
+  const backendPending =
+    trimmedQuery.length > 0 &&
+    !(debouncedQuery === trimmedQuery && data !== undefined);
+  React.useEffect(() => {
+    onBackendPendingChange?.(backendPending);
+  }, [backendPending, onBackendPendingChange]);
 
   React.useEffect(() => {
     if (trimmedQuery.length === 0) {
@@ -141,13 +158,14 @@ export const SearchBar = React.forwardRef<
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
-        // Defer ESC to the item panel when it's open — first ESC should
-        // close the panel, leaving the search query/focus intact.
-        if (document.querySelector('[data-phase]:not([data-phase="closed"])')) {
-          return;
+        // First Escape just blurs the input — the bar stays open with results
+        // visible. The dismiss-stack layer below handles the next Escape, which
+        // closes the bar. (An empty query collapses both steps: blurring fires
+        // handleBlur → handleClose.)
+        if (document.activeElement === inputRef.current) {
+          e.stopPropagation();
+          inputRef.current?.blur();
         }
-        e.stopPropagation();
-        inputRef.current?.blur();
         return;
       }
       const isNext =
@@ -181,17 +199,14 @@ export const SearchBar = React.forwardRef<
     }
   }, [query, handleClose]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        handleClose();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, handleClose]);
+  // The open search bar is a dismiss-stack layer: once the input is blurred,
+  // Escape closes the bar (clearing the query). `contains` lets re-focusing the
+  // search input promote it above an older layer like an open item panel.
+  useDismissLayer({
+    active: isOpen,
+    onDismiss: handleClose,
+    contains: (node) => containerRef.current?.contains(node) ?? false,
+  });
 
   // When the bar collapses (height 0), drop focus from the now-hidden input.
   // A focused-but-hidden input keeps swallowing keystrokes, which blocks the
@@ -217,6 +232,7 @@ export const SearchBar = React.forwardRef<
 
   return (
     <div
+      ref={containerRef}
       className="overflow-hidden transition-[height,margin-bottom] duration-100"
       style={
         isOpen
