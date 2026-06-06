@@ -2,7 +2,7 @@
 
 import { withUser } from "@/db";
 import { flashcards, items } from "@/db/schema";
-import { asc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import type { Item } from "@/lib/types";
 import { perfLog } from "@/lib/perf";
@@ -16,7 +16,7 @@ export async function fetchItems(): Promise<Item[]> {
       Promise.all([
         tx.query.items.findMany({
           where: eq(items.userId, userId),
-          orderBy: [asc(items.position)],
+          orderBy: [desc(items.createdAt)],
           with: { itemsTags: { with: { tag: true } } },
         }),
         tx

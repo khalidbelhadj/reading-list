@@ -64,6 +64,13 @@
       "when": 1780346290345,
       "tag": "0008_mean_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780762363602,
+      "tag": "0009_clumsy_wild_child",
+      "breakpoints": true
     }
   ]
 }

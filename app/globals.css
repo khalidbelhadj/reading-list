@@ -102,7 +102,7 @@
   --toast-error-bg: oklch(0.97 0.015 25);
   --toast-error-text: oklch(0.45 0.18 25);
   --toast-error-border: oklch(0.90 0.04 25);
-  --selection: oklch(0.78 0.12 248 / 0.45);
+  --selection: oklch(0.85 0.04 150 / 0.5);
   --selection-foreground: oklch(0.18 0.003 85);
   --depth-button: inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.48 0.07 150 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
@@ -152,7 +152,7 @@
   --toast-error-bg: oklch(0.27 0.04 25);
   --toast-error-text: oklch(0.80 0.14 25);
   --toast-error-border: oklch(0.35 0.06 25);
-  --selection: oklch(0.6 0.15 248 / 0.55);
+  --selection: oklch(0.5 0.04 150 / 0.55);
   --selection-foreground: oklch(0.982 0.002 85);
   --depth-button: inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary: inset 0 -1px 0 0 oklch(0.52 0.1 150 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
@@ -390,6 +390,86 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   background: transparent;
   padding: 0;
   font-size: inherit;
+}
+.markdown-editor .ProseMirror .code-block-node {
+  position: relative;
+}
+.markdown-editor .ProseMirror .hljs-comment,
+.markdown-editor .ProseMirror .hljs-quote {
+  color: oklch(0.55 0.01 85);
+  font-style: italic;
+}
+.markdown-editor .ProseMirror .hljs-keyword,
+.markdown-editor .ProseMirror .hljs-selector-tag,
+.markdown-editor .ProseMirror .hljs-literal,
+.markdown-editor .ProseMirror .hljs-section,
+.markdown-editor .ProseMirror .hljs-link {
+  color: oklch(0.5 0.15 290);
+}
+.markdown-editor .ProseMirror .hljs-built_in,
+.markdown-editor .ProseMirror .hljs-type {
+  color: oklch(0.55 0.13 200);
+}
+.markdown-editor .ProseMirror .hljs-string,
+.markdown-editor .ProseMirror .hljs-title,
+.markdown-editor .ProseMirror .hljs-name,
+.markdown-editor .ProseMirror .hljs-attribute,
+.markdown-editor .ProseMirror .hljs-symbol,
+.markdown-editor .ProseMirror .hljs-bullet,
+.markdown-editor .ProseMirror .hljs-addition,
+.markdown-editor .ProseMirror .hljs-variable,
+.markdown-editor .ProseMirror .hljs-template-tag,
+.markdown-editor .ProseMirror .hljs-template-variable {
+  color: oklch(0.55 0.13 145);
+}
+.markdown-editor .ProseMirror .hljs-number,
+.markdown-editor .ProseMirror .hljs-regexp,
+.markdown-editor .ProseMirror .hljs-meta {
+  color: oklch(0.6 0.15 50);
+}
+.markdown-editor .ProseMirror .hljs-deletion {
+  color: oklch(0.55 0.18 25);
+}
+.markdown-editor .ProseMirror .hljs-emphasis {
+  font-style: italic;
+}
+.markdown-editor .ProseMirror .hljs-strong {
+  font-weight: 600;
+}
+.dark .markdown-editor .ProseMirror .hljs-comment,
+.dark .markdown-editor .ProseMirror .hljs-quote {
+  color: oklch(0.6 0.01 85);
+}
+.dark .markdown-editor .ProseMirror .hljs-keyword,
+.dark .markdown-editor .ProseMirror .hljs-selector-tag,
+.dark .markdown-editor .ProseMirror .hljs-literal,
+.dark .markdown-editor .ProseMirror .hljs-section,
+.dark .markdown-editor .ProseMirror .hljs-link {
+  color: oklch(0.75 0.14 290);
+}
+.dark .markdown-editor .ProseMirror .hljs-built_in,
+.dark .markdown-editor .ProseMirror .hljs-type {
+  color: oklch(0.78 0.12 200);
+}
+.dark .markdown-editor .ProseMirror .hljs-string,
+.dark .markdown-editor .ProseMirror .hljs-title,
+.dark .markdown-editor .ProseMirror .hljs-name,
+.dark .markdown-editor .ProseMirror .hljs-attribute,
+.dark .markdown-editor .ProseMirror .hljs-symbol,
+.dark .markdown-editor .ProseMirror .hljs-bullet,
+.dark .markdown-editor .ProseMirror .hljs-addition,
+.dark .markdown-editor .ProseMirror .hljs-variable,
+.dark .markdown-editor .ProseMirror .hljs-template-tag,
+.dark .markdown-editor .ProseMirror .hljs-template-variable {
+  color: oklch(0.78 0.13 145);
+}
+.dark .markdown-editor .ProseMirror .hljs-number,
+.dark .markdown-editor .ProseMirror .hljs-regexp,
+.dark .markdown-editor .ProseMirror .hljs-meta {
+  color: oklch(0.78 0.13 60);
+}
+.dark .markdown-editor .ProseMirror .hljs-deletion {
+  color: oklch(0.75 0.16 25);
 }
 .markdown-editor .ProseMirror blockquote {
   border-left: 2px solid var(--border);

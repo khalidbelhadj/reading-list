@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  IconArrowsMaximize,
+  IconArrowsSort,
+  IconBook,
   IconCalendar,
   IconCards,
   IconCheck,
@@ -13,22 +13,28 @@ import {
   IconDownload,
   IconEye,
   IconFilter,
-  IconArrowsMaximize,
-  IconBook,
   IconLayoutList,
   IconList,
   IconListDetails,
   IconLogout,
   IconMoon,
   IconPalette,
+  IconSortAscending,
+  IconSortDescending,
   IconSun,
   IconTag,
 } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import React from "react";
 
 import { logout } from "@/app/logout/actions";
+import {
+  type GroupBy,
+  type SortBy,
+  type TabId,
+} from "@/components/items-list/use-filters";
 import { Button } from "@/components/ui/button";
-import { type TabId, type GroupBy } from "@/components/items-list/use-filters";
-import { useSettings } from "@/lib/use-settings";
 import {
   Dialog,
   DialogContent,
@@ -51,8 +57,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { defaultCsvFilename, downloadItemsCsv } from "@/lib/csv-export";
 import { useCurrentUser } from "@/lib/use-current-user";
-import { downloadItemsCsv, defaultCsvFilename } from "@/lib/csv-export";
+import { useSettings } from "@/lib/use-settings";
 
 type ThemeKey = "system" | "light" | "dark";
 
@@ -104,6 +111,23 @@ const GROUP_BY_ICONS: Record<
   day: IconCalendar,
 };
 
+const SORT_BY_LABELS: Record<SortBy, string> = {
+  "created-desc": "Newest first",
+  "created-asc": "Oldest first",
+  "updated-desc": "Recently updated",
+  "updated-asc": "Least recently updated",
+};
+
+const SORT_BY_ICONS: Record<
+  SortBy,
+  React.ComponentType<{ className?: string }>
+> = {
+  "created-desc": IconSortDescending,
+  "created-asc": IconSortAscending,
+  "updated-desc": IconSortDescending,
+  "updated-asc": IconSortAscending,
+};
+
 export const SettingsMenu = ({
   activeTab,
   setActiveTabAndUrl,
@@ -121,7 +145,8 @@ export const SettingsMenu = ({
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const { settings, setSetting } = useSettings();
-  const { theme, density, fullWidth, groupBy, showRead, tagsOpen } = settings;
+  const { theme, density, fullWidth, groupBy, sortBy, showRead, tagsOpen } =
+    settings;
   const email = user?.email ?? null;
   const fullName =
     (user?.user_metadata?.full_name as string) ??
@@ -210,8 +235,14 @@ export const SettingsMenu = ({
     [setSetting],
   );
 
+  const handleSortByChange = React.useCallback(
+    (value: string) => setSetting("sortBy", value as SortBy),
+    [setSetting],
+  );
+
   const handleDensityChange = React.useCallback(
-    (value: string) => setSetting("density", value === "cozy" ? "cozy" : "compact"),
+    (value: string) =>
+      setSetting("density", value === "cozy" ? "cozy" : "compact"),
     [setSetting],
   );
 
@@ -240,14 +271,13 @@ export const SettingsMenu = ({
     document.documentElement.classList.toggle("full-width", fullWidth);
   }, [fullWidth]);
 
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <button
             type="button"
-            className="font-content text-sm font-medium gap-1.5 inline-flex items-center outline-none"
+            className="font-content text-sm font-medium gap-1.5 inline-flex items-center outline-none select-none"
           >
             <span
               aria-hidden="true"
@@ -291,7 +321,7 @@ export const SettingsMenu = ({
               <DropdownMenuCheckboxItem
                 checked={showRead}
                 onCheckedChange={handleShowReadChange}
-                >
+              >
                 <IconEye />
                 Show read items
               </DropdownMenuCheckboxItem>
@@ -325,6 +355,28 @@ export const SettingsMenu = ({
                       <DropdownMenuRadioItem key={key} value={key}>
                         <GroupIcon />
                         {GROUP_BY_LABELS[key]}
+                      </DropdownMenuRadioItem>
+                    );
+                  })}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconArrowsSort />
+                Sort by
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={sortBy}
+                  onValueChange={handleSortByChange}
+                >
+                  {(Object.keys(SORT_BY_LABELS) as SortBy[]).map((key) => {
+                    const SortIcon = SORT_BY_ICONS[key];
+                    return (
+                      <DropdownMenuRadioItem key={key} value={key}>
+                        <SortIcon />
+                        {SORT_BY_LABELS[key]}
                       </DropdownMenuRadioItem>
                     );
                   })}
@@ -446,7 +498,6 @@ export const SettingsMenu = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </DropdownMenu>
   );
 };

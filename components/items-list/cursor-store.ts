@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 // Imperative cursor store. The cursor moves on every keystroke during nav, and
-// re-rendering the entire items tree (dnd-kit + hover preview + context menus
-// on ~50 rows) drops frames during key-repeat. By keeping the cursor outside
+// re-rendering the entire items tree (hover preview + context menus on ~50
+// rows) drops frames during key-repeat. By keeping the cursor outside
 // React state and only notifying the previously-active and newly-active rows,
 // nav stays at one paint per move regardless of list size.
 

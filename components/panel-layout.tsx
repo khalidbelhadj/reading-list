@@ -20,9 +20,13 @@ export const PanelLayout = () => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("item");
   });
-  // Incremented to ask SlidingItemPanel to expand the open item to fullw
-  // once it reaches side phase. Used by Cmd+Enter on a list row.
-  const [expandTrigger, setExpandTrigger] = React.useState(0);
+  // Whether the open item is shown expanded (fullw). Mirrored to the
+  // ?expanded=1 URL param so expanded mode is deep-linkable and survives
+  // reload/back-forward. Only meaningful when an item is open.
+  const [expanded, setExpanded] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("expanded") != null;
+  });
 
   // Mount the panel only after client hydration. The panel's inline styles
   // depend on orientation (matchMedia), which differs between server and
@@ -33,8 +37,9 @@ export const PanelLayout = () => {
 
   React.useEffect(() => {
     const onPop = () => {
-      const id = new URLSearchParams(window.location.search).get("item");
-      setOpenItemId(id);
+      const params = new URLSearchParams(window.location.search);
+      setOpenItemId(params.get("item"));
+      setExpanded(params.get("expanded") != null);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -83,8 +88,9 @@ export const PanelLayout = () => {
 
   const handleCloseItem = React.useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has("item")) {
+    if (params.has("item") || params.has("expanded")) {
       params.delete("item");
+      params.delete("expanded");
       const qs = params.toString();
       window.history.replaceState(
         null,
@@ -93,6 +99,7 @@ export const PanelLayout = () => {
       );
     }
     setOpenItemId(null);
+    setExpanded(false);
   }, []);
 
   // If the open item disappears from the cache (deleted from anywhere —
@@ -130,20 +137,35 @@ export const PanelLayout = () => {
       // item should expand it, not close it.
       const params = new URLSearchParams(window.location.search);
       const current = params.get("item");
-      if (current !== id) {
-        params.set("item", id);
-        const url = `?${params.toString()}`;
-        if (current) {
-          window.history.replaceState(null, "", url);
-        } else {
-          window.history.pushState(null, "", url);
-        }
-        setOpenItemId(id);
+      params.set("item", id);
+      params.set("expanded", "1");
+      const url = `?${params.toString()}`;
+      if (current) {
+        window.history.replaceState(null, "", url);
+      } else {
+        window.history.pushState(null, "", url);
       }
-      setExpandTrigger((t) => t + 1);
+      setOpenItemId(id);
+      setExpanded(true);
     },
     [],
   );
+
+  // Reflect manual expand/restore (toolbar button, Cmd+] / Cmd+[) into the
+  // URL so the address bar always points at the current view — replaceState
+  // since toggling the view shouldn't add a history entry.
+  const handleExpandedChange = React.useCallback((next: boolean) => {
+    const params = new URLSearchParams(window.location.search);
+    if (next) params.set("expanded", "1");
+    else params.delete("expanded");
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      qs ? `?${qs}` : window.location.pathname,
+    );
+    setExpanded(next);
+  }, []);
 
   return (
     <div className="h-dvh overflow-hidden">
@@ -157,7 +179,8 @@ export const PanelLayout = () => {
             <SlidingItemPanel
               itemId={openItemId}
               onClose={handleCloseItem}
-              expandTrigger={expandTrigger}
+              expanded={expanded}
+              onExpandedChange={handleExpandedChange}
             />
           )}
         </div>

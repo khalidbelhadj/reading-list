@@ -93,7 +93,7 @@ const regexSearch = async (
     WITH haystacks AS (
       SELECT
         i.id, i.title, i.url, i.notes, i.starred, i.read,
-        i.created_at, i.position,
+        i.created_at,
         COALESCE(
           STRING_AGG(f.front || E'\n' || f.back, E'\n'),
           ''
@@ -119,7 +119,7 @@ const regexSearch = async (
       m.m_title, m.m_url, m.m_notes, m.m_flashcards
     FROM matched m
     WHERE m.m_title OR m.m_url OR m.m_notes OR m.m_flashcards
-    ORDER BY m.position ASC
+    ORDER BY m.created_at DESC
     LIMIT 100
   `);
 
@@ -168,7 +168,7 @@ const fuzzySearch = async (
     )
     SELECT
       i.id, i.title, i.url, i.notes, i.starred, i.read,
-      i.created_at, i.position,
+      i.created_at,
       (${usePatternTrigram ? sql`i.title %> ${pattern}` : sql`i.title ILIKE ${fullLike}`}) AS m_title,
       (i.url ILIKE ${fullLike}) AS m_url,
       (${usePatternTrigram ? sql`COALESCE(i.notes, '') %> ${pattern}` : sql`COALESCE(i.notes, '') ILIKE ${fullLike}`}) AS m_notes,
@@ -182,7 +182,7 @@ const fuzzySearch = async (
     LEFT JOIN fc_agg ON fc_agg.item_id = i.id
     WHERE i.user_id = ${userId}
       AND ${whereClause}
-    ORDER BY score DESC, i.position ASC
+    ORDER BY score DESC, i.created_at DESC
     LIMIT 100
   `);
 

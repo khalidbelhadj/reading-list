@@ -1,28 +1,33 @@
-import { IconCheck, IconFileFilled, IconX } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconExternalLink,
+  IconFileFilled,
+  IconX,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import React from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { type Flashcard, type Item } from "@/lib/types";
-import { bumpItemFlashcardCount } from "@/lib/items-cache";
+import { createFlashcard, getFlashcards } from "@/app/actions";
+import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FlashcardCard } from "@/components/flashcards/flashcard-card";
-import { createFlashcard, getFlashcards } from "@/app/actions";
+import { bumpItemFlashcardCount } from "@/lib/items-cache";
+import { type Flashcard, type Item } from "@/lib/types";
 
-import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
+import { isModKey, isOverlayOpen, isTypingContext } from "@/lib/input-context";
 
-import { type EditFields, getFaviconSrc } from "./utils";
-import { useAutofill } from "./use-autofill";
-import { TagInput } from "./tag-input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { useFlashcardMutations } from "./use-flashcard-mutations";
 import { PlainEditable } from "./plain-editable";
+import { TagInput } from "./tag-input";
+import { useAutofill } from "./use-autofill";
+import { useFlashcardMutations } from "./use-flashcard-mutations";
+import { type EditFields, getFaviconSrc } from "./utils";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
 // from outside the panel (rename/delete via the filter bar) and the server
@@ -367,7 +372,10 @@ export const DetailPanel = React.forwardRef<
     });
 
     return (
-      <div data-detail-panel className="flex flex-1 flex-col gap-2 w-full pb-12">
+      <div
+        data-detail-panel
+        className="flex flex-1 flex-col gap-2 w-full pb-12"
+      >
         {/* Item form card */}
         <div className="flex flex-col gap-2 flex-1">
           {/* Favicon + Title */}
@@ -445,21 +453,44 @@ export const DetailPanel = React.forwardRef<
           </div>
 
           {/* URL */}
-          <PlainEditable
-            ref={urlInputRef}
-            value={url}
-            onChange={handleSetUrl}
-            onPaste={onUrlPaste}
-            singleLine
-            placeholder="https://example.com"
-            style={{
-              // 40% opacity placeholder matches the prior <input>'s
-              // `placeholder:text-muted-foreground/40` styling.
-              "--ce-placeholder-color":
-                "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
-            } as React.CSSProperties}
-            className="text-sm text-muted-foreground/70 bg-transparent break-all"
-          />
+
+          <div className="flex items-center gap-1">
+            <PlainEditable
+              ref={urlInputRef}
+              value={url}
+              onChange={handleSetUrl}
+              onPaste={onUrlPaste}
+              singleLine
+              placeholder="https://example.com"
+              style={
+                {
+                  // 40% opacity placeholder matches the prior <input>'s
+                  // `placeholder:text-muted-foreground/40` styling.
+                  "--ce-placeholder-color":
+                    "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
+                } as React.CSSProperties
+              }
+              className="min-w-0 text-sm text-muted-foreground/70 bg-transparent whitespace-nowrap overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+            />
+
+            {item?.url && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      onClick={() => window.open(item.url, "_blank")}
+                    />
+                  }
+                >
+                  <IconExternalLink />
+                </TooltipTrigger>
+                <TooltipContent>Open URL</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
 
           {/* Tags */}
           <TagInput value={tags} onChange={setTags} />
@@ -470,7 +501,8 @@ export const DetailPanel = React.forwardRef<
             onClick={(event) => {
               const target = event.target as HTMLElement;
               if (target.closest(".ProseMirror")) return;
-              const editorEl = event.currentTarget.querySelector<HTMLElement>(".ProseMirror");
+              const editorEl =
+                event.currentTarget.querySelector<HTMLElement>(".ProseMirror");
               if (!editorEl) return;
               editorEl.focus();
               const range = document.createRange();

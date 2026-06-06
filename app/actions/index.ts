@@ -5,7 +5,6 @@ export {
   fetchPageTitle,
   createItem,
   updateItem,
-  reorderItem,
   toggleRead,
   bulkDeleteItems,
   bulkTag,

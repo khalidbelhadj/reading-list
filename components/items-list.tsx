@@ -1,50 +1,41 @@
 "use client";
 
-import {
-  closestCenter,
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { useSearchParams } from "next/navigation";
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
-import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import React from "react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { type Item } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-
-import { resolveRowItem } from "./items-list/utils";
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
+import { resolveRowItem } from "./items-list/utils";
 
-import { fetchItems } from "@/lib/queries";
-import { useInvalidateItems } from "./items-list/use-invalidate-items";
-import { fetchPageTitle, searchItems, searchFlashcards } from "@/app/actions";
-import { useSettings } from "@/lib/use-settings";
-import { DuplicateDialog } from "./items-list/duplicate-dialog";
-import { useCreateItem } from "./items-list/use-create-item";
-import { SortableItemRow } from "./items-list/sortable-item-row";
-import { useItemsMutations } from "./items-list/use-mutations";
-import { useItemsFilters, type TabId } from "./items-list/use-filters";
-import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
-import { Toolbar } from "./items-list/toolbar";
-import { TagFilters } from "./items-list/tag-filters";
-import { ReviewNudge } from "./items-list/review-nudge";
-import { CardsList, CardsStateBar } from "./items-list/cards-list";
-import { GroupedList, PlainItemRow, CollapsibleSection } from "./items-list/grouped-list";
-import { Skeleton } from "@/components/ui/skeleton";
+import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
-import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fetchItems } from "@/lib/queries";
+import { useSettings } from "@/lib/use-settings";
+import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { setCursorId } from "./items-list/cursor-store";
+import { DuplicateDialog } from "./items-list/duplicate-dialog";
+import {
+  CollapsibleSection,
+  GroupedList,
+  PlainItemRow,
+} from "./items-list/grouped-list";
+import { ReviewNudge } from "./items-list/review-nudge";
+import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
+import { ItemRow } from "./items-list/item-row";
+import { TagFilters } from "./items-list/tag-filters";
+import { Toolbar } from "./items-list/toolbar";
+import { useCreateItem } from "./items-list/use-create-item";
+import { useItemsFilters, type TabId } from "./items-list/use-filters";
+import { useInvalidateItems } from "./items-list/use-invalidate-items";
+import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
+import { useItemsMutations } from "./items-list/use-mutations";
 
 export const ItemsList = ({
   onOpenItem,
@@ -73,7 +64,6 @@ export const ItemsList = ({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
-  const [justDropped, setJustDropped] = React.useState(false);
   const [typingTitles, setTypingTitles] = React.useState<
     Record<string, string>
   >({});
@@ -90,7 +80,9 @@ export const ItemsList = ({
   // Search — query persisted in the URL as ?q=... so it survives navigation
   // away and back (e.g. clicking a result and hitting back). Captured once on
   // mount; subsequent URL changes go through replaceState below.
-  const [initialSearchQuery] = React.useState(() => searchParams.get("q") ?? "");
+  const [initialSearchQuery] = React.useState(
+    () => searchParams.get("q") ?? "",
+  );
   const [searchOrder, setSearchOrder] = React.useState<string[] | null>(null);
   const [searchPending, setSearchPending] = React.useState(
     () => initialSearchQuery.length > 0,
@@ -145,9 +137,9 @@ export const ItemsList = ({
   );
   const localSearchFlashcards = React.useCallback(
     (query: string) => {
-      const cards = queryClient.getQueryData<Array<{ id: string; front: string; back: string }>>(
-        ["all-flashcards"],
-      );
+      const cards = queryClient.getQueryData<
+        Array<{ id: string; front: string; back: string }>
+      >(["all-flashcards"]);
       if (!cards) return [];
       const needle = query.toLowerCase();
       const matches: string[] = [];
@@ -176,22 +168,25 @@ export const ItemsList = ({
   // Helpers
   const invalidate = useInvalidateItems();
 
-  const setActiveTabAndUrl = React.useCallback((tab: TabId) => {
-    setActiveTab(tab);
-    setSetting("activeTab", tab);
-    const params = new URLSearchParams(window.location.search);
-    if (tab === "reading-list") {
-      params.delete("tab");
-    } else {
-      params.set("tab", tab);
-    }
-    const queryString = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      queryString ? `?${queryString}` : window.location.pathname,
-    );
-  }, [setSetting]);
+  const setActiveTabAndUrl = React.useCallback(
+    (tab: TabId) => {
+      setActiveTab(tab);
+      setSetting("activeTab", tab);
+      const params = new URLSearchParams(window.location.search);
+      if (tab === "reading-list") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      const queryString = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        queryString ? `?${queryString}` : window.location.pathname,
+      );
+    },
+    [setSetting],
+  );
 
   const handleOpenItem = onOpenItem;
 
@@ -213,7 +208,7 @@ export const ItemsList = ({
     groups,
   } = useItemsFilters(items, activeTab, searchOrder);
 
-  const { handleReorder, handleToggleRead, handleDeleteSingle, handleTogglePin } =
+  const { handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
       filteredItems,
       showRead,
@@ -226,7 +221,7 @@ export const ItemsList = ({
     (direction: "next" | "prev") => {
       // Read the live render order from the DOM so nav matches what's visible
       // — grouped, pinned, and collapsed sections all reshuffle relative to
-      // filteredItems (which is in raw position order).
+      // filteredItems (which is in raw creation-date order).
       const ids = Array.from(
         document.querySelectorAll<HTMLElement>("[data-item-id]"),
       )
@@ -290,7 +285,6 @@ export const ItemsList = ({
     setDeleteOpen(false);
   }, [itemToDelete, handleDeleteSingle]);
 
-
   // Mutations
   const animateTypingTitle = React.useCallback(
     (itemId: string, target: string) =>
@@ -337,14 +331,8 @@ export const ItemsList = ({
         onCreated: (newId) => {
           // Optimistically insert into the cache so the detail page can
           // render the new (empty) item without waiting on a full refetch.
-          // Server's createItems anchors new rows at minPos - 1; mirror that
-          // here so ordering matches before invalidate() catches up.
           queryClient.setQueryData<Item[]>(["items"], (old) => {
             if (!old) return old;
-            const minPos = old.reduce(
-              (acc, it) => (it.position < acc ? it.position : acc),
-              0,
-            );
             const now = new Date().toISOString();
             const userId = old[0]?.userId ?? "";
             const newItem: Item = {
@@ -358,7 +346,6 @@ export const ItemsList = ({
               notes: null,
               read: false,
               readAt: null,
-              position: minPos - 1,
               createdAt: now,
               updatedAt: now,
               tags: [],
@@ -404,10 +391,6 @@ export const ItemsList = ({
             queryClient.setQueryData<Item[]>(["items"], (old) => {
               if (!old) return old;
               if (old.some((it) => it.id === newId)) return old;
-              const minPos = old.reduce(
-                (acc, it) => (it.position < acc ? it.position : acc),
-                0,
-              );
               const now = new Date().toISOString();
               const userId = old[0]?.userId ?? "";
               const newItem: Item = {
@@ -421,7 +404,6 @@ export const ItemsList = ({
                 notes: null,
                 read: false,
                 readAt: null,
-                position: minPos - 1,
                 createdAt: now,
                 updatedAt: now,
                 tags: tagNames.map((name, i) => ({
@@ -440,7 +422,13 @@ export const ItemsList = ({
         },
       );
     },
-    [requestCreate, handleOpenItem, invalidate, animateTypingTitle, queryClient],
+    [
+      requestCreate,
+      handleOpenItem,
+      invalidate,
+      animateTypingTitle,
+      queryClient,
+    ],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
@@ -481,7 +469,6 @@ export const ItemsList = ({
     setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
-    tabItems,
     cursorRef,
     setCursor,
     onRequestDelete: React.useCallback(() => {
@@ -494,7 +481,6 @@ export const ItemsList = ({
     onOpenNew: handleOpenNew,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
-    onReorder: handleReorder,
   });
 
   // Effects
@@ -508,43 +494,11 @@ export const ItemsList = ({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // DnD
-  const isDragDisabled =
-    activeTags.size > 0 || groupBy !== "none" || searchActive;
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
-
-  const handleDragEnd = React.useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      const overIndex = tabItems.findIndex((i) => i.id === over.id);
-      if (overIndex === -1) return;
-
-      setJustDropped(true);
-      queryClient.setQueryData<Item[]>(["items"], (old) => {
-        if (!old) return old;
-        const sorted = old.slice().sort((a, b) => a.position - b.position);
-        const currentIndex = sorted.findIndex((i) => i.id === active.id);
-        if (currentIndex === -1) return old;
-        const [moved] = sorted.splice(currentIndex, 1);
-        const clamped = Math.max(0, Math.min(overIndex, sorted.length));
-        sorted.splice(clamped, 0, moved);
-        return sorted.map((item, i) => ({ ...item, position: i }));
-      });
-      requestAnimationFrame(() => setJustDropped(false));
-
-      handleReorder(active.id as string, overIndex);
-    },
-    [tabItems, handleReorder, queryClient],
-  );
-
   // Empty state message
   const emptyState = React.useMemo(() => {
     if (filteredItems.length > 0) return null;
-    if (tabItems.length === 0) return { message: "Nothing here yet", hasHiddenRead: false };
+    if (tabItems.length === 0)
+      return { message: "Nothing here yet", hasHiddenRead: false };
 
     const searchSet = searchOrder ? new Set(searchOrder) : null;
     const hiddenReadCount = !showRead
@@ -570,11 +524,7 @@ export const ItemsList = ({
     <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
       <span>{emptyState.message}</span>
       {emptyState.hasHiddenRead && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowRead(true)}
-        >
+        <Button variant="outline" size="sm" onClick={() => setShowRead(true)}>
           Show read
         </Button>
       )}
@@ -587,57 +537,63 @@ export const ItemsList = ({
           below it instead of reaching all the way to the top of the panel. */}
       <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-1 bg-background">
         <div className="electron-top-bar-inset">
-            <Toolbar
-              activeTab={activeTab}
-              setActiveTabAndUrl={setActiveTabAndUrl}
-              hasTags={allTags.length > 0}
-              onAdd={handleOpenNew}
-              onPasteUrl={handlePasteUrl}
-              isCreating={isCreating || isFetchingPasteTitle}
-            />
-          </div>
-
-          <SearchBar
-            ref={searchBarRef}
-            queryKey={activeTab === "cards" ? ["all-flashcards", "search"] : ["items", "search"]}
-            searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
-            localSearchFn={activeTab === "cards" ? localSearchFlashcards : localSearchItems}
-            onCursorNav={navigateCursor}
-            onCursorOpen={({ meta, shift }) => {
-              const id = cursorRef.current;
-              if (!id) return;
-              if (meta && shift) {
-                const item = items?.find((i) => i.id === id);
-                if (item?.url && URL.canParse(item.url))
-                  window.open(item.url, "_blank");
-                return;
-              }
-              if (meta) {
-                onOpenItemExpanded(id);
-                return;
-              }
-              handleOpenItem(id);
-            }}
-            onResults={handleSearchResults}
-            onQueryChange={handleSearchQueryChange}
-            onPendingChange={handleSearchPendingChange}
-            initialQuery={initialSearchQuery}
-            placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
+          <Toolbar
+            activeTab={activeTab}
+            setActiveTabAndUrl={setActiveTabAndUrl}
+            hasTags={allTags.length > 0}
+            onAdd={handleOpenNew}
+            onPasteUrl={handlePasteUrl}
+            isCreating={isCreating || isFetchingPasteTitle}
           />
+        </div>
 
-          <ReviewNudge />
+        <SearchBar
+          ref={searchBarRef}
+          queryKey={
+            activeTab === "cards"
+              ? ["all-flashcards", "search"]
+              : ["items", "search"]
+          }
+          searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
+          localSearchFn={
+            activeTab === "cards" ? localSearchFlashcards : localSearchItems
+          }
+          onCursorNav={navigateCursor}
+          onCursorOpen={({ meta, shift }) => {
+            const id = cursorRef.current;
+            if (!id) return;
+            if (meta && shift) {
+              const item = items?.find((i) => i.id === id);
+              if (item?.url && URL.canParse(item.url))
+                window.open(item.url, "_blank");
+              return;
+            }
+            if (meta) {
+              onOpenItemExpanded(id);
+              return;
+            }
+            handleOpenItem(id);
+          }}
+          onResults={handleSearchResults}
+          onQueryChange={handleSearchQueryChange}
+          onPendingChange={handleSearchPendingChange}
+          initialQuery={initialSearchQuery}
+          placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
+        />
 
-          {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
-            <TagFilters
-              allTags={allTags}
-              activeTags={activeTags}
-              items={tabItems}
-              toggleTag={toggleTag}
-              setActiveTags={setActiveTags}
-            />
-          )}
+        <ReviewNudge />
 
-          {activeTab === "cards" && <CardsStateBar />}
+        {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
+          <TagFilters
+            allTags={allTags}
+            activeTags={activeTags}
+            items={tabItems}
+            toggleTag={toggleTag}
+            setActiveTags={setActiveTags}
+          />
+        )}
+
+        {activeTab === "cards" && <CardsStateBar />}
 
         <div
           className={cn(
@@ -653,212 +609,211 @@ export const ItemsList = ({
         className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
       >
         <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
-        {/* Content */}
-        {activeTab === "cards" ? (
-          <CardsList
-            searchIds={searchOrder ? new Set(searchOrder) : null}
-            searchPending={searchPending}
-            onOpenItem={handleOpenItem}
-          />
-        ) : (
-        <LoadingFade
-          loading={isLoading || searchPending}
-          skeleton={
-          <div className="flex flex-col">
-            {Array.from({ length: 15 }).map((_, i) => {
-              // One width sequence drives both densities so the rhythm down
-              // the list reads the same, and the url bar in cozy mode is
-              // derived from the same row width so each row looks coherent.
-              const titleWidths = [24, 18, 30, 14, 22, 28, 16, 26];
-              const titleRem = titleWidths[i % titleWidths.length];
-              const urlRem = titleRem * 0.55;
-              const opacity = Math.max(1 - i * 0.07, 0.1);
-              if (density === "cozy") {
-                return (
-                  <div
-                    key={i}
-                    style={{ opacity }}
-                    className="flex items-stretch gap-3 p-2"
-                  >
-                    <Skeleton className="aspect-video w-32 shrink-0 rounded-md" />
-                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-                      <Skeleton
-                        className="h-3.5 rounded-md"
-                        style={{ width: `min(${titleRem}rem, 85%)` }}
-                      />
-                      <Skeleton
-                        className="h-3 rounded-md"
-                        style={{ width: `min(${urlRem}rem, 60%)` }}
-                      />
-                    </div>
-                  </div>
-                );
+          {/* Content */}
+          {activeTab === "cards" ? (
+            <CardsList
+              searchIds={searchOrder ? new Set(searchOrder) : null}
+              searchPending={searchPending}
+              onOpenItem={handleOpenItem}
+            />
+          ) : (
+            <LoadingFade
+              loading={isLoading || searchPending}
+              skeleton={
+                <div className="flex flex-col">
+                  {Array.from({ length: 15 }).map((_, i) => {
+                    // One width sequence drives both densities so the rhythm down
+                    // the list reads the same, and the url bar in cozy mode is
+                    // derived from the same row width so each row looks coherent.
+                    const titleWidths = [24, 18, 30, 14, 22, 28, 16, 26];
+                    const titleRem = titleWidths[i % titleWidths.length];
+                    const urlRem = titleRem * 0.55;
+                    const opacity = Math.max(1 - i * 0.07, 0.1);
+                    if (density === "cozy") {
+                      return (
+                        <div
+                          key={i}
+                          style={{ opacity }}
+                          className="flex items-stretch gap-3 p-2"
+                        >
+                          <Skeleton className="aspect-video w-32 shrink-0 rounded-md" />
+                          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+                            <Skeleton
+                              className="h-3.5 rounded-md"
+                              style={{ width: `min(${titleRem}rem, 85%)` }}
+                            />
+                            <Skeleton
+                              className="h-3 rounded-md"
+                              style={{ width: `min(${urlRem}rem, 60%)` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={i}
+                        style={{ opacity }}
+                        className="flex items-center gap-2 p-1 h-7"
+                      >
+                        <Skeleton className="size-4 rounded-[3px] shrink-0" />
+                        <Skeleton
+                          className="h-3 rounded-md"
+                          style={{ width: `min(${titleRem}rem, 85%)` }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               }
-              return (
+            >
+              {groupBy !== "none" && !searchActive ? (
                 <div
-                  key={i}
-                  style={{ opacity }}
-                  className="flex items-center gap-2 p-1 h-7"
+                  onMouseMove={
+                    suppressHover ? () => setSuppressHover(false) : undefined
+                  }
                 >
-                  <Skeleton className="size-4 rounded-[3px] shrink-0" />
-                  <Skeleton
-                    className="h-3 rounded-md"
-                    style={{ width: `min(${titleRem}rem, 85%)` }}
+                  {itemsError ? (
+                    <div className="px-1 py-6 text-center text-destructive text-xs">
+                      Failed to load items
+                    </div>
+                  ) : (
+                    emptyNode
+                  )}
+                  {pinnedItems.length > 0 && (
+                    <div className="flex flex-col mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setPinnedOpen((p) => !p)}
+                        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
+                      >
+                        <IconPinFilled className="size-3" />
+                        Pinned
+                        <IconChevronRight
+                          className={cn(
+                            "size-3 transition-transform duration-150",
+                            pinnedOpen && "rotate-90",
+                          )}
+                        />
+                      </button>
+                      <CollapsibleSection open={pinnedOpen}>
+                        {pinnedItems.map((item) => {
+                          const typingTitle = typingTitles[item.id];
+                          const rowItem = resolveRowItem(item, typingTitle);
+                          return (
+                            <PlainItemRow
+                              key={item.id}
+                              item={rowItem}
+                              suppressHover={suppressHover}
+                              density={density}
+                              isTyping={typingTitle !== undefined}
+                              onSelect={() => handleOpenItem(item.id)}
+                              onDelete={() => requestDeleteItem(item.id)}
+                              onToggleRead={() =>
+                                handleToggleRead(item.id, !item.read)
+                              }
+                              onTogglePin={() =>
+                                handleTogglePin(item.id, !item.starred)
+                              }
+                            />
+                          );
+                        })}
+                      </CollapsibleSection>
+                    </div>
+                  )}
+                  <GroupedList
+                    groups={groups}
+                    items={items ?? []}
+                    typingTitles={typingTitles}
+                    suppressHover={suppressHover}
+                    density={density}
+                    onSelect={handleOpenItem}
+                    onDelete={requestDeleteItem}
+                    onToggleRead={handleToggleRead}
+                    onTogglePin={handleTogglePin}
                   />
                 </div>
-              );
-            })}
-          </div>
-          }
-        >
-        {groupBy !== "none" && !searchActive ? (
-          <div
-            onMouseMove={
-              suppressHover ? () => setSuppressHover(false) : undefined
-            }
-          >
-            {itemsError ? (
-              <div className="px-1 py-6 text-center text-destructive text-xs">
-                Failed to load items
-              </div>
-            ) : (
-              emptyNode
-            )}
-            {pinnedItems.length > 0 && (
-              <div className="flex flex-col mb-4">
-                <button
-                  type="button"
-                  onClick={() => setPinnedOpen((p) => !p)}
-                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
+              ) : (
+                <div
+                  onMouseMove={
+                    suppressHover
+                      ? () => setSuppressHover(false)
+                      : undefined
+                  }
                 >
-                  <IconPinFilled className="size-3" />
-                  Pinned
-                  <IconChevronRight
-                    className={cn(
-                      "size-3 transition-transform duration-150",
-                      pinnedOpen && "rotate-90",
-                    )}
-                  />
-                </button>
-                <CollapsibleSection open={pinnedOpen}>
-                  {pinnedItems.map((item) => {
+                  {itemsError ? (
+                    <div className="px-1 py-6 text-center text-destructive text-xs">
+                      Failed to load items
+                    </div>
+                  ) : (
+                    emptyNode
+                  )}
+                  {pinnedItems.length > 0 && (
+                    <div className="flex flex-col mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setPinnedOpen((p) => !p)}
+                        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
+                      >
+                        <IconPinFilled className="size-3" />
+                        Pinned
+                        <IconChevronRight
+                          className={cn(
+                            "size-3 transition-transform duration-150",
+                            pinnedOpen && "rotate-90",
+                          )}
+                        />
+                      </button>
+                      <CollapsibleSection open={pinnedOpen}>
+                        {pinnedItems.map((item) => {
+                          const typingTitle = typingTitles[item.id];
+                          const rowItem = resolveRowItem(item, typingTitle);
+                          return (
+                            <ItemRow
+                              key={item.id}
+                              item={rowItem}
+                              suppressHover={suppressHover}
+                              density={density}
+                              isTyping={typingTitle !== undefined}
+                              onTogglePin={() =>
+                                handleTogglePin(item.id, !item.starred)
+                              }
+                              onToggleRead={() =>
+                                handleToggleRead(item.id, !item.read)
+                              }
+                              onSelect={() => handleOpenItem(item.id)}
+                              onDelete={() => requestDeleteItem(item.id)}
+                            />
+                          );
+                        })}
+                      </CollapsibleSection>
+                    </div>
+                  )}
+                  {unpinnedItems.map((item) => {
                     const typingTitle = typingTitles[item.id];
                     const rowItem = resolveRowItem(item, typingTitle);
                     return (
-                      <PlainItemRow
+                      <ItemRow
                         key={item.id}
                         item={rowItem}
                         suppressHover={suppressHover}
                         density={density}
                         isTyping={typingTitle !== undefined}
+                        onTogglePin={() =>
+                          handleTogglePin(item.id, !item.starred)
+                        }
+                        onToggleRead={() =>
+                          handleToggleRead(item.id, !item.read)
+                        }
                         onSelect={() => handleOpenItem(item.id)}
                         onDelete={() => requestDeleteItem(item.id)}
-                        onToggleRead={() => handleToggleRead(item.id, !item.read)}
-                        onTogglePin={() => handleTogglePin(item.id, !item.starred)}
                       />
                     );
                   })}
-                </CollapsibleSection>
-              </div>
-            )}
-            <GroupedList
-              groups={groups}
-              items={items ?? []}
-              typingTitles={typingTitles}
-              suppressHover={suppressHover}
-              density={density}
-              onSelect={handleOpenItem}
-              onDelete={requestDeleteItem}
-              onToggleRead={handleToggleRead}
-              onTogglePin={handleTogglePin}
-            />
-          </div>
-        ) : (
-          <DndContext
-            id="items-list-dnd"
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={unpinnedItems.map((i) => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div
-                onMouseMove={
-                  suppressHover ? () => setSuppressHover(false) : undefined
-                }
-              >
-                {itemsError ? (
-                  <div className="px-1 py-6 text-center text-destructive text-xs">
-                    Failed to load items
-                  </div>
-                ) : (
-                  emptyNode
-                )}
-                {pinnedItems.length > 0 && (
-                  <div className="flex flex-col mb-4">
-                    <button
-                      type="button"
-                      onClick={() => setPinnedOpen((p) => !p)}
-                      className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none"
-                    >
-                      <IconPinFilled className="size-3" />
-                      Pinned
-                      <IconChevronRight
-                        className={cn(
-                          "size-3 transition-transform duration-150",
-                          pinnedOpen && "rotate-90",
-                        )}
-                      />
-                    </button>
-                    <CollapsibleSection open={pinnedOpen}>
-                      {pinnedItems.map((item) => {
-                        const typingTitle = typingTitles[item.id];
-                        const rowItem = resolveRowItem(item, typingTitle);
-                        return (
-                          <SortableItemRow
-                            key={item.id}
-                            item={rowItem}
-                            suppressHover={suppressHover}
-                            density={density}
-                            isDragDisabled={true}
-                            isTyping={typingTitle !== undefined}
-                            onTogglePin={() => handleTogglePin(item.id, !item.starred)}
-                            onToggleRead={() => handleToggleRead(item.id, !item.read)}
-                            onSelect={() => handleOpenItem(item.id)}
-                            onDelete={() => requestDeleteItem(item.id)}
-                          />
-                        );
-                      })}
-                    </CollapsibleSection>
-                  </div>
-                )}
-                {unpinnedItems.map((item) => {
-                  const typingTitle = typingTitles[item.id];
-                  const rowItem = resolveRowItem(item, typingTitle);
-                  return (
-                  <SortableItemRow
-                    key={item.id}
-                    item={rowItem}
-                    suppressHover={suppressHover}
-                    density={density}
-                    isDragDisabled={isDragDisabled}
-                    isTyping={typingTitle !== undefined}
-                    suppressTransition={justDropped}
-                    onTogglePin={() => handleTogglePin(item.id, !item.starred)}
-                    onToggleRead={() => handleToggleRead(item.id, !item.read)}
-                    onSelect={() => handleOpenItem(item.id)}
-                    onDelete={() => requestDeleteItem(item.id)}
-                  />
-                  );
-                })}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
-        </LoadingFade>
-        )}
+                </div>
+              )}
+            </LoadingFade>
+          )}
         </div>
       </div>
 

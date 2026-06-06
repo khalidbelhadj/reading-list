@@ -8,9 +8,10 @@ import {
   type Editor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import CodeBlock from "@tiptap/extension-code-block";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Paragraph from "@tiptap/extension-paragraph";
 import Placeholder from "@tiptap/extension-placeholder";
+import { ReactNodeViewRenderer } from "@tiptap/react";
 import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Markdown } from "tiptap-markdown";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ import { isModKey } from "@/lib/input-context";
 import { requestImageUpload } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
+import { CodeBlockNodeView } from "@/components/ui/code-block-node-view";
+import { lowlight } from "@/lib/lowlight";
 
 const ImageLightbox = ({
   src,
@@ -130,7 +133,13 @@ const DeleteEmptyFirstBlock = Extension.create({
   },
 });
 
-const CodeBlockWithLineNav = CodeBlock.extend({
+const CodeBlockWithLineNav = CodeBlockLowlight.extend({
+  addNodeView() {
+    // The language picker is portaled to <body> from the node view, so its
+    // base-ui menu never touches the editor DOM — no stopEvent / ignoreMutation
+    // overrides are needed. See components/ui/code-block-node-view.tsx.
+    return ReactNodeViewRenderer(CodeBlockNodeView);
+  },
   addKeyboardShortcuts() {
     const nodeType = this.type;
     const moveWithinCodeBlock = (
@@ -282,7 +291,7 @@ export const MarkdownEditor = ({
     extensions: [
       StarterKit.configure({ codeBlock: false, paragraph: false }),
       ParagraphWithBlankLines,
-      CodeBlockWithLineNav,
+      CodeBlockWithLineNav.configure({ lowlight }),
       DeleteEmptyFirstBlock,
       Card,
       CardFront,

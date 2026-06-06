@@ -14,6 +14,28 @@ const parseActiveTagsMap = (raw: string): Record<string, string[]> => {
 
 export type TabId = "reading-list" | "cards";
 export type GroupBy = "none" | "tag" | "day";
+export type SortBy =
+  | "created-desc"
+  | "created-asc"
+  | "updated-desc"
+  | "updated-asc";
+
+const sortComparator = (sortBy: SortBy) => {
+  switch (sortBy) {
+    case "created-desc":
+      return (a: Item, b: Item) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    case "created-asc":
+      return (a: Item, b: Item) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    case "updated-desc":
+      return (a: Item, b: Item) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    case "updated-asc":
+      return (a: Item, b: Item) =>
+        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+  }
+};
 
 export type ItemGroup = {
   key: string;
@@ -23,41 +45,45 @@ export type ItemGroup = {
 
 // Smart day-bucket label derived from an ISO timestamp. Recent items get
 // natural-language labels; older items collapse to "Month YYYY" buckets.
-const dayBucket = (createdAtIso: string, now: Date): { key: string; label: string; sortKey: number } => {
-  const created = new Date(createdAtIso);
+const dayBucket = (iso: string, now: Date): { key: string; label: string; sortKey: number } => {
+  const at = new Date(iso);
   const startOfDay = (d: Date) => {
     const startDate = new Date(d);
     startDate.setHours(0, 0, 0, 0);
     return startDate;
   };
   const today = startOfDay(now);
-  const createdDay = startOfDay(created);
+  const atDay = startOfDay(at);
   const diffDays = Math.round(
-    (today.getTime() - createdDay.getTime()) / (1000 * 60 * 60 * 24),
+    (today.getTime() - atDay.getTime()) / (1000 * 60 * 60 * 24),
   );
 
-  // Use createdDay timestamp for sort priority — newer = higher.
+  // sortKey: newer = higher.
   if (diffDays === 0) return { key: "today", label: "Today", sortKey: 1e15 };
   if (diffDays === 1) return { key: "yesterday", label: "Yesterday", sortKey: 1e15 - 1 };
   if (diffDays < 7) return { key: "this-week", label: "This week", sortKey: 1e15 - 2 };
   if (
-    created.getFullYear() === now.getFullYear() &&
-    created.getMonth() === now.getMonth()
+    at.getFullYear() === now.getFullYear() &&
+    at.getMonth() === now.getMonth()
   ) {
     return { key: "this-month", label: "This month", sortKey: 1e15 - 3 };
   }
-  const month = created.toLocaleString(undefined, {
+  const month = at.toLocaleString(undefined, {
     month: "long",
     year: "numeric",
   });
   return {
-    key: `month-${created.getFullYear()}-${created.getMonth()}`,
+    key: `month-${at.getFullYear()}-${at.getMonth()}`,
     label: month,
-    sortKey: created.getFullYear() * 12 + created.getMonth(),
+    sortKey: at.getFullYear() * 12 + at.getMonth(),
   };
 };
 
-const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
+const buildGroups = (
+  items: Item[],
+  groupBy: GroupBy,
+  sortBy: SortBy,
+): ItemGroup[] => {
   if (groupBy === "tag") {
     const byTag = new Map<string, Item[]>();
     const untagged: Item[] = [];
@@ -86,25 +112,27 @@ const buildGroups = (items: Item[], groupBy: GroupBy): ItemGroup[] => {
   }
 
   if (groupBy === "day") {
+    // Bucket by whichever date axis is being sorted on, so "Today" under
+    // "Recently updated" means "updated today", not "added today".
+    const axis: "createdAt" | "updatedAt" = sortBy.startsWith("updated")
+      ? "updatedAt"
+      : "createdAt";
+    const ascending = sortBy.endsWith("-asc");
     const now = new Date();
     const buckets = new Map<string, { label: string; sortKey: number; items: Item[] }>();
     for (const item of items) {
-      const bucket = dayBucket(item.createdAt, now);
+      const bucket = dayBucket(item[axis], now);
       const existing = buckets.get(bucket.key);
       if (existing) existing.items.push(item);
       else buckets.set(bucket.key, { label: bucket.label, sortKey: bucket.sortKey, items: [item] });
     }
     return [...buckets.entries()]
-      .sort(([, a], [, b]) => b.sortKey - a.sortKey)
+      .sort(([, a], [, b]) => (ascending ? a.sortKey - b.sortKey : b.sortKey - a.sortKey))
       .map(([key, value]) => ({
         key: `day:${key}`,
         label: value.label,
-        items: value.items
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          ),
+        // items inherit tabItems' sortBy order already, no need to re-sort.
+        items: value.items,
       }));
   }
 
@@ -134,7 +162,7 @@ export const useItemsFilters = (
   }, [activeTab, setActiveTagsMap]);
 
   const { settings, setSetting } = useSettings();
-  const { tagsOpen, showRead, groupBy } = settings;
+  const { tagsOpen, showRead, groupBy, sortBy } = settings;
   const setTagsOpen = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
     (next) => setSetting("tagsOpen", next),
     [setSetting],
@@ -147,8 +175,18 @@ export const useItemsFilters = (
     (next) => setSetting("groupBy", next),
     [setSetting],
   );
+  const setSortBy = React.useCallback<React.Dispatch<React.SetStateAction<SortBy>>>(
+    (next) => setSetting("sortBy", next),
+    [setSetting],
+  );
 
-  const tabItems = React.useMemo(() => items ?? [], [items]);
+  // Server hands us items in created-desc order; for any other sort, re-sort
+  // client-side. Skip the work when the default matches the server order.
+  const tabItems = React.useMemo(() => {
+    const base = items ?? [];
+    if (sortBy === "created-desc") return base;
+    return base.slice().sort(sortComparator(sortBy));
+  }, [items, sortBy]);
 
   const allTags = React.useMemo(() => {
     const tagMap = new Map<string, DbTag>();
@@ -177,7 +215,7 @@ export const useItemsFilters = (
 
   // When a search is active, render in the order returned by the search (local
   // matches first, server-only matches after). Otherwise preserve the natural
-  // position-sorted order from the cache.
+  // creation-date order from the cache.
   const filteredItems = React.useMemo(() => {
     const passesFilters = (item: Item) => {
       if (!showRead && item.read) return false;
@@ -223,8 +261,8 @@ export const useItemsFilters = (
   );
 
   const groups = React.useMemo(
-    () => (searchOrder !== null ? [] : buildGroups(unpinnedItems, groupBy)),
-    [unpinnedItems, groupBy, searchOrder],
+    () => (searchOrder !== null ? [] : buildGroups(unpinnedItems, groupBy, sortBy)),
+    [unpinnedItems, groupBy, sortBy, searchOrder],
   );
 
   return {
@@ -242,6 +280,8 @@ export const useItemsFilters = (
     setShowRead,
     groupBy,
     setGroupBy,
+    sortBy,
+    setSortBy,
     groups,
   };
 };

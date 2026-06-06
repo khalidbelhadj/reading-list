@@ -61,11 +61,6 @@ export const updateItemSchema = z.object({
   }),
 });
 
-export const reorderItemSchema = z.object({
-  itemId: idSchema,
-  newPosition: z.number().int("Position must be an integer").min(0, "Position must be non-negative"),
-});
-
 export const toggleReadSchema = z.object({
   itemId: idSchema,
   read: z.boolean(),
@@ -180,8 +175,6 @@ export const getCardsForItemSchema = z.object({
 
 // MCP tool schemas
 export const mcpGetItemsSchema = z.object({
-  sort: z.enum(["position", "created_at", "updated_at", "title"]).optional(),
-  order: z.enum(["asc", "desc"]).optional(),
   tag: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),

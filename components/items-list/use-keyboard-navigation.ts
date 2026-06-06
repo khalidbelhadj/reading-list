@@ -11,7 +11,6 @@ export const useKeyboardNavigation = ({
   setActiveTabAndUrl,
   setTagsOpen,
   setShowRead,
-  tabItems,
   cursorRef,
   setCursor,
   onRequestDelete,
@@ -21,13 +20,11 @@ export const useKeyboardNavigation = ({
   onOpenNew,
   onPasteCreate,
   onSearchOpen,
-  onReorder,
 }: {
   filteredItems: Item[];
   setActiveTabAndUrl: (tab: TabId) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
-  tabItems: Item[];
   cursorRef: React.RefObject<string | null>;
   setCursor: (id: string | null) => void;
   onRequestDelete?: () => void;
@@ -37,7 +34,6 @@ export const useKeyboardNavigation = ({
   onOpenNew: () => void;
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
-  onReorder: (itemId: string, newPosition: number) => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
 
@@ -147,7 +143,7 @@ export const useKeyboardNavigation = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [cursorRef, onRequestDelete]);
 
-  // Ctrl+N/P navigation, Alt+Ctrl+N/P to reorder
+  // Ctrl+N/P navigation
   React.useEffect(() => {
     const scrollWithMargin = (id: string) => {
       const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
@@ -177,7 +173,7 @@ export const useKeyboardNavigation = ({
       if (elementTag === "BUTTON" || elementTag === "A") return;
 
       // Use the live render order from the DOM (grouped / pinned / collapsed
-      // sections diverge from filteredItems' raw position order).
+      // sections diverge from filteredItems' raw order).
       const ids = Array.from(
         document.querySelectorAll<HTMLElement>("[data-item-id]"),
       )
@@ -185,23 +181,6 @@ export const useKeyboardNavigation = ({
         .filter((id): id is string => !!id);
       const currentCursor = cursorRef.current;
       const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
-
-      // Alt+Ctrl+N/P — move item
-      const isMoveDown = e.altKey && e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyN";
-      const isMoveUp = e.altKey && e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyP";
-      if (isMoveDown || isMoveUp) {
-        e.preventDefault();
-        if (currentCursor === null) return;
-        const sortedItems = [...tabItems].sort((a, b) => a.position - b.position);
-        const currentIndex = sortedItems.findIndex((i) => i.id === currentCursor);
-        if (currentIndex === -1) return;
-        const newIndex = isMoveDown
-          ? Math.min(currentIndex + 1, sortedItems.length - 1)
-          : Math.max(currentIndex - 1, 0);
-        if (newIndex === currentIndex) return;
-        onReorder(currentCursor, newIndex);
-        return;
-      }
 
       // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
       const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
@@ -273,7 +252,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [filteredItems, tabItems, setSuppressHover, cursorRef, setCursor, onOpenItem, onOpenItemExpanded, onReorder]);
+  }, [filteredItems, setSuppressHover, cursorRef, setCursor, onOpenItem, onOpenItemExpanded]);
 
   return {
     suppressHover,

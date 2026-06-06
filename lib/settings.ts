@@ -5,6 +5,9 @@ export const settingsSchema = z.object({
   density: z.enum(["compact", "cozy"]).catch("compact"),
   fullWidth: z.boolean().catch(false),
   groupBy: z.enum(["none", "tag", "day"]).catch("day"),
+  sortBy: z
+    .enum(["created-desc", "created-asc", "updated-desc", "updated-asc"])
+    .catch("created-desc"),
   showRead: z.boolean().catch(false),
   tagsOpen: z.boolean().catch(false),
   activeTab: z.enum(["reading-list", "cards"]).catch("reading-list"),
@@ -17,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   density: "compact",
   fullWidth: false,
   groupBy: "day",
+  sortBy: "created-desc",
   showRead: false,
   tagsOpen: false,
   activeTab: "reading-list",

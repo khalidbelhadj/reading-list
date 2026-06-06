@@ -4,7 +4,6 @@ import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
   IconDots,
-  IconExternalLink,
   IconFileFilled,
   IconPlus,
   IconX,
@@ -21,9 +20,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { subscribePanelCommand } from "@/lib/panel-events";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
-import { subscribePanelCommand } from "@/lib/panel-events";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./delete-item-dialog";
@@ -175,13 +174,16 @@ const useIsNarrow = () => {
 export const SlidingItemPanel = ({
   itemId,
   onClose,
-  expandTrigger,
+  expanded = false,
+  onExpandedChange,
 }: {
   itemId: string | null;
   onClose: () => void;
-  // Incremented by the parent to request expand-on-open (Cmd+Enter). Each
-  // change triggers exactly one expand once the panel reaches side phase.
-  expandTrigger?: number;
+  // Desired side(false) ↔ fullw(true) state, owned by the parent via the
+  // ?expanded=1 URL param so expanded mode is deep-linkable. The panel reports
+  // user-driven expand/restore back through onExpandedChange.
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) => {
   // Always start at "closed" so a remount with itemId already set still
   // plays the open animation (closed → side via rAF). Some parent re-mounts
@@ -244,31 +246,44 @@ export const SlidingItemPanel = ({
 
   // Expand: side ↔ fullw. The "full" (edge-to-edge) phase was removed —
   // expanding now stops at fullw so the panel keeps its outer padding.
-  const expand = React.useCallback(() => {
-    setPhase((p) => (p === "side" ? "fullw" : p));
-  }, []);
+  // Side ↔ fullw is owned by the URL (?expanded=1) and round-trips through the
+  // parent. Each request optimistically flips the local phase for a snappy
+  // animation and notifies the parent to update the URL; the parent feeds the
+  // value back as the `expanded` prop, which the reconciliation effect below
+  // treats as a no-op since the phase already matches.
+  const requestExpanded = React.useCallback(
+    (next: boolean) => {
+      setPhase((p) => (p === "closed" ? p : next ? "fullw" : "side"));
+      onExpandedChange?.(next);
+    },
+    [onExpandedChange],
+  );
 
-  const restore = React.useCallback(() => {
-    setPhase((p) => (p === "fullw" ? "side" : p));
-  }, []);
+  const expand = React.useCallback(
+    () => requestExpanded(true),
+    [requestExpanded],
+  );
 
-  // Expand-on-open: when expandTrigger changes, queue an expand that fires
-  // once the panel reaches side phase. One-shot per trigger change.
-  const [pendingExpand, setPendingExpand] = React.useState(false);
-  const lastExpandTriggerRef = React.useRef(expandTrigger);
+  const restore = React.useCallback(
+    () => requestExpanded(false),
+    [requestExpanded],
+  );
+
+  // Reconcile the local phase with the URL-driven `expanded` flag. Runs after
+  // the open animation settles on "side": if the URL says expanded, this is
+  // what carries the panel on to "fullw" — deep-linking into expanded mode and
+  // Cmd+Enter both flow through here. A no-op once the phase already matches,
+  // so it never fights the optimistic flip in requestExpanded.
+  //
+  // Bail while there's no open item: closing from expanded mode clears `itemId`
+  // and `expanded` in the same commit, and without this guard the `!expanded`
+  // branch would flip "fullw" → "side", overriding the close effect's
+  // "closed" and leaving the panel open on a blank (often just-deleted) item.
   React.useEffect(() => {
-    if (expandTrigger === undefined) return;
-    if (expandTrigger !== lastExpandTriggerRef.current) {
-      lastExpandTriggerRef.current = expandTrigger;
-      setPendingExpand(true);
-    }
-  }, [expandTrigger]);
-  React.useEffect(() => {
-    if (pendingExpand && phase === "side") {
-      setPendingExpand(false);
-      expand();
-    }
-  }, [pendingExpand, phase, expand]);
+    if (!itemId || phase === "closed") return;
+    if (expanded && phase === "side") setPhase("fullw");
+    else if (!expanded && phase === "fullw") setPhase("side");
+  }, [itemId, expanded, phase]);
 
   // ESC closes. Bail only when the focused editable is *inside* the panel
   // (e.g. the title/notes editor) — focused inputs elsewhere on the page
@@ -299,15 +314,15 @@ export const SlidingItemPanel = ({
     return subscribePanelCommand((command) => {
       const current = phaseRef.current;
       if (command === "expand") {
-        if (current === "side") setPhase("fullw");
+        if (current === "side") requestExpanded(true);
       } else if (command === "peek") {
-        if (current === "fullw") setPhase("side");
+        if (current === "fullw") requestExpanded(false);
       } else if (command === "collapse") {
-        if (current === "fullw") setPhase("side");
+        if (current === "fullw") requestExpanded(false);
         else if (current === "side") onClose();
       }
     });
-  }, [onClose]);
+  }, [onClose, requestExpanded]);
 
   // Phase used to compute the *visual* layer's dimensions. While closed we
   // freeze on the last open phase so the slide-off keeps the same shape.
@@ -838,23 +853,6 @@ const PanelInner = ({
           <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
         </Tooltip>
         <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
-        {item?.url && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground"
-                  onClick={() => window.open(item.url, "_blank")}
-                />
-              }
-            >
-              <IconExternalLink />
-            </TooltipTrigger>
-            <TooltipContent>Open URL</TooltipContent>
-          </Tooltip>
-        )}
         <Tooltip>
           <TooltipTrigger
             render={

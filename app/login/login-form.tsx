@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
 export const LoginForm = ({
@@ -13,11 +13,11 @@ export const LoginForm = ({
   error: boolean;
   redirectTo?: string;
 }) => {
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [electronError, setElectronError] = useState<string | null>(null);
 
   const handleGoogleLogin = useCallback(async () => {
-    setLoading(true);
+    setIsLoading(true);
     setElectronError(null);
     const supabase = createClient();
     const callback = new URL("/auth/callback", window.location.origin);
@@ -40,7 +40,7 @@ export const LoginForm = ({
         },
       });
       if (error || !data.url) {
-        setLoading(false);
+        setIsLoading(false);
         setElectronError(error?.message ?? "Could not start sign-in");
         return;
       }
@@ -55,6 +55,11 @@ export const LoginForm = ({
       options: { redirectTo: callback.toString() },
     });
   }, [redirectTo]);
+
+  const handleCancel = useCallback(() => {
+    setIsLoading(false);
+    setElectronError(null);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.readingList) return;
@@ -73,7 +78,7 @@ export const LoginForm = ({
       const supabase = createClient();
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
-        setLoading(false);
+        setIsLoading(false);
         setElectronError(error.message);
         return;
       }
@@ -94,9 +99,9 @@ export const LoginForm = ({
         <Button
           variant="outline"
           onClick={handleGoogleLogin}
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? (
+          {isLoading ? (
             <Spinner className="size-3.5" />
           ) : (
             <Image
@@ -110,6 +115,11 @@ export const LoginForm = ({
           )}
           Continue with Google
         </Button>
+        {isLoading && (
+          <Button variant="ghost" onClick={handleCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
       {(error || electronError) && (
         <p className="text-xs text-destructive">

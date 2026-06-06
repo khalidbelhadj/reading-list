@@ -2,7 +2,7 @@
 
 import { withUser } from "@/db";
 import { items } from "@/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction } from "@/lib/safe-action";
 import { ensureTagsLinkedForItems } from "@/lib/tags";
@@ -10,7 +10,6 @@ import {
   createItems as createItemsLib,
   updateItem as updateItemLib,
   deleteItems as deleteItemsLib,
-  recompactPositions,
 } from "@/lib/items";
 import {
   searchItems as searchItemsQuery,
@@ -32,7 +31,6 @@ import {
   fetchPageTitleSchema,
   createItemSchema,
   updateItemSchema,
-  reorderItemSchema,
   toggleReadSchema,
   bulkDeleteItemsSchema,
   bulkTagSchema,
@@ -220,66 +218,6 @@ export const updateItem = safeAction(async function updateItem(
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => updateItemLib(tx, userId, itemId, fields));
 }, "Could not update item. Please try again.");
-
-const computeMidpoint = (
-  before: number | null,
-  after: number | null,
-): number => {
-  if (before === null && after === null) return 0;
-  if (before === null && after !== null) return after - 1;
-  if (after === null && before !== null) return before + 1;
-  return ((before as number) + (after as number)) / 2;
-};
-
-export const reorderItem = safeAction(async function reorderItem(
-  itemId: string,
-  newPosition: number,
-) {
-  parseInput(reorderItemSchema, { itemId, newPosition });
-  const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
-    const ordered = await tx
-      .select({ id: items.id, position: items.position })
-      .from(items)
-      .where(eq(items.userId, userId))
-      .orderBy(asc(items.position));
-
-    const currentIndex = ordered.findIndex((i) => i.id === itemId);
-    if (currentIndex === -1) return;
-
-    const without = ordered.filter((_, i) => i !== currentIndex);
-    const clamped = Math.max(0, Math.min(newPosition, without.length));
-    if (clamped === currentIndex) return;
-
-    const before = clamped > 0 ? without[clamped - 1].position : null;
-    const after = clamped < without.length ? without[clamped].position : null;
-    let newPos = computeMidpoint(before, after);
-
-    // If neighbors are so dense that the midpoint collides, recompact once
-    // and recompute.
-    if (
-      (before !== null && newPos === before) ||
-      (after !== null && newPos === after)
-    ) {
-      await recompactPositions(tx, userId);
-      const reordered = await tx
-        .select({ id: items.id, position: items.position })
-        .from(items)
-        .where(eq(items.userId, userId))
-        .orderBy(asc(items.position));
-      const withoutR = reordered.filter((i) => i.id !== itemId);
-      const beforeR = clamped > 0 ? withoutR[clamped - 1].position : null;
-      const afterR =
-        clamped < withoutR.length ? withoutR[clamped].position : null;
-      newPos = computeMidpoint(beforeR, afterR);
-    }
-
-    await tx
-      .update(items)
-      .set({ position: newPos })
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-  });
-}, "Could not reorder items. Please try again.");
 
 export const toggleRead = safeAction(async function toggleRead(itemId: string, read: boolean) {
   parseInput(toggleReadSchema, { itemId, read });

@@ -7,7 +7,7 @@ import {
 
 import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { searchItems as searchItemsQuery, searchFlashcards } from "@/lib/search";
 import {
@@ -58,23 +58,11 @@ const TOOLS = [
   {
     name: "get_items",
     description:
-      "Browse items in order — use this only when you need everything, or items filtered by tag. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports sort, limit, and offset for pagination.",
+      "Browse items in creation order (newest first) — use this only when you need everything, or items filtered by tag. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports limit and offset for pagination.",
     inputSchema: {
       type: "object" as const,
       properties: {
         tag: { type: "string", description: "Filter by tag name" },
-        sort: {
-          type: "string",
-          enum: ["position", "created_at", "updated_at", "title"],
-          default: "position",
-          description: "Sort field",
-        },
-        order: {
-          type: "string",
-          enum: ["asc", "desc"],
-          default: "asc",
-          description: "Sort direction",
-        },
         limit: {
           type: "number",
           description: "Maximum number of items to return (1-100, capped at 100)",
@@ -305,18 +293,11 @@ async function handleTool(name: string, args: unknown, userId: string) {
   switch (name) {
     case "get_items": {
       const parsed = parseInput(mcpGetItemsSchema, args);
-      const dir = parsed.order === "desc" ? desc : asc;
-      const orderBy = {
-        position: dir(items.position),
-        created_at: dir(items.createdAt),
-        updated_at: dir(items.updatedAt),
-        title: dir(items.title),
-      }[parsed.sort ?? "position"] ?? dir(items.position);
 
       const allItems = await withUser(userId, (tx) =>
         tx.query.items.findMany({
           where: eq(items.userId, userId),
-          orderBy: [orderBy],
+          orderBy: [desc(items.createdAt)],
           with: { itemsTags: { with: { tag: true } } },
         }),
       );

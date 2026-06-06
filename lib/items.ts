@@ -1,6 +1,6 @@
 import { db, type Tx } from "@/db";
 import { items, itemsTags, flashcards } from "@/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   ensureTagsLinkedForItems,
   syncItemTags,
@@ -27,17 +27,6 @@ export const createItems = async (
   const now = new Date().toISOString();
   const ids = inputs.map((input) => input.id ?? crypto.randomUUID());
 
-  // Insert new items above all existing ones by anchoring at min(position) - 1
-  // and giving each new item a slot of width 1 below that anchor. No need to
-  // rewrite existing rows.
-  const [{ minPos }] = (await tx.execute(sql`
-    SELECT COALESCE(MIN(position), 0) AS "minPos"
-    FROM ${items}
-    WHERE user_id = ${userId}::uuid
-  `)) as unknown as Array<{ minPos: number }>;
-
-  const anchor = Number(minPos) - inputs.length;
-
   await tx.insert(items).values(
     inputs.map((input, idx) => ({
       id: ids[idx],
@@ -47,7 +36,6 @@ export const createItems = async (
       faviconUrl: input.faviconUrl ?? null,
       starred: false,
       notes: input.notes ?? null,
-      position: anchor + idx,
       createdAt: now,
       updatedAt: now,
     })),
@@ -152,23 +140,6 @@ export const deleteItems = async (
     .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
 
   await pruneOrphanTags(tx, userId, affectedTagIds);
-  // No recompaction on delete: fractional positions tolerate gaps, and
-  // recompacting on every delete used to rewrite every row in the table.
 
   return { deleted: ownedIds, notFound };
-};
-
-export const recompactPositions = async (
-  tx: Tx | typeof db,
-  userId: string,
-) => {
-  await tx.execute(sql`
-    UPDATE ${items} SET position = sub.new_pos
-    FROM (
-      SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS new_pos
-      FROM ${items}
-      WHERE user_id = ${userId}
-    ) sub
-    WHERE ${items}.id = sub.id
-  `);
 };

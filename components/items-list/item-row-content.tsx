@@ -2,9 +2,9 @@ import { IconDots, IconFileFilled } from "@tabler/icons-react";
 import Image from "next/image";
 import React from "react";
 
-import { cn } from "@/lib/utils";
-import { type Item } from "@/lib/types";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { type Item } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 import { ItemDropdown } from "./item-dropdown";
 import { getFaviconSrc } from "./utils";
@@ -69,10 +69,12 @@ export const ItemRowContent = ({
         onToggleRead={onToggleRead}
         onDelete={onDelete}
       >
-        <div className={cn(
-          "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
-          !suppressHover && "group-hover:visible",
-        )}>
+        <div
+          className={cn(
+            "absolute inset-y-0 right-0 flex items-center pl-12 pr-1 pointer-events-none invisible group-data-[menu-open]:visible",
+            !suppressHover && "group-hover:visible",
+          )}
+        >
           {/* Occluder so the title fades out cleanly behind the menu button.
               Must match the row's background: active rows are a solid
               bg-secondary, while hovered rows are the page background lifted by
