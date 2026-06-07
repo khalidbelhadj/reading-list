@@ -633,6 +633,9 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   margin: 0.5rem 0;
   font-family: var(--font-content), serif;
 }
+.dark .markdown-editor .ProseMirror card.card-block {
+  background: oklch(0.31 0.004 85);
+}
 .markdown-editor .ProseMirror front.card-side,
 .markdown-editor .ProseMirror back.card-side {
   display: block;
@@ -656,7 +659,13 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   margin-top: 0.25rem;
 }
 .preview-notes .markdown-editor .ProseMirror img {
-  display: none;
+  max-height: 6rem;
+  width: auto;
+  border-radius: 0.25rem;
+}
+.preview-notes .markdown-editor .ProseMirror card.card-block {
+  padding: 0.375rem 0.625rem;
+  margin: 0.25rem 0;
 }
 
 /* Empty-state placeholder for contenteditable elements. The element drives

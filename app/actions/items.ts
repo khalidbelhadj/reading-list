@@ -8,7 +8,7 @@ import { safeAction } from "@/lib/safe-action";
 import { ensureTagsLinkedForItems } from "@/lib/tags";
 import {
   createItems as createItemsLib,
-  updateItem as updateItemLib,
+  updateItemWithCardSync,
   deleteItems as deleteItemsLib,
 } from "@/lib/items";
 import {
@@ -216,7 +216,9 @@ export const updateItem = safeAction(async function updateItem(
 ) {
   parseInput(updateItemSchema, { itemId, fields });
   const userId = await getCurrentUserId();
-  await withUser(userId, (tx) => updateItemLib(tx, userId, itemId, fields));
+  await withUser(userId, (tx) =>
+    updateItemWithCardSync(tx, userId, itemId, fields),
+  );
 }, "Could not update item. Please try again.");
 
 export const toggleRead = safeAction(async function toggleRead(itemId: string, read: boolean) {

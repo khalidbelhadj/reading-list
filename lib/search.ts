@@ -13,7 +13,6 @@ const searchRowSchema = z.object({
   m_title: z.boolean().nullable(),
   m_url: z.boolean().nullable(),
   m_notes: z.boolean().nullable(),
-  m_flashcards: z.boolean().nullable(),
 });
 type SearchRow = z.infer<typeof searchRowSchema>;
 
@@ -50,7 +49,9 @@ export type SearchResult = {
   starred: boolean;
   read: boolean;
   createdAt: string;
-  matchedIn: ("title" | "url" | "notes" | "flashcards")[];
+  // Card text now lives in `notes` (inline `<card>` blocks), so it's covered by
+  // the "notes" match — there is no separate flashcards haystack here.
+  matchedIn: ("title" | "url" | "notes")[];
 };
 
 const parseMode = (query: string): { mode: SearchMode; pattern: string } => {
@@ -90,35 +91,21 @@ const regexSearch = async (
   const op = sql.raw(caseSensitive ? "~" : "~*");
 
   const rows = await tx.execute(sql`
-    WITH haystacks AS (
+    WITH matched AS (
       SELECT
-        i.id, i.title, i.url, i.notes, i.starred, i.read,
-        i.created_at,
-        COALESCE(
-          STRING_AGG(f.front || E'\n' || f.back, E'\n'),
-          ''
-        ) AS fc_text
+        i.id, i.title, i.url, i.notes, i.starred, i.read, i.created_at,
+        (i.title ${op} ${pattern})               AS m_title,
+        (i.url   ${op} ${pattern})               AS m_url,
+        (COALESCE(i.notes, '') ${op} ${pattern}) AS m_notes
       FROM items i
-      LEFT JOIN flashcards f
-        ON f.item_id = i.id AND f.user_id = i.user_id
       WHERE i.user_id = ${userId}
-      GROUP BY i.id
-    ),
-    matched AS (
-      SELECT
-        h.*,
-        (h.title ${op} ${pattern})                  AS m_title,
-        (h.url   ${op} ${pattern})                  AS m_url,
-        (COALESCE(h.notes, '') ${op} ${pattern})    AS m_notes,
-        (h.fc_text ${op} ${pattern})                AS m_flashcards
-      FROM haystacks h
     )
     SELECT
       m.id, m.title, m.url, m.notes, m.starred, m.read,
       m.created_at,
-      m.m_title, m.m_url, m.m_notes, m.m_flashcards
+      m.m_title, m.m_url, m.m_notes
     FROM matched m
-    WHERE m.m_title OR m.m_url OR m.m_notes OR m.m_flashcards
+    WHERE m.m_title OR m.m_url OR m.m_notes
     ORDER BY m.created_at DESC
     LIMIT 100
   `);
@@ -146,7 +133,6 @@ const fuzzySearch = async (
       i.title %> ${token}
       OR i.url ILIKE ${`%${token}%`}
       OR COALESCE(i.notes, '') %> ${token}
-      OR COALESCE(fc_agg.fc_text, '') %> ${token}
     )`,
   );
 
@@ -158,28 +144,17 @@ const fuzzySearch = async (
   const fullLike = `%${pattern}%`;
 
   const rows = await tx.execute(sql`
-    WITH fc_agg AS (
-      SELECT
-        f.item_id,
-        STRING_AGG(f.front || E'\n' || f.back, E'\n') AS fc_text
-      FROM flashcards f
-      WHERE f.user_id = ${userId}
-      GROUP BY f.item_id
-    )
     SELECT
       i.id, i.title, i.url, i.notes, i.starred, i.read,
       i.created_at,
       (${usePatternTrigram ? sql`i.title %> ${pattern}` : sql`i.title ILIKE ${fullLike}`}) AS m_title,
       (i.url ILIKE ${fullLike}) AS m_url,
       (${usePatternTrigram ? sql`COALESCE(i.notes, '') %> ${pattern}` : sql`COALESCE(i.notes, '') ILIKE ${fullLike}`}) AS m_notes,
-      (${usePatternTrigram ? sql`COALESCE(fc_agg.fc_text, '') %> ${pattern}` : sql`COALESCE(fc_agg.fc_text, '') ILIKE ${fullLike}`}) AS m_flashcards,
       GREATEST(
         word_similarity(${pattern}, i.title) * 1.5,
-        word_similarity(${pattern}, COALESCE(i.notes, '')),
-        word_similarity(${pattern}, COALESCE(fc_agg.fc_text, ''))
+        word_similarity(${pattern}, COALESCE(i.notes, ''))
       ) AS score
     FROM items i
-    LEFT JOIN fc_agg ON fc_agg.item_id = i.id
     WHERE i.user_id = ${userId}
       AND ${whereClause}
     ORDER BY score DESC, i.created_at DESC
@@ -317,7 +292,6 @@ const toResult = (r: SearchRow): SearchResult => {
   if (r.m_title) matchedIn.push("title");
   if (r.m_url) matchedIn.push("url");
   if (r.m_notes) matchedIn.push("notes");
-  if (r.m_flashcards) matchedIn.push("flashcards");
   return {
     id: r.id,
     title: r.title,

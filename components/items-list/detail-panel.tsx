@@ -4,12 +4,9 @@ import {
   IconFileFilled,
   IconX,
 } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import React from "react";
 
-import { createFlashcard, getFlashcards } from "@/app/actions";
-import { FlashcardCard } from "@/components/flashcards/flashcard-card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -17,8 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { bumpItemFlashcardCount } from "@/lib/items-cache";
-import { type Flashcard, type Item } from "@/lib/types";
+import { type Item } from "@/lib/types";
 
 import { isModKey, isOverlayOpen, isTypingContext } from "@/lib/input-context";
 
@@ -26,7 +22,6 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { PlainEditable } from "./plain-editable";
 import { TagInput } from "./tag-input";
 import { useAutofill } from "./use-autofill";
-import { useFlashcardMutations } from "./use-flashcard-mutations";
 import { type EditFields, getFaviconSrc } from "./utils";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
@@ -34,12 +29,8 @@ import { type EditFields, getFaviconSrc } from "./utils";
 // may return them in any order — compare as a sorted set, not a sequence.
 const tagsKey = (names: string[]) => [...names].sort().join(", ");
 
-export interface DetailPanelHandle {
-  startAddingCard: () => void;
-}
-
 export const DetailPanel = React.forwardRef<
-  DetailPanelHandle,
+  HTMLDivElement,
   {
     item: Item | null;
     isNew: boolean;
@@ -81,17 +72,6 @@ export const DetailPanel = React.forwardRef<
       () => item?.tags.map((t) => t.name) ?? (isNew ? (defaultTags ?? []) : []),
     );
     const [notes, setNotes] = React.useState(() => item?.notes ?? "");
-    const [newFront, setNewFront] = React.useState("");
-    const [newBack, setNewBack] = React.useState("");
-    const [addingCard, setAddingCard] = React.useState(false);
-
-    React.useImperativeHandle(
-      ref,
-      () => ({
-        startAddingCard: () => setAddingCard(true),
-      }),
-      [],
-    );
 
     // Refs
     const titleRef = React.useRef<HTMLDivElement>(null);
@@ -119,86 +99,7 @@ export const DetailPanel = React.forwardRef<
 
     // Hooks
     const { onUrlPaste } = useAutofill(url, title, setTitle);
-    const queryClient = useQueryClient();
     const currentId = item?.id ?? (isNew ? "new" : null);
-
-    const { data: cards = [], isError: cardsError } = useQuery<Flashcard[]>({
-      queryKey: ["flashcards", item?.id],
-      queryFn: () => getFlashcards(item!.id),
-      enabled: !!item?.id && !isNew,
-      staleTime: Infinity,
-    });
-
-    const addCardMutation = useMutation({
-      mutationFn: ({
-        itemId,
-        front,
-        back,
-      }: {
-        itemId: string;
-        front: string;
-        back: string;
-      }) => createFlashcard(itemId, front, back),
-      onMutate: async ({ front, back }) => {
-        await queryClient.cancelQueries({ queryKey: ["flashcards", item?.id] });
-        const previous = queryClient.getQueryData(["flashcards", item?.id]);
-        const tempId = `temp-${Date.now()}`;
-        const optimisticCard = {
-          id: tempId,
-          itemId: item?.id ?? null,
-          front,
-          back,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        queryClient.setQueryData(
-          ["flashcards", item?.id],
-          (old: typeof cards) => [optimisticCard, ...(old ?? [])],
-        );
-        if (item?.id) bumpItemFlashcardCount(queryClient, item.id, 1);
-        return { previous, tempId };
-      },
-      onSuccess: (realCard, _vars, context) => {
-        queryClient.setQueryData(
-          ["flashcards", item?.id],
-          (old: typeof cards) =>
-            (old ?? []).map((c) => (c.id === context?.tempId ? realCard : c)),
-        );
-        queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-      },
-      onError: (_err, _vars, context) => {
-        if (context?.previous) {
-          queryClient.setQueryData(["flashcards", item?.id], context.previous);
-          if (item?.id) bumpItemFlashcardCount(queryClient, item.id, -1);
-        }
-      },
-    });
-
-    const {
-      deletingCardId,
-      handleUpdateCard,
-      handleDeleteCard: baseDeleteCard,
-    } = useFlashcardMutations<Flashcard>({
-      queryKey: ["flashcards", item?.id],
-      onUpdateSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-      },
-      onDeleteSettled: () => {
-        queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-      },
-    });
-
-    const handleDeleteCard = React.useCallback(
-      async (cardId: string) => {
-        if (item?.id) bumpItemFlashcardCount(queryClient, item.id, -1);
-        try {
-          await baseDeleteCard(cardId);
-        } catch {
-          if (item?.id) bumpItemFlashcardCount(queryClient, item.id, 1);
-        }
-      },
-      [baseDeleteCard, item?.id, queryClient],
-    );
 
     // Title autofocus for new items is handled by PlainEditable's autoFocus prop.
 
@@ -317,18 +218,6 @@ export const DetailPanel = React.forwardRef<
     ]);
 
     // Callbacks
-    const handleAddCard = React.useCallback(async () => {
-      if (!item?.id || !newFront.trim()) return;
-      addCardMutation.mutate({
-        itemId: item.id,
-        front: newFront.trim(),
-        back: newBack.trim(),
-      });
-      setNewFront("");
-      setNewBack("");
-      setAddingCard(false);
-    }, [item?.id, newFront, newBack, addCardMutation]);
-
     const handleSetTitle = React.useCallback(
       (next: string) => setTitle(next.replace(/\n/g, "")),
       [],
@@ -342,30 +231,6 @@ export const DetailPanel = React.forwardRef<
       }
     }, [notes, onCreate, tags, title, url]);
 
-    const handleAddingCardBlur = React.useCallback(
-      (e: React.FocusEvent) => {
-        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-        if (newFront.trim()) {
-          handleAddCard();
-        } else {
-          setAddingCard(false);
-          setNewFront("");
-          setNewBack("");
-        }
-      },
-      [handleAddCard, newFront],
-    );
-
-    const handleAddingCardKeyDown = React.useCallback(
-      (e: KeyboardEvent) => {
-        if (e.key === "Enter" && isModKey(e)) {
-          if (newFront.trim()) handleAddCard();
-          return true;
-        }
-      },
-      [handleAddCard, newFront],
-    );
-
     const faviconSrc = getFaviconSrc({
       faviconUrl: item?.faviconUrl ?? null,
       url,
@@ -373,6 +238,7 @@ export const DetailPanel = React.forwardRef<
 
     return (
       <div
+        ref={ref}
         data-detail-panel
         className="flex flex-1 flex-col gap-2 w-full pb-12"
       >
@@ -522,48 +388,6 @@ export const DetailPanel = React.forwardRef<
           </div>
         </div>
 
-        {item && !isNew && (
-          <div className="flex flex-col gap-2">
-            {addingCard && (
-              <div
-                className="font-content rounded-lg bg-card px-4 py-3 flex flex-col gap-1.5"
-                onBlur={handleAddingCardBlur}
-              >
-                <MarkdownEditor
-                  value={newFront}
-                  onChange={setNewFront}
-                  placeholder="Front"
-                  autoFocus
-                  className="text-sm font-medium"
-                  onKeyDown={handleAddingCardKeyDown}
-                />
-                <MarkdownEditor
-                  value={newBack}
-                  onChange={setNewBack}
-                  placeholder="Back"
-                  className="text-sm text-muted-foreground"
-                  onKeyDown={handleAddingCardKeyDown}
-                />
-              </div>
-            )}
-
-            {cardsError && (
-              <div className="px-1 py-6 text-center text-destructive text-xs">
-                Failed to load flashcards
-              </div>
-            )}
-
-            {cards.map((card) => (
-              <FlashcardCard
-                key={card.id}
-                card={card}
-                onUpdate={handleUpdateCard}
-                onDelete={handleDeleteCard}
-                deleting={deletingCardId === card.id}
-              />
-            ))}
-          </div>
-        )}
       </div>
     );
   },

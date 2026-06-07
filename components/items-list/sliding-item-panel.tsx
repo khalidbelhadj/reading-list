@@ -5,7 +5,6 @@ import {
   IconArrowsDiagonalMinimize2,
   IconDots,
   IconFileFilled,
-  IconPlus,
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +27,7 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./delete-item-dialog";
-import { DetailPanel, type DetailPanelHandle } from "./detail-panel";
+import { DetailPanel } from "./detail-panel";
 import { DetailPanelSkeleton } from "./detail-panel-skeleton";
 import { FindBar } from "./find-bar";
 import { ItemDropdown } from "./item-dropdown";
@@ -662,7 +661,6 @@ const PanelInner = ({
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
-  const detailRef = React.useRef<DetailPanelHandle>(null);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const morphRef = React.useRef<HTMLDivElement | null>(null);
   const headerSlotRef = React.useRef<HTMLDivElement | null>(null);
@@ -867,21 +865,6 @@ const PanelInner = ({
           <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
         </Tooltip>
         <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground"
-                onClick={() => detailRef.current?.startAddingCard()}
-              />
-            }
-          >
-            <IconPlus />
-          </TooltipTrigger>
-          <TooltipContent>Add flashcard</TooltipContent>
-        </Tooltip>
         {item ? (
           <ItemDropdown
             item={item}
@@ -936,7 +919,6 @@ const PanelInner = ({
           >
             {item ? (
               <DetailPanel
-                ref={detailRef}
                 key={item.id}
                 item={item}
                 isNew={false}

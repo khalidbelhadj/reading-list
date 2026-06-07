@@ -17,7 +17,7 @@ export type McpItem = {
   createdAt: string;
 };
 
-export type McpSearchMatch = "title" | "url" | "notes" | "flashcards";
+export type McpSearchMatch = "title" | "url" | "notes";
 
 export type McpSearchItem = McpItem & {
   matchedIn: McpSearchMatch[];
@@ -119,21 +119,6 @@ export type DeleteItemsResponse = {
 };
 
 export type GetFlashcardsResponse = McpFlashcard[];
-
-export type CreateFlashcardsResponse = {
-  ids: string[];
-  notFound: string[];
-};
-
-export type UpdateFlashcardsResponse = {
-  updated: number;
-  notFound: string[];
-};
-
-export type DeleteFlashcardsResponse = {
-  deleted: number;
-  notFound: string[];
-};
 
 export type SearchFlashcardsResponse = {
   query: string;
