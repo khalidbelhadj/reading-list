@@ -12,14 +12,9 @@ import { getCurrentUserIdFromRequest } from "@/lib/auth";
 import { searchItems as searchItemsQuery, searchFlashcards } from "@/lib/search";
 import {
   createItems as createItemsLib,
-  updateItem as updateItemLib,
+  updateItemWithCardSync,
   deleteItems as deleteItemsLib,
 } from "@/lib/items";
-import {
-  createFlashcards as createFlashcardsLib,
-  updateFlashcards as updateFlashcardsLib,
-  deleteFlashcards as deleteFlashcardsLib,
-} from "@/lib/flashcards";
 import { deleteTagById } from "@/lib/tags";
 import {
   parseInput,
@@ -30,9 +25,6 @@ import {
   mcpUpdateItemsSchema,
   mcpDeleteItemsSchema,
   mcpGetFlashcardsSchema,
-  mcpCreateFlashcardsSchema,
-  mcpUpdateFlashcardsSchema,
-  mcpDeleteFlashcardsSchema,
   mcpSearchFlashcardsSchema,
   mcpDeleteTagSchema,
 } from "@/lib/schemas";
@@ -47,9 +39,6 @@ import {
   type UpdateItemsResponse,
   type DeleteItemsResponse,
   type GetFlashcardsResponse,
-  type CreateFlashcardsResponse,
-  type UpdateFlashcardsResponse,
-  type DeleteFlashcardsResponse,
   type SearchFlashcardsResponse,
   type DeleteTagResponse,
 } from "./types";
@@ -89,7 +78,7 @@ const TOOLS = [
   {
     name: "search_items",
     description:
-      "PREFERRED tool for finding items by content. Use whenever the user asks for items matching a word, phrase, domain, or pattern — including 'items about X', 'links from Y', 'anything mentioning Z'. POSIX regex via Postgres `~`/`~*`, matched against title, url, notes, and the concatenated front+back of each item's flashcards. Returns a `matchedIn` array per item indicating which fields hit. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout. For pure browsing/pagination, use get_items.",
+      "PREFERRED tool for finding items by content. Use whenever the user asks for items matching a word, phrase, domain, or pattern — including 'items about X', 'links from Y', 'anything mentioning Z'. POSIX regex via Postgres `~`/`~*`, matched against title, url, and notes (inline flashcards live in notes, so card text is covered here too). Returns a `matchedIn` array per item indicating which fields hit. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout. For pure browsing/pagination, use get_items.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -186,65 +175,6 @@ const TOOLS = [
         itemId: { type: "string", description: "The item ID" },
       },
       required: ["itemId"],
-    },
-  },
-  {
-    name: "create_flashcards",
-    description: "Create one or more flashcards linked to items.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        flashcards: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              itemId: { type: "string", description: "The item ID" },
-              front: { type: "string", description: "The question or prompt" },
-              back: { type: "string", description: "The answer" },
-            },
-            required: ["itemId", "front", "back"],
-          },
-        },
-      },
-      required: ["flashcards"],
-    },
-  },
-  {
-    name: "update_flashcards",
-    description: "Update one or more flashcards' front or back text.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        flashcards: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "string", description: "The flashcard ID" },
-              front: { type: "string" },
-              back: { type: "string" },
-            },
-            required: ["id"],
-          },
-        },
-      },
-      required: ["flashcards"],
-    },
-  },
-  {
-    name: "delete_flashcards",
-    description: "Delete one or more flashcards.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        ids: {
-          type: "array",
-          items: { type: "string" },
-          description: "Flashcard IDs to delete",
-        },
-      },
-      required: ["ids"],
     },
   },
   {
@@ -406,7 +336,7 @@ async function handleTool(name: string, args: unknown, userId: string) {
         const notFound: string[] = [];
         for (const update of parsed.items) {
           const { id, ...fields } = update;
-          const found = await updateItemLib(tx, userId, id, fields);
+          const found = await updateItemWithCardSync(tx, userId, id, fields);
           if (found) updated++;
           else notFound.push(id);
         }
@@ -448,33 +378,6 @@ async function handleTool(name: string, args: unknown, userId: string) {
           .orderBy(desc(flashcards.createdAt)),
       );
       return jsonText<GetFlashcardsResponse>(cards.map(toMcpFlashcard));
-    }
-
-    case "create_flashcards": {
-      const parsed = parseInput(mcpCreateFlashcardsSchema, args);
-      const result = await withUser(userId, (tx) =>
-        createFlashcardsLib(tx, userId, parsed.flashcards),
-      );
-      return jsonText<CreateFlashcardsResponse>({
-        ids: result.created.map((c) => c.id),
-        notFound: result.notFound,
-      });
-    }
-
-    case "update_flashcards": {
-      const parsed = parseInput(mcpUpdateFlashcardsSchema, args);
-      const result = await withUser(userId, (tx) =>
-        updateFlashcardsLib(tx, userId, parsed.flashcards),
-      );
-      return jsonText<UpdateFlashcardsResponse>(result);
-    }
-
-    case "delete_flashcards": {
-      const parsed = parseInput(mcpDeleteFlashcardsSchema, args);
-      const result = await withUser(userId, (tx) =>
-        deleteFlashcardsLib(tx, userId, parsed.ids),
-      );
-      return jsonText<DeleteFlashcardsResponse>(result);
     }
 
     case "search_flashcards": {

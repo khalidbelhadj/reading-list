@@ -7,6 +7,7 @@ import {
   pruneOrphanTags,
 } from "@/lib/tags";
 import { normalizeUrl } from "@/lib/url";
+import { syncFlashcardsFromNotes } from "@/lib/flashcard-sync";
 
 export type CreateItemInput = {
   title: string;
@@ -104,6 +105,33 @@ export const updateItem = async (
   }
 
   return true;
+};
+
+// Update an item and, when its notes change, reconcile inline flashcards from
+// the new notes (notes is the source of truth). Shared by every notes-write
+// path — the web action and the MCP server — so the `flashcards` table never
+// drifts from the notes. Gated on ownership (updateItem returns false
+// otherwise). When card ids were rewritten (duplicates/missing), the normalized
+// notes are persisted so the document is stable and won't churn rows next save.
+export const updateItemWithCardSync = async (
+  tx: Tx | typeof db,
+  userId: string,
+  itemId: string,
+  fields: UpdateItemFields,
+): Promise<boolean> => {
+  const updated = await updateItem(tx, userId, itemId, fields);
+  if (updated && fields.notes !== undefined) {
+    const { normalizedNotes } = await syncFlashcardsFromNotes(
+      tx,
+      userId,
+      itemId,
+      fields.notes,
+    );
+    if (normalizedNotes !== null) {
+      await updateItem(tx, userId, itemId, { notes: normalizedNotes });
+    }
+  }
+  return updated;
 };
 
 export const deleteItems = async (

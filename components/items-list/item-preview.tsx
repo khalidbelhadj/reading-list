@@ -10,10 +10,25 @@ import { getFaviconSrc } from "./utils";
 
 const MAX_LINES = 5;
 
+// Truncate by line count, but never cut inside a `<card>…</card>` block — a
+// half-included card has no closing tag, so the markdown parser can't match it
+// and renders the raw tags as broken text. Once the line budget is spent while
+// inside a card, keep going until the block closes, then stop.
 const truncateLines = (text: string) => {
   const lines = text.split("\n");
   if (lines.length <= MAX_LINES) return { text, truncated: false };
-  return { text: lines.slice(0, MAX_LINES).join("\n"), truncated: true };
+
+  const kept: string[] = [];
+  let insideCard = false;
+  for (const line of lines) {
+    if (kept.length >= MAX_LINES && !insideCard) break;
+    if (/^<card\b/i.test(line.trim())) insideCard = true;
+    kept.push(line);
+    if (insideCard && /<\/card>/i.test(line)) insideCard = false;
+  }
+
+  if (kept.length === lines.length) return { text, truncated: false };
+  return { text: kept.join("\n"), truncated: true };
 };
 
 const formatCreatedAt = (iso: string) => {

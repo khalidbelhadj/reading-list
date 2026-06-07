@@ -136,7 +136,10 @@ export const Toolbar = ({
             <AnimatePresence mode="popLayout" initial={false}>
               {!dueLoading && !dueError && (
                 <motion.div
-                  key={dueCount}
+                  // Stable key: the count enters once (on first load) and then
+                  // updates its text in place. Keying on dueCount would remount
+                  // it on every value change, replaying the enter/exit animation.
+                  key="due-count"
                   initial={{ width: 0, marginLeft: -6, opacity: 0 }}
                   animate={{ width: "auto", marginLeft: 0, opacity: 1 }}
                   exit={{ width: 0, marginLeft: -6, opacity: 0 }}

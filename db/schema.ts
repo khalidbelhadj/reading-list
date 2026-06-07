@@ -65,7 +65,7 @@ export const flashcards = pgTable(
   {
     id: text("id").primaryKey(),
     userId: uuid("user_id").notNull(),
-    itemId: text("item_id").references(() => items.id, { onDelete: "set null" }),
+    itemId: text("item_id").references(() => items.id, { onDelete: "cascade" }),
     front: text("front").notNull(),
     back: text("back").notNull(),
     state: text("state").notNull().default("new"),

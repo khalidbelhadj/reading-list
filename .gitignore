@@ -38,3 +38,6 @@ db/*.db-journal
 /tmp
 
 .understand-anything
+
+# Local rollback backup from the flashcard→notes migration (contains user notes)
+scripts/flashcard-migration-snapshot*.json

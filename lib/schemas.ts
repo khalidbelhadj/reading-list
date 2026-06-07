@@ -221,26 +221,6 @@ export const mcpGetFlashcardsSchema = z.object({
   itemId: idSchema,
 });
 
-export const mcpCreateFlashcardsSchema = z.object({
-  flashcards: z.array(z.object({
-    itemId: idSchema,
-    front: flashcardTextSchema,
-    back: flashcardTextSchema,
-  })).min(1, "Must provide at least one flashcard").max(50, "Cannot create more than 50 flashcards at once"),
-});
-
-export const mcpUpdateFlashcardsSchema = z.object({
-  flashcards: z.array(z.object({
-    id: idSchema,
-    front: flashcardTextSchema.optional(),
-    back: flashcardTextSchema.optional(),
-  })).min(1, "Must provide at least one flashcard").max(50, "Cannot update more than 50 flashcards at once"),
-});
-
-export const mcpDeleteFlashcardsSchema = z.object({
-  ids: z.array(idSchema).min(1, "Must provide at least one ID").max(100, "Cannot delete more than 100 flashcards at once"),
-});
-
 export const mcpSearchFlashcardsSchema = z.object({
   query: z.string().min(1, "Query must not be empty").max(500, "Query must be under 500 characters"),
 });

@@ -5,12 +5,12 @@ import { TextSelection } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type MarkdownIt from "markdown-it";
 
-const newId = () => {
-  const raw =
-    globalThis.crypto?.randomUUID?.() ??
-    Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  return raw.replace(/-/g, "").slice(0, 8);
-};
+import { newCardId as newId } from "@/lib/card-id";
+import {
+  extractSideRaw,
+  findCardClose,
+  ID_ATTR,
+} from "@/lib/card-parse";
 
 type SerializerState = {
   write: (text: string) => void;
@@ -32,34 +32,29 @@ export const cardMarkdownPlugin = (md: MarkdownIt) => {
     "html_block",
     "card",
     (state, startLine, endLine, silent) => {
-      const startPos = state.bMarks[startLine] + state.tShift[startLine];
-      const startContent = state.src.slice(startPos, state.eMarks[startLine]);
+      const lineAt = (index: number) => {
+        const pos = state.bMarks[index] + state.tShift[index];
+        return state.src.slice(pos, state.eMarks[index]);
+      };
+
+      const startContent = lineAt(startLine);
       if (!/^<card\b/i.test(startContent)) return false;
 
-      let nextLine = startLine;
-      let found = false;
-      while (nextLine < endLine) {
-        const linePos = state.bMarks[nextLine] + state.tShift[nextLine];
-        const lineContent = state.src.slice(linePos, state.eMarks[nextLine]);
-        if (/<\/card>/i.test(lineContent)) {
-          found = true;
-          break;
-        }
-        nextLine++;
-      }
-      if (!found) return false;
+      // Find the real `</card>` line: standalone and outside any code fence in
+      // the card body, so a `</card>` written inside a code block doesn't close
+      // the block early (which would scatter content as orphaned markup). See
+      // lib/card-parse.ts.
+      const nextLine = findCardClose(lineAt, startLine + 1, endLine);
+      if (nextLine === -1) return false;
       if (silent) return true;
 
-      const blockStart = state.bMarks[startLine];
-      const blockEnd = state.eMarks[nextLine];
-      const blockSrc = state.src.slice(blockStart, blockEnd);
+      const body: string[] = [];
+      for (let i = startLine + 1; i < nextLine; i++) body.push(lineAt(i));
 
-      const idMatch = blockSrc.match(/<card[^>]*\sid="([^"]+)"/i);
+      const idMatch = startContent.match(ID_ATTR);
       const id = idMatch ? idMatch[1] : "";
-      const frontMatch = blockSrc.match(/<front>([\s\S]*?)<\/front>/i);
-      const backMatch = blockSrc.match(/<back>([\s\S]*?)<\/back>/i);
-      const frontMd = frontMatch ? frontMatch[1].trim() : "";
-      const backMd = backMatch ? backMatch[1].trim() : "";
+      const frontMd = extractSideRaw(body, "front").trim();
+      const backMd = extractSideRaw(body, "back").trim();
 
       const frontHtml = md.render(frontMd);
       const backHtml = md.render(backMd);
