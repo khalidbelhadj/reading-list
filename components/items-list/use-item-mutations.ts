@@ -84,7 +84,14 @@ export const useItemMutations = () => {
         queryClient.setQueryData(["items"], context.previous);
       }
     },
-    onSettled: invalidate,
+    onSettled: (_data, _error, itemId) => {
+      invalidate();
+      // Deleting an item also deletes its flashcards server-side, so the card
+      // lists and due/new counts may have changed.
+      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
+      queryClient.invalidateQueries({ queryKey: ["flashcards", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["review-status"] });
+    },
   });
 
   const updateMutation = useMutation({

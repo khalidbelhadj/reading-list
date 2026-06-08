@@ -21,9 +21,9 @@ import {
 } from "@/components/ui/tooltip";
 import { isOverlayOpen } from "@/lib/input-context";
 import { subscribePanelCommand } from "@/lib/panel-events";
-import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./delete-item-dialog";
@@ -615,7 +615,7 @@ export const SlidingItemPanel = ({
           <div
             className={cn(
               "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[opacity,background-color] duration-150",
-              orientation === "side" ? "h-10 w-[3px]" : "w-10 h-[3px]",
+              orientation === "side" ? "h-10 w-0.75" : "w-10 h-0.75",
               isDraggingResize
                 ? "opacity-100 bg-foreground/70"
                 : "opacity-0 bg-muted-foreground/50 group-hover/resize:opacity-100",
@@ -815,7 +815,7 @@ const PanelInner = ({
     <>
       <div
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-0.5 p-1 bg-inherit transition-[padding] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "sticky top-0 z-10 flex items-center gap-0.5 p-1 bg-inherit transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
           // In "full" mode the panel has lost its outer margins, so put the
           // same inset back as internal padding — the buttons stay at the
           // same absolute position as the margin animates away.

@@ -163,6 +163,14 @@ export const SearchBar = React.forwardRef<
         // closes the bar. (An empty query collapses both steps: blurring fires
         // handleBlur → handleClose.)
         if (document.activeElement === inputRef.current) {
+          // preventDefault (not just stopPropagation) is what actually isolates
+          // this Escape from the global dismiss dispatcher. React 19 delegates
+          // events on `document`, the same node the dispatcher listens on, so a
+          // synthetic stopPropagation() doesn't stop that sibling listener —
+          // only marking the event handled (defaultPrevented) makes the
+          // dispatcher bail (see lib/dismiss-stack.ts). Without this, the same
+          // Escape closes the bar AND pops the next layer (the item panel).
+          e.preventDefault();
           e.stopPropagation();
           inputRef.current?.blur();
         }

@@ -248,7 +248,10 @@ export const DetailPanel = React.forwardRef<
           <div data-title-row className="relative">
             <span
               aria-hidden="true"
-              className="absolute left-0 top-0 inline-flex h-[30px] w-6 items-center justify-center overflow-hidden pointer-events-none"
+              // Height matches the title's first line (text-xl × leading-tight =
+              // 1.5625rem) so items-center vertically centers the 20px icon on
+              // that line instead of top-aligning it 2.5px too high.
+              className="absolute left-0 top-0 inline-flex h-6.25 w-5 items-center justify-center overflow-hidden pointer-events-none"
             >
               {faviconSrc ? (
                 <Image
@@ -256,11 +259,11 @@ export const DetailPanel = React.forwardRef<
                   alt=""
                   width={24}
                   height={24}
-                  className="size-6 rounded-sm"
+                  className="size-5 rounded-sm"
                   unoptimized
                 />
               ) : (
-                <IconFileFilled className="size-6 text-muted-foreground" />
+                <IconFileFilled className="size-5 text-muted-foreground" />
               )}
             </span>
             <PlainEditable
@@ -273,7 +276,7 @@ export const DetailPanel = React.forwardRef<
               placeholder="Untitled"
               spellCheck
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent placeholder:text-muted-foreground break-words"
+              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent placeholder:text-muted-foreground wrap-break-word"
             />
             {isNew && (
               <>
@@ -387,7 +390,6 @@ export const DetailPanel = React.forwardRef<
             />
           </div>
         </div>
-
       </div>
     );
   },

@@ -1,13 +1,13 @@
 import { IconDots, IconFileFilled } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { cn } from "@/lib/utils";
-import { type Item } from "@/lib/types";
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { getYouTubeVideoId } from "@/lib/url";
 import { generateItemPreview } from "@/app/actions";
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { type Item } from "@/lib/types";
+import { getYouTubeVideoId } from "@/lib/url";
+import { cn } from "@/lib/utils";
 
 import { ItemDropdown } from "./item-dropdown";
 import { getFaviconSrc } from "./utils";
@@ -72,14 +72,14 @@ const PagePreview = ({
             unoptimized
           />
         ) : (
-          <div className="flex flex-col gap-[3px] px-1.5 pt-1.5">
+          <div className="flex flex-col gap-0.75 px-1.5 pt-1.5">
             <div className="line-clamp-2 text-[6px] font-semibold leading-[1.2] text-zinc-900">
               {title}
             </div>
-            <div className="mt-0.5 h-[2px] w-full rounded-full bg-zinc-300" />
-            <div className="h-[2px] w-[88%] rounded-full bg-zinc-300" />
-            <div className="h-[2px] w-[70%] rounded-full bg-zinc-300" />
-            <div className="h-[2px] w-[80%] rounded-full bg-zinc-200" />
+            <div className="mt-0.5 h-0.5 w-full rounded-full bg-zinc-300" />
+            <div className="h-0.5 w-[88%] rounded-full bg-zinc-300" />
+            <div className="h-0.5 w-[70%] rounded-full bg-zinc-300" />
+            <div className="h-0.5 w-[80%] rounded-full bg-zinc-200" />
           </div>
         )}
       </div>
@@ -161,7 +161,7 @@ export const CozyRowContent = ({
               alt=""
               width={12}
               height={12}
-              className="size-3 rounded-[2px]"
+              className="size-3 rounded-xs"
               unoptimized
             />
           ) : (
@@ -178,7 +178,10 @@ export const CozyRowContent = ({
             !item.title && !isTyping && "text-muted-foreground",
           )}
         >
-          <span className="title-strike" data-read={isRead ? "true" : undefined}>
+          <span
+            className="title-strike"
+            data-read={isRead ? "true" : undefined}
+          >
             {item.title || (isTyping ? " " : "Untitled")}
           </span>
         </span>
@@ -215,7 +218,7 @@ export const CozyRowContent = ({
       >
         <div
           className={cn(
-            "absolute top-2 right-2 pointer-events-none invisible group-data-[menu-open]:visible",
+            "absolute top-2 right-2 pointer-events-none invisible group-data-menu-open:visible",
             !suppressHover && "group-hover:visible",
           )}
         >
