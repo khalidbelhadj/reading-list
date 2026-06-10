@@ -339,7 +339,7 @@ export const DetailPanel = React.forwardRef<
                     "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
                 } as React.CSSProperties
               }
-              className="min-w-0 text-sm text-muted-foreground/70 bg-transparent whitespace-nowrap overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+              className="min-w-0 text-sm text-muted-foreground/70 bg-transparent whitespace-nowrap overflow-hidden"
             />
 
             {item?.url && (
