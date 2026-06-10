@@ -22,6 +22,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -197,41 +200,49 @@ const ItemMenuItems = ({
           {item.starred ? "Unpin" : "Pin"}
         </DropdownMenuItem>
       )}
-      <Tooltip open={lastCopied === "__title__"}>
-        <TooltipTrigger
-          render={
-            <DropdownMenuItem closeOnClick={false} onClick={handleCopyTitle}>
-              <IconCopy />
-              Copy title
-            </DropdownMenuItem>
-          }
-        />
-        <TooltipContent side="right">Copied</TooltipContent>
-      </Tooltip>
-      <Tooltip open={lastCopied === "__id__"}>
-        <TooltipTrigger
-          render={
-            <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
-              <IconCopy />
-              Copy ID
-            </DropdownMenuItem>
-          }
-        />
-        <TooltipContent side="right">Copied</TooltipContent>
-      </Tooltip>
-      {hasNotes && (
-        <Tooltip open={lastCopied === "__notes__"}>
-          <TooltipTrigger
-            render={
-              <DropdownMenuItem closeOnClick={false} onClick={handleCopyNotes}>
-                <IconCopy />
-                Copy notes as Markdown
-              </DropdownMenuItem>
-            }
-          />
-          <TooltipContent side="right">Copied</TooltipContent>
-        </Tooltip>
-      )}
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <IconCopy />
+          Copy
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <Tooltip open={lastCopied === "__title__"}>
+            <TooltipTrigger
+              render={
+                <DropdownMenuItem closeOnClick={false} onClick={handleCopyTitle}>
+                  <IconCopy />
+                  Copy title
+                </DropdownMenuItem>
+              }
+            />
+            <TooltipContent side="right">Copied</TooltipContent>
+          </Tooltip>
+          <Tooltip open={lastCopied === "__id__"}>
+            <TooltipTrigger
+              render={
+                <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
+                  <IconCopy />
+                  Copy ID
+                </DropdownMenuItem>
+              }
+            />
+            <TooltipContent side="right">Copied</TooltipContent>
+          </Tooltip>
+          {hasNotes && (
+            <Tooltip open={lastCopied === "__notes__"}>
+              <TooltipTrigger
+                render={
+                  <DropdownMenuItem closeOnClick={false} onClick={handleCopyNotes}>
+                    <IconCopy />
+                    Copy notes as Markdown
+                  </DropdownMenuItem>
+                }
+              />
+              <TooltipContent side="right">Copied</TooltipContent>
+            </Tooltip>
+          )}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
       <DropdownMenuItem onClick={handleChatWithClaude}>
         <IconClaude />
         Chat with Claude

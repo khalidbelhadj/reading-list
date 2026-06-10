@@ -218,13 +218,25 @@ export const CozyRowContent = ({
       >
         <div
           className={cn(
-            "absolute top-2 right-2 pointer-events-none invisible group-data-menu-open:visible",
+            "absolute inset-y-0 right-0 flex items-start pt-2 pl-12 pr-2 pointer-events-none invisible group-data-menu-open:visible",
             !suppressHover && "group-hover:visible",
           )}
         >
+          {/* Occluder so the title/url fade out cleanly behind the menu button.
+              Must match the row's background: active rows are a solid
+              bg-secondary, while hovered rows are the page background lifted by
+              a translucent foreground/5 — so stack both layers to match. */}
+          {isSelected ? (
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-secondary to-secondary" />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-background to-background" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-foreground/5 to-foreground/5" />
+            </>
+          )}
           <DropdownMenuTrigger
             className={cn(
-              "pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
               isSelected && "bg-secondary",
             )}
             onClick={stopPropagation}
