@@ -37,10 +37,12 @@ export {
   skipCard,
   endReviewSession,
   getReviewStatus,
+  getItemReviewStatus,
 } from "./reviews";
 
 export type {
   FlashcardWithItem,
+  ItemReviewStatus,
   ReviewMode,
   ReviewScope,
   ReviewSessionCard,

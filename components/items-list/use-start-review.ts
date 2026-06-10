@@ -2,7 +2,11 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { startReviewSession, type ReviewMode } from "@/app/actions";
+import {
+  startReviewSession,
+  type ReviewMode,
+  type ReviewScope,
+} from "@/app/actions";
 
 export const useStartReview = () => {
   const router = useRouter();
@@ -11,7 +15,7 @@ export const useStartReview = () => {
     null,
   );
   const mutation = useMutation({
-    mutationFn: (args: { mode: ReviewMode; limit: number }) =>
+    mutationFn: (args: { mode: ReviewMode; limit: number; scope?: ReviewScope }) =>
       startReviewSession(args),
     onSuccess: ({ sessionId, cardCount, data }) => {
       if (cardCount === 0) {
@@ -27,9 +31,9 @@ export const useStartReview = () => {
   });
 
   const startReview = React.useCallback(
-    (mode: ReviewMode, limit: number) => {
+    (mode: ReviewMode, limit: number, scope?: ReviewScope) => {
       setStartingMode(mode);
-      mutation.mutate({ mode, limit });
+      mutation.mutate({ mode, limit, scope });
     },
     [mutation],
   );

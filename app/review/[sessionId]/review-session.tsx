@@ -218,6 +218,7 @@ const ReviewSessionInner = ({
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["review-status"] });
+      queryClient.invalidateQueries({ queryKey: ["item-review-status"] });
     },
   });
 
@@ -607,6 +608,9 @@ export const SessionSummaryView = ({
 
   const hasMoreCards = React.useMemo(() => {
     if (!summary || !reviewStatus) return false;
+    // Scoped sessions (e.g. item-scoped due/new/cram) can't use the global
+    // counts to know whether more cards remain in scope — hide "Keep going".
+    if (summary.scope) return false;
     switch (summary.mode) {
       case "due":
         return reviewStatus.dueCount > 0;

@@ -8,6 +8,7 @@ import type { SessionSummary } from "@/app/actions";
 
 const STUB: SessionSummary = {
   mode: "due",
+  scope: null,
   totalCards: 12,
   ratedCards: 12,
   ratings: { again: 1, hard: 2, good: 6, easy: 3 },

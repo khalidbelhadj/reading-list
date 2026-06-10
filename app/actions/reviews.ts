@@ -25,6 +25,7 @@ import {
   getDueCardsSchema,
   getNewCardsSchema,
   getCardsForItemSchema,
+  getItemReviewStatusSchema,
 } from "@/lib/schemas";
 import { time } from "@/lib/perf";
 
@@ -229,6 +230,12 @@ export const startReviewSession = safeAction(async function startReviewSession(a
 
     const poolSize = limit * 3;
 
+    // Optional item scoping: "due" / "new" / "cram" keep their semantics
+    // (including affectsSchedule) but draw only from the scoped item's cards.
+    const scopeFilter = args.scope?.itemId
+      ? eq(flashcards.itemId, args.scope.itemId)
+      : undefined;
+
     if (args.mode === "due") {
       const pool = await tx
         .select(cardSelection)
@@ -237,7 +244,13 @@ export const startReviewSession = safeAction(async function startReviewSession(a
           items,
           and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
         )
-        .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
+        .where(
+          and(
+            eq(flashcards.userId, userId),
+            lte(flashcards.due, now),
+            scopeFilter,
+          ),
+        )
         .orderBy(asc(flashcards.due))
         .limit(poolSize);
 
@@ -255,7 +268,13 @@ export const startReviewSession = safeAction(async function startReviewSession(a
           items,
           and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
         )
-        .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
+        .where(
+          and(
+            eq(flashcards.userId, userId),
+            eq(flashcards.state, "new"),
+            scopeFilter,
+          ),
+        )
         .orderBy(asc(flashcards.createdAt))
         .limit(poolSize);
 
@@ -286,7 +305,7 @@ export const startReviewSession = safeAction(async function startReviewSession(a
           items,
           and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
         )
-        .where(eq(flashcards.userId, userId))
+        .where(and(eq(flashcards.userId, userId), scopeFilter))
         .orderBy(asc(flashcards.createdAt))
         .limit(poolSize);
 
@@ -410,6 +429,7 @@ export const getReviewSession = safeAction(async function getReviewSession(
 
 export type SessionSummary = {
   mode: ReviewMode;
+  scope: ReviewScope | null;
   totalCards: number;
   ratedCards: number;
   ratings: { again: number; hard: number; good: number; easy: number };
@@ -472,6 +492,14 @@ export const getSessionSummary = safeAction(async function getSessionSummary(
 
     return {
       mode: session.mode as ReviewMode,
+      scope: z
+        .object({
+          itemId: z.string().optional(),
+          tagIds: z.array(z.number()).optional(),
+        })
+        .nullable()
+        .catch(null)
+        .parse(session.scope ?? null),
       totalCards: z.array(z.string()).parse(session.cardIds ?? []).length,
       ratedCards: reviews.length,
       ratings,
@@ -653,6 +681,35 @@ export const endReviewSession = safeAction(async function endReviewSession(args:
     data: { reason: args.reason },
   });
 }, "Could not end review session. Please try again.");
+
+export type ItemReviewStatus = {
+  dueCount: number;
+  newCount: number;
+  totalCardCount: number;
+};
+
+export const getItemReviewStatus = safeAction(async function getItemReviewStatus(
+  itemId: string,
+): Promise<ItemReviewStatus> {
+  parseInput(getItemReviewStatusSchema, { itemId });
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+  return withUser(userId, async (tx) => {
+    const [counts] = await tx
+      .select({
+        dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
+        newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
+        totalCards: sql<number>`count(*)::int`,
+      })
+      .from(flashcards)
+      .where(and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)));
+    return {
+      dueCount: counts?.dueCards ?? 0,
+      newCount: counts?.newCards ?? 0,
+      totalCardCount: counts?.totalCards ?? 0,
+    };
+  }, "getItemReviewStatus");
+}, "Could not load review status for this item. Please try again.");
 
 export const getReviewStatus = safeAction(async function getReviewStatus(): Promise<{
   dueCount: number;
