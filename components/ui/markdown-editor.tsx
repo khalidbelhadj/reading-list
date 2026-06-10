@@ -80,7 +80,7 @@ const ImageLightbox = ({
   return (
     <DialogPrimitive.Root open={src !== null} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/85 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-75" />
+        <DialogPrimitive.Backdrop className="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-75 supports-backdrop-filter:backdrop-blur-sm fixed inset-0 isolate z-50" />
         <DialogPrimitive.Popup
           aria-label="Image preview"
           onClick={handlePopupClick}
