@@ -548,7 +548,7 @@ export const ItemsList = ({
     <div className="electron-toolbar-container relative flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
       {/* Header — outside the scroll container so the scrollbar starts
           below it instead of reaching all the way to the top of the panel. */}
-      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-2 pb-3 bg-background">
+      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-3 bg-background">
         <div className="electron-top-bar-inset">
           <Toolbar
             activeTab={activeTab}
