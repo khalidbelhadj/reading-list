@@ -91,6 +91,7 @@ export const useItemMutations = () => {
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
       queryClient.invalidateQueries({ queryKey: ["flashcards", itemId] });
       queryClient.invalidateQueries({ queryKey: ["review-status"] });
+      queryClient.invalidateQueries({ queryKey: ["item-review-status", itemId] });
     },
   });
 
@@ -133,6 +134,7 @@ export const useItemMutations = () => {
         queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
         queryClient.invalidateQueries({ queryKey: ["flashcards", itemId] });
         queryClient.invalidateQueries({ queryKey: ["review-status"] });
+        queryClient.invalidateQueries({ queryKey: ["item-review-status", itemId] });
       }
     },
   });

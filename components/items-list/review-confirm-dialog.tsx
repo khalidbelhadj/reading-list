@@ -40,6 +40,7 @@ export const ReviewConfirmDialog = ({
   mode,
   cardCount,
   itemCount,
+  itemScoped = false,
   onConfirm,
   isStarting,
 }: {
@@ -48,6 +49,7 @@ export const ReviewConfirmDialog = ({
   mode: ReviewMode | null;
   cardCount: number;
   itemCount: number;
+  itemScoped?: boolean;
   onConfirm: (limit: number) => void;
   isStarting: boolean;
 }) => {
@@ -79,11 +81,23 @@ export const ReviewConfirmDialog = ({
 
   const description = isEmpty
     ? isNew
-      ? "All your cards have been introduced. New cards will appear as you add flashcards to items."
+      ? itemScoped
+        ? "All of this item’s cards have been introduced."
+        : "All your cards have been introduced. New cards will appear as you add flashcards to items."
       : isCram
-        ? "There are no flashcards yet. Add flashcards to your items to start cramming."
-        : "You’re all caught up! Cards will become due again as their review intervals expire."
-    : `${pluralize(cardCount, "card")} due across ${pluralize(itemCount, "item")}.`;
+        ? itemScoped
+          ? "This item has no flashcards yet."
+          : "There are no flashcards yet. Add flashcards to your items to start cramming."
+        : itemScoped
+          ? "None of this item’s cards are due right now."
+          : "You’re all caught up! Cards will become due again as their review intervals expire."
+    : itemScoped
+      ? isNew
+        ? `${pluralize(cardCount, "new card")} in this item.`
+        : isCram
+          ? `${pluralize(cardCount, "card")} in this item.`
+          : `${pluralize(cardCount, "card")} due in this item.`
+      : `${pluralize(cardCount, "card")} due across ${pluralize(itemCount, "item")}.`;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

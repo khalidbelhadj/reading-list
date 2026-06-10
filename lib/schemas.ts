@@ -173,6 +173,10 @@ export const getCardsForItemSchema = z.object({
   itemId: idSchema,
 });
 
+export const getItemReviewStatusSchema = z.object({
+  itemId: idSchema,
+});
+
 // MCP tool schemas
 export const mcpGetItemsSchema = z.object({
   tag: z.string().max(100).optional(),

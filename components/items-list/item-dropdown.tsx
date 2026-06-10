@@ -1,5 +1,8 @@
 import React from "react";
 import {
+  IconBolt,
+  IconCalendarDue,
+  IconCards,
   IconCheck,
   IconCopy,
   IconExternalLink,
@@ -7,12 +10,17 @@ import {
   IconEyeOff,
   IconPin,
   IconPinnedOff,
+  IconSparkles,
   IconTrash,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { IconClaude } from "@/components/ui/claude-icon";
 import { type Item } from "@/lib/types";
 import { stripBlankLineSentinel } from "@/lib/markdown";
+import { getItemReviewStatus, type ReviewMode } from "@/app/actions";
+import { useStartReview } from "./use-start-review";
+import { ReviewConfirmDialog } from "./review-confirm-dialog";
 import {
   ContextMenu as ContextMenuRoot,
   ContextMenuContent,
@@ -101,6 +109,93 @@ type ItemMenuActionsProps = {
   onDelete?: () => void;
 };
 
+// Item-scoped review sessions launched from the menu. Counts are fetched
+// lazily when the menu opens (per-item due/new counts aren't part of the
+// items query) and the confirm dialog lives outside the menu popup so it
+// survives the menu closing.
+const useItemReview = ({
+  item,
+  menuOpen,
+}: {
+  item: Item;
+  menuOpen: boolean;
+}) => {
+  const hasCards = item.flashcardCount > 0;
+  const { data: reviewStatus } = useQuery({
+    queryKey: ["item-review-status", item.id],
+    queryFn: () => getItemReviewStatus(item.id),
+    enabled: menuOpen && hasCards,
+  });
+  const { startingMode, startReview } = useStartReview();
+  const isStarting = startingMode !== null;
+  const [pendingMode, setPendingMode] = React.useState<ReviewMode | null>(
+    null,
+  );
+
+  const handleDueClick = React.useCallback(() => setPendingMode("due"), []);
+  const handleNewClick = React.useCallback(() => setPendingMode("new"), []);
+  const handleCramClick = React.useCallback(() => setPendingMode("cram"), []);
+
+  const handleDialogOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open && !isStarting) setPendingMode(null);
+    },
+    [isStarting],
+  );
+
+  const handleConfirm = React.useCallback(
+    (limit: number) => {
+      if (!pendingMode) return;
+      startReview(pendingMode, limit, { itemId: item.id });
+    },
+    [pendingMode, startReview, item.id],
+  );
+
+  const wasStartingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (wasStartingRef.current && !isStarting && pendingMode !== null) {
+      setPendingMode(null);
+    }
+    wasStartingRef.current = isStarting;
+  }, [isStarting, pendingMode]);
+
+  const dialogCardCount =
+    pendingMode === "cram"
+      ? (reviewStatus?.totalCardCount ?? item.flashcardCount)
+      : pendingMode === "new"
+        ? (reviewStatus?.newCount ?? 0)
+        : (reviewStatus?.dueCount ?? 0);
+
+  return {
+    hasCards,
+    reviewStatus,
+    cramCount: reviewStatus?.totalCardCount ?? item.flashcardCount,
+    pendingMode,
+    isStarting,
+    handleDueClick,
+    handleNewClick,
+    handleCramClick,
+    handleDialogOpenChange,
+    handleConfirm,
+    dialogCardCount,
+  };
+};
+
+type ItemReviewState = ReturnType<typeof useItemReview>;
+
+const ItemReviewDialog = ({ review }: { review: ItemReviewState }) => (
+  <ReviewConfirmDialog
+    open={review.pendingMode !== null}
+    onOpenChange={review.handleDialogOpenChange}
+    mode={review.pendingMode}
+    cardCount={review.dialogCardCount}
+    itemCount={1}
+    itemScoped
+    onConfirm={review.handleConfirm}
+    isStarting={review.isStarting}
+  />
+);
+
 // Internal hook returning the action handlers + visible-state needed to render
 // the menu items. Used by both ItemDropdown and ItemContextMenu so the copy
 // feedback behaviour stays consistent across both entry points.
@@ -172,6 +267,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
 // items render correctly inside either context.
 const ItemMenuItems = ({
   item,
+  review,
   canOpenUrl,
   hasNotes,
   lastCopied,
@@ -183,7 +279,8 @@ const ItemMenuItems = ({
   onTogglePin,
   onToggleRead,
   onDelete,
-}: ItemMenuActionsProps & ReturnType<typeof useItemMenuActions>) => {
+}: ItemMenuActionsProps &
+  ReturnType<typeof useItemMenuActions> & { review: ItemReviewState }) => {
   const isRead = item.read;
 
   return (
@@ -243,6 +340,51 @@ const ItemMenuItems = ({
           )}
         </DropdownMenuSubContent>
       </DropdownMenuSub>
+      {review.hasCards && (
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconCards />
+            Review
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem
+              disabled={
+                !review.reviewStatus || review.reviewStatus.dueCount === 0
+              }
+              onClick={review.handleDueClick}
+            >
+              <IconCalendarDue />
+              Due
+              {review.reviewStatus && (
+                <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
+                  {review.reviewStatus.dueCount}
+                </span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={
+                !review.reviewStatus || review.reviewStatus.newCount === 0
+              }
+              onClick={review.handleNewClick}
+            >
+              <IconSparkles />
+              New cards
+              {review.reviewStatus && (
+                <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
+                  {review.reviewStatus.newCount}
+                </span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={review.handleCramClick}>
+              <IconBolt />
+              Cram
+              <span className="ml-auto pl-3 text-muted-foreground tabular-nums">
+                {review.cramCount}
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      )}
       <DropdownMenuItem onClick={handleChatWithClaude}>
         <IconClaude />
         Chat with Claude
@@ -282,14 +424,29 @@ export const ItemDropdown = ({
 }) => {
   const actions = useItemMenuActions({ item });
 
+  // Some call sites leave the dropdown uncontrolled (no `open` prop), but the
+  // review submenu needs to know when the menu opens to lazily fetch counts —
+  // so mirror the open state internally and resolve to whichever is in charge.
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isOpen = open ?? internalOpen;
+  const handleOpenChange = React.useCallback(
+    (next: boolean) => {
+      setInternalOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
+
+  const review = useItemReview({ item, menuOpen: isOpen });
+
   React.useEffect(() => {
-    if (!open) actions.setCopyTriggered(false);
-  }, [open, actions]);
+    if (!isOpen) actions.setCopyTriggered(false);
+  }, [isOpen, actions]);
 
   useAutoCloseAfterCopy({
-    open: !!open,
+    open: isOpen,
     copyTriggered: actions.copyTriggered,
-    onClose: () => onOpenChange?.(false),
+    onClose: () => handleOpenChange(false),
   });
 
   const handleStopPropagation = React.useCallback((e: React.MouseEvent) => {
@@ -297,22 +454,26 @@ export const ItemDropdown = ({
   }, []);
 
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      {children}
-      <DropdownMenuContent
-        align="end"
-        sideOffset={4}
-        onClick={handleStopPropagation}
-      >
-        <ItemMenuItems
-          item={item}
-          onTogglePin={onTogglePin}
-          onToggleRead={onToggleRead}
-          onDelete={onDelete}
-          {...actions}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
+        {children}
+        <DropdownMenuContent
+          align="end"
+          sideOffset={4}
+          onClick={handleStopPropagation}
+        >
+          <ItemMenuItems
+            item={item}
+            review={review}
+            onTogglePin={onTogglePin}
+            onToggleRead={onToggleRead}
+            onDelete={onDelete}
+            {...actions}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ItemReviewDialog review={review} />
+    </>
   );
 };
 
@@ -333,6 +494,7 @@ export const ItemContextMenu = ({
 }) => {
   const [open, setOpenState] = React.useState(false);
   const actions = useItemMenuActions({ item });
+  const review = useItemReview({ item, menuOpen: open });
 
   const setOpen = React.useCallback(
     (next: boolean) => {
@@ -353,18 +515,22 @@ export const ItemContextMenu = ({
   });
 
   return (
-    <ContextMenuRoot open={open} onOpenChange={setOpen}>
-      {children}
-      <ContextMenuContent>
-        <ItemMenuItems
-          item={item}
-          onTogglePin={onTogglePin}
-          onToggleRead={onToggleRead}
-          onDelete={onDelete}
-          {...actions}
-        />
-      </ContextMenuContent>
-    </ContextMenuRoot>
+    <>
+      <ContextMenuRoot open={open} onOpenChange={setOpen}>
+        {children}
+        <ContextMenuContent>
+          <ItemMenuItems
+            item={item}
+            review={review}
+            onTogglePin={onTogglePin}
+            onToggleRead={onToggleRead}
+            onDelete={onDelete}
+            {...actions}
+          />
+        </ContextMenuContent>
+      </ContextMenuRoot>
+      <ItemReviewDialog review={review} />
+    </>
   );
 };
 
