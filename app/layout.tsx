@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import "@fontsource-variable/dm-sans";
 import "./globals.css";
+import { AuthWatcher } from "@/components/auth-watcher";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
@@ -35,6 +36,7 @@ const RootLayout = async ({
       <body className="font-sans bg-background text-foreground">
         <Suspense>
           <QueryProvider>
+            <AuthWatcher />
             <TooltipProvider delay={TOOLTIP_DELAY_MS}>{children}</TooltipProvider>
           </QueryProvider>
         </Suspense>

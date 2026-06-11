@@ -10,6 +10,7 @@ import {
   IconChevronDown,
   IconCircleOff,
   IconDeviceDesktop,
+  IconDevices,
   IconDownload,
   IconEye,
   IconFilter,
@@ -29,6 +30,7 @@ import { useRouter } from "next/navigation";
 import React from "react";
 
 import { logout } from "@/app/logout/actions";
+import { broadcastSignOut } from "@/lib/auth-broadcast";
 import {
   type GroupBy,
   type SortBy,
@@ -167,7 +169,12 @@ export const SettingsMenu = ({
     React.useState(defaultCsvFilename());
 
   const logoutMutation = useMutation({
-    mutationFn: () => logout(),
+    mutationFn: async (scope: "local" | "global") => {
+      // Signal this user's other devices before revoking, so they redirect in
+      // near-real-time instead of waiting for their next token refresh.
+      if (scope === "global") await broadcastSignOut();
+      await logout(scope);
+    },
     onSuccess: () => {
       queryClient.clear();
       router.replace("/login");
@@ -192,7 +199,11 @@ export const SettingsMenu = ({
   }, [queryClient, exportFilename]);
 
   const handleLogout = React.useCallback(() => {
-    logoutMutation.mutate();
+    logoutMutation.mutate("local");
+  }, [logoutMutation]);
+
+  const handleLogoutEverywhere = React.useCallback(() => {
+    logoutMutation.mutate("global");
   }, [logoutMutation]);
 
   const handleExportFilenameChange = React.useCallback(
@@ -455,17 +466,24 @@ export const SettingsMenu = ({
               </span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
+              {email && (
+                <>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                      {email}
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={handleLogout}>
                 <IconLogout />
                 Log out
               </DropdownMenuItem>
-              {email && (
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-                    {email}
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
-              )}
+              <DropdownMenuItem onClick={handleLogoutEverywhere}>
+                <IconDevices />
+                Log out everywhere
+              </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
