@@ -50,7 +50,8 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Best-effort: a failed broadcast must never fail the write itself.
+  -- Best-effort: a failed broadcast must never fail the write itself, but
+  -- leave a trace in the Postgres logs so failures are diagnosable.
   BEGIN
     PERFORM realtime.send(
       jsonb_build_object('table', TG_TABLE_NAME),
@@ -59,7 +60,7 @@ BEGIN
       true -- private channel
     );
   EXCEPTION WHEN OTHERS THEN
-    NULL;
+    RAISE WARNING 'items_sync_notify failed for %: %', TG_TABLE_NAME, SQLERRM;
   END;
 
   RETURN NULL;

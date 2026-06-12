@@ -35,15 +35,20 @@ export const ItemsSyncWatcher = () => {
       pendingKeys.clear();
     };
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      const userId = data.user?.id;
-      if (!userId || cancelled) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const session = data.session;
+      if (!session || cancelled) return;
       // Private channels are authorized against RLS on realtime.messages,
-      // which requires the user's JWT on the Realtime connection.
-      await supabase.realtime.setAuth();
+      // which requires the user's JWT on the Realtime connection. Pass the
+      // token explicitly — the client's automatic forwarding only runs on
+      // SIGNED_IN/TOKEN_REFRESHED, not on the restored initial session, so
+      // without this the join is attempted with the anon key and rejected.
+      await supabase.realtime.setAuth(session.access_token);
       if (cancelled) return;
       channel = supabase
-        .channel(itemsSyncChannelName(userId), { config: { private: true } })
+        .channel(itemsSyncChannelName(session.user.id), {
+          config: { private: true },
+        })
         .on("broadcast", { event: ITEMS_SYNC_EVENT }, (message) => {
           const table = (message.payload as { table?: string } | undefined)
             ?.table;
@@ -52,7 +57,13 @@ export const ItemsSyncWatcher = () => {
           keys.forEach((key) => pendingKeys.add(key));
           if (!flushTimer) flushTimer = setTimeout(flush, 250);
         })
-        .subscribe();
+        .subscribe((status, err) => {
+          // Surface join failures — an RLS/auth rejection on the private
+          // topic is otherwise indistinguishable from "no changes happened".
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn(`items-sync: channel ${status}`, err ?? "");
+          }
+        });
     });
 
     return () => {
