@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { AuthWatcher } from "@/components/auth-watcher";
+import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider, TOOLTIP_DELAY_MS } from "@/components/ui/tooltip";
@@ -37,6 +38,7 @@ const RootLayout = async ({
         <Suspense>
           <QueryProvider>
             <AuthWatcher />
+            <ItemsSyncWatcher />
             <TooltipProvider delay={TOOLTIP_DELAY_MS}>{children}</TooltipProvider>
           </QueryProvider>
         </Suspense>

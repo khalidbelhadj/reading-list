@@ -643,7 +643,6 @@ const PanelInner = ({
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
-    staleTime: Infinity,
   });
   const liveItem = items?.find((i) => i.id === itemId) ?? null;
 

@@ -40,7 +40,6 @@ export const CardsList = ({
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
-    staleTime: Infinity,
   });
 
   const itemsById = React.useMemo(() => {
