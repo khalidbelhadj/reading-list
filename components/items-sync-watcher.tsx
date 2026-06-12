@@ -10,6 +10,11 @@ import {
 } from "@/lib/items-sync";
 import { createClient } from "@/lib/supabase/client";
 
+// Debug logging for the cross-device sync path. Every step logs with the
+// [items-sync] prefix so the browser console shows where the chain breaks:
+// join status -> broadcast received -> caches invalidated.
+const log = (...args: unknown[]) => console.info("[items-sync]", ...args);
+
 // Mounted once near the app root. Subscribes to the per-user Realtime topic
 // that database triggers broadcast on whenever reading-list data changes (see
 // drizzle/0011_items_sync_broadcast.sql) and invalidates the affected React
@@ -29,6 +34,7 @@ export const ItemsSyncWatcher = () => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
       flushTimer = null;
+      log("invalidating query caches:", [...pendingKeys]);
       for (const key of pendingKeys) {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
@@ -37,7 +43,11 @@ export const ItemsSyncWatcher = () => {
 
     supabase.auth.getSession().then(async ({ data }) => {
       const session = data.session;
-      if (!session || cancelled) return;
+      if (!session) {
+        log("no session — not subscribing");
+        return;
+      }
+      if (cancelled) return;
       // Private channels are authorized against RLS on realtime.messages,
       // which requires the user's JWT on the Realtime connection. Pass the
       // token explicitly — the client's automatic forwarding only runs on
@@ -45,24 +55,21 @@ export const ItemsSyncWatcher = () => {
       // without this the join is attempted with the anon key and rejected.
       await supabase.realtime.setAuth(session.access_token);
       if (cancelled) return;
+      const topic = itemsSyncChannelName(session.user.id);
+      log("subscribing to", topic);
       channel = supabase
-        .channel(itemsSyncChannelName(session.user.id), {
-          config: { private: true },
-        })
+        .channel(topic, { config: { private: true } })
         .on("broadcast", { event: ITEMS_SYNC_EVENT }, (message) => {
           const table = (message.payload as { table?: string } | undefined)
             ?.table;
           const keys = queryKeysForTable(table ?? "");
+          log("broadcast received — table:", table, "→ keys:", keys);
           if (keys.length === 0) return;
           keys.forEach((key) => pendingKeys.add(key));
           if (!flushTimer) flushTimer = setTimeout(flush, 250);
         })
         .subscribe((status, err) => {
-          // Surface join failures — an RLS/auth rejection on the private
-          // topic is otherwise indistinguishable from "no changes happened".
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            console.warn(`items-sync: channel ${status}`, err ?? "");
-          }
+          log("channel status:", status, err ?? "");
         });
     });
 
