@@ -13,6 +13,14 @@ const GlobalError = ({
     console.error(error);
   }, [error]);
 
+  // global-error replaces the root layout, so globals.css (and the shared
+  // .electron-drag-strip class) isn't loaded — detect Electron at runtime
+  // and render the invisible window-drag strip with inline styles.
+  const [isElectron, setIsElectron] = React.useState(false);
+  React.useEffect(() => {
+    setIsElectron(document.documentElement.classList.contains("electron"));
+  }, []);
+
   return (
     <html lang="en">
       <body
@@ -27,6 +35,21 @@ const GlobalError = ({
           margin: 0,
         }}
       >
+        {isElectron && (
+          <div
+            aria-hidden
+            style={
+              {
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "48px",
+                WebkitAppRegion: "drag",
+              } as React.CSSProperties
+            }
+          />
+        )}
         <div
           style={{
             display: "flex",

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ElectronDragRegion } from "@/components/electron-drag-region";
 import { ConsentForm } from "./consent-form";
 
 export default async function ConsentPage({
@@ -12,6 +13,7 @@ export default async function ConsentPage({
   if (!authorizationId) {
     return (
       <div className="flex min-h-screen items-center justify-center">
+        <ElectronDragRegion />
         <p className="text-sm text-destructive">Missing authorization_id</p>
       </div>
     );
@@ -34,6 +36,7 @@ export default async function ConsentPage({
   if (error || !data) {
     return (
       <div className="flex min-h-screen items-center justify-center">
+        <ElectronDragRegion />
         <p className="text-sm text-destructive">
           {error?.message || "Invalid authorization request"}
         </p>
@@ -50,6 +53,7 @@ export default async function ConsentPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center">
+      <ElectronDragRegion />
       <ConsentForm
         authorizationId={authorizationId}
         clientName={data.client.name}

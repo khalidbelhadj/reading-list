@@ -38,6 +38,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ElectronDragRegion } from "@/components/electron-drag-region";
 import { getFaviconSrc } from "@/components/items-list/utils";
 import { useStartReview } from "@/components/items-list/use-start-review";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
@@ -105,6 +106,7 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <ElectronDragRegion />
         <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
@@ -113,6 +115,7 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
   if (!data) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6">
+        <ElectronDragRegion />
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="text-muted-foreground text-sm">
             Review session not found.
@@ -358,6 +361,7 @@ const ReviewSessionInner = ({
   if (!currentCard) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6">
+        <ElectronDragRegion />
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="text-muted-foreground text-sm">
             No cards available for this session.
@@ -634,6 +638,7 @@ export const SessionSummaryView = ({
   if (isSummaryLoading || isStatusLoading || !summary) {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <ElectronDragRegion />
         <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
@@ -641,6 +646,7 @@ export const SessionSummaryView = ({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6">
+      <ElectronDragRegion />
       <div className="w-full max-w-md flex flex-col gap-6">
         <div className="flex flex-col gap-1 text-center">
           <div className="font-content text-2xl font-medium flex items-center justify-center gap-2">

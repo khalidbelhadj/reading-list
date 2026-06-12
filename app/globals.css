@@ -265,6 +265,23 @@ html.electron .electron-top-bar-inset [data-no-drag] {
   app-region: no-drag;
 }
 
+/* Invisible fixed drag strip for pages with no top bar of their own (session
+   summary, 404, error, login, OAuth consent). Hidden on web; on Electron it
+   overlays the top of the window so it can still be dragged. Drag/no-drag
+   behavior comes from .electron-top-bar-inset on the same element. */
+.electron-drag-strip {
+  display: none;
+}
+html.electron .electron-drag-strip {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 40;
+}
+
 /* Any open popup/dialog/menu disables drag on the top bars — otherwise the
    OS consumes the click for window-drag and the popup doesn't dismiss when
    the user clicks the bar. */

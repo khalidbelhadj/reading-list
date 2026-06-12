@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeRedirect } from "@/lib/url";
+import { ElectronDragRegion } from "@/components/electron-drag-region";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -21,6 +22,7 @@ export default async function LoginPage({
 
   return (
     <div className="min-h-dvh flex items-center justify-center px-5">
+      <ElectronDragRegion />
       <LoginForm error={!!error} redirectTo={redirectTo} />
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ElectronDragRegion } from "@/components/electron-drag-region";
 
 const ReturnToApp = () => {
   const params = useSearchParams();
@@ -29,6 +30,7 @@ const ReturnToApp = () => {
   if (!deepLink) {
     return (
       <div className="min-h-dvh flex items-center justify-center px-5">
+        <ElectronDragRegion />
         <div className="flex flex-col items-start gap-4 max-w-md w-full">
           <div className="flex flex-col gap-1">
             <h1 className="font-content text-lg">Something went wrong</h1>
@@ -44,6 +46,7 @@ const ReturnToApp = () => {
 
   return (
     <div className="min-h-dvh flex items-center justify-center px-5">
+      <ElectronDragRegion />
       <div className="flex flex-col items-start gap-4 max-w-md w-full">
         <div className="flex flex-col gap-1">
           <h1 className="font-content text-lg">Signed in</h1>
