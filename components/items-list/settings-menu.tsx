@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -57,6 +56,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuSwitchItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { defaultCsvFilename, downloadItemsCsv } from "@/lib/csv-export";
@@ -329,22 +329,22 @@ export const SettingsMenu = ({
         {showFilters && (
           <>
             {showReadingListFilters && (
-              <DropdownMenuCheckboxItem
+              <DropdownMenuSwitchItem
                 checked={showRead}
                 onCheckedChange={handleShowReadChange}
               >
                 <IconEye />
                 Show read items
-              </DropdownMenuCheckboxItem>
+              </DropdownMenuSwitchItem>
             )}
-            <DropdownMenuCheckboxItem
+            <DropdownMenuSwitchItem
               checked={tagsOpen}
               onCheckedChange={handleTagsOpenChange}
               disabled={!hasTags}
             >
               <IconFilter />
               Filter by tags
-            </DropdownMenuCheckboxItem>
+            </DropdownMenuSwitchItem>
             <DropdownMenuSeparator />
           </>
         )}
@@ -440,13 +440,13 @@ export const SettingsMenu = ({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         {mounted && isElectron && (
-          <DropdownMenuCheckboxItem
+          <DropdownMenuSwitchItem
             checked={fullWidth}
             onCheckedChange={handleFullWidthChange}
           >
             <IconArrowsMaximize />
             Full width
-          </DropdownMenuCheckboxItem>
+          </DropdownMenuSwitchItem>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={openExport}>
