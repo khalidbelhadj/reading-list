@@ -65,6 +65,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
+  DropdownMenuSwitchItem,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
@@ -253,6 +254,7 @@ const DesignSystemPage = () => {
   const [switched, setSwitched] = React.useState(true);
   const [sliderValue, setSliderValue] = React.useState<number>(40);
   const [menuChecked, setMenuChecked] = React.useState(true);
+  const [menuSwitched, setMenuSwitched] = React.useState(true);
 
   const toggleTheme = () => document.documentElement.classList.toggle("dark");
 
@@ -609,7 +611,7 @@ const DesignSystemPage = () => {
         {/* ─── dropdown menu ──────────────────────────────────────────────── */}
         <Section
           title="Dropdown menu"
-          description="Items, labels, separators, checkbox items, sub-menus, shortcuts."
+          description="Items, labels, separators, checkbox items, switch items, sub-menus, shortcuts."
         >
           <Row label="basic">
             <DropdownMenu>
@@ -641,6 +643,12 @@ const DesignSystemPage = () => {
                 >
                   Show completed
                 </DropdownMenuCheckboxItem>
+                <DropdownMenuSwitchItem
+                  checked={menuSwitched}
+                  onCheckedChange={(v) => setMenuSwitched(v === true)}
+                >
+                  Notifications
+                </DropdownMenuSwitchItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>

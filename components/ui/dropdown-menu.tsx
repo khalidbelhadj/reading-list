@@ -193,6 +193,37 @@ const DropdownMenuCheckboxItem = ({
   )
 }
 
+const DropdownMenuSwitchItem = ({
+  className,
+  children,
+  checked,
+  inset,
+  ...props
+}: MenuPrimitive.CheckboxItem.Props & {
+  inset?: boolean
+}) => {
+  return (
+    <MenuPrimitive.CheckboxItem
+      data-slot="dropdown-menu-switch-item"
+      data-inset={inset}
+      className={cn(
+        "group/dropdown-menu-switch-item relative flex min-h-6 cursor-default items-center gap-1.5 rounded-md px-2 py-0.5 text-xs outline-hidden select-none focus:bg-muted data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5",
+        className
+      )}
+      checked={checked}
+      {...props}
+    >
+      {children}
+      <span
+        data-slot="dropdown-menu-switch-item-indicator"
+        className="pointer-events-none ml-auto inline-flex h-[14px] w-[24px] shrink-0 items-center rounded-full border border-transparent transition-colors group-data-checked/dropdown-menu-switch-item:bg-primary group-data-unchecked/dropdown-menu-switch-item:bg-input dark:group-data-unchecked/dropdown-menu-switch-item:bg-input/80"
+      >
+        <span className="block size-3 rounded-full bg-background transition-transform group-data-checked/dropdown-menu-switch-item:translate-x-[calc(100%-2px)] group-data-unchecked/dropdown-menu-switch-item:translate-x-0 dark:bg-foreground dark:group-data-checked/dropdown-menu-switch-item:bg-primary-foreground" />
+      </span>
+    </MenuPrimitive.CheckboxItem>
+  )
+}
+
 const DropdownMenuRadioGroup = ({
   className,
   ...props
@@ -280,6 +311,7 @@ export {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSwitchItem,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
