@@ -10,11 +10,6 @@ import {
 } from "@/lib/items-sync";
 import { createClient } from "@/lib/supabase/client";
 
-// Debug logging for the cross-device sync path. Every step logs with the
-// [items-sync] prefix so the browser console shows where the chain breaks:
-// join status -> broadcast received -> caches invalidated.
-const log = (...args: unknown[]) => console.info("[items-sync]", ...args);
-
 // Mounted once near the app root. Subscribes to the per-user Realtime topic
 // that database triggers broadcast on whenever reading-list data changes (see
 // drizzle/0011_items_sync_broadcast.sql) and invalidates the affected React
@@ -26,6 +21,7 @@ export const ItemsSyncWatcher = () => {
   React.useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let subscribedUserId: string | null = null;
     let cancelled = false;
 
     // The trigger fires per changed row, so bulk operations arrive as a
@@ -34,49 +30,72 @@ export const ItemsSyncWatcher = () => {
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
       flushTimer = null;
-      log("invalidating query caches:", [...pendingKeys]);
       for (const key of pendingKeys) {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
       pendingKeys.clear();
     };
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      const session = data.session;
-      if (!session) {
-        log("no session — not subscribing");
-        return;
+    const teardown = () => {
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
       }
-      if (cancelled) return;
+      pendingKeys.clear();
+      if (channel) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+      subscribedUserId = null;
+    };
+
+    const subscribe = async (userId: string, accessToken: string) => {
+      if (cancelled || subscribedUserId === userId) return;
+      // A different user signed in (or a stale channel exists) — drop it first.
+      teardown();
+      subscribedUserId = userId;
       // Private channels are authorized against RLS on realtime.messages,
       // which requires the user's JWT on the Realtime connection. Pass the
       // token explicitly — the client's automatic forwarding only runs on
       // SIGNED_IN/TOKEN_REFRESHED, not on the restored initial session, so
       // without this the join is attempted with the anon key and rejected.
-      await supabase.realtime.setAuth(session.access_token);
-      if (cancelled) return;
-      const topic = itemsSyncChannelName(session.user.id);
-      log("subscribing to", topic);
+      await supabase.realtime.setAuth(accessToken);
+      if (cancelled || subscribedUserId !== userId) return;
       channel = supabase
-        .channel(topic, { config: { private: true } })
+        .channel(itemsSyncChannelName(userId), { config: { private: true } })
         .on("broadcast", { event: ITEMS_SYNC_EVENT }, (message) => {
           const table = (message.payload as { table?: string } | undefined)
             ?.table;
           const keys = queryKeysForTable(table ?? "");
-          log("broadcast received — table:", table, "→ keys:", keys);
           if (keys.length === 0) return;
           keys.forEach((key) => pendingKeys.add(key));
           if (!flushTimer) flushTimer = setTimeout(flush, 250);
         })
         .subscribe((status, err) => {
-          log("channel status:", status, err ?? "");
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[items-sync] channel error:", status, err ?? "");
+          }
         });
+    };
+
+    // Re-evaluate the subscription on every auth change: subscribe on the
+    // initial session / sign-in / token refresh, tear down on sign-out. A
+    // one-shot getSession() would miss a login that happens after mount and
+    // would never re-auth the channel across a sign-out/sign-in.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        void subscribe(session.user.id, session.access_token);
+      } else {
+        teardown();
+      }
     });
 
     return () => {
       cancelled = true;
-      if (flushTimer) clearTimeout(flushTimer);
-      if (channel) supabase.removeChannel(channel);
+      subscription.unsubscribe();
+      teardown();
     };
   }, [queryClient]);
 

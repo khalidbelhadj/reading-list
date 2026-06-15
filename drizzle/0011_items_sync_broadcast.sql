@@ -20,9 +20,12 @@ BEGIN;
 
 -- 1. Trigger function. SECURITY INVOKER (the default) on purpose: app writes
 --    run as `authenticated` inside withUser(), so auth.uid() is set and the
---    items_tags -> items ownership lookup passes RLS. realtime.send() is
---    SECURITY DEFINER upstream, so inserting the broadcast row needs no extra
---    grants here.
+--    items_tags -> items ownership lookup passes RLS. realtime.send() is also
+--    SECURITY INVOKER, so its INSERT into realtime.messages runs as
+--    `authenticated` and is subject to RLS — the "items_sync_send_own" policy
+--    in section 3 grants it. Without that policy realtime.send() raises an RLS
+--    error which its own EXCEPTION handler swallows as a WARNING, so the write
+--    succeeds but no broadcast is emitted (silent no-sync).
 CREATE OR REPLACE FUNCTION public.items_sync_notify()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -88,9 +91,22 @@ CREATE TRIGGER items_sync_notify
   AFTER INSERT OR UPDATE OR DELETE ON public.flashcards
   FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
 
--- 3. Let each user receive broadcasts on their own private topic. Realtime
---    evaluates this SELECT policy on realtime.messages when a client joins /
---    reads a private channel.
+-- 3a. Let each user SEND broadcasts on their own private topic. realtime.send()
+--     runs as the caller (`authenticated`) and its INSERT into realtime.messages
+--     is RLS-checked, so the trigger needs this INSERT policy to emit at all.
+--     The new row's `topic` column is authoritative (realtime.send() also
+--     SET LOCAL realtime.topic before inserting), so match on it directly.
+DROP POLICY IF EXISTS "items_sync_send_own" ON "realtime"."messages";
+CREATE POLICY "items_sync_send_own" ON "realtime"."messages"
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    extension = 'broadcast'
+    AND topic = 'items-sync:' || (SELECT auth.uid()::text)
+  );
+
+-- 3b. Let each user RECEIVE broadcasts on their own private topic. Realtime
+--     evaluates this SELECT policy on realtime.messages when a client joins /
+--     reads a private channel.
 DROP POLICY IF EXISTS "items_sync_receive_own" ON "realtime"."messages";
 CREATE POLICY "items_sync_receive_own" ON "realtime"."messages"
   FOR SELECT TO authenticated
