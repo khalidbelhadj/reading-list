@@ -1,9 +1,10 @@
 import { IconDots, IconFileFilled } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import React from "react";
 
 import { generateItemPreview } from "@/app/actions";
+import { fetchItemPreviews } from "@/lib/queries";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { type Item } from "@/lib/types";
 import { getYouTubeVideoId } from "@/lib/url";
@@ -52,9 +53,11 @@ const getDomain = (raw: string | null | undefined): string | null => {
 const PagePreview = ({
   item,
   domain,
+  previewImageUrl,
 }: {
   item: Item;
   domain: string | null;
+  previewImageUrl: string | null;
 }) => {
   const title = item.title?.trim() || domain || "Untitled";
   return (
@@ -62,9 +65,9 @@ const PagePreview = ({
       {/* The mini page — narrower than the container, anchored to the bottom
           and extending past it so only the top portion is visible. */}
       <div className="absolute inset-x-3 top-3 bottom-[-30%] overflow-hidden rounded-t-[3px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.18)] dark:bg-zinc-100">
-        {item.previewImageUrl ? (
+        {previewImageUrl ? (
           <Image
-            src={item.previewImageUrl}
+            src={previewImageUrl}
             alt=""
             fill
             sizes="128px"
@@ -114,29 +117,53 @@ export const CozyRowContent = ({
   const domain = getDomain(item.url);
   const [thumbFailed, setThumbFailed] = React.useState(false);
 
+  // Previews are fetched separately from the items list (they're heavy base64
+  // PDF renders). This query only fires in cozy mode, because this component
+  // only mounts in cozy mode; all rows share the one ["item-previews"] fetch.
+  const queryClient = useQueryClient();
+  const { data: previews, isSuccess: previewsLoaded } = useQuery({
+    queryKey: ["item-previews"],
+    queryFn: fetchItemPreviews,
+  });
+  // Three states, keyed off presence in the previews map:
+  //   absent (id not in map) → never attempted; probe once previews loaded.
+  //   ""                     → checked, not a PDF; skip.
+  //   data URL               → already rendered.
+  const previewResolved = previews ? item.id in previews : false;
+  const previewImageUrl = previews?.[item.id] || null;
+
   // Lazy-generate a PDF first-page preview the first time a qualifying item
   // (currently arxiv abs/pdf links + any .pdf URL) is rendered in cozy mode.
   // Result is persisted in the items.preview_image_url column, so this only
   // runs once per item across the whole lifetime of the database.
-  const queryClient = useQueryClient();
   const { mutate: triggerGenerate } = useMutation({
     mutationFn: (itemId: string) => generateItemPreview(itemId),
-    onSuccess: (dataUrl) => {
-      if (dataUrl) queryClient.invalidateQueries({ queryKey: ["items"] });
+    onSuccess: (dataUrl, itemId) => {
+      // Patch the shared previews cache in place rather than refetching the
+      // whole (heavy) bulk payload. null from the action means "not a PDF".
+      queryClient.setQueryData<Record<string, string>>(
+        ["item-previews"],
+        (old) => ({ ...(old ?? {}), [itemId]: dataUrl ?? "" }),
+      );
     },
     onSettled: (_d, _e, itemId) => inFlight.delete(itemId),
   });
   React.useEffect(() => {
-    // previewImageUrl === null  → never attempted; probe now.
-    // previewImageUrl === ""    → checked, not a PDF; skip.
-    // previewImageUrl === data: → already rendered; skip.
-    if (item.previewImageUrl !== null) return;
+    if (!previewsLoaded) return; // wait until we know which are resolved
+    if (previewResolved) return;
     if (youtubeThumb) return;
     if (!isProbeableUrl(item.url)) return;
     if (inFlight.has(item.id)) return;
     inFlight.add(item.id);
     triggerGenerate(item.id);
-  }, [item.id, item.url, item.previewImageUrl, youtubeThumb, triggerGenerate]);
+  }, [
+    item.id,
+    item.url,
+    previewsLoaded,
+    previewResolved,
+    youtubeThumb,
+    triggerGenerate,
+  ]);
 
   return (
     <>
@@ -152,7 +179,11 @@ export const CozyRowContent = ({
             onError={() => setThumbFailed(true)}
           />
         ) : (
-          <PagePreview item={item} domain={domain} />
+          <PagePreview
+            item={item}
+            domain={domain}
+            previewImageUrl={previewImageUrl}
+          />
         )}
         <div className="absolute bottom-1 right-1 flex size-4 items-center justify-center rounded-[3px] bg-background/90 ring-1 ring-foreground/10">
           {faviconSrc ? (

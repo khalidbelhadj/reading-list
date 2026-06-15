@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   title: "Reading List",
 };
 
+// Pin serverless/server-action execution next to the Supabase DB, which lives
+// in AWS eu-west-1 (Ireland). Vercel's default region is us-east (iad1), which
+// put every auth + DB round-trip across the Atlantic — the dominant cost of
+// the items load on the deployed app. dub1 (Dublin) is co-located with the DB.
+export const preferredRegion = "dub1";
+
 const RootLayout = async ({
   children,
 }: {
