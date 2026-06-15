@@ -13,7 +13,6 @@ export const PanelLayout = () => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
-    staleTime: Infinity,
   });
 
   const [openItemId, setOpenItemId] = React.useState<string | null>(() => {

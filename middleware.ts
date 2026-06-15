@@ -15,7 +15,9 @@ const buildCsp = (nonce: string): string => {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https: data: blob:",
     "font-src 'self'",
-    "connect-src 'self' *.supabase.co",
+    // Schemeless sources only match http(s) — wss: must be listed explicitly
+    // or the browser blocks Supabase Realtime's WebSocket.
+    "connect-src 'self' *.supabase.co wss://*.supabase.co",
     "frame-src 'self' accounts.google.com",
     "frame-ancestors 'none'",
     "form-action 'self' accounts.google.com",
