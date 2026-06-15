@@ -1,7 +1,7 @@
 "use server";
 
 import { withUser } from "@/db";
-import { flashcards, items } from "@/db/schema";
+import { items } from "@/db/schema";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import type { Item } from "@/lib/types";
@@ -42,39 +42,35 @@ export async function fetchItemPreviews(): Promise<Record<string, string>> {
 export async function fetchItems(): Promise<Item[]> {
   const start = performance.now();
   const userId = await getCurrentUserId();
-  const [allItems, counts] = await withUser(
+  const allItems = await withUser(
     userId,
     (tx) =>
-      Promise.all([
-        tx.query.items.findMany({
-          // Exclude previewImageUrl: base64 PDF renders are ~94% of this
-          // payload and are only needed by the cozy thumbnail. They're loaded
-          // separately via fetchItemPreviews. Everything else is selected.
-          columns: { previewImageUrl: false },
-          where: eq(items.userId, userId),
-          orderBy: [desc(items.createdAt)],
-          with: { itemsTags: { with: { tag: true } } },
-        }),
-        tx
-          .select({
-            itemId: flashcards.itemId,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(flashcards)
-          .where(eq(flashcards.userId, userId))
-          .groupBy(flashcards.itemId),
-      ]),
+      tx.query.items.findMany({
+        // Exclude previewImageUrl: base64 PDF renders are ~94% of this
+        // payload and are only needed by the cozy thumbnail. They're loaded
+        // separately via fetchItemPreviews. Everything else is selected.
+        columns: { previewImageUrl: false },
+        with: { itemsTags: { with: { tag: true } } },
+        extras: {
+          // Flashcard count folded in as a correlated subquery so the list
+          // loads in one round-trip instead of a second, serialized query.
+          // Raw inner column refs (not the drizzle column object) keep drizzle
+          // from rebinding them to the outer alias; ${items.id} correlates to
+          // the current row.
+          flashcardCount:
+            sql<number>`(select count(*)::int from flashcards where flashcards.item_id = ${items.id})`.as(
+              "flashcard_count",
+            ),
+        },
+        where: eq(items.userId, userId),
+        orderBy: [desc(items.createdAt)],
+      }),
     "fetchItems",
-  );
-
-  const countById = new Map(
-    counts.filter((r) => r.itemId !== null).map((r) => [r.itemId!, r.count]),
   );
 
   const result = allItems.map(({ itemsTags, ...item }) => ({
     ...item,
     tags: itemsTags.map((it) => it.tag),
-    flashcardCount: countById.get(item.id) ?? 0,
   })) as Item[];
 
   perfLog("action:fetchItems", performance.now() - start, {

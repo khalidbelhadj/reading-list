@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@/lib/supabase/server";
 import { perfLog } from "@/lib/perf";
@@ -14,7 +15,13 @@ const getMockUserId = (): string | null => {
   return process.env.MOCK_USER_ID ?? null;
 };
 
-export const getCurrentUserId = async (): Promise<string> => {
+// Wrapped in React cache() so that if a single server request resolves the
+// user more than once (e.g. an RSC render that fetches several things), the
+// auth-server round-trip in getUser() runs only once. NOTE: this does NOT
+// dedupe across separate server-action POSTs or across middleware → action —
+// those are distinct request contexts. getUser() still validates the token
+// server-side, so the security properties are unchanged.
+export const getCurrentUserId = cache(async (): Promise<string> => {
   const start = performance.now();
   const supabase = await createClient();
   const {
@@ -29,7 +36,7 @@ export const getCurrentUserId = async (): Promise<string> => {
   if (mockId) return mockId;
 
   throw new UnauthorizedError();
-};
+});
 
 export const getCurrentUserIdFromRequest = async (
   request: Request,
