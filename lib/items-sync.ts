@@ -17,7 +17,9 @@ export const queryKeysForTable = (table: string): string[] => {
     case "items":
     case "tags":
     case "items_tags":
-      return ["items"];
+      // "item-previews" is a separate, cozy-only cache; invalidating it when
+      // it has no observers is a no-op until cozy mode mounts again.
+      return ["items", "item-previews"];
     case "flashcards":
       return [
         "items",
