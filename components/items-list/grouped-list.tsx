@@ -16,14 +16,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
-import {
-  HoverPreviewContent,
-  useHoverPreview,
-} from "@/components/ui/preview-card";
 import { CozyRowContent } from "./cozy-row-content";
 import { useIsCursor, useIsOpenItem } from "./cursor-store";
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
-import { ItemPreview } from "./item-preview";
 import { ItemRowContent } from "./item-row-content";
 import { type ItemGroup } from "./use-filters";
 import { resolveRowItem, type Density } from "./utils";
@@ -73,7 +68,9 @@ export const CollapsibleSection = ({
       ref={outerRef}
       className="overflow-hidden transition-[height] duration-250 ease-in-out"
     >
-      <div ref={innerRef} className="space-y-px">{children}</div>
+      <div ref={innerRef} className="space-y-px">
+        {children}
+      </div>
     </div>
   );
 };
@@ -280,8 +277,6 @@ export const GroupedList = ({
   );
 };
 
-const PREVIEW_DELAY = 1000;
-
 export const PlainItemRow = ({
   item,
   suppressHover,
@@ -305,91 +300,69 @@ export const PlainItemRow = ({
   const isOpen = useIsOpenItem(item.id);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
-  const preview = useHoverPreview(PREVIEW_DELAY);
   const isRead = item.read;
 
-  React.useEffect(() => {
-    if (menuOpen || contextMenuOpen) preview.dismiss();
-  }, [menuOpen, contextMenuOpen, preview]);
-
   return (
-    <>
-      <ItemContextMenu
-        item={item}
-        onTogglePin={onTogglePin}
-        onToggleRead={onToggleRead}
-        onDelete={onDelete}
-        onOpenChange={setContextMenuOpen}
+    <ItemContextMenu
+      item={item}
+      onTogglePin={onTogglePin}
+      onToggleRead={onToggleRead}
+      onDelete={onDelete}
+      onOpenChange={setContextMenuOpen}
+    >
+      <ItemContextMenuTrigger
+        render={
+          <div
+            data-item-id={item.id}
+            onClick={onSelect}
+            className={cn(
+              "group relative flex overflow-hidden select-none outline-none rounded-sm",
+              density === "cozy"
+                ? "items-stretch gap-3 p-2"
+                : "items-center gap-2 p-1",
+              isOpen && "bg-secondary",
+              // Translucent fill for hover/cursor/menu-open (matching cozy) so it
+              // stays distinct from the active bg-secondary — in dark mode
+              // bg-muted resolves to the same token as bg-secondary.
+              !isOpen && isCursor && "bg-foreground/5",
+              !isOpen && !isCursor && !suppressHover && "hover:bg-foreground/5",
+              !isOpen &&
+                !isCursor &&
+                (menuOpen || contextMenuOpen) &&
+                "bg-foreground/5",
+              isRead && "opacity-50",
+            )}
+            data-menu-open={menuOpen || contextMenuOpen || undefined}
+          />
+        }
       >
-        <ItemContextMenuTrigger
-          render={
-            <div
-              data-item-id={item.id}
-              onClick={onSelect}
-              onMouseEnter={
-                density === "cozy" ? undefined : preview.onMouseEnter
-              }
-              onMouseMove={density === "cozy" ? undefined : preview.onMouseMove}
-              onMouseLeave={
-                density === "cozy" ? undefined : preview.onMouseLeave
-              }
-              className={cn(
-                "group relative flex overflow-hidden select-none outline-none rounded-sm",
-                density === "cozy"
-                  ? "items-stretch gap-3 p-2"
-                  : "items-center gap-2 p-1",
-                isOpen && "bg-secondary",
-                // Translucent fill for hover/cursor/menu-open (matching cozy) so it
-                // stays distinct from the active bg-secondary — in dark mode
-                // bg-muted resolves to the same token as bg-secondary.
-                !isOpen && isCursor && "bg-foreground/5",
-                !isOpen &&
-                  !isCursor &&
-                  !suppressHover &&
-                  "hover:bg-foreground/5",
-                !isOpen &&
-                  !isCursor &&
-                  (menuOpen || contextMenuOpen) &&
-                  "bg-foreground/5",
-                isRead && "opacity-50",
-              )}
-              data-menu-open={menuOpen || contextMenuOpen || undefined}
-            />
-          }
-        >
-          {density === "cozy" ? (
-            <CozyRowContent
-              item={item}
-              isSelected={isOpen}
-              isTyping={isTyping}
-              menuOpen={menuOpen}
-              suppressHover={suppressHover}
-              onMenuOpenChange={setMenuOpen}
-              onTogglePin={onTogglePin}
-              onToggleRead={onToggleRead}
-              onDelete={onDelete}
-            />
-          ) : (
-            <ItemRowContent
-              item={item}
-              flashcardCount={item.flashcardCount}
-              isSelected={isOpen}
-              isTyping={isTyping}
-              menuOpen={menuOpen}
-              suppressHover={suppressHover}
-              onMenuOpenChange={setMenuOpen}
-              onTogglePin={onTogglePin}
-              onToggleRead={onToggleRead}
-              onDelete={onDelete}
-            />
-          )}
-        </ItemContextMenuTrigger>
-      </ItemContextMenu>
-      {density !== "cozy" && (
-        <HoverPreviewContent open={preview.open} position={preview.position}>
-          <ItemPreview item={item} />
-        </HoverPreviewContent>
-      )}
-    </>
+        {density === "cozy" ? (
+          <CozyRowContent
+            item={item}
+            isSelected={isOpen}
+            isTyping={isTyping}
+            menuOpen={menuOpen}
+            suppressHover={suppressHover}
+            onMenuOpenChange={setMenuOpen}
+            onTogglePin={onTogglePin}
+            onToggleRead={onToggleRead}
+            onDelete={onDelete}
+          />
+        ) : (
+          <ItemRowContent
+            item={item}
+            flashcardCount={item.flashcardCount}
+            isSelected={isOpen}
+            isTyping={isTyping}
+            menuOpen={menuOpen}
+            suppressHover={suppressHover}
+            onMenuOpenChange={setMenuOpen}
+            onTogglePin={onTogglePin}
+            onToggleRead={onToggleRead}
+            onDelete={onDelete}
+          />
+        )}
+      </ItemContextMenuTrigger>
+    </ItemContextMenu>
   );
 };

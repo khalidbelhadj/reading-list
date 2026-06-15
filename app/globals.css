@@ -651,23 +651,6 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 .markdown-editor .ProseMirror card.card-block > back.card-side > *:first-child {
   margin-top: 0;
 }
-.preview-notes .markdown-editor .ProseMirror {
-  font-size: 0.75rem;
-  min-height: 0;
-}
-.preview-notes .markdown-editor .ProseMirror > * + * {
-  margin-top: 0.25rem;
-}
-.preview-notes .markdown-editor .ProseMirror img {
-  max-height: 6rem;
-  width: auto;
-  border-radius: 0.25rem;
-}
-.preview-notes .markdown-editor .ProseMirror card.card-block {
-  padding: 0.375rem 0.625rem;
-  margin: 0.25rem 0;
-}
-
 /* Empty-state placeholder for contenteditable elements. The element drives
    the placeholder color via --ce-placeholder-color so each caller can
    match the per-field opacity the old <input>/<textarea> had. */
