@@ -370,7 +370,7 @@ const EmptyStatesPlayground = () => {
   const [iconId, setIconId] = React.useState<string>("auto");
   const [title, setTitle] = React.useState("No items yet");
   const [description, setDescription] = React.useState(
-    "Save articles, papers, and links to read later — they'll show up here.",
+    "Save articles, papers, and links to read later, and they'll show up here.",
   );
   const [showIcon, setShowIcon] = React.useState(true);
   const [showDescription, setShowDescription] = React.useState(true);

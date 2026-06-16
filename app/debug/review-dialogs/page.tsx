@@ -245,7 +245,7 @@ const VariantTimeFirst = ({ onClose }: { onClose: () => void }) => {
       <div className="flex flex-col gap-1">
         <h2 className="font-content text-lg">How long do you have?</h2>
         <p className="text-sm text-muted-foreground">
-          {TOTAL_CARDS} cards due — pick a duration and we&rsquo;ll fit as
+          {TOTAL_CARDS} cards due, pick a duration and we&rsquo;ll fit as
           many in as we can.
         </p>
       </div>

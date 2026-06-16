@@ -267,7 +267,7 @@ const DesignSystemPage = () => {
               Design system
             </h1>
             <p className="text-sm text-muted-foreground">
-              Every UI primitive used in the reading list app — buttons,
+              Every UI primitive used in the reading list app: buttons,
               dropdowns, dialogs, badges, colors, shadows, icons.
             </p>
           </div>
@@ -305,19 +305,19 @@ const DesignSystemPage = () => {
         >
           <div className="flex flex-col gap-4 rounded-lg bg-card p-4">
             <div className="font-content text-3xl font-semibold">
-              The quick brown fox — font-content / 3xl
+              The quick brown fox, font-content / 3xl
             </div>
             <div className="font-content text-xl font-semibold">
-              The quick brown fox — font-content / xl
+              The quick brown fox, font-content / xl
             </div>
             <div className="text-base">
-              The quick brown fox jumps over the lazy dog — font-sans / base
+              The quick brown fox jumps over the lazy dog, font-sans / base
             </div>
             <div className="text-sm">
-              The quick brown fox jumps over the lazy dog — font-sans / sm
+              The quick brown fox jumps over the lazy dog, font-sans / sm
             </div>
             <div className="text-xs">
-              The quick brown fox jumps over the lazy dog — font-sans / xs
+              The quick brown fox jumps over the lazy dog, font-sans / xs
             </div>
             <div className="text-xs text-muted-foreground">
               Muted: subtle helper text and metadata
@@ -572,7 +572,7 @@ const DesignSystemPage = () => {
         {/* ─── tooltip ────────────────────────────────────────────────────── */}
         <Section
           title="Tooltips"
-          description="Hover and wait — default delay is 1.5s. Press to open faster."
+          description="Hover and wait, default delay is 1.5s. Press to open faster."
         >
           <Row label="hover targets">
             <Tooltip>
@@ -824,7 +824,7 @@ const DesignSystemPage = () => {
         {/* ─── icons ──────────────────────────────────────────────────────── */}
         <Section
           title="Icons"
-          description="@tabler/icons-react — a sample of icons used across the app."
+          description="@tabler/icons-react, a sample of icons used across the app."
         >
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {iconSamples.map(({ Icon, name }) => (

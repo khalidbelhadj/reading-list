@@ -535,7 +535,7 @@ const ReviewSessionInner = ({
             <AlertDialogTitle>End this session?</AlertDialogTitle>
             <AlertDialogDescription>
               You&rsquo;ve reviewed {currentIndex} of {cards.length} cards.
-              You can&rsquo;t resume this session — ending it now will finish
+              You can&rsquo;t resume this session, so ending it now will finish
               it for good.
             </AlertDialogDescription>
           </AlertDialogHeader>

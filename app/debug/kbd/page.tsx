@@ -203,7 +203,7 @@ const KbdDebugPage = () => {
 
         <Section
           title="Current default"
-          description="Components/ui/kbd.tsx — muted bg, rounded-xs."
+          description="Components/ui/kbd.tsx, muted bg, rounded-xs."
         >
           <Kbd>K</Kbd>
           <Kbd>Esc</Kbd>

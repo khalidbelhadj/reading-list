@@ -159,7 +159,7 @@ export const Toolbar = ({
             {dueLoading || dueError
               ? "Cards due for review"
               : dueCount === 0
-                ? "All caught up — nothing due"
+                ? "All caught up, nothing due"
                 : `${dueCount} card${dueCount === 1 ? "" : "s"} due for review`}
           </TooltipContent>
         </Tooltip>

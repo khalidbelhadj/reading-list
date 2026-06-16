@@ -218,11 +218,11 @@ const Page = () => {
     <div className="min-h-dvh px-6 py-10 max-w-3xl mx-auto">
       <header className="mb-8 flex flex-col gap-2">
         <h1 className="font-content text-2xl font-semibold">
-          Review button count — entrance animations
+          Review button count, entrance animations
         </h1>
         <p className="text-sm text-muted-foreground">
           Each row reloads independently. Use the controls to replay an
-          entrance or swap to a different number — animations that depend on
+          entrance or swap to a different number, animations that depend on
           value transitions (scale-fade, rolling) replay on value change.
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-2">
