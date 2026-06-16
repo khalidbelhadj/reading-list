@@ -41,3 +41,6 @@ db/*.db-journal
 
 # Local rollback backup from the flashcard→notes migration (contains user notes)
 scripts/flashcard-migration-snapshot*.json
+
+# Generated output of the code-complexity analyzer (bun run analyze)
+analysis/code/
