@@ -1,6 +1,5 @@
 "use client";
 
-import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import React from "react";
@@ -11,7 +10,7 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
-import { resolveRowItem } from "./items-list/utils";
+import { makeOptimisticItem, resolveRowItem } from "./items-list/utils";
 
 import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
@@ -20,22 +19,21 @@ import { useSettings } from "@/lib/use-settings";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
-import {
-  CollapsibleSection,
-  GroupedList,
-  PlainItemRow,
-} from "./items-list/grouped-list";
+import { GroupedList } from "./items-list/grouped-list";
 import { ItemRow } from "./items-list/item-row";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
+import { PinnedSection } from "./items-list/pinned-section";
 import { ReviewNudge } from "./items-list/review-nudge";
-import { SearchBar, type SearchBarHandle } from "./items-list/search-bar";
+import { SearchBar } from "./items-list/search-bar";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { useCreateItem } from "./items-list/use-create-item";
 import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
+import { useListSearch } from "./items-list/use-list-search";
 import { useItemsMutations } from "./items-list/use-mutations";
+import { useTypingTitles } from "./items-list/use-typing-titles";
 
 export const ItemsList = ({
   onOpenItem,
@@ -63,9 +61,6 @@ export const ItemsList = ({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
-  const [typingTitles, setTypingTitles] = React.useState<
-    Record<string, string>
-  >({});
   // URL ?tab= wins; otherwise fall back to the user's last-used tab from
   // settings. Local state because the URL still drives intra-session tab
   // changes — settings just remembers the default across reloads.
@@ -76,94 +71,25 @@ export const ItemsList = ({
     return settings.activeTab;
   });
 
-  // Search — query persisted in the URL as ?q=... so it survives navigation
-  // away and back (e.g. clicking a result and hitting back). Captured once on
-  // mount; subsequent URL changes go through replaceState below.
-  const [initialSearchQuery] = React.useState(
-    () => searchParams.get("q") ?? "",
-  );
-  const [searchOrder, setSearchOrder] = React.useState<string[] | null>(null);
-  const [searchPending, setSearchPending] = React.useState(
-    () => initialSearchQuery.length > 0,
-  );
-  // Backend (trigram) search still resolving for the current query — the local
-  // keyword pass is already on screen, so we append loading rows under it
-  // rather than replacing the whole list (that's `searchPending`).
-  const [searchBackendPending, setSearchBackendPending] = React.useState(false);
-  const searchBarRef = React.useRef<SearchBarHandle | null>(null);
-  const handleSearchResults = React.useCallback((ids: string[] | null) => {
-    setSearchOrder(ids);
-  }, []);
-  const searchActive = searchOrder !== null;
-  const handleSearchPendingChange = React.useCallback((pending: boolean) => {
-    setSearchPending(pending);
-  }, []);
-  const handleSearchBackendPendingChange = React.useCallback(
-    (pending: boolean) => {
-      setSearchBackendPending(pending);
-    },
-    [],
-  );
-  const handleSearchQueryChange = React.useCallback((query: string) => {
-    const params = new URLSearchParams(window.location.search);
-    const existing = params.get("q") ?? "";
-    if (existing === query) return;
-    if (query.length === 0) {
-      params.delete("q");
-    } else {
-      params.set("q", query);
-    }
-    const queryString = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      queryString ? `?${queryString}` : window.location.pathname,
-    );
-  }, []);
-  const handleSearchOpen = React.useCallback(() => {
-    searchBarRef.current?.open();
-  }, []);
+  // Search — all search state, URL sync, and local/backend passes live here.
+  const {
+    searchBarRef,
+    searchOrder,
+    searchActive,
+    searchPending,
+    searchBackendPending,
+    initialSearchQuery,
+    localSearchItems,
+    localSearchFlashcards,
+    handleSearchResults,
+    handleSearchQueryChange,
+    handleSearchPendingChange,
+    handleSearchBackendPendingChange,
+    handleSearchOpen,
+  } = useListSearch(items);
 
-  // Synchronous local search against the in-memory cache. Runs on every
-  // keystroke so the list narrows instantly while the deeper server query
-  // (trigram fuzzy on notes/flashcard text) is still in flight.
-  const localSearchItems = React.useCallback(
-    (query: string) => {
-      if (!items) return [];
-      const needle = query.toLowerCase();
-      const matches: string[] = [];
-      for (const item of items) {
-        if (
-          item.title.toLowerCase().includes(needle) ||
-          item.url.toLowerCase().includes(needle)
-        ) {
-          matches.push(item.id);
-        }
-      }
-      return matches;
-    },
-    [items],
-  );
-  const localSearchFlashcards = React.useCallback(
-    (query: string) => {
-      const cards = queryClient.getQueryData<
-        Array<{ id: string; front: string; back: string }>
-      >(["all-flashcards"]);
-      if (!cards) return [];
-      const needle = query.toLowerCase();
-      const matches: string[] = [];
-      for (const card of cards) {
-        if (
-          card.front.toLowerCase().includes(needle) ||
-          card.back.toLowerCase().includes(needle)
-        ) {
-          matches.push(card.id);
-        }
-      }
-      return matches;
-    },
-    [queryClient],
-  );
+  // Per-row typewriter title animation (used after pasting a URL).
+  const { typingTitles, animateTypingTitle } = useTypingTitles();
 
   // Cursor — driven through an imperative store so only the previously-active
   // and newly-active rows re-render on each move. Keeping a ref mirror lets
@@ -294,34 +220,7 @@ export const ItemsList = ({
     setDeleteOpen(false);
   }, [itemToDelete, handleDeleteSingle]);
 
-  // Mutations
-  const animateTypingTitle = React.useCallback(
-    (itemId: string, target: string) =>
-      new Promise<void>((resolve) => {
-        if (!target) {
-          resolve();
-          return;
-        }
-        let i = 0;
-        setTypingTitles((prev) => ({ ...prev, [itemId]: "" }));
-        const interval = setInterval(() => {
-          i++;
-          const partial = target.slice(0, i);
-          setTypingTitles((prev) => ({ ...prev, [itemId]: partial }));
-          if (i >= target.length) {
-            clearInterval(interval);
-            setTypingTitles((prev) => {
-              const next = { ...prev };
-              delete next[itemId];
-              return next;
-            });
-            resolve();
-          }
-        }, 15);
-      }),
-    [],
-  );
-
+  // Create
   const {
     requestCreate,
     isCreating,
@@ -342,24 +241,7 @@ export const ItemsList = ({
           // render the new (empty) item without waiting on a full refetch.
           queryClient.setQueryData<Item[]>(["items"], (old) => {
             if (!old) return old;
-            const now = new Date().toISOString();
-            const userId = old[0]?.userId ?? "";
-            const newItem: Item = {
-              id: newId,
-              userId,
-              title: "",
-              url: "",
-              faviconUrl: null,
-              starred: false,
-              notes: null,
-              read: false,
-              readAt: null,
-              createdAt: now,
-              updatedAt: now,
-              tags: [],
-              flashcardCount: 0,
-            };
-            return [newItem, ...old];
+            return [makeOptimisticItem(newId, old), ...old];
           });
           invalidate();
           handleOpenItem(newId);
@@ -399,28 +281,10 @@ export const ItemsList = ({
             queryClient.setQueryData<Item[]>(["items"], (old) => {
               if (!old) return old;
               if (old.some((it) => it.id === newId)) return old;
-              const now = new Date().toISOString();
-              const userId = old[0]?.userId ?? "";
-              const newItem: Item = {
-                id: newId,
-                userId,
-                title,
-                url,
-                faviconUrl: null,
-                starred: false,
-                notes: null,
-                read: false,
-                readAt: null,
-                createdAt: now,
-                updatedAt: now,
-                tags: tagNames.map((name, i) => ({
-                  id: -(i + 1),
-                  userId,
-                  name,
-                })),
-                flashcardCount: 0,
-              };
-              return [newItem, ...old];
+              return [
+                makeOptimisticItem(newId, old, { title, url, tagNames }),
+                ...old,
+              ];
             });
             invalidate();
             void animateTypingTitle(newId, title);
@@ -429,13 +293,7 @@ export const ItemsList = ({
         },
       );
     },
-    [
-      requestCreate,
-      handleOpenItem,
-      invalidate,
-      animateTypingTitle,
-      queryClient,
-    ],
+    [requestCreate, handleOpenItem, invalidate, animateTypingTitle, queryClient],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
@@ -501,6 +359,11 @@ export const ItemsList = ({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Derived state
+  // Group rows by date/tag only outside of search — search results carry their
+  // own relevance order, so we fall back to the flat list while searching.
+  const useGroupedLayout = groupBy !== "none" && !searchActive;
+
   // Empty state message
   const emptyState = React.useMemo(() => {
     if (filteredItems.length > 0) return null;
@@ -539,6 +402,15 @@ export const ItemsList = ({
         </Button>
       )}
     </div>
+  );
+
+  // Error / empty placeholder shown at the top of the list body.
+  const statusNode = itemsError ? (
+    <div className="px-1 py-6 text-center text-destructive text-xs">
+      Failed to load items
+    </div>
+  ) : (
+    emptyNode
   );
 
   return (
@@ -620,7 +492,6 @@ export const ItemsList = ({
         className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
       >
         <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
-          {/* Content */}
           {activeTab === "cards" ? (
             <CardsList
               searchIds={searchOrder ? new Set(searchOrder) : null}
@@ -632,60 +503,27 @@ export const ItemsList = ({
               loading={isLoading || searchPending}
               skeleton={<ItemsSkeleton density={density} />}
             >
-              {groupBy !== "none" && !searchActive ? (
-                <div
-                  onMouseMove={
-                    suppressHover ? () => setSuppressHover(false) : undefined
-                  }
-                >
-                  {itemsError ? (
-                    <div className="px-1 py-6 text-center text-destructive text-xs">
-                      Failed to load items
-                    </div>
-                  ) : (
-                    emptyNode
-                  )}
-                  {pinnedItems.length > 0 && (
-                    <div className="flex flex-col mb-4">
-                      <button
-                        type="button"
-                        onClick={() => setPinnedOpen((p) => !p)}
-                        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
-                      >
-                        <IconPinFilled className="size-3" />
-                        Pinned
-                        <IconChevronRight
-                          className={cn(
-                            "size-3 transition-transform duration-150",
-                            pinnedOpen && "rotate-90",
-                          )}
-                        />
-                      </button>
-                      <CollapsibleSection open={pinnedOpen}>
-                        {pinnedItems.map((item) => {
-                          const typingTitle = typingTitles[item.id];
-                          const rowItem = resolveRowItem(item, typingTitle);
-                          return (
-                            <PlainItemRow
-                              key={item.id}
-                              item={rowItem}
-                              suppressHover={suppressHover}
-                              density={density}
-                              isTyping={typingTitle !== undefined}
-                              onSelect={() => handleOpenItem(item.id)}
-                              onDelete={() => requestDeleteItem(item.id)}
-                              onToggleRead={() =>
-                                handleToggleRead(item.id, !item.read)
-                              }
-                              onTogglePin={() =>
-                                handleTogglePin(item.id, !item.starred)
-                              }
-                            />
-                          );
-                        })}
-                      </CollapsibleSection>
-                    </div>
-                  )}
+              <div
+                onMouseMove={
+                  suppressHover ? () => setSuppressHover(false) : undefined
+                }
+              >
+                {statusNode}
+
+                <PinnedSection
+                  items={pinnedItems}
+                  open={pinnedOpen}
+                  onToggleOpen={() => setPinnedOpen((p) => !p)}
+                  typingTitles={typingTitles}
+                  suppressHover={suppressHover}
+                  density={density}
+                  onSelect={handleOpenItem}
+                  onDelete={requestDeleteItem}
+                  onToggleRead={handleToggleRead}
+                  onTogglePin={handleTogglePin}
+                />
+
+                {useGroupedLayout ? (
                   <GroupedList
                     groups={groups}
                     items={items ?? []}
@@ -697,91 +535,38 @@ export const ItemsList = ({
                     onToggleRead={handleToggleRead}
                     onTogglePin={handleTogglePin}
                   />
-                </div>
-              ) : (
-                <div
-                  onMouseMove={
-                    suppressHover ? () => setSuppressHover(false) : undefined
-                  }
-                >
-                  {itemsError ? (
-                    <div className="px-1 py-6 text-center text-destructive text-xs">
-                      Failed to load items
-                    </div>
-                  ) : (
-                    emptyNode
-                  )}
-                  {pinnedItems.length > 0 && (
-                    <div className="flex flex-col mb-4">
-                      <button
-                        type="button"
-                        onClick={() => setPinnedOpen((p) => !p)}
-                        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
-                      >
-                        <IconPinFilled className="size-3" />
-                        Pinned
-                        <IconChevronRight
-                          className={cn(
-                            "size-3 transition-transform duration-150",
-                            pinnedOpen && "rotate-90",
-                          )}
+                ) : (
+                  <>
+                    {unpinnedItems.map((item) => {
+                      const typingTitle = typingTitles[item.id];
+                      const rowItem = resolveRowItem(item, typingTitle);
+                      return (
+                        <ItemRow
+                          key={item.id}
+                          item={rowItem}
+                          suppressHover={suppressHover}
+                          density={density}
+                          isTyping={typingTitle !== undefined}
+                          onTogglePin={() =>
+                            handleTogglePin(item.id, !item.starred)
+                          }
+                          onToggleRead={() =>
+                            handleToggleRead(item.id, !item.read)
+                          }
+                          onSelect={() => handleOpenItem(item.id)}
+                          onDelete={() => requestDeleteItem(item.id)}
                         />
-                      </button>
-                      <CollapsibleSection open={pinnedOpen}>
-                        {pinnedItems.map((item) => {
-                          const typingTitle = typingTitles[item.id];
-                          const rowItem = resolveRowItem(item, typingTitle);
-                          return (
-                            <ItemRow
-                              key={item.id}
-                              item={rowItem}
-                              suppressHover={suppressHover}
-                              density={density}
-                              isTyping={typingTitle !== undefined}
-                              onTogglePin={() =>
-                                handleTogglePin(item.id, !item.starred)
-                              }
-                              onToggleRead={() =>
-                                handleToggleRead(item.id, !item.read)
-                              }
-                              onSelect={() => handleOpenItem(item.id)}
-                              onDelete={() => requestDeleteItem(item.id)}
-                            />
-                          );
-                        })}
-                      </CollapsibleSection>
-                    </div>
-                  )}
-                  {unpinnedItems.map((item) => {
-                    const typingTitle = typingTitles[item.id];
-                    const rowItem = resolveRowItem(item, typingTitle);
-                    return (
-                      <ItemRow
-                        key={item.id}
-                        item={rowItem}
-                        suppressHover={suppressHover}
-                        density={density}
-                        isTyping={typingTitle !== undefined}
-                        onTogglePin={() =>
-                          handleTogglePin(item.id, !item.starred)
-                        }
-                        onToggleRead={() =>
-                          handleToggleRead(item.id, !item.read)
-                        }
-                        onSelect={() => handleOpenItem(item.id)}
-                        onDelete={() => requestDeleteItem(item.id)}
-                      />
-                    );
-                  })}
-                  {/* Backend (trigram) pass still running: append loading rows
-                      under the instant keyword hits so the search reads as
-                      "more coming," not finished. Same count as the full-list
-                      loader; the rows fade out further down. */}
-                  {searchActive && searchBackendPending && (
-                    <ItemsSkeleton density={density} />
-                  )}
-                </div>
-              )}
+                      );
+                    })}
+                    {/* Backend (trigram) pass still running: append loading rows
+                        under the instant keyword hits so the search reads as
+                        "more coming," not finished. */}
+                    {searchActive && searchBackendPending && (
+                      <ItemsSkeleton density={density} />
+                    )}
+                  </>
+                )}
+              </div>
             </LoadingFade>
           )}
         </div>
