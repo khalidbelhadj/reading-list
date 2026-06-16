@@ -16,64 +16,10 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
-import { CozyRowContent } from "./cozy-row-content";
-import { useIsCursor, useIsOpenItem } from "./cursor-store";
-import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
-import { ItemRowContent } from "./item-row-content";
+import { CollapsibleSection } from "./collapsible-section";
+import { ItemRow } from "./item-row";
 import { type ItemGroup } from "./use-filters";
 import { resolveRowItem, type Density } from "./utils";
-
-export const CollapsibleSection = ({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: React.ReactNode;
-}) => {
-  const outerRef = React.useRef<HTMLDivElement>(null);
-  const innerRef = React.useRef<HTMLDivElement>(null);
-  const prevOpen = React.useRef(open);
-
-  React.useLayoutEffect(() => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-
-    if (prevOpen.current === open) {
-      outer.style.height = open ? "" : "0px";
-      return;
-    }
-    prevOpen.current = open;
-
-    const h = inner.scrollHeight;
-
-    outer.style.transition = "none";
-    outer.style.height = open ? "0px" : `${h}px`;
-    outer.getBoundingClientRect();
-    outer.style.transition = "";
-    outer.style.height = open ? `${h}px` : "0px";
-
-    if (open) {
-      const onEnd = () => {
-        outer.style.height = "";
-        outer.removeEventListener("transitionend", onEnd);
-      };
-      outer.addEventListener("transitionend", onEnd);
-      return () => outer.removeEventListener("transitionend", onEnd);
-    }
-  }, [open]);
-
-  return (
-    <div
-      ref={outerRef}
-      className="overflow-hidden transition-[height] duration-250 ease-in-out"
-    >
-      <div ref={innerRef} className="space-y-px">
-        {children}
-      </div>
-    </div>
-  );
-};
 
 type GroupedListProps = {
   groups: ItemGroup[];
@@ -245,7 +191,7 @@ export const GroupedList = ({
                   const typingTitle = typingTitles[item.id];
                   const rowItem = resolveRowItem(item, typingTitle);
                   return (
-                    <PlainItemRow
+                    <ItemRow
                       key={`${group.key}:${item.id}`}
                       item={rowItem}
                       suppressHover={suppressHover}
@@ -274,95 +220,5 @@ export const GroupedList = ({
         onConfirm={confirmDelete}
       />
     </>
-  );
-};
-
-export const PlainItemRow = ({
-  item,
-  suppressHover,
-  isTyping,
-  density = "compact",
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
-}: {
-  item: Item;
-  suppressHover: boolean;
-  isTyping?: boolean;
-  density?: Density;
-  onSelect: () => void;
-  onDelete?: () => void;
-  onToggleRead?: () => void;
-  onTogglePin?: () => void;
-}) => {
-  const isCursor = useIsCursor(item.id);
-  const isOpen = useIsOpenItem(item.id);
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
-  const isRead = item.read;
-
-  return (
-    <ItemContextMenu
-      item={item}
-      onTogglePin={onTogglePin}
-      onToggleRead={onToggleRead}
-      onDelete={onDelete}
-      onOpenChange={setContextMenuOpen}
-    >
-      <ItemContextMenuTrigger
-        render={
-          <div
-            data-item-id={item.id}
-            onClick={onSelect}
-            className={cn(
-              "group relative flex overflow-hidden select-none outline-none rounded-sm",
-              density === "cozy"
-                ? "items-stretch gap-3 p-2"
-                : "items-center gap-2 p-1",
-              isOpen && "bg-secondary",
-              // Translucent fill for hover/cursor/menu-open (matching cozy) so it
-              // stays distinct from the active bg-secondary — in dark mode
-              // bg-muted resolves to the same token as bg-secondary.
-              !isOpen && isCursor && "bg-foreground/5",
-              !isOpen && !isCursor && !suppressHover && "hover:bg-foreground/5",
-              !isOpen &&
-                !isCursor &&
-                (menuOpen || contextMenuOpen) &&
-                "bg-foreground/5",
-              isRead && "opacity-50",
-            )}
-            data-menu-open={menuOpen || contextMenuOpen || undefined}
-          />
-        }
-      >
-        {density === "cozy" ? (
-          <CozyRowContent
-            item={item}
-            isSelected={isOpen}
-            isTyping={isTyping}
-            menuOpen={menuOpen}
-            suppressHover={suppressHover}
-            onMenuOpenChange={setMenuOpen}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onDelete={onDelete}
-          />
-        ) : (
-          <ItemRowContent
-            item={item}
-            flashcardCount={item.flashcardCount}
-            isSelected={isOpen}
-            isTyping={isTyping}
-            menuOpen={menuOpen}
-            suppressHover={suppressHover}
-            onMenuOpenChange={setMenuOpen}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onDelete={onDelete}
-          />
-        )}
-      </ItemContextMenuTrigger>
-    </ItemContextMenu>
   );
 };

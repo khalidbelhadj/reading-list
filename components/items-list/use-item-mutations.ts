@@ -6,7 +6,10 @@ import {
   updateItem,
 } from "@/app/actions";
 import { type Item } from "@/lib/types";
-import { useInvalidateItems } from "./use-invalidate-items";
+import {
+  useInvalidateItemFlashcards,
+  useInvalidateItems,
+} from "./use-invalidate-items";
 
 export type UpdateItemFields = {
   title?: string;
@@ -19,6 +22,7 @@ export type UpdateItemFields = {
 export const useItemMutations = () => {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateItems();
+  const invalidateItemFlashcards = useInvalidateItemFlashcards();
 
   const toggleReadMutation = useMutation({
     mutationFn: ({ itemId, read }: { itemId: string; read: boolean }) =>
@@ -86,12 +90,8 @@ export const useItemMutations = () => {
     },
     onSettled: (_data, _error, itemId) => {
       invalidate();
-      // Deleting an item also deletes its flashcards server-side, so the card
-      // lists and due/new counts may have changed.
-      queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-      queryClient.invalidateQueries({ queryKey: ["flashcards", itemId] });
-      queryClient.invalidateQueries({ queryKey: ["review-status"] });
-      queryClient.invalidateQueries({ queryKey: ["item-review-status", itemId] });
+      // Deleting an item also deletes its flashcards server-side.
+      invalidateItemFlashcards(itemId);
     },
   });
 
@@ -128,14 +128,8 @@ export const useItemMutations = () => {
     },
     onSettled: (_data, _error, { itemId, fields }) => {
       invalidate();
-      // A notes save reconciles inline flashcards server-side, so the card
-      // lists and due/new counts may have changed.
-      if (fields.notes !== undefined) {
-        queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
-        queryClient.invalidateQueries({ queryKey: ["flashcards", itemId] });
-        queryClient.invalidateQueries({ queryKey: ["review-status"] });
-        queryClient.invalidateQueries({ queryKey: ["item-review-status", itemId] });
-      }
+      // A notes save reconciles inline flashcards server-side.
+      if (fields.notes !== undefined) invalidateItemFlashcards(itemId);
     },
   });
 
