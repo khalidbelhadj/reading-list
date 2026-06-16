@@ -9,6 +9,14 @@ import "@/lib/env";
 // script tag carrying this nonce (including the ones Next.js generates) is
 // allowed; everything else is blocked.
 const buildCsp = (nonce: string): string => {
+  // Standalone React DevTools (`bun x react-devtools`) serves its agent over
+  // http://localhost:8097 and the page then opens a WebSocket back to it.
+  // Only in development, and only the connect-src needs widening — the script
+  // tag itself is allowed via its nonce.
+  const devtools =
+    process.env.NODE_ENV === "development"
+      ? " http://localhost:8097 ws://localhost:8097"
+      : "";
   const directives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
@@ -17,7 +25,7 @@ const buildCsp = (nonce: string): string => {
     "font-src 'self'",
     // Schemeless sources only match http(s) — wss: must be listed explicitly
     // or the browser blocks Supabase Realtime's WebSocket.
-    "connect-src 'self' *.supabase.co wss://*.supabase.co",
+    `connect-src 'self' *.supabase.co wss://*.supabase.co${devtools}`,
     "frame-src 'self' accounts.google.com",
     "frame-ancestors 'none'",
     "form-action 'self' accounts.google.com",

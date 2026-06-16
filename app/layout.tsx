@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { headers } from "next/headers";
+import Script from "next/script";
 import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { AuthWatcher } from "@/components/auth-watcher";
@@ -30,6 +31,19 @@ const RootLayout = async ({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Connects to the standalone React DevTools (`bun x react-devtools`)
+            listening on localhost:8097. Dev-only so it never ships to prod;
+            must load before React, hence the head placement. The CSP nonce
+            lets it through script-src; middleware opens connect-src to the
+            DevTools socket in development. */}
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            nonce={nonce}
+            src="http://localhost:8097"
+            strategy="beforeInteractive"
+            suppressHydrationWarning
+          />
+        )}
         {/* Browsers strip the nonce attribute from the DOM after CSP
             processing, so the client sees "" where the server rendered the
             generated nonce. That's intentional (defense against script
