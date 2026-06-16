@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).catch("system"),
-  density: z.enum(["compact", "cozy"]).catch("compact"),
+  density: z.enum(["compact", "cozy"]).catch("cozy"),
   fullWidth: z.boolean().catch(false),
   groupBy: z.enum(["none", "tag", "day"]).catch("day"),
   sortBy: z
@@ -17,7 +17,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
-  density: "compact",
+  density: "cozy",
   fullWidth: false,
   groupBy: "day",
   sortBy: "created-desc",

@@ -99,18 +99,18 @@ const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
 };
 
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
-  none: "None",
-  tag: "Tag",
   day: "Date",
+  tag: "Tag",
+  none: "None",
 };
 
 const GROUP_BY_ICONS: Record<
   GroupBy,
   React.ComponentType<{ className?: string }>
 > = {
-  none: IconCircleOff,
-  tag: IconTag,
   day: IconCalendar,
+  tag: IconTag,
+  none: IconCircleOff,
 };
 
 const SORT_BY_LABELS: Record<SortBy, string> = {
@@ -404,13 +404,13 @@ export const SettingsMenu = ({
                   value={density}
                   onValueChange={handleDensityChange}
                 >
-                  <DropdownMenuRadioItem value="compact">
-                    <IconList />
-                    Compact
-                  </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="cozy">
                     <IconListDetails />
                     Cozy
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="compact">
+                    <IconList />
+                    Compact
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
