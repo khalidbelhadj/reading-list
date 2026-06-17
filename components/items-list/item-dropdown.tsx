@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { IconClaude } from "@/components/ui/claude-icon";
 import { type Item } from "@/lib/types";
 import { stripBlankLineSentinel } from "@/lib/markdown";
+import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { getItemReviewStatus, type ReviewMode } from "@/app/actions";
 import { useStartReview } from "./use-start-review";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
@@ -230,18 +231,8 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
   }, [item.url]);
 
   const handleChatWithClaude = React.useCallback(() => {
-    const lines = ["This is an item from my reading list:", ""];
-    lines.push(`- **ID:** ${item.id}`);
-    if (item.title) lines.push(`- **Title:** ${item.title}`);
-    if (item.url) lines.push(`- **URL:** ${item.url}`);
-    if (item.notes)
-      lines.push("", "**Notes:**", "", stripBlankLineSentinel(item.notes));
-    const prompt = lines.join("\n");
-    window.open(
-      `claude://claude.ai/new?q=${encodeURIComponent(prompt)}`,
-      "_self",
-    );
-  }, [item.id, item.title, item.url, item.notes]);
+    openChatWithClaude(item);
+  }, [item]);
 
   const canOpenUrl = !!item.url && URL.canParse(item.url);
   const hasNotes =

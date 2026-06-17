@@ -31,7 +31,7 @@ export const isOverlayOpen = (): boolean =>
 // Win/meta key shouldn't. Always use this for command-style shortcuts rather
 // than checking metaKey/ctrlKey directly. (Accepts native and React events.)
 let cachedIsApple: boolean | null = null;
-const isApplePlatform = (): boolean => {
+export const isApplePlatform = (): boolean => {
   if (cachedIsApple !== null) return cachedIsApple;
   // Don't cache during SSR — navigator isn't available, and the client value
   // is the one that matters for keyboard handling.

@@ -21,6 +21,11 @@ export const useKeyboardNavigation = ({
   onOpenNew,
   onPasteCreate,
   onSearchOpen,
+  onToggleReadCursor,
+  onChatCursor,
+  onToggleDensity,
+  onToggleTheme,
+  onShowShortcuts,
 }: {
   filteredItems: Item[];
   setActiveTabAndUrl: (tab: TabId) => void;
@@ -35,6 +40,11 @@ export const useKeyboardNavigation = ({
   onOpenNew: () => void;
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
+  onToggleReadCursor: () => void;
+  onChatCursor: () => void;
+  onToggleDensity: () => void;
+  onToggleTheme: () => void;
+  onShowShortcuts: () => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
 
@@ -90,10 +100,14 @@ export const useKeyboardNavigation = ({
         e.preventDefault();
         onSearchOpen();
       }
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onShowShortcuts();
+      }
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [setActiveTabAndUrl, setTagsOpen, setShowRead, setCursor, onOpenNew, onSearchOpen]);
+  }, [setActiveTabAndUrl, setTagsOpen, setShowRead, setCursor, onOpenNew, onSearchOpen, onShowShortcuts]);
 
   // Command shortcuts for search + panel view transitions. Unlike the shortcuts
   // above, these are NOT gated on isTypingContext: Cmd+K should jump to search
@@ -123,6 +137,40 @@ export const useKeyboardNavigation = ({
     document.addEventListener("keydown", handleCommand);
     return () => document.removeEventListener("keydown", handleCommand);
   }, [onSearchOpen]);
+
+  // Cmd/Ctrl+Shift command shortcuts. Like the handler above, these are NOT
+  // gated on isTypingContext so they fire from anywhere — including the
+  // detail-panel editor. The item-scoped ones act on the list cursor.
+  //   ⌘⇧M — mark the cursor item read / unread
+  //   ⌘⇧J — chat with Claude about the cursor item
+  //   ⌘⇧V — toggle list density (cozy ↔ compact)
+  //   ⌘⇧L — toggle theme (light ↔ dark)
+  React.useEffect(() => {
+    const handleModShift = (e: KeyboardEvent) => {
+      if (!isModKey(e) || !e.shiftKey || e.altKey) return;
+      if (isOverlayOpen()) return;
+      switch (e.key.toLowerCase()) {
+        case "m":
+          e.preventDefault();
+          onToggleReadCursor();
+          break;
+        case "j":
+          e.preventDefault();
+          onChatCursor();
+          break;
+        case "v":
+          e.preventDefault();
+          onToggleDensity();
+          break;
+        case "l":
+          e.preventDefault();
+          onToggleTheme();
+          break;
+      }
+    };
+    document.addEventListener("keydown", handleModShift);
+    return () => document.removeEventListener("keydown", handleModShift);
+  }, [onToggleReadCursor, onChatCursor, onToggleDensity, onToggleTheme]);
 
   // Cmd+Backspace to delete cursor item
   React.useEffect(() => {
