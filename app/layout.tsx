@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { headers } from "next/headers";
-import Script from "next/script";
 import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { AuthWatcher } from "@/components/auth-watcher";
@@ -36,12 +35,22 @@ const RootLayout = async ({
             must load before React, hence the head placement. The CSP nonce
             lets it through script-src; middleware opens connect-src to the
             DevTools socket in development. */}
-        {process.env.NODE_ENV === "development" && (
-          <Script
+        {process.env.NODE_ENV === "development" && nonce && (
+          // Inline loader rather than next/script: next/script's
+          // beforeInteractive strategy emits its own nonce-carrying bootstrap
+          // node that suppressHydrationWarning can't reach, so the
+          // stripped-nonce mismatch warning fires there. This inline node keeps
+          // the nonce (required by 'strict-dynamic'), honours
+          // suppressHydrationWarning, and document.writes the DevTools agent
+          // synchronously during head parse — before React in the body, which
+          // is the ordering the hook needs. The written tag carries the nonce
+          // so CSP admits it.
+          <script
             nonce={nonce}
-            src="http://localhost:8097"
-            strategy="beforeInteractive"
             suppressHydrationWarning
+            dangerouslySetInnerHTML={{
+              __html: `document.write('<script src="http://localhost:8097" nonce="${nonce}"><\\/script>')`,
+            }}
           />
         )}
         {/* Browsers strip the nonce attribute from the DOM after CSP

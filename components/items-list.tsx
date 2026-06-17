@@ -15,6 +15,7 @@ import { makeOptimisticItem, resolveRowItem } from "./items-list/utils";
 import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
+import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { useSettings } from "@/lib/use-settings";
 import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { setCursorId } from "./items-list/cursor-store";
@@ -25,6 +26,7 @@ import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { SearchBar } from "./items-list/search-bar";
+import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { useCreateItem } from "./items-list/use-create-item";
@@ -61,6 +63,7 @@ export const ItemsList = ({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   // URL ?tab= wins; otherwise fall back to the user's last-used tab from
   // settings. Local state because the URL still drives intra-session tab
   // changes — settings just remembers the default across reloads.
@@ -329,6 +332,33 @@ export const ItemsList = ({
     requestPasteCreate(text, [...activeTags]);
   }, [requestPasteCreate, activeTags]);
 
+  const handleToggleReadCursor = React.useCallback(() => {
+    const id = cursorRef.current;
+    if (!id) return;
+    const item = items?.find((i) => i.id === id);
+    if (!item) return;
+    handleToggleRead(id, !item.read);
+  }, [items, handleToggleRead]);
+
+  const handleChatCursor = React.useCallback(() => {
+    const id = cursorRef.current;
+    if (!id) return;
+    const item = items?.find((i) => i.id === id);
+    if (item) openChatWithClaude(item);
+  }, [items]);
+
+  const handleToggleDensity = React.useCallback(() => {
+    setSetting("density", density === "cozy" ? "compact" : "cozy");
+  }, [setSetting, density]);
+
+  // Flip between an explicit light/dark theme based on what's currently applied
+  // to <html>. This collapses the 3-way setting (system/light/dark) to a direct
+  // toggle — the settings menu still exposes "system" for those who want it.
+  const handleToggleTheme = React.useCallback(() => {
+    const isDark = document.documentElement.classList.contains("dark");
+    setSetting("theme", isDark ? "light" : "dark");
+  }, [setSetting]);
+
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
     setActiveTabAndUrl,
@@ -346,6 +376,11 @@ export const ItemsList = ({
     onOpenNew: handleOpenNew,
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
+    onToggleReadCursor: handleToggleReadCursor,
+    onChatCursor: handleChatCursor,
+    onToggleDensity: handleToggleDensity,
+    onToggleTheme: handleToggleTheme,
+    onShowShortcuts: React.useCallback(() => setShortcutsOpen(true), []),
   });
 
   // Effects
@@ -592,6 +627,8 @@ export const ItemsList = ({
         onOpenExisting={handleDuplicateOpenExisting}
         onCreateAnyway={handleDuplicateCreateAnyway}
       />
+
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 };
