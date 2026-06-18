@@ -27,6 +27,7 @@ import { PinnedSection } from "./items-list/pinned-section";
 import { ReviewNudge } from "./items-list/review-nudge";
 import { SearchBar } from "./items-list/search-bar";
 import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
+import { SuggestedSection } from "./items-list/suggested-section";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { useCreateItem } from "./items-list/use-create-item";
@@ -34,6 +35,7 @@ import { useItemsFilters, type TabId } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { useListSearch } from "./items-list/use-list-search";
+import { useSuggestions } from "./items-list/use-suggestions";
 import { useItemsMutations } from "./items-list/use-mutations";
 import { useTypingTitles } from "./items-list/use-typing-titles";
 
@@ -63,6 +65,7 @@ export const ItemsList = ({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
+  const [suggestedOpen, setSuggestedOpen] = React.useState(true);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   // URL ?tab= wins; otherwise fall back to the user's last-used tab from
   // settings. Local state because the URL still drives intra-session tab
@@ -405,6 +408,16 @@ export const ItemsList = ({
   // own relevance order, so we fall back to the flat list while searching.
   const useGroupedLayout = groupBy !== "none" && !searchActive;
 
+  // "Suggested next reads" — top unread items by heuristic score. Computed over
+  // the full item set, but only surfaced on the plain reading-list view: while
+  // searching or filtering by tags the user has already narrowed intent, so the
+  // strip would just be noise.
+  const allSuggestions = useSuggestions(items);
+  const suggestedItems =
+    activeTab !== "cards" && !searchActive && activeTags.size === 0
+      ? allSuggestions
+      : [];
+
   // Empty state message
   const emptyState = React.useMemo(() => {
     if (filteredItems.length > 0) return null;
@@ -550,6 +563,16 @@ export const ItemsList = ({
                 }
               >
                 {statusNode}
+
+                <SuggestedSection
+                  items={suggestedItems}
+                  open={suggestedOpen}
+                  onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                  onSelect={handleOpenItem}
+                  onDelete={requestDeleteItem}
+                  onToggleRead={handleToggleRead}
+                  onTogglePin={handleTogglePin}
+                />
 
                 <PinnedSection
                   items={pinnedItems}
