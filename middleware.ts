@@ -17,9 +17,15 @@ const buildCsp = (nonce: string): string => {
     process.env.NODE_ENV === "development"
       ? " http://localhost:8097 ws://localhost:8097"
       : "";
+  // Turbopack's Fast Refresh runtime uses eval() in development (React dev
+  // tooling needs it to reconstruct call stacks, etc.). Without 'unsafe-eval'
+  // the strict CSP blocks it and every edit falls back to a full page reload
+  // instead of hot-swapping. Dev-only — production CSP stays eval-free.
+  const devEval =
+    process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devEval}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https: data: blob:",
     "font-src 'self'",
@@ -68,7 +74,9 @@ export async function middleware(request: NextRequest) {
       } = await supabase.auth.getUser(token);
       if (user) {
         const response = NextResponse.next();
-        for (const [key, value] of Object.entries(corsHeaders(request, isMcp))) {
+        for (const [key, value] of Object.entries(
+          corsHeaders(request, isMcp),
+        )) {
           response.headers.set(key, value);
         }
         return response;
@@ -80,7 +88,8 @@ export async function middleware(request: NextRequest) {
     const { user } = await updateSession(request, response);
     if (!user) {
       const headers = corsHeaders(request, isMcp);
-      headers["WWW-Authenticate"] = `Bearer resource_metadata="${request.nextUrl.origin}/.well-known/oauth-protected-resource"`;
+      headers["WWW-Authenticate"] =
+        `Bearer resource_metadata="${request.nextUrl.origin}/.well-known/oauth-protected-resource"`;
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401, headers },
@@ -100,7 +109,9 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
 
   const passThrough = (): NextResponse => {
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
     response.headers.set("Content-Security-Policy", buildCsp(nonce));
     return response;
   };
@@ -111,7 +122,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/.well-known") ||
     pathname === "/login" ||
     pathname.startsWith("/auth/") ||
-    /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|ttf|otf|map|txt|json)$/i.test(pathname)
+    /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|ttf|otf|map|txt|json)$/i.test(
+      pathname,
+    )
   ) {
     const response = passThrough();
     await updateSession(request, response);
@@ -126,10 +139,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Allow bypass in development with explicit mock user
-  if (
-    process.env.NODE_ENV === "development" &&
-    process.env.MOCK_USER_ID
-  ) {
+  if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
     return passThrough();
   }
 
@@ -152,11 +162,15 @@ const ALLOWED_ORIGINS = (() => {
   return new Set(origins);
 })();
 
-function corsHeaders(request: NextRequest, isMcp: boolean): Record<string, string> {
+function corsHeaders(
+  request: NextRequest,
+  isMcp: boolean,
+): Record<string, string> {
   const origin = request.headers.get("origin");
   const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, mcp-session-id",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization, mcp-session-id",
     "Access-Control-Max-Age": "86400",
   };
 
