@@ -1,0 +1,26 @@
+# Build output / generated
+.next/
+out/
+dist-electron/
+next-env.d.ts
+*.tsbuildinfo
+
+# Next.js manages (and re-formats) tsconfig.json itself
+tsconfig.json
+
+# Lockfiles
+bun.lock
+
+# Drizzle migrations + meta (generated; read by drizzle-kit)
+drizzle/
+
+# Separate uv/Python subproject
+analysis/
+
+# Editor/agent tooling
+.claude/
+.husky/
+
+# Docs & large data files (opt into markdown formatting later if desired)
+*.md
+bookmarks.html
