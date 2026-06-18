@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { IconSun, IconMoon } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 export const ThemeToggle = () => {
   const [dark, setDark] = useState(false);
@@ -41,7 +45,10 @@ export const ThemeToggle = () => {
     const bridge = window.readingList;
     if (bridge) {
       unsubscribeElectron = bridge.onNativeThemeChange((d) => applySystem(d));
-      bridge.getNativeTheme().then((d) => applySystem(d)).catch(() => {});
+      bridge
+        .getNativeTheme()
+        .then((d) => applySystem(d))
+        .catch(() => {});
     }
 
     return () => {

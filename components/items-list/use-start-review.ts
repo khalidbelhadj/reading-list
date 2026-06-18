@@ -15,8 +15,11 @@ export const useStartReview = () => {
     null,
   );
   const mutation = useMutation({
-    mutationFn: (args: { mode: ReviewMode; limit: number; scope?: ReviewScope }) =>
-      startReviewSession(args),
+    mutationFn: (args: {
+      mode: ReviewMode;
+      limit: number;
+      scope?: ReviewScope;
+    }) => startReviewSession(args),
     onSuccess: ({ sessionId, cardCount, data }) => {
       if (cardCount === 0) {
         setStartingMode(null);

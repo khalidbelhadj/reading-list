@@ -56,7 +56,13 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
         { label: "Show / hide read", combos: [["R"]] },
         { label: "Toggle density", combos: [[mod, shift, "V"]] },
         { label: "Toggle theme", combos: [[mod, shift, "L"]] },
-        { label: "Expand / collapse panel", combos: [[mod, "["], [mod, "]"]] },
+        {
+          label: "Expand / collapse panel",
+          combos: [
+            [mod, "["],
+            [mod, "]"],
+          ],
+        },
       ],
     },
   ];

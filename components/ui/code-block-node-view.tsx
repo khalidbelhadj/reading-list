@@ -120,7 +120,7 @@ const CodeBlockToolbar = ({
           render={
             <button
               type="button"
-              className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-1 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none data-popup-open:text-foreground"
+              className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[0.7rem] whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus:text-foreground focus:outline-none data-popup-open:text-foreground"
             />
           }
         >

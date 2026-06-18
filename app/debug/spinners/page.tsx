@@ -142,7 +142,7 @@ const SPINNERS: SpinnerDef[] = [
             key={i}
             className={cn(
               sizeFor(s, "size-1.5", "size-1"),
-              "rounded-full bg-current animate-bounce",
+              "animate-bounce rounded-full bg-current",
             )}
             style={{ animationDelay: `${i * 0.12}s` }}
           />
@@ -216,7 +216,7 @@ const SPINNERS: SpinnerDef[] = [
     render: (s) => (
       <div className={cn("relative", sizeFor(s, "size-2", "size-1.5"))}>
         <span className="absolute inset-0 rounded-full bg-primary" />
-        <span className="absolute inset-0 rounded-full bg-primary animate-ping" />
+        <span className="absolute inset-0 animate-ping rounded-full bg-primary" />
       </div>
     ),
   },
@@ -231,7 +231,7 @@ const SPINNERS: SpinnerDef[] = [
       >
         <span
           className={cn(
-            "absolute left-1/2 top-0 -translate-x-1/2 rounded-full bg-primary",
+            "absolute top-0 left-1/2 -translate-x-1/2 rounded-full bg-primary",
             sizeFor(s, "size-1.5", "size-1"),
           )}
         />
@@ -282,7 +282,7 @@ const SPINNERS: SpinnerDef[] = [
           <span
             key={i}
             className={cn(
-              "absolute left-1/2 top-1/2 -translate-x-1/2 rounded-full bg-primary",
+              "absolute top-1/2 left-1/2 -translate-x-1/2 rounded-full bg-primary",
               sizeFor(s, "size-1.5", "size-1"),
             )}
             style={{
@@ -341,8 +341,8 @@ const SpinnersPlayground = () => {
         <div className="flex flex-col gap-1">
           <h1 className="font-content text-xl">Loading spinners</h1>
           <p className="text-sm text-muted-foreground">
-            Click a card to select, then try it on a button. Sage where it
-            makes sense; muted-foreground for the rest.
+            Click a card to select, then try it on a button. Sage where it makes
+            sense; muted-foreground for the rest.
           </p>
         </div>
 
@@ -365,10 +365,8 @@ const SpinnersPlayground = () => {
                 type="button"
                 onClick={() => setSelectedId(spinner.id)}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-lg p-6 text-left transition-colors text-muted-foreground",
-                  isSelected
-                    ? "bg-secondary"
-                    : "bg-card hover:bg-card/70",
+                  "flex flex-col items-center gap-3 rounded-lg p-6 text-left text-muted-foreground transition-colors",
+                  isSelected ? "bg-secondary" : "bg-card hover:bg-card/70",
                 )}
               >
                 <div className="flex h-12 w-12 items-center justify-center">

@@ -38,7 +38,8 @@ export const ReviewNudge = () => {
       setDismissed(false);
       return;
     }
-    const elapsedHours = (Date.now() - new Date(stored).getTime()) / (1000 * 60 * 60);
+    const elapsedHours =
+      (Date.now() - new Date(stored).getTime()) / (1000 * 60 * 60);
     setDismissed(elapsedHours < DISMISS_HOURS);
   }, []);
 
@@ -79,13 +80,14 @@ export const ReviewNudge = () => {
   return (
     <div className="flex items-center gap-1 rounded-lg bg-amber-100 px-3 py-2 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
       <div className="flex-1 text-xs">
-        Your last review was {relativeTime(lastReviewedAt)}, let&rsquo;s catch up.
+        Your last review was {relativeTime(lastReviewedAt)}, let&rsquo;s catch
+        up.
       </div>
       <Button
         size="sm"
         onClick={handleReview}
         disabled={startingMode !== null}
-        className="bg-amber-600 border-amber-700 text-white shadow-[inset_0_-1px_0_0_oklch(0.48_0.13_60/0.5),0_1px_2px_0_rgb(0_0_0/0.12)]! hover:bg-amber-700 hover:border-amber-800 dark:bg-amber-500 dark:border-amber-600 dark:text-amber-950 dark:shadow-[inset_0_-1px_0_0_oklch(0.52_0.15_60/0.5),0_1px_2px_-1px_rgb(0_0_0/0.35)]! dark:hover:bg-amber-400 dark:hover:border-amber-500"
+        className="border-amber-700 bg-amber-600 text-white shadow-[inset_0_-1px_0_0_oklch(0.48_0.13_60/0.5),0_1px_2px_0_rgb(0_0_0/0.12)]! hover:border-amber-800 hover:bg-amber-700 dark:border-amber-600 dark:bg-amber-500 dark:text-amber-950 dark:shadow-[inset_0_-1px_0_0_oklch(0.52_0.15_60/0.5),0_1px_2px_-1px_rgb(0_0_0/0.35)]! dark:hover:border-amber-500 dark:hover:bg-amber-400"
       >
         {startingMode === "due" && <Spinner className="size-3" />}
         Review

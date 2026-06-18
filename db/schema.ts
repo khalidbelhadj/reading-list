@@ -28,10 +28,18 @@ export const items = pgTable(
     notes: text("notes"),
     read: boolean("read").notNull().default(false),
     readAt: timestamp("read_at", { withTimezone: true, mode: "string" }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
   },
-  (table) => [index("items_user_created_idx").on(table.userId, table.createdAt)],
+  (table) => [
+    index("items_user_created_idx").on(table.userId, table.createdAt),
+  ],
 );
 
 export const tags = pgTable(
@@ -80,12 +88,22 @@ export const flashcards = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
   },
   (table) => [
     index("flashcards_user_item_idx").on(table.userId, table.itemId),
-    index("flashcards_user_state_due_idx").on(table.userId, table.state, table.due),
+    index("flashcards_user_state_due_idx").on(
+      table.userId,
+      table.state,
+      table.due,
+    ),
   ],
 );
 
@@ -100,10 +118,15 @@ export const reviewSessions = pgTable(
     cardsPlanned: integer("cards_planned").notNull().default(0),
     cardsCompleted: integer("cards_completed").notNull().default(0),
     affectsSchedule: boolean("affects_schedule").notNull().default(true),
-    startedAt: timestamp("started_at", { withTimezone: true, mode: "string" }).notNull(),
+    startedAt: timestamp("started_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true, mode: "string" }),
   },
-  (table) => [index("review_sessions_user_started_idx").on(table.userId, table.startedAt)],
+  (table) => [
+    index("review_sessions_user_started_idx").on(table.userId, table.startedAt),
+  ],
 );
 
 export const cardReviews = pgTable(
@@ -127,8 +150,14 @@ export const cardReviews = pgTable(
     nextState: text("next_state").notNull(),
     nextInterval: integer("next_interval").notNull(),
     nextEaseFactor: real("next_ease_factor").notNull(),
-    nextDue: timestamp("next_due", { withTimezone: true, mode: "string" }).notNull(),
-    reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: "string" }).notNull(),
+    nextDue: timestamp("next_due", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    reviewedAt: timestamp("reviewed_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
   },
   (table) => [
     index("card_reviews_user_reviewed_idx").on(table.userId, table.reviewedAt),
@@ -158,7 +187,10 @@ export const reviewEvents = pgTable(
     }),
     type: text("type").notNull(),
     data: jsonb("data"),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
   },
   (table) => [index("review_events_session_idx").on(table.sessionId)],
 );
@@ -173,10 +205,13 @@ export const flashcardsRelations = relations(flashcards, ({ one, many }) => ({
   reviews: many(cardReviews),
 }));
 
-export const reviewSessionsRelations = relations(reviewSessions, ({ many }) => ({
-  reviews: many(cardReviews),
-  events: many(reviewEvents),
-}));
+export const reviewSessionsRelations = relations(
+  reviewSessions,
+  ({ many }) => ({
+    reviews: many(cardReviews),
+    events: many(reviewEvents),
+  }),
+);
 
 export const cardReviewsRelations = relations(cardReviews, ({ one }) => ({
   session: one(reviewSessions, {

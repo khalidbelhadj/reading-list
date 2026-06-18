@@ -119,7 +119,10 @@ const collectDomMatches = (root: HTMLElement, query: string): DomMatch[] => {
   return matches;
 };
 
-const collectFieldMatches = (root: HTMLElement, query: string): FieldMatch[] => {
+const collectFieldMatches = (
+  root: HTMLElement,
+  query: string,
+): FieldMatch[] => {
   const matches: FieldMatch[] = [];
   if (!query) return matches;
   const lower = query.toLowerCase();
@@ -149,8 +152,10 @@ const collectFieldMatches = (root: HTMLElement, query: string): FieldMatch[] => 
 
 // Document order so prev/next reads like the user expects.
 const sortMatches = (a: Match, b: Match): number => {
-  const aEl = a.kind === "dom" ? a.range.startContainer.parentElement : a.element;
-  const bEl = b.kind === "dom" ? b.range.startContainer.parentElement : b.element;
+  const aEl =
+    a.kind === "dom" ? a.range.startContainer.parentElement : a.element;
+  const bEl =
+    b.kind === "dom" ? b.range.startContainer.parentElement : b.element;
   if (!aEl || !bEl || aEl === bEl) {
     if (a.kind === "dom" && b.kind === "dom") {
       return a.range.compareBoundaryPoints(Range.START_TO_START, b.range);
@@ -246,7 +251,10 @@ export const usePanelFind = ({
     const activeMatch = matches[active];
     if (activeMatch?.kind === "field") {
       try {
-        activeMatch.element.setSelectionRange(activeMatch.start, activeMatch.end);
+        activeMatch.element.setSelectionRange(
+          activeMatch.start,
+          activeMatch.end,
+        );
       } catch {
         // setSelectionRange isn't supported on every input type — ignore.
       }
@@ -274,9 +282,7 @@ export const usePanelFind = ({
     matchesRef.current = all;
     setTotal(all.length);
     const nextIndex =
-      all.length === 0
-        ? 0
-        : Math.min(currentIndexRef.current, all.length - 1);
+      all.length === 0 ? 0 : Math.min(currentIndexRef.current, all.length - 1);
     setCurrentIndex(nextIndex);
     applyHighlights(nextIndex);
     if (all.length > 0) scrollMatchIntoView(all[nextIndex], root);

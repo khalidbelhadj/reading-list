@@ -69,7 +69,7 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
   return (
     <div
       data-find-bar
-      className="absolute top-10 right-3 z-30 flex items-center gap-1 rounded-md border border-border bg-surface/95 backdrop-blur-sm shadow-md p-1 [&>button+button]:-ml-1"
+      className="absolute top-10 right-3 z-30 flex items-center gap-1 rounded-md border border-border bg-surface/95 p-1 shadow-md backdrop-blur-sm [&>button+button]:-ml-1"
     >
       <input
         ref={inputRef}
@@ -77,15 +77,19 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="Find"
-        className="bg-transparent outline-none text-sm w-40 px-1.5"
+        className="w-40 bg-transparent px-1.5 text-sm outline-none"
       />
       <span
         className={cn(
-          "text-xs tabular-nums px-1 select-none",
-          hasQuery && !hasMatches ? "text-destructive" : "text-muted-foreground",
+          "px-1 text-xs tabular-nums select-none",
+          hasQuery && !hasMatches
+            ? "text-destructive"
+            : "text-muted-foreground",
         )}
       >
-        {hasQuery ? `${hasMatches ? find.currentIndex + 1 : 0}/${find.total}` : ""}
+        {hasQuery
+          ? `${hasMatches ? find.currentIndex + 1 : 0}/${find.total}`
+          : ""}
       </span>
       <Button
         variant="ghost"

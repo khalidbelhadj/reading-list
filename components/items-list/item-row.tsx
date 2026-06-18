@@ -48,7 +48,7 @@ export const ItemRow = ({
           <div
             data-item-id={item.id}
             className={cn(
-              "group relative flex overflow-hidden select-none outline-none rounded-sm",
+              "group relative flex overflow-hidden rounded-sm outline-none select-none",
               density === "cozy"
                 ? "items-stretch gap-3 p-2"
                 : "items-center gap-2 p-1",

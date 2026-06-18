@@ -76,7 +76,7 @@ const PagePreview = ({
           />
         ) : (
           <div className="flex flex-col gap-0.75 px-1.5 pt-1.5">
-            <div className="line-clamp-2 text-[6px] font-semibold leading-[1.2] text-zinc-900">
+            <div className="line-clamp-2 text-[6px] leading-[1.2] font-semibold text-zinc-900">
               {title}
             </div>
             <div className="mt-0.5 h-0.5 w-full rounded-full bg-zinc-300" />
@@ -185,7 +185,7 @@ export const CozyRowContent = ({
             previewImageUrl={previewImageUrl}
           />
         )}
-        <div className="absolute bottom-1 right-1 flex size-4 items-center justify-center rounded-[3px] bg-background/90 ring-1 ring-foreground/10">
+        <div className="absolute right-1 bottom-1 flex size-4 items-center justify-center rounded-[3px] bg-background/90 ring-1 ring-foreground/10">
           {faviconSrc ? (
             <Image
               src={faviconSrc}
@@ -205,7 +205,7 @@ export const CozyRowContent = ({
         <span
           data-item-title
           className={cn(
-            "font-content text-sm/5 fade-r min-w-0",
+            "fade-r min-w-0 font-content text-sm/5",
             !item.title && !isTyping && "text-muted-foreground",
           )}
         >
@@ -249,7 +249,7 @@ export const CozyRowContent = ({
       >
         <div
           className={cn(
-            "absolute inset-y-0 right-0 flex items-start pt-2 pl-12 pr-2 pointer-events-none invisible group-data-menu-open:visible",
+            "pointer-events-none invisible absolute inset-y-0 right-0 flex items-start pt-2 pr-2 pl-12 group-data-menu-open:visible",
             !suppressHover && "group-hover:visible",
           )}
         >
@@ -267,7 +267,7 @@ export const CozyRowContent = ({
           )}
           <DropdownMenuTrigger
             className={cn(
-              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+              "pointer-events-auto relative shrink-0 rounded p-1 text-muted-foreground outline-none hover:text-foreground",
               isSelected && "bg-secondary",
             )}
             onClick={stopPropagation}

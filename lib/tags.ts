@@ -15,9 +15,7 @@ export const deleteTagById = async (
   if (!owned) return false;
 
   await tx.delete(itemsTags).where(eq(itemsTags.tagId, tagId));
-  await tx
-    .delete(tags)
-    .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
+  await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
   return true;
 };
 
@@ -28,20 +26,18 @@ export const pruneOrphanTags = async (
 ) => {
   const unique = Array.from(new Set(tagIds));
   if (unique.length === 0) return;
-  await tx
-    .delete(tags)
-    .where(
-      and(
-        eq(tags.userId, userId),
-        inArray(tags.id, unique),
-        notExists(
-          tx
-            .select({ one: sql`1` })
-            .from(itemsTags)
-            .where(eq(itemsTags.tagId, tags.id)),
-        ),
+  await tx.delete(tags).where(
+    and(
+      eq(tags.userId, userId),
+      inArray(tags.id, unique),
+      notExists(
+        tx
+          .select({ one: sql`1` })
+          .from(itemsTags)
+          .where(eq(itemsTags.tagId, tags.id)),
       ),
-    );
+    ),
+  );
 };
 
 const upsertTagsAndGetIds = async (

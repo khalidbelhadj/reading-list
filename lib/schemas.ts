@@ -24,11 +24,23 @@ const optionalUrlSchema = z
     (s) => s === "" || /^https?:\/\//i.test(s),
     "URL must use http or https",
   );
-const notesSchema = z.string().max(100000, "Notes must be under 100,000 characters");
-const tagNameSchema = z.string().max(100, "Tag name must be under 100 characters");
-const tagNamesSchema = z.array(tagNameSchema).max(50, "Cannot have more than 50 tags");
-const flashcardTextSchema = z.string().max(10000, "Flashcard text must be under 10,000 characters");
-const limitSchema = z.number().int("Limit must be an integer").min(1, "Limit must be at least 1").max(100, "Limit must be at most 100");
+const notesSchema = z
+  .string()
+  .max(100000, "Notes must be under 100,000 characters");
+const tagNameSchema = z
+  .string()
+  .max(100, "Tag name must be under 100 characters");
+const tagNamesSchema = z
+  .array(tagNameSchema)
+  .max(50, "Cannot have more than 50 tags");
+const flashcardTextSchema = z
+  .string()
+  .max(10000, "Flashcard text must be under 10,000 characters");
+const limitSchema = z
+  .number()
+  .int("Limit must be an integer")
+  .min(1, "Limit must be at least 1")
+  .max(100, "Limit must be at most 100");
 
 // Server action schemas
 export const deleteItemSchema = z.object({
@@ -67,7 +79,9 @@ export const toggleReadSchema = z.object({
 });
 
 export const bulkDeleteItemsSchema = z.object({
-  itemIds: z.array(idSchema).max(100, "Cannot delete more than 100 items at once"),
+  itemIds: z
+    .array(idSchema)
+    .max(100, "Cannot delete more than 100 items at once"),
 });
 
 export const bulkTagSchema = z.object({
@@ -76,7 +90,9 @@ export const bulkTagSchema = z.object({
 });
 
 export const bulkMarkReadSchema = z.object({
-  itemIds: z.array(idSchema).max(100, "Cannot update more than 100 items at once"),
+  itemIds: z
+    .array(idSchema)
+    .max(100, "Cannot update more than 100 items at once"),
   read: z.boolean(),
 });
 
@@ -113,18 +129,26 @@ export const deleteFlashcardSchema = z.object({
 
 export const startReviewSessionSchema = z.object({
   mode: z.enum(["due", "cram", "item", "new", "filter"]),
-  scope: z.object({
-    itemId: idSchema.optional(),
-    tagIds: z.array(z.number().int()).optional(),
-  }).optional(),
+  scope: z
+    .object({
+      itemId: idSchema.optional(),
+      tagIds: z.array(z.number().int()).optional(),
+    })
+    .optional(),
   limit: limitSchema.optional(),
 });
 
 export const rateCardSchema = z.object({
   sessionId: idSchema,
   flashcardId: idSchema,
-  rating: z.enum(["again", "hard", "good", "easy"], { message: "Rating must be 1-4 (again, hard, good, easy)" }),
-  durationMs: z.number().int("Duration must be an integer").min(0, "Duration must be non-negative").max(600000, "Duration must be at most 10 minutes"),
+  rating: z.enum(["again", "hard", "good", "easy"], {
+    message: "Rating must be 1-4 (again, hard, good, easy)",
+  }),
+  durationMs: z
+    .number()
+    .int("Duration must be an integer")
+    .min(0, "Duration must be non-negative")
+    .max(600000, "Duration must be at most 10 minutes"),
   timeToRevealMs: z.number().int().min(0).max(600000).nullable(),
 });
 
@@ -132,7 +156,11 @@ export const skipCardSchema = z.object({
   sessionId: idSchema,
   flashcardId: idSchema,
   afterReveal: z.boolean(),
-  durationMs: z.number().int("Duration must be an integer").min(0, "Duration must be non-negative").max(600000, "Duration must be at most 10 minutes"),
+  durationMs: z
+    .number()
+    .int("Duration must be an integer")
+    .min(0, "Duration must be non-negative")
+    .max(600000, "Duration must be at most 10 minutes"),
 });
 
 export const endReviewSessionSchema = z.object({
@@ -143,13 +171,46 @@ export const endReviewSessionSchema = z.object({
 export const logSessionEventSchema = z.object({
   sessionId: idSchema,
   event: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("card_shown"), flashcardId: idSchema, data: z.null() }),
-    z.object({ type: z.literal("answer_revealed"), flashcardId: idSchema, data: z.object({ timeToRevealMs: z.number().int().min(0) }) }),
-    z.object({ type: z.literal("card_skipped"), flashcardId: idSchema, data: z.object({ afterReveal: z.boolean(), durationMs: z.number().int().min(0).max(600000) }) }),
-    z.object({ type: z.literal("card_edited_during_review"), flashcardId: idSchema, data: z.object({ fieldsChanged: z.array(z.enum(["front", "back"])) }) }),
-    z.object({ type: z.literal("session_paused"), flashcardId: z.null(), data: z.null() }),
-    z.object({ type: z.literal("session_resumed"), flashcardId: z.null(), data: z.object({ pauseDurationMs: z.number().int().min(0) }) }),
-    z.object({ type: z.literal("session_ended"), flashcardId: z.null(), data: z.object({ reason: z.enum(["completed", "user_ended", "abandoned"]) }) }),
+    z.object({
+      type: z.literal("card_shown"),
+      flashcardId: idSchema,
+      data: z.null(),
+    }),
+    z.object({
+      type: z.literal("answer_revealed"),
+      flashcardId: idSchema,
+      data: z.object({ timeToRevealMs: z.number().int().min(0) }),
+    }),
+    z.object({
+      type: z.literal("card_skipped"),
+      flashcardId: idSchema,
+      data: z.object({
+        afterReveal: z.boolean(),
+        durationMs: z.number().int().min(0).max(600000),
+      }),
+    }),
+    z.object({
+      type: z.literal("card_edited_during_review"),
+      flashcardId: idSchema,
+      data: z.object({ fieldsChanged: z.array(z.enum(["front", "back"])) }),
+    }),
+    z.object({
+      type: z.literal("session_paused"),
+      flashcardId: z.null(),
+      data: z.null(),
+    }),
+    z.object({
+      type: z.literal("session_resumed"),
+      flashcardId: z.null(),
+      data: z.object({ pauseDurationMs: z.number().int().min(0) }),
+    }),
+    z.object({
+      type: z.literal("session_ended"),
+      flashcardId: z.null(),
+      data: z.object({
+        reason: z.enum(["completed", "user_ended", "abandoned"]),
+      }),
+    }),
   ]),
 });
 
@@ -184,41 +245,59 @@ export const mcpGetItemsSchema = z.object({
   offset: z.number().int().min(0).optional(),
 });
 
-export const mcpGetItemSchema = z.object({
-  url: urlSchema.optional(),
-  id: idSchema.optional(),
-}).refine((data) => data.url || data.id, {
-  message: "At least one of 'url' or 'id' must be provided",
-});
+export const mcpGetItemSchema = z
+  .object({
+    url: urlSchema.optional(),
+    id: idSchema.optional(),
+  })
+  .refine((data) => data.url || data.id, {
+    message: "At least one of 'url' or 'id' must be provided",
+  });
 
 export const mcpSearchItemsSchema = z.object({
-  pattern: z.string().min(1, "Pattern must not be empty").max(500, "Pattern must be under 500 characters"),
+  pattern: z
+    .string()
+    .min(1, "Pattern must not be empty")
+    .max(500, "Pattern must be under 500 characters"),
   caseSensitive: z.boolean().optional(),
 });
 
 export const mcpCreateItemsSchema = z.object({
-  items: z.array(z.object({
-    title: titleSchema,
-    url: urlSchema,
-    tagNames: tagNamesSchema.optional(),
-    notes: notesSchema.optional(),
-  })).min(1, "Must provide at least one item").max(50, "Cannot create more than 50 items at once"),
+  items: z
+    .array(
+      z.object({
+        title: titleSchema,
+        url: urlSchema,
+        tagNames: tagNamesSchema.optional(),
+        notes: notesSchema.optional(),
+      }),
+    )
+    .min(1, "Must provide at least one item")
+    .max(50, "Cannot create more than 50 items at once"),
 });
 
 export const mcpUpdateItemsSchema = z.object({
-  items: z.array(z.object({
-    id: idSchema,
-    title: titleSchema.optional(),
-    url: urlSchema.optional(),
-    notes: notesSchema.optional(),
-    starred: z.boolean().optional(),
-    read: z.boolean().optional(),
-    tagNames: tagNamesSchema.optional(),
-  })).min(1, "Must provide at least one item").max(50, "Cannot update more than 50 items at once"),
+  items: z
+    .array(
+      z.object({
+        id: idSchema,
+        title: titleSchema.optional(),
+        url: urlSchema.optional(),
+        notes: notesSchema.optional(),
+        starred: z.boolean().optional(),
+        read: z.boolean().optional(),
+        tagNames: tagNamesSchema.optional(),
+      }),
+    )
+    .min(1, "Must provide at least one item")
+    .max(50, "Cannot update more than 50 items at once"),
 });
 
 export const mcpDeleteItemsSchema = z.object({
-  ids: z.array(idSchema).min(1, "Must provide at least one ID").max(100, "Cannot delete more than 100 items at once"),
+  ids: z
+    .array(idSchema)
+    .min(1, "Must provide at least one ID")
+    .max(100, "Cannot delete more than 100 items at once"),
 });
 
 export const mcpGetFlashcardsSchema = z.object({
@@ -226,10 +305,12 @@ export const mcpGetFlashcardsSchema = z.object({
 });
 
 export const mcpSearchFlashcardsSchema = z.object({
-  query: z.string().min(1, "Query must not be empty").max(500, "Query must be under 500 characters"),
+  query: z
+    .string()
+    .min(1, "Query must not be empty")
+    .max(500, "Query must be under 500 characters"),
 });
 
 export const mcpDeleteTagSchema = z.object({
   name: tagNameSchema.min(1, "Tag name must not be empty"),
 });
-

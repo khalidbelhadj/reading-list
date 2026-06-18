@@ -24,9 +24,7 @@ export async function fetchItemPreviews(): Promise<Record<string, string>> {
       tx
         .select({ id: items.id, previewImageUrl: items.previewImageUrl })
         .from(items)
-        .where(
-          and(eq(items.userId, userId), isNotNull(items.previewImageUrl)),
-        ),
+        .where(and(eq(items.userId, userId), isNotNull(items.previewImageUrl))),
     "fetchItemPreviews",
   );
 

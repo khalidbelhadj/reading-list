@@ -50,7 +50,12 @@ export const lookupItem = async (url) => {
 // POST to the app's extension endpoint. Returns the parsed CreateItemResult
 // ({ ok: true, itemId } | { ok: false, duplicate }) plus an `appUrl` for links.
 // Throws { code: "auth" } on 401 so callers can prompt the user to sign in.
-export const saveItem = async ({ url, title, faviconUrl, allowDuplicateUrl }) => {
+export const saveItem = async ({
+  url,
+  title,
+  faviconUrl,
+  allowDuplicateUrl,
+}) => {
   const appUrl = await getAppUrl();
   let res;
   try {

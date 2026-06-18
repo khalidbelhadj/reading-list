@@ -546,7 +546,7 @@ export const SlidingItemPanel = ({
         ref={visualRef}
         data-phase={phase}
         className={cn(
-          "fixed flex flex-col overflow-hidden bg-surface pointer-events-auto",
+          "pointer-events-auto fixed flex flex-col overflow-hidden bg-surface",
           phase !== "closed" && "border border-border shadow-sm",
         )}
         style={{
@@ -614,11 +614,11 @@ export const SlidingItemPanel = ({
         >
           <div
             className={cn(
-              "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[opacity,background-color] duration-150",
-              orientation === "side" ? "h-10 w-0.75" : "w-10 h-0.75",
+              "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[opacity,background-color] duration-150",
+              orientation === "side" ? "h-10 w-0.75" : "h-0.75 w-10",
               isDraggingResize
-                ? "opacity-100 bg-foreground/70"
-                : "opacity-0 bg-muted-foreground/50 group-hover/resize:opacity-100",
+                ? "bg-foreground/70 opacity-100"
+                : "bg-muted-foreground/50 opacity-0 group-hover/resize:opacity-100",
             )}
           />
         </div>
@@ -814,7 +814,7 @@ const PanelInner = ({
     <>
       <div
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-0.5 p-1 bg-inherit transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "sticky top-0 z-10 flex items-center gap-0.5 bg-inherit p-1 transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
           // In "full" mode the panel has lost its outer margins, so put the
           // same inset back as internal padding — the buttons stay at the
           // same absolute position as the margin animates away.
@@ -902,7 +902,7 @@ const PanelInner = ({
         )}
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-surface to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            "pointer-events-none absolute right-0 bottom-0 left-0 h-8 translate-y-full bg-linear-to-b from-surface to-transparent transition-opacity duration-200",
             scrolled ? "opacity-100" : "opacity-0",
           )}
         />
@@ -910,11 +910,11 @@ const PanelInner = ({
 
       <FindBar find={find} />
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-175 px-3 pt-1 pb-12 min-h-full flex flex-col">
+        <div className="mx-auto flex min-h-full w-full max-w-175 flex-col px-3 pt-1 pb-12">
           <LoadingFade
             loading={!item}
             skeleton={<DetailPanelSkeleton />}
-            className="flex-1 flex flex-col"
+            className="flex flex-1 flex-col"
           >
             {item ? (
               <DetailPanel
@@ -933,12 +933,12 @@ const PanelInner = ({
       {item && (
         <div
           ref={morphRef}
-          className="absolute top-0 left-0 z-20 flex items-center pointer-events-none"
+          className="pointer-events-none absolute top-0 left-0 z-20 flex items-center"
           style={{ opacity: 0 }}
         >
           <div
             data-morph-icon
-            className="shrink-0 flex items-center justify-center"
+            className="flex shrink-0 items-center justify-center"
             style={{ width: 24, height: 24 }}
           >
             {faviconSrc ? (
@@ -947,14 +947,14 @@ const PanelInner = ({
                 alt=""
                 width={24}
                 height={24}
-                className="w-full h-full rounded object-contain"
+                className="h-full w-full rounded object-contain"
                 unoptimized
               />
             ) : (
-              <IconFileFilled className="w-full h-full text-muted-foreground" />
+              <IconFileFilled className="h-full w-full text-muted-foreground" />
             )}
           </div>
-          <span className="font-content font-semibold truncate">
+          <span className="truncate font-content font-semibold">
             {item.title || "Untitled"}
           </span>
         </div>

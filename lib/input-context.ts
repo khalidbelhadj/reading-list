@@ -9,11 +9,13 @@ const isEditable = (el: Element | null | undefined): boolean => {
 
 export const isTypingContext = (event?: Event): boolean => {
   if (event) {
-    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [];
     for (const node of path) {
       if (node instanceof Element && isEditable(node)) return true;
     }
-    if (event.target instanceof Element && isEditable(event.target)) return true;
+    if (event.target instanceof Element && isEditable(event.target))
+      return true;
   }
   const active = document.activeElement;
   if (active && active !== document.body && isEditable(active)) return true;

@@ -20,7 +20,9 @@ const card = (id: string | null, front: string, back: string) =>
 
 describe("parseCardsFromNotes", () => {
   it("parses a single card's id, front, and back", () => {
-    const [c, ...rest] = parseCardsFromNotes(card("abc12345", "What is 2+2?", "4"));
+    const [c, ...rest] = parseCardsFromNotes(
+      card("abc12345", "What is 2+2?", "4"),
+    );
     expect(rest).toHaveLength(0);
     expect(c).toEqual({ id: "abc12345", front: "What is 2+2?", back: "4" });
   });
@@ -32,7 +34,9 @@ describe("parseCardsFromNotes", () => {
   });
 
   it("preserves multi-line front and back content", () => {
-    const [c] = parseCardsFromNotes(card("multi001", "line one\nline two", "- a\n- b"));
+    const [c] = parseCardsFromNotes(
+      card("multi001", "line one\nline two", "- a\n- b"),
+    );
     expect(c.front).toBe("line one\nline two");
     expect(c.back).toBe("- a\n- b");
   });
@@ -49,18 +53,26 @@ describe("parseCardsFromNotes", () => {
   });
 
   it("ignores an unterminated <card> block", () => {
-    expect(parseCardsFromNotes('<card id="x">\n<front>\nq\n</front>')).toEqual([]);
+    expect(parseCardsFromNotes('<card id="x">\n<front>\nq\n</front>')).toEqual(
+      [],
+    );
   });
 
   it("returns empty back when the <back> side is absent", () => {
-    const [c] = parseCardsFromNotes('<card id="nf000001">\n<front>\nq\n</front>\n</card>');
+    const [c] = parseCardsFromNotes(
+      '<card id="nf000001">\n<front>\nq\n</front>\n</card>',
+    );
     expect(c.front).toBe("q");
     expect(c.back).toBe("");
   });
 
   describe("delimiter-looking text in content (A.3 robustness)", () => {
     it("does not break on </card> inside a code block", () => {
-      const notes = card("code0001", '```\nparse("</card>")\n```', "the answer");
+      const notes = card(
+        "code0001",
+        '```\nparse("</card>")\n```',
+        "the answer",
+      );
       const result = parseCardsFromNotes(notes);
       expect(result).toHaveLength(1);
       expect(result[0].front).toBe('```\nparse("</card>")\n```');
@@ -68,18 +80,24 @@ describe("parseCardsFromNotes", () => {
     });
 
     it("does not break on </card> in inline code", () => {
-      const [c] = parseCardsFromNotes(card("inl00001", "`</card>` closes it", "yes"));
+      const [c] = parseCardsFromNotes(
+        card("inl00001", "`</card>` closes it", "yes"),
+      );
       expect(c.front).toBe("`</card>` closes it");
       expect(c.back).toBe("yes");
     });
 
     it("does not truncate the front on a mid-line </front>", () => {
-      const [c] = parseCardsFromNotes(card("mid00001", "`</front>` ends front", "ok"));
+      const [c] = parseCardsFromNotes(
+        card("mid00001", "`</front>` ends front", "ok"),
+      );
       expect(c.front).toBe("`</front>` ends front");
     });
 
     it("does not treat a code-fenced </front> as the closing tag", () => {
-      const [c] = parseCardsFromNotes(card("fen00001", "```\n</front>\n```", "back text"));
+      const [c] = parseCardsFromNotes(
+        card("fen00001", "```\n</front>\n```", "back text"),
+      );
       expect(c.front).toBe("```\n</front>\n```");
       expect(c.back).toBe("back text");
     });
@@ -141,7 +159,10 @@ describe("diffCards", () => {
   });
 
   it("does not update a card whose content is unchanged", () => {
-    const d = diffCards([{ id: "same1", front: "unchanged", back: "z" }], existing);
+    const d = diffCards(
+      [{ id: "same1", front: "unchanged", back: "z" }],
+      existing,
+    );
     expect(d.toUpdate).toHaveLength(0);
   });
 
@@ -151,8 +172,13 @@ describe("diffCards", () => {
   });
 
   it("deletes a row whose card was removed from the notes", () => {
-    const d = diffCards([{ id: "same1", front: "unchanged", back: "z" }], existing);
-    expect(d.toDelete).toEqual(expect.arrayContaining(["keep1", "empty1", "gone1"]));
+    const d = diffCards(
+      [{ id: "same1", front: "unchanged", back: "z" }],
+      existing,
+    );
+    expect(d.toDelete).toEqual(
+      expect.arrayContaining(["keep1", "empty1", "gone1"]),
+    );
     expect(d.toDelete).not.toContain("same1");
   });
 
@@ -172,7 +198,9 @@ describe("diffCards", () => {
   });
 
   it("skips an oversize new card without inserting it", () => {
-    const parsed: ParsedCard[] = [{ id: "big1", front: "x".repeat(MAX_CARD_FIELD_LENGTH + 1), back: "" }];
+    const parsed: ParsedCard[] = [
+      { id: "big1", front: "x".repeat(MAX_CARD_FIELD_LENGTH + 1), back: "" },
+    ];
     const d = diffCards(parsed, []);
     expect(d.skippedOversize).toEqual(["big1"]);
     expect(d.toInsert).toHaveLength(0);
@@ -189,7 +217,9 @@ describe("syncFlashcardsFromNotes", () => {
   const makeTx = (existing: ExistingCard[]) => {
     const rec = { inserted: [] as Row[], updated: [] as Row[], deleteCalls: 0 };
     const tx = {
-      select: () => ({ from: () => ({ where: () => Promise.resolve(existing) }) }),
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve(existing) }),
+      }),
       insert: () => ({
         values: (rows: Row[]) => {
           rec.inserted.push(...rows);
@@ -240,7 +270,12 @@ describe("syncFlashcardsFromNotes", () => {
 
   it("updates a changed card and does not insert or delete", async () => {
     const { tx, rec } = makeTx([{ id: "keep1", front: "old", back: "o" }]);
-    await syncFlashcardsFromNotes(tx as unknown as SyncTx, "user-1", "item-1", card("keep1", "new", "o"));
+    await syncFlashcardsFromNotes(
+      tx as unknown as SyncTx,
+      "user-1",
+      "item-1",
+      card("keep1", "new", "o"),
+    );
     expect(rec.updated).toHaveLength(1);
     expect(rec.updated[0]).toMatchObject({ front: "new", back: "o" });
     expect(rec.inserted).toHaveLength(0);
@@ -253,7 +288,12 @@ describe("syncFlashcardsFromNotes", () => {
       { id: "gone1", front: "x", back: "y" },
     ];
     const { tx, rec } = makeTx(existing);
-    const result = await syncFlashcardsFromNotes(tx as unknown as SyncTx, "user-1", "item-1", card("keep1", "q", "a"));
+    const result = await syncFlashcardsFromNotes(
+      tx as unknown as SyncTx,
+      "user-1",
+      "item-1",
+      card("keep1", "q", "a"),
+    );
     expect(rec.deleteCalls).toBe(1);
     expect(result.diff.toDelete).toEqual(["gone1"]);
   });
@@ -261,21 +301,38 @@ describe("syncFlashcardsFromNotes", () => {
   it("returns normalized notes when duplicate ids were rewritten", async () => {
     const { tx } = makeTx([]);
     const notes = `${card("dup00001", "A", "1")}\n\n${card("dup00001", "B", "2")}`;
-    const result = await syncFlashcardsFromNotes(tx as unknown as SyncTx, "user-1", "item-1", notes);
+    const result = await syncFlashcardsFromNotes(
+      tx as unknown as SyncTx,
+      "user-1",
+      "item-1",
+      notes,
+    );
     expect(result.normalizedNotes).not.toBeNull();
-    const ids = parseCardsFromNotes(result.normalizedNotes as string).map((c) => c.id);
+    const ids = parseCardsFromNotes(result.normalizedNotes as string).map(
+      (c) => c.id,
+    );
     expect(new Set(ids).size).toBe(2);
   });
 
   it("returns null normalized notes when ids are already stable", async () => {
     const { tx } = makeTx([]);
-    const result = await syncFlashcardsFromNotes(tx as unknown as SyncTx, "user-1", "item-1", card("stable01", "Q", "A"));
+    const result = await syncFlashcardsFromNotes(
+      tx as unknown as SyncTx,
+      "user-1",
+      "item-1",
+      card("stable01", "Q", "A"),
+    );
     expect(result.normalizedNotes).toBeNull();
   });
 
   it("performs no writes for notes without cards", async () => {
     const { tx, rec } = makeTx([]);
-    const result = await syncFlashcardsFromNotes(tx as unknown as SyncTx, "user-1", "item-1", "just some notes\n\nno cards here");
+    const result = await syncFlashcardsFromNotes(
+      tx as unknown as SyncTx,
+      "user-1",
+      "item-1",
+      "just some notes\n\nno cards here",
+    );
     expect(rec.inserted).toHaveLength(0);
     expect(rec.updated).toHaveLength(0);
     expect(rec.deleteCalls).toBe(0);

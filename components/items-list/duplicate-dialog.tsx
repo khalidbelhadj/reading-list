@@ -42,8 +42,8 @@ export const DuplicateDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {existing && (
-          <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs min-w-0 overflow-hidden">
-            <div className="size-4 shrink-0 flex items-center justify-center">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+            <div className="flex size-4 shrink-0 items-center justify-center">
               {faviconSrc ? (
                 <Image
                   src={faviconSrc}

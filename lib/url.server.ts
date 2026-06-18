@@ -38,7 +38,10 @@ const expandIPv6 = (ip: string): number[] | null => {
   let tail4: number[] | null = null;
   if (v4Match) {
     const v4Parts = v4Match[2].split(".").map(Number);
-    if (v4Parts.length !== 4 || v4Parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    if (
+      v4Parts.length !== 4 ||
+      v4Parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
+    ) {
       return null;
     }
     head = v4Match[1].replace(/:$/, ":");
@@ -50,8 +53,14 @@ const expandIPv6 = (ip: string): number[] | null => {
   if (doubleColon === -1) {
     groups = head.split(":").filter((g) => g.length > 0);
   } else {
-    const left = head.slice(0, doubleColon).split(":").filter((g) => g.length > 0);
-    const right = head.slice(doubleColon + 2).split(":").filter((g) => g.length > 0);
+    const left = head
+      .slice(0, doubleColon)
+      .split(":")
+      .filter((g) => g.length > 0);
+    const right = head
+      .slice(doubleColon + 2)
+      .split(":")
+      .filter((g) => g.length > 0);
     const targetLength = tail4 ? 6 : 8;
     const missing = targetLength - left.length - right.length;
     if (missing < 0) return null;
@@ -59,7 +68,8 @@ const expandIPv6 = (ip: string): number[] | null => {
   }
 
   const nums = groups.map((g) => parseInt(g, 16));
-  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff)) return null;
+  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff))
+    return null;
   const full = tail4 ? [...nums, ...tail4] : nums;
   if (full.length !== 8) return null;
   return full;
@@ -87,7 +97,8 @@ const isPrivateIPv6 = (ip: string): boolean => {
   if ((groups[0] & 0xfe00) === 0xfc00) return true;
   if ((groups[0] & 0xffc0) === 0xfe80) return true;
   if ((groups[0] & 0xff00) === 0xff00) return true;
-  if (groups[0] === 0x0064 && groups[1] === 0xff9b && groups[2] === 0x0001) return true;
+  if (groups[0] === 0x0064 && groups[1] === 0xff9b && groups[2] === 0x0001)
+    return true;
   if (groups[0] === 0x2001 && groups[1] === 0x0db8) return true;
   if (groups[0] === 0x2001 && groups[1] === 0x0000) return true;
 

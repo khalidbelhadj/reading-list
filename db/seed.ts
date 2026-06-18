@@ -108,8 +108,7 @@ for (const item of seedItems) {
       );
 
     if (tag) {
-      await db.insert(schema.itemsTags)
-        .values({ itemId, tagId: tag.id });
+      await db.insert(schema.itemsTags).values({ itemId, tagId: tag.id });
     }
   }
 }

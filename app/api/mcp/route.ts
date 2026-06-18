@@ -9,7 +9,10 @@ import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getCurrentUserIdFromRequest } from "@/lib/auth";
-import { searchItems as searchItemsQuery, searchFlashcards } from "@/lib/search";
+import {
+  searchItems as searchItemsQuery,
+  searchFlashcards,
+} from "@/lib/search";
 import {
   createItems as createItemsLib,
   updateItemWithCardSync,
@@ -54,7 +57,8 @@ const TOOLS = [
         tag: { type: "string", description: "Filter by tag name" },
         limit: {
           type: "number",
-          description: "Maximum number of items to return (1-100, capped at 100)",
+          description:
+            "Maximum number of items to return (1-100, capped at 100)",
         },
         offset: {
           type: "number",
@@ -66,7 +70,8 @@ const TOOLS = [
   },
   {
     name: "get_item",
-    description: "Look up a reading list item by its URL or ID. At least one of 'url' or 'id' must be provided.",
+    description:
+      "Look up a reading list item by its URL or ID. At least one of 'url' or 'id' must be provided.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -90,7 +95,8 @@ const TOOLS = [
         caseSensitive: {
           type: "boolean",
           default: false,
-          description: "If true, use case-sensitive match (`~` instead of `~*`).",
+          description:
+            "If true, use case-sensitive match (`~` instead of `~*`).",
         },
       },
       required: ["pattern"],
@@ -220,216 +226,238 @@ function jsonText<T>(value: T) {
 
 async function handleTool(name: string, args: unknown, userId: string) {
   try {
-  switch (name) {
-    case "get_items": {
-      const parsed = parseInput(mcpGetItemsSchema, args);
+    switch (name) {
+      case "get_items": {
+        const parsed = parseInput(mcpGetItemsSchema, args);
 
-      const allItems = await withUser(userId, (tx) =>
-        tx.query.items.findMany({
-          where: eq(items.userId, userId),
-          orderBy: [desc(items.createdAt)],
-          with: { itemsTags: { with: { tag: true } } },
-        }),
-      );
-      let result = allItems.map((item) =>
-        toMcpItem(
-          item,
-          item.itemsTags.map((t) => t.tag.name),
-        ),
-      );
-      if (parsed.tag) result = result.filter((i) => i.tags.includes(parsed.tag!));
-      const total = result.length;
-      const offset = parsed.offset ?? 0;
-      if (offset > 0) result = result.slice(offset);
-      if (parsed.limit) result = result.slice(0, parsed.limit);
-      return jsonText<GetItemsResponse>({
-        items: result,
-        total,
-        offset,
-        limit: parsed.limit ?? null,
-      });
-    }
+        const allItems = await withUser(userId, (tx) =>
+          tx.query.items.findMany({
+            where: eq(items.userId, userId),
+            orderBy: [desc(items.createdAt)],
+            with: { itemsTags: { with: { tag: true } } },
+          }),
+        );
+        let result = allItems.map((item) =>
+          toMcpItem(
+            item,
+            item.itemsTags.map((t) => t.tag.name),
+          ),
+        );
+        if (parsed.tag)
+          result = result.filter((i) => i.tags.includes(parsed.tag!));
+        const total = result.length;
+        const offset = parsed.offset ?? 0;
+        if (offset > 0) result = result.slice(offset);
+        if (parsed.limit) result = result.slice(0, parsed.limit);
+        return jsonText<GetItemsResponse>({
+          items: result,
+          total,
+          offset,
+          limit: parsed.limit ?? null,
+        });
+      }
 
-    case "get_item": {
-      const parsed = parseInput(mcpGetItemSchema, args);
-      const condition = parsed.id
-        ? and(eq(items.id, parsed.id), eq(items.userId, userId))
-        : and(eq(items.url, parsed.url!), eq(items.userId, userId));
-      const [item] = await withUser(userId, (tx) =>
-        tx.query.items.findMany({
-          where: condition,
-          with: { itemsTags: { with: { tag: true } } },
-          limit: 1,
-        }),
-      );
-      if (!item) return text("Not found");
-      return jsonText<GetItemResponse>(
-        toMcpItem(item, item.itemsTags.map((t) => t.tag.name)),
-      );
-    }
+      case "get_item": {
+        const parsed = parseInput(mcpGetItemSchema, args);
+        const condition = parsed.id
+          ? and(eq(items.id, parsed.id), eq(items.userId, userId))
+          : and(eq(items.url, parsed.url!), eq(items.userId, userId));
+        const [item] = await withUser(userId, (tx) =>
+          tx.query.items.findMany({
+            where: condition,
+            with: { itemsTags: { with: { tag: true } } },
+            limit: 1,
+          }),
+        );
+        if (!item) return text("Not found");
+        return jsonText<GetItemResponse>(
+          toMcpItem(
+            item,
+            item.itemsTags.map((t) => t.tag.name),
+          ),
+        );
+      }
 
-    case "search_items": {
-      const parsed = parseInput(mcpSearchItemsSchema, args);
-      const caseSensitive = parsed.caseSensitive ?? false;
+      case "search_items": {
+        const parsed = parseInput(mcpSearchItemsSchema, args);
+        const caseSensitive = parsed.caseSensitive ?? false;
 
-      try {
-        const results = await withUser(userId, async (tx) => {
-          const searchResults = await searchItemsQuery(tx, userId, parsed.pattern, {
-            caseSensitive,
-            mode: "regex",
+        try {
+          const results = await withUser(userId, async (tx) => {
+            const searchResults = await searchItemsQuery(
+              tx,
+              userId,
+              parsed.pattern,
+              {
+                caseSensitive,
+                mode: "regex",
+              },
+            );
+
+            if (searchResults.length === 0) return [];
+
+            const itemIds = searchResults.map((r) => r.id);
+            const tagRows = await tx
+              .select({ itemId: itemsTags.itemId, name: tags.name })
+              .from(itemsTags)
+              .innerJoin(tags, eq(tags.id, itemsTags.tagId))
+              .where(inArray(itemsTags.itemId, itemIds));
+
+            const tagsByItem = new Map<string, string[]>();
+            for (const row of tagRows) {
+              const existing = tagsByItem.get(row.itemId) ?? [];
+              existing.push(row.name);
+              tagsByItem.set(row.itemId, existing);
+            }
+
+            return searchResults.map((r) =>
+              toMcpSearchItem(r, tagsByItem.get(r.id) ?? [], r.matchedIn),
+            );
           });
 
-          if (searchResults.length === 0) return [];
-
-          const itemIds = searchResults.map((r) => r.id);
-          const tagRows = await tx
-            .select({ itemId: itemsTags.itemId, name: tags.name })
-            .from(itemsTags)
-            .innerJoin(tags, eq(tags.id, itemsTags.tagId))
-            .where(inArray(itemsTags.itemId, itemIds));
-
-          const tagsByItem = new Map<string, string[]>();
-          for (const row of tagRows) {
-            const existing = tagsByItem.get(row.itemId) ?? [];
-            existing.push(row.name);
-            tagsByItem.set(row.itemId, existing);
+          return jsonText<SearchItemsResponse>({
+            pattern: parsed.pattern,
+            caseSensitive,
+            total: results.length,
+            truncated: results.length === 100,
+            items: results,
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/invalid regular expression/i.test(msg)) {
+            return text(`Invalid regex: ${msg}`);
           }
-
-          return searchResults.map((r) =>
-            toMcpSearchItem(r, tagsByItem.get(r.id) ?? [], r.matchedIn),
-          );
-        });
-
-        return jsonText<SearchItemsResponse>({
-          pattern: parsed.pattern,
-          caseSensitive,
-          total: results.length,
-          truncated: results.length === 100,
-          items: results,
-        });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (/invalid regular expression/i.test(msg)) {
-          return text(`Invalid regex: ${msg}`);
+          if (/statement timeout|canceling statement/i.test(msg)) {
+            return text(
+              "Search timed out after 10s — pattern is too expensive. Try anchoring it (e.g. ^foo) or making it more specific.",
+            );
+          }
+          throw e;
         }
-        if (/statement timeout|canceling statement/i.test(msg)) {
-          return text(
-            "Search timed out after 10s — pattern is too expensive. Try anchoring it (e.g. ^foo) or making it more specific.",
-          );
-        }
-        throw e;
       }
-    }
 
-    case "create_items": {
-      const parsed = parseInput(mcpCreateItemsSchema, args);
-      const ids = await withUser(userId, (tx) =>
-        createItemsLib(tx, userId, parsed.items),
-      );
-      return jsonText<CreateItemsResponse>({ ids });
-    }
-
-    case "update_items": {
-      const parsed = parseInput(mcpUpdateItemsSchema, args);
-      const results: UpdateItemsResponse = await withUser(userId, async (tx) => {
-        let updated = 0;
-        const notFound: string[] = [];
-        for (const update of parsed.items) {
-          const { id, ...fields } = update;
-          const found = await updateItemWithCardSync(tx, userId, id, fields);
-          if (found) updated++;
-          else notFound.push(id);
-        }
-        return { updated, notFound };
-      });
-      return jsonText<UpdateItemsResponse>(results);
-    }
-
-    case "delete_items": {
-      const parsed = parseInput(mcpDeleteItemsSchema, args);
-      const result = await withUser(userId, (tx) =>
-        deleteItemsLib(tx, userId, parsed.ids),
-      );
-      return jsonText<DeleteItemsResponse>({
-        deleted: result.deleted.length,
-        notFound: result.notFound,
-      });
-    }
-
-    case "get_flashcards": {
-      const parsed = parseInput(mcpGetFlashcardsSchema, args);
-      const cards = await withUser(userId, (tx) =>
-        tx
-          .select({
-            id: flashcards.id,
-            itemId: flashcards.itemId,
-            front: flashcards.front,
-            back: flashcards.back,
-            state: flashcards.state,
-            due: flashcards.due,
-          })
-          .from(flashcards)
-          .where(
-            and(
-              eq(flashcards.itemId, parsed.itemId),
-              eq(flashcards.userId, userId),
-            ),
-          )
-          .orderBy(desc(flashcards.createdAt)),
-      );
-      return jsonText<GetFlashcardsResponse>(cards.map(toMcpFlashcard));
-    }
-
-    case "search_flashcards": {
-      const parsed = parseInput(mcpSearchFlashcardsSchema, args);
-      const query = parsed.query;
-
-      try {
-        const results = await withUser(userId, (tx) =>
-          searchFlashcards(tx, userId, query),
+      case "create_items": {
+        const parsed = parseInput(mcpCreateItemsSchema, args);
+        const ids = await withUser(userId, (tx) =>
+          createItemsLib(tx, userId, parsed.items),
         );
-        return jsonText<SearchFlashcardsResponse>({
-          query,
-          total: results.length,
-          truncated: results.length === 100,
-          flashcards: results,
-        });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (/invalid regular expression/i.test(msg)) {
-          return text(`Invalid regex: ${msg}`);
-        }
-        if (/statement timeout|canceling statement/i.test(msg)) {
-          return text(
-            "Search timed out after 10s — query is too expensive. Try making it more specific.",
-          );
-        }
-        throw e;
+        return jsonText<CreateItemsResponse>({ ids });
       }
-    }
 
-    case "delete_tag": {
-      const parsed = parseInput(mcpDeleteTagSchema, args);
-      const deleted = await withUser(userId, async (tx) => {
-        const [tag] = await tx
-          .select({ id: tags.id })
-          .from(tags)
-          .where(and(eq(tags.userId, userId), eq(tags.name, parsed.name)));
-        if (!tag) return false;
-        return deleteTagById(tx, userId, tag.id);
-      });
-      return jsonText<DeleteTagResponse>({ deleted, name: parsed.name });
-    }
+      case "update_items": {
+        const parsed = parseInput(mcpUpdateItemsSchema, args);
+        const results: UpdateItemsResponse = await withUser(
+          userId,
+          async (tx) => {
+            let updated = 0;
+            const notFound: string[] = [];
+            for (const update of parsed.items) {
+              const { id, ...fields } = update;
+              const found = await updateItemWithCardSync(
+                tx,
+                userId,
+                id,
+                fields,
+              );
+              if (found) updated++;
+              else notFound.push(id);
+            }
+            return { updated, notFound };
+          },
+        );
+        return jsonText<UpdateItemsResponse>(results);
+      }
 
-    default:
-      return {
-        content: [{ type: "text" as const, text: `Unknown tool: ${name}` }],
-        isError: true,
-      };
-  }
+      case "delete_items": {
+        const parsed = parseInput(mcpDeleteItemsSchema, args);
+        const result = await withUser(userId, (tx) =>
+          deleteItemsLib(tx, userId, parsed.ids),
+        );
+        return jsonText<DeleteItemsResponse>({
+          deleted: result.deleted.length,
+          notFound: result.notFound,
+        });
+      }
+
+      case "get_flashcards": {
+        const parsed = parseInput(mcpGetFlashcardsSchema, args);
+        const cards = await withUser(userId, (tx) =>
+          tx
+            .select({
+              id: flashcards.id,
+              itemId: flashcards.itemId,
+              front: flashcards.front,
+              back: flashcards.back,
+              state: flashcards.state,
+              due: flashcards.due,
+            })
+            .from(flashcards)
+            .where(
+              and(
+                eq(flashcards.itemId, parsed.itemId),
+                eq(flashcards.userId, userId),
+              ),
+            )
+            .orderBy(desc(flashcards.createdAt)),
+        );
+        return jsonText<GetFlashcardsResponse>(cards.map(toMcpFlashcard));
+      }
+
+      case "search_flashcards": {
+        const parsed = parseInput(mcpSearchFlashcardsSchema, args);
+        const query = parsed.query;
+
+        try {
+          const results = await withUser(userId, (tx) =>
+            searchFlashcards(tx, userId, query),
+          );
+          return jsonText<SearchFlashcardsResponse>({
+            query,
+            total: results.length,
+            truncated: results.length === 100,
+            flashcards: results,
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/invalid regular expression/i.test(msg)) {
+            return text(`Invalid regex: ${msg}`);
+          }
+          if (/statement timeout|canceling statement/i.test(msg)) {
+            return text(
+              "Search timed out after 10s — query is too expensive. Try making it more specific.",
+            );
+          }
+          throw e;
+        }
+      }
+
+      case "delete_tag": {
+        const parsed = parseInput(mcpDeleteTagSchema, args);
+        const deleted = await withUser(userId, async (tx) => {
+          const [tag] = await tx
+            .select({ id: tags.id })
+            .from(tags)
+            .where(and(eq(tags.userId, userId), eq(tags.name, parsed.name)));
+          if (!tag) return false;
+          return deleteTagById(tx, userId, tag.id);
+        });
+        return jsonText<DeleteTagResponse>({ deleted, name: parsed.name });
+      }
+
+      default:
+        return {
+          content: [{ type: "text" as const, text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
+    }
   } catch (error) {
     return {
-      content: [{ type: "text" as const, text: error instanceof Error ? error.message : String(error) }],
+      content: [
+        {
+          type: "text" as const,
+          text: error instanceof Error ? error.message : String(error),
+        },
+      ],
       isError: true,
     };
   }

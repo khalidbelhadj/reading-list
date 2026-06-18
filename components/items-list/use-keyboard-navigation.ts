@@ -82,8 +82,10 @@ export const useKeyboardNavigation = ({
   React.useEffect(() => {
     const handleGlobal = (e: KeyboardEvent) => {
       if (isTypingContext(e)) return;
-      if (e.key === "1" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("reading-list");
-      if (e.key === "2" && !e.metaKey && !e.ctrlKey) setActiveTabAndUrl("cards");
+      if (e.key === "1" && !e.metaKey && !e.ctrlKey)
+        setActiveTabAndUrl("reading-list");
+      if (e.key === "2" && !e.metaKey && !e.ctrlKey)
+        setActiveTabAndUrl("cards");
       if (e.key === "a" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         onOpenNew();
@@ -107,7 +109,15 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [setActiveTabAndUrl, setTagsOpen, setShowRead, setCursor, onOpenNew, onSearchOpen, onShowShortcuts]);
+  }, [
+    setActiveTabAndUrl,
+    setTagsOpen,
+    setShowRead,
+    setCursor,
+    onOpenNew,
+    onSearchOpen,
+    onShowShortcuts,
+  ]);
 
   // Command shortcuts for search + panel view transitions. Unlike the shortcuts
   // above, these are NOT gated on isTypingContext: Cmd+K should jump to search
@@ -227,13 +237,29 @@ export const useKeyboardNavigation = ({
       // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
       const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
       const isDown =
-        (e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
-        (e.key === "ArrowDown" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.code === "KeyN" &&
+          e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey) ||
+        (e.key === "ArrowDown" &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey) ||
         (e.code === "KeyJ" && noMods && !e.shiftKey) ||
         (e.key === "Tab" && noMods && !e.shiftKey);
       const isUp =
-        (e.code === "KeyP" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
-        (e.key === "ArrowUp" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
+        (e.code === "KeyP" &&
+          e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey) ||
+        (e.key === "ArrowUp" &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey) ||
         (e.code === "KeyK" && noMods && !e.shiftKey) ||
         (e.key === "Tab" && noMods && e.shiftKey);
       if (isDown || isUp) {
@@ -268,7 +294,13 @@ export const useKeyboardNavigation = ({
       }
 
       // Enter to open item in side panel
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.shiftKey && currentCursor !== null) {
+      if (
+        e.key === "Enter" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.shiftKey &&
+        currentCursor !== null
+      ) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         onOpenItem(currentCursor);
@@ -276,16 +308,27 @@ export const useKeyboardNavigation = ({
       }
 
       // Cmd+Shift+Enter to open the item's URL in a new tab
-      if (e.key === "Enter" && isModKey(e) && e.shiftKey && currentCursor !== null) {
+      if (
+        e.key === "Enter" &&
+        isModKey(e) &&
+        e.shiftKey &&
+        currentCursor !== null
+      ) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         const item = filteredItems.find((i) => i.id === currentCursor);
-        if (item?.url && URL.canParse(item.url)) window.open(item.url, "_blank");
+        if (item?.url && URL.canParse(item.url))
+          window.open(item.url, "_blank");
         return;
       }
 
       // Cmd+Enter to open the item expanded
-      if (e.key === "Enter" && isModKey(e) && !e.shiftKey && currentCursor !== null) {
+      if (
+        e.key === "Enter" &&
+        isModKey(e) &&
+        !e.shiftKey &&
+        currentCursor !== null
+      ) {
         if (isOverlayOpen()) return;
         e.preventDefault();
         onOpenItemExpanded(currentCursor);
@@ -294,7 +337,14 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleNav);
     return () => document.removeEventListener("keydown", handleNav);
-  }, [filteredItems, setSuppressHover, cursorRef, setCursor, onOpenItem, onOpenItemExpanded]);
+  }, [
+    filteredItems,
+    setSuppressHover,
+    cursorRef,
+    setCursor,
+    onOpenItem,
+    onOpenItemExpanded,
+  ]);
 
   return {
     suppressHover,

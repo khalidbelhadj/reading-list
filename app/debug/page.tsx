@@ -14,20 +14,20 @@ const pages = [
 
 const DebugIndexPage = () => {
   return (
-    <div className="min-h-dvh flex items-center justify-center px-5">
-      <div className="flex flex-col items-start gap-4 max-w-md w-full">
+    <div className="flex min-h-dvh items-center justify-center px-5">
+      <div className="flex w-full max-w-md flex-col items-start gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="font-content text-lg">Debug</h1>
           <p className="text-sm text-muted-foreground">
             Standalone previews and visual sandboxes.
           </p>
         </div>
-        <ul className="flex flex-col gap-1 w-full">
+        <ul className="flex w-full flex-col gap-1">
           {pages.map(({ href, title }) => (
             <li key={href}>
               <Link
                 href={href}
-                className="flex items-baseline justify-between gap-4 py-1 text-sm hover:text-foreground text-muted-foreground"
+                className="flex items-baseline justify-between gap-4 py-1 text-sm text-muted-foreground hover:text-foreground"
               >
                 <span className="text-foreground">{title}</span>
                 <span className="font-mono text-xs">{href}</span>

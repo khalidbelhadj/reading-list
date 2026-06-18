@@ -168,7 +168,7 @@ export const TagInput = ({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-1 min-h-5 cursor-text"
+      className="flex min-h-5 cursor-text flex-wrap items-center gap-1"
       onClick={handleWrapperClick}
     >
       {value.map((tag) => (
@@ -189,7 +189,7 @@ export const TagInput = ({
         onPaste={handlePaste}
         onBlur={handleBlur}
         placeholder={value.length === 0 ? "Tags" : ""}
-        className="text-sm bg-transparent outline-none min-w-8 flex-1 h-5 placeholder:text-muted-foreground/30"
+        className="h-5 min-w-8 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/30"
       />
     </div>
   );

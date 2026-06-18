@@ -38,18 +38,38 @@ import {
 } from "@/lib/schemas";
 import { time } from "@/lib/perf";
 
-export const searchItems = safeAction(async function searchItems(query: string): Promise<SearchResult[]> {
-  return time("action:searchItems", async () => {
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) => searchItemsQuery(tx, userId, query), "searchItems");
-  }, { qlen: query.length });
+export const searchItems = safeAction(async function searchItems(
+  query: string,
+): Promise<SearchResult[]> {
+  return time(
+    "action:searchItems",
+    async () => {
+      const userId = await getCurrentUserId();
+      return withUser(
+        userId,
+        (tx) => searchItemsQuery(tx, userId, query),
+        "searchItems",
+      );
+    },
+    { qlen: query.length },
+  );
 }, "Could not search items. Please try again.");
 
-export const searchFlashcards = safeAction(async function searchFlashcards(query: string): Promise<FlashcardSearchResult[]> {
-  return time("action:searchFlashcards", async () => {
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) => searchFlashcardsQuery(tx, userId, query), "searchFlashcards");
-  }, { qlen: query.length });
+export const searchFlashcards = safeAction(async function searchFlashcards(
+  query: string,
+): Promise<FlashcardSearchResult[]> {
+  return time(
+    "action:searchFlashcards",
+    async () => {
+      const userId = await getCurrentUserId();
+      return withUser(
+        userId,
+        (tx) => searchFlashcardsQuery(tx, userId, query),
+        "searchFlashcards",
+      );
+    },
+    { qlen: query.length },
+  );
 }, "Could not search flashcards. Please try again.");
 
 export const deleteItem = safeAction(async function deleteItem(itemId: string) {
@@ -91,7 +111,9 @@ function decodeHtmlEntities(str: string): string {
     .replace(/\s+/g, " ");
 }
 
-export const fetchPageTitle = safeAction(async function fetchPageTitle(url: string): Promise<string | null> {
+export const fetchPageTitle = safeAction(async function fetchPageTitle(
+  url: string,
+): Promise<string | null> {
   parseInput(fetchPageTitleSchema, { url });
   try {
     const parsed = new URL(url);
@@ -133,7 +155,9 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(url: stri
       if (done) break;
       received += value.byteLength;
       if (received > MAX_BYTES) {
-        chunks.push(value.subarray(0, value.byteLength - (received - MAX_BYTES)));
+        chunks.push(
+          value.subarray(0, value.byteLength - (received - MAX_BYTES)),
+        );
         await reader.cancel();
         break;
       }
@@ -221,7 +245,10 @@ export const updateItem = safeAction(async function updateItem(
   );
 }, "Could not update item. Please try again.");
 
-export const toggleRead = safeAction(async function toggleRead(itemId: string, read: boolean) {
+export const toggleRead = safeAction(async function toggleRead(
+  itemId: string,
+  read: boolean,
+) {
   parseInput(toggleReadSchema, { itemId, read });
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
@@ -233,14 +260,19 @@ export const toggleRead = safeAction(async function toggleRead(itemId: string, r
   });
 }, "Could not mark item as read. Please try again.");
 
-export const bulkDeleteItems = safeAction(async function bulkDeleteItems(itemIds: string[]) {
+export const bulkDeleteItems = safeAction(async function bulkDeleteItems(
+  itemIds: string[],
+) {
   parseInput(bulkDeleteItemsSchema, { itemIds });
   if (itemIds.length === 0) return;
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => deleteItemsLib(tx, userId, itemIds));
 }, "Could not delete items. Please try again.");
 
-export const bulkTag = safeAction(async function bulkTag(itemIds: string[], tagNames: string[]) {
+export const bulkTag = safeAction(async function bulkTag(
+  itemIds: string[],
+  tagNames: string[],
+) {
   parseInput(bulkTagSchema, { itemIds, tagNames });
   if (itemIds.length === 0 || tagNames.length === 0) return;
 
@@ -279,59 +311,63 @@ const isJunkTitle = (title: string, url: string): boolean => {
   return false;
 };
 
-export const generateItemPreview = safeAction(async function generateItemPreview(
-  itemId: string,
-): Promise<string | null> {
-  const userId = await getCurrentUserId();
-  return withUser(userId, async (tx) => {
-    const [item] = await tx
-      .select({
-        id: items.id,
-        title: items.title,
-        url: items.url,
-        previewImageUrl: items.previewImageUrl,
-      })
-      .from(items)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)))
-      .limit(1);
-    if (!item) return null;
-    if (item.previewImageUrl !== null) return item.previewImageUrl || null;
+export const generateItemPreview = safeAction(
+  async function generateItemPreview(itemId: string): Promise<string | null> {
+    const userId = await getCurrentUserId();
+    return withUser(userId, async (tx) => {
+      const [item] = await tx
+        .select({
+          id: items.id,
+          title: items.title,
+          url: items.url,
+          previewImageUrl: items.previewImageUrl,
+        })
+        .from(items)
+        .where(and(eq(items.id, itemId), eq(items.userId, userId)))
+        .limit(1);
+      if (!item) return null;
+      if (item.previewImageUrl !== null) return item.previewImageUrl || null;
 
-    const pdfUrl = await getPdfUrlForItem(item.url);
-    if (!pdfUrl) {
-      // Confirmed not a PDF — stamp empty string so we don't probe again on
-      // every cozy mount.
+      const pdfUrl = await getPdfUrlForItem(item.url);
+      if (!pdfUrl) {
+        // Confirmed not a PDF — stamp empty string so we don't probe again on
+        // every cozy mount.
+        await tx
+          .update(items)
+          .set({ previewImageUrl: "", updatedAt: new Date().toISOString() })
+          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+        return null;
+      }
+
+      const result = await renderPdfFirstPage(pdfUrl);
+      // If render failed (network/timeout/oversized), leave previewImageUrl
+      // null so the next cozy mount retries. Non-PDFs already returned above.
+      if (!result) return null;
+
+      const now = new Date().toISOString();
+      const patch: Partial<typeof items.$inferInsert> = {
+        previewImageUrl: result.imageDataUrl,
+        updatedAt: now,
+      };
+      // Only auto-fill the title if the user clearly hasn't set one. Never
+      // clobber a real title — manual edits win.
+      if (result.title && isJunkTitle(item.title, item.url)) {
+        patch.title = result.title;
+      }
       await tx
         .update(items)
-        .set({ previewImageUrl: "", updatedAt: new Date().toISOString() })
+        .set(patch)
         .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-      return null;
-    }
+      return result.imageDataUrl;
+    });
+  },
+  "Could not generate preview.",
+);
 
-    const result = await renderPdfFirstPage(pdfUrl);
-    // If render failed (network/timeout/oversized), leave previewImageUrl
-    // null so the next cozy mount retries. Non-PDFs already returned above.
-    if (!result) return null;
-
-    const now = new Date().toISOString();
-    const patch: Partial<typeof items.$inferInsert> = {
-      previewImageUrl: result.imageDataUrl,
-      updatedAt: now,
-    };
-    // Only auto-fill the title if the user clearly hasn't set one. Never
-    // clobber a real title — manual edits win.
-    if (result.title && isJunkTitle(item.title, item.url)) {
-      patch.title = result.title;
-    }
-    await tx
-      .update(items)
-      .set(patch)
-      .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-    return result.imageDataUrl;
-  });
-}, "Could not generate preview.");
-
-export const bulkMarkRead = safeAction(async function bulkMarkRead(itemIds: string[], read: boolean) {
+export const bulkMarkRead = safeAction(async function bulkMarkRead(
+  itemIds: string[],
+  read: boolean,
+) {
   parseInput(bulkMarkReadSchema, { itemIds, read });
   if (itemIds.length === 0) return;
 

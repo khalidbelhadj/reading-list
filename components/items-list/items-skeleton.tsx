@@ -48,9 +48,9 @@ export const ItemsSkeleton = ({
         <div
           key={i}
           style={{ opacity }}
-          className="flex items-center gap-2 p-1 h-7"
+          className="flex h-7 items-center gap-2 p-1"
         >
-          <Skeleton className="size-4 rounded-[3px] shrink-0" />
+          <Skeleton className="size-4 shrink-0 rounded-[3px]" />
           <Skeleton
             className="h-3 rounded-md"
             style={{ width: `min(${titleRem}rem, 85%)` }}

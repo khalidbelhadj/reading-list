@@ -104,7 +104,7 @@ export const GroupedList = ({
               variant="ghost"
               onClick={() => toggle(group.key)}
               className={cn(
-                "flex items-center gap-1.5 p-1 h-auto text-left text-sm font-content rounded-lg hover:bg-muted outline-none w-full justify-start",
+                "flex h-auto w-full items-center justify-start gap-1.5 rounded-lg p-1 text-left font-content text-sm outline-none hover:bg-muted",
                 isContextMenuOpen && "bg-muted",
               )}
             >
@@ -132,7 +132,7 @@ export const GroupedList = ({
               ) : (
                 <span className="truncate">{group.label}</span>
               )}
-              <span className="text-xs text-muted-foreground ml-1">
+              <span className="ml-1 text-xs text-muted-foreground">
                 {group.items.length}
               </span>
             </Button>
@@ -173,7 +173,7 @@ export const GroupedList = ({
                 <button
                   type="button"
                   onClick={() => toggleDateGroup(group.key)}
-                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
+                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
                 >
                   {group.label}
                   <IconChevronRight

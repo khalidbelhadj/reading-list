@@ -43,7 +43,7 @@ export const LoadingFade = ({
     return (
       <div
         className={cn(
-          "animate-in fade-in zoom-in-99 duration-200 origin-top",
+          "origin-top animate-in duration-200 fade-in zoom-in-99",
           className,
         )}
       >
@@ -55,8 +55,10 @@ export const LoadingFade = ({
   return (
     <div
       className={cn(
-        "transition-all duration-150 origin-top",
-        stage === "fade-out" ? "opacity-0 scale-[0.99]" : "opacity-100 scale-100",
+        "origin-top transition-all duration-150",
+        stage === "fade-out"
+          ? "scale-[0.99] opacity-0"
+          : "scale-100 opacity-100",
         className,
       )}
     >

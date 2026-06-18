@@ -185,7 +185,9 @@ export const TagFilters = ({
         tag={pendingDeleteTag}
         itemCount={pendingDeleteCount}
         deleting={deleting}
-        onOpenChange={(open) => { if (!open) setPendingDeleteTag(null); }}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteTag(null);
+        }}
         onConfirm={confirmDelete}
       />
     </>

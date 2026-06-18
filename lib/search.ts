@@ -136,7 +136,9 @@ const fuzzySearch = async (
     )`,
   );
 
-  const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
+  const whereClause = tokenConditions.reduce(
+    (acc, cond) => sql`${acc} AND ${cond}`,
+  );
 
   // Only run the full-pattern trigram match when the pattern is long enough
   // to produce a useful trigram set.
@@ -242,7 +244,9 @@ const fuzzySearchFlashcards = async (
     )`,
   );
 
-  const whereClause = tokenConditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
+  const whereClause = tokenConditions.reduce(
+    (acc, cond) => sql`${acc} AND ${cond}`,
+  );
 
   const usePatternTrigram = pattern.length >= TRIGRAM_MIN_LENGTH;
   const fullLike = `%${pattern}%`;

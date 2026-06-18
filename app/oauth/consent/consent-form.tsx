@@ -41,7 +41,9 @@ export const ConsentForm = ({
                 <li key={scope}>
                   {scope}
                   {scopeDescriptions[scope] && (
-                    <span className="text-muted-foreground">, {scopeDescriptions[scope]}</span>
+                    <span className="text-muted-foreground">
+                      , {scopeDescriptions[scope]}
+                    </span>
                   )}
                 </li>
               ))}
@@ -61,7 +63,12 @@ export const ConsentForm = ({
         >
           Deny
         </Button>
-        <Button type="submit" name="decision" value="approve" className="flex-1">
+        <Button
+          type="submit"
+          name="decision"
+          value="approve"
+          className="flex-1"
+        >
           Approve
         </Button>
       </form>

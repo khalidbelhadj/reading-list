@@ -80,7 +80,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (err?.code === "auth") {
       notify("Not signed in", "Open the app and sign in, then try again.");
     } else if (err?.code === "network") {
-      notify("Couldn't reach the app", `Check the URL in Settings (${err.appUrl}).`);
+      notify(
+        "Couldn't reach the app",
+        `Check the URL in Settings (${err.appUrl}).`,
+      );
     } else {
       notify("Save failed", "Something went wrong saving the item.");
     }
