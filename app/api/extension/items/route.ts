@@ -82,8 +82,15 @@ export async function POST(request: NextRequest) {
   let resolvedTitle =
     typeof title === "string" && title.trim() ? title.trim() : "";
   if (!resolvedTitle) {
-    resolvedTitle = (await fetchPageTitle(url)) ?? url;
+    // A failed title fetch (timeout, SSRF guard, unreachable link, etc.) must
+    // never break the save — fall back to the url itself.
+    try {
+      resolvedTitle = (await fetchPageTitle(url)) ?? "";
+    } catch {
+      resolvedTitle = "";
+    }
   }
+  if (!resolvedTitle) resolvedTitle = url;
   // createItemSchema caps titles at 500 chars.
   resolvedTitle = resolvedTitle.slice(0, 500);
 

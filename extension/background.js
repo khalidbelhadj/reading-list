@@ -82,7 +82,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (err?.code === "network") {
       notify("Couldn't reach the app", `Check the URL in Settings (${err.appUrl}).`);
     } else {
-      notify("Save failed", "Something went wrong saving the item.");
+      const code = err?.status ? ` (HTTP ${err.status})` : "";
+      notify("Save failed", `Something went wrong saving the item${code}.`);
     }
   }
 });
