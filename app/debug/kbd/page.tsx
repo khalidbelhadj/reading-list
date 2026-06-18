@@ -420,15 +420,13 @@ const KbdDebugPage = () => {
           description="xs-sized Kbds as trailing shortcut hints, across every button variant."
         >
           <div className="flex w-full flex-col gap-4">
-            {(
-              [
-                { label: "default", variant: "default" as const },
-                { label: "outline", variant: "outline" as const },
-                { label: "secondary", variant: "secondary" as const },
-                { label: "ghost", variant: "ghost" as const },
-                { label: "destructive", variant: "destructive" as const },
-              ]
-            ).map(({ label, variant }) => (
+            {[
+              { label: "default", variant: "default" as const },
+              { label: "outline", variant: "outline" as const },
+              { label: "secondary", variant: "secondary" as const },
+              { label: "ghost", variant: "ghost" as const },
+              { label: "destructive", variant: "destructive" as const },
+            ].map(({ label, variant }) => (
               <Row key={label} label={label}>
                 <Button variant={variant}>
                   Primary

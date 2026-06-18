@@ -8,9 +8,9 @@ import {
   IconPlus,
   IconSparkles,
 } from "@tabler/icons-react";
-import React from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "motion/react";
+import React from "react";
 
 import {
   DropdownMenu,
@@ -19,16 +19,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { getReviewStatus, type ReviewMode } from "@/app/actions";
+import { type TabId } from "@/components/items-list/use-filters";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { SettingsMenu } from "./settings-menu";
-import { type TabId } from "@/components/items-list/use-filters";
-import { getReviewStatus, type ReviewMode } from "@/app/actions";
-import { useStartReview } from "./use-start-review";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
+import { SettingsMenu } from "./settings-menu";
+import { useStartReview } from "./use-start-review";
 
 export const Toolbar = ({
   activeTab,
@@ -45,7 +45,6 @@ export const Toolbar = ({
   onPasteUrl: () => void;
   isCreating?: boolean;
 }) => {
-
   const {
     data: reviewStatus,
     isLoading: dueLoading,
@@ -106,7 +105,7 @@ export const Toolbar = ({
   const showFilters = activeTab !== "cards";
 
   return (
-    <div className="flex items-center relative pt-1">
+    <div className="relative flex items-center pt-1">
       <SettingsMenu
         activeTab={activeTab}
         setActiveTabAndUrl={setActiveTabAndUrl}
@@ -148,7 +147,7 @@ export const Toolbar = ({
                     duration: 0.25,
                     ease: [0.4, 0, 0.2, 1],
                   }}
-                  className="text-muted-foreground whitespace-nowrap overflow-hidden flex justify-end"
+                  className="flex justify-end overflow-hidden whitespace-nowrap text-muted-foreground"
                 >
                   {dueCount}
                 </motion.div>

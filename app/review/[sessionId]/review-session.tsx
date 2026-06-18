@@ -104,7 +104,7 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
@@ -112,9 +112,9 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="flex min-h-screen items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="text-muted-foreground text-sm">
+          <div className="text-sm text-muted-foreground">
             Review session not found.
           </div>
           <Button
@@ -347,7 +347,14 @@ const ReviewSessionInner = ({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sessionEnded, revealed, handleReveal, handleRate, handleSkip, handleRequestEnd]);
+  }, [
+    sessionEnded,
+    revealed,
+    handleReveal,
+    handleRate,
+    handleSkip,
+    handleRequestEnd,
+  ]);
 
   if (sessionEnded || currentIndex >= cards.length) {
     return (
@@ -357,9 +364,9 @@ const ReviewSessionInner = ({
 
   if (!currentCard) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="flex min-h-screen items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="text-muted-foreground text-sm">
+          <div className="text-sm text-muted-foreground">
             No cards available for this session.
           </div>
           <Button
@@ -388,13 +395,13 @@ const ReviewSessionInner = ({
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <header className="electron-top-bar-inset sticky top-0 z-10 bg-background pt-3 pb-2">
-        <div className="max-w-3xl mx-auto w-full flex items-center gap-4 px-6 h-7 text-xs text-muted-foreground">
+        <div className="mx-auto flex h-7 w-full max-w-3xl items-center gap-4 px-6 text-xs text-muted-foreground">
           <span className="tabular-nums">
             {currentIndex + 1} of {cards.length}
           </span>
-          <div className="flex-1 flex items-center gap-1">
+          <div className="flex flex-1 items-center gap-1">
             {cards.map((_, i) => (
               <div
                 key={i}
@@ -403,7 +410,7 @@ const ReviewSessionInner = ({
                   i < currentIndex
                     ? "bg-primary"
                     : i === currentIndex
-                      ? "bg-primary/60 animate-pulse"
+                      ? "animate-pulse bg-primary/60"
                       : "bg-border",
                 )}
               />
@@ -413,7 +420,7 @@ const ReviewSessionInner = ({
             type="button"
             onClick={handleRequestEnd}
             disabled={endMutation.isPending}
-            className="flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-60"
+            className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-60"
           >
             {endMutation.isPending && <Spinner className="size-3" />}
             End session
@@ -421,109 +428,110 @@ const ReviewSessionInner = ({
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-6 pb-6">
-
-      <main className="flex-1 flex flex-col justify-center py-12">
-        <div className="flex flex-col gap-6">
-          {(currentCard.itemTitle || itemDomain) && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {favicon ? (
-                <Image
-                  src={favicon}
-                  alt=""
-                  width={14}
-                  height={14}
-                  className="size-3.5 rounded-[3px]"
-                  unoptimized
-                />
-              ) : (
-                <IconFileFilled className="size-3.5" />
-              )}
-              {currentCard.itemTitle && (
-                <span className="italic">{currentCard.itemTitle}</span>
-              )}
-              {itemDomain && <span>· {itemDomain}</span>}
-            </div>
-          )}
-
-          <div className="font-content">
-            <MarkdownEditor
-              value={currentCard.front}
-              editable={false}
-              className="[&_.ProseMirror]:text-2xl! [&_.ProseMirror]:leading-snug"
-            />
-          </div>
-
-          {revealed && (
-            <>
-              <div className="border-t border-border" />
-              <div className="font-content">
-                <MarkdownEditor
-                  value={currentCard.back}
-                  editable={false}
-                  className="[&_.ProseMirror]:text-xl! [&_.ProseMirror]:leading-relaxed text-foreground"
-                />
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 pb-6">
+        <main className="flex flex-1 flex-col justify-center py-12">
+          <div className="flex flex-col gap-6">
+            {(currentCard.itemTitle || itemDomain) && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {favicon ? (
+                  <Image
+                    src={favicon}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="size-3.5 rounded-[3px]"
+                    unoptimized
+                  />
+                ) : (
+                  <IconFileFilled className="size-3.5" />
+                )}
+                {currentCard.itemTitle && (
+                  <span className="italic">{currentCard.itemTitle}</span>
+                )}
+                {itemDomain && <span>· {itemDomain}</span>}
               </div>
-            </>
-          )}
-        </div>
-      </main>
+            )}
 
-      <footer className="flex items-center justify-end gap-3">
-        {revealed ? (
-          <div className="flex items-center gap-2">
-            {RATINGS.map((r) => {
-              const next = schedule(
-                {
-                  state: parseCardState(currentCard.state),
-                  interval: currentCard.interval,
-                  easeFactor: currentCard.easeFactor,
-                  reps: currentCard.reps,
-                  lapses: currentCard.lapses,
-                  due: currentCard.due,
-                },
-                r.value,
-                new Date().toISOString(),
-              );
-              const nowIso = new Date().toISOString();
-              const interval = intervalShort(next.due, nowIso);
-              return (
-                <Button
-                  key={r.value}
-                  size="lg"
-                  variant={r.value === "again" ? "destructive" : "outline"}
-                  onClick={createRateHandler(r.value)}
-                  disabled={rateMutation.isPending}
-                  className="gap-2"
-                >
-                  <span className="font-medium">{r.label}</span>
-                  <span
-                    className={cn(
-                      "text-[0.6875rem]",
-                      r.value === "again"
-                        ? "text-destructive/70"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {interval}
-                  </span>
-                  <Kbd
-                    variant={r.value === "again" ? "destructive" : "default"}
-                    size="xs"
-                  >
-                    {r.key}
-                  </Kbd>
-                </Button>
-              );
-            })}
+            <div className="font-content">
+              <MarkdownEditor
+                value={currentCard.front}
+                editable={false}
+                className="[&_.ProseMirror]:text-2xl! [&_.ProseMirror]:leading-snug"
+              />
+            </div>
+
+            {revealed && (
+              <>
+                <div className="border-t border-border" />
+                <div className="font-content">
+                  <MarkdownEditor
+                    value={currentCard.back}
+                    editable={false}
+                    className="text-foreground [&_.ProseMirror]:text-xl! [&_.ProseMirror]:leading-relaxed"
+                  />
+                </div>
+              </>
+            )}
           </div>
-        ) : (
-          <Button size="lg" onClick={handleReveal} className="gap-2">
-            Reveal answer
-            <Kbd variant="primary" size="xs">Space</Kbd>
-          </Button>
-        )}
-      </footer>
+        </main>
+
+        <footer className="flex items-center justify-end gap-3">
+          {revealed ? (
+            <div className="flex items-center gap-2">
+              {RATINGS.map((r) => {
+                const next = schedule(
+                  {
+                    state: parseCardState(currentCard.state),
+                    interval: currentCard.interval,
+                    easeFactor: currentCard.easeFactor,
+                    reps: currentCard.reps,
+                    lapses: currentCard.lapses,
+                    due: currentCard.due,
+                  },
+                  r.value,
+                  new Date().toISOString(),
+                );
+                const nowIso = new Date().toISOString();
+                const interval = intervalShort(next.due, nowIso);
+                return (
+                  <Button
+                    key={r.value}
+                    size="lg"
+                    variant={r.value === "again" ? "destructive" : "outline"}
+                    onClick={createRateHandler(r.value)}
+                    disabled={rateMutation.isPending}
+                    className="gap-2"
+                  >
+                    <span className="font-medium">{r.label}</span>
+                    <span
+                      className={cn(
+                        "text-[0.6875rem]",
+                        r.value === "again"
+                          ? "text-destructive/70"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {interval}
+                    </span>
+                    <Kbd
+                      variant={r.value === "again" ? "destructive" : "default"}
+                      size="xs"
+                    >
+                      {r.key}
+                    </Kbd>
+                  </Button>
+                );
+              })}
+            </div>
+          ) : (
+            <Button size="lg" onClick={handleReveal} className="gap-2">
+              Reveal answer
+              <Kbd variant="primary" size="xs">
+                Space
+              </Kbd>
+            </Button>
+          )}
+        </footer>
       </div>
 
       <AlertDialog
@@ -534,9 +542,9 @@ const ReviewSessionInner = ({
           <AlertDialogHeader>
             <AlertDialogTitle>End this session?</AlertDialogTitle>
             <AlertDialogDescription>
-              You&rsquo;ve reviewed {currentIndex} of {cards.length} cards.
-              You can&rsquo;t resume this session, so ending it now will finish
-              it for good.
+              You&rsquo;ve reviewed {currentIndex} of {cards.length} cards. You
+              can&rsquo;t resume this session, so ending it now will finish it
+              for good.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -633,17 +641,17 @@ export const SessionSummaryView = ({
 
   if (isSummaryLoading || isStatusLoading || !summary) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <Spinner className="size-5 text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-md flex flex-col gap-6">
+    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+      <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex flex-col gap-1 text-center">
-          <div className="font-content text-2xl font-medium flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2 font-content text-2xl font-medium">
             <span>
               {summary.ratedCards === cardCount && cardCount > 0
                 ? "Session complete"
@@ -699,7 +707,7 @@ export const SessionSummaryView = ({
               return (
                 <div key={r.value} className="flex items-center gap-2 text-xs">
                   <span className="w-12 text-muted-foreground">{r.label}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className={cn(
                         "h-full",
@@ -719,7 +727,7 @@ export const SessionSummaryView = ({
           </div>
         )}
 
-        <div className="flex items-center gap-2 mx-auto">
+        <div className="mx-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="lg"
@@ -753,7 +761,7 @@ const SummaryStat = ({
   value: string;
   description: string;
 }) => (
-  <div className="rounded-lg bg-card px-3 py-2 flex flex-col gap-0.5">
+  <div className="flex flex-col gap-0.5 rounded-lg bg-card px-3 py-2">
     <div className="flex items-center justify-between gap-2">
       <div className="text-[0.6875rem] text-muted-foreground">{label}</div>
       <Tooltip>
@@ -762,7 +770,7 @@ const SummaryStat = ({
             <button
               type="button"
               aria-label={`About ${label}`}
-              className="text-muted-foreground/60 hover:text-muted-foreground transition-colors -mr-0.5 cursor-help"
+              className="-mr-0.5 cursor-help text-muted-foreground/60 transition-colors hover:text-muted-foreground"
             >
               <IconInfoCircle className="size-3" />
             </button>

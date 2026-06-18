@@ -1,12 +1,7 @@
 "use server";
 
 import { withUser } from "@/db";
-import {
-  items,
-  flashcards,
-  reviewSessions,
-  cardReviews,
-} from "@/db/schema";
+import { items, flashcards, reviewSessions, cardReviews } from "@/db/schema";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction, ActionError } from "@/lib/safe-action";
@@ -68,50 +63,62 @@ const selectQueueCard = {
   itemFaviconUrl: items.faviconUrl,
 };
 
-export const getDueCards = safeAction(async function getDueCards(limit?: number): Promise<FlashcardWithItem[]> {
+export const getDueCards = safeAction(async function getDueCards(
+  limit?: number,
+): Promise<FlashcardWithItem[]> {
   return time("action:getDueCards", async () => {
-  const n = limit ?? 5;
-  parseInput(getDueCardsSchema, { limit: n });
-  const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-  return withUser(userId, (tx) =>
-    tx
-      .select(selectQueueCard)
-      .from(flashcards)
-      .leftJoin(
-        items,
-        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-      )
-      .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
-      .orderBy(asc(flashcards.due))
-      .limit(n),
-    "getDueCards",
-  );
+    const n = limit ?? 5;
+    parseInput(getDueCardsSchema, { limit: n });
+    const userId = await getCurrentUserId();
+    const now = new Date().toISOString();
+    return withUser(
+      userId,
+      (tx) =>
+        tx
+          .select(selectQueueCard)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
+          .orderBy(asc(flashcards.due))
+          .limit(n),
+      "getDueCards",
+    );
   });
 }, "Could not load due cards. Please try again.");
 
-export const getNewCards = safeAction(async function getNewCards(limit?: number): Promise<FlashcardWithItem[]> {
+export const getNewCards = safeAction(async function getNewCards(
+  limit?: number,
+): Promise<FlashcardWithItem[]> {
   return time("action:getNewCards", async () => {
-  const n = limit ?? 5;
-  parseInput(getNewCardsSchema, { limit: n });
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) =>
-    tx
-      .select(selectQueueCard)
-      .from(flashcards)
-      .leftJoin(
-        items,
-        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-      )
-      .where(and(eq(flashcards.userId, userId), eq(flashcards.state, "new")))
-      .orderBy(asc(flashcards.createdAt))
-      .limit(n),
-    "getNewCards",
-  );
+    const n = limit ?? 5;
+    parseInput(getNewCardsSchema, { limit: n });
+    const userId = await getCurrentUserId();
+    return withUser(
+      userId,
+      (tx) =>
+        tx
+          .select(selectQueueCard)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(
+            and(eq(flashcards.userId, userId), eq(flashcards.state, "new")),
+          )
+          .orderBy(asc(flashcards.createdAt))
+          .limit(n),
+      "getNewCards",
+    );
   });
 }, "Could not load new cards. Please try again.");
 
-export const getCardsForItem = safeAction(async function getCardsForItem(itemId: string): Promise<FlashcardWithItem[]> {
+export const getCardsForItem = safeAction(async function getCardsForItem(
+  itemId: string,
+): Promise<FlashcardWithItem[]> {
   parseInput(getCardsForItemSchema, { itemId });
   const userId = await getCurrentUserId();
   return withUser(userId, (tx) =>
@@ -127,20 +134,23 @@ export const getCardsForItem = safeAction(async function getCardsForItem(itemId:
   );
 }, "Could not load cards for item. Please try again.");
 
-export const getAllCardsForCram = safeAction(async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) =>
-    tx
-      .select(selectQueueCard)
-      .from(flashcards)
-      .leftJoin(
-        items,
-        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-      )
-      .where(eq(flashcards.userId, userId))
-      .orderBy(asc(flashcards.createdAt)),
-  );
-}, "Could not load cards for cram. Please try again.");
+export const getAllCardsForCram = safeAction(
+  async function getAllCardsForCram(): Promise<FlashcardWithItem[]> {
+    const userId = await getCurrentUserId();
+    return withUser(userId, (tx) =>
+      tx
+        .select(selectQueueCard)
+        .from(flashcards)
+        .leftJoin(
+          items,
+          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+        )
+        .where(eq(flashcards.userId, userId))
+        .orderBy(asc(flashcards.createdAt)),
+    );
+  },
+  "Could not load cards for cram. Please try again.",
+);
 
 const shuffle = <T>(array: T[]): T[] => {
   for (let i = array.length - 1; i > 0; i--) {
@@ -156,10 +166,7 @@ const shuffleWithSiblingSpacing = <T extends { itemId: string | null }>(
   shuffle(cards);
 
   for (let i = 1; i < cards.length; i++) {
-    if (
-      cards[i].itemId !== null &&
-      cards[i].itemId === cards[i - 1].itemId
-    ) {
+    if (cards[i].itemId !== null && cards[i].itemId === cards[i - 1].itemId) {
       let swapped = false;
       for (let j = i + 1; j < cards.length; j++) {
         if (cards[j].itemId !== cards[i].itemId) {
@@ -207,146 +214,149 @@ const weightedRandomSelection = <T>(
   return selected;
 };
 
-export const startReviewSession = safeAction(async function startReviewSession(args: {
-  mode: ReviewMode;
-  scope?: ReviewScope;
-  limit?: number;
-}): Promise<{
-  sessionId: string;
-  cardCount: number;
-  data: ReviewSessionData | null;
-}> {
-  parseInput(startReviewSessionSchema, args);
-  const userId = await getCurrentUserId();
-  const sessionId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  const affectsSchedule = args.mode !== "cram";
-  const limit = args.limit ?? 5;
+export const startReviewSession = safeAction(
+  async function startReviewSession(args: {
+    mode: ReviewMode;
+    scope?: ReviewScope;
+    limit?: number;
+  }): Promise<{
+    sessionId: string;
+    cardCount: number;
+    data: ReviewSessionData | null;
+  }> {
+    parseInput(startReviewSessionSchema, args);
+    const userId = await getCurrentUserId();
+    const sessionId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const affectsSchedule = args.mode !== "cram";
+    const limit = args.limit ?? 5;
 
-  return withUser(userId, async (tx) => {
-    const cardSelection = selectQueueCard;
+    return withUser(userId, async (tx) => {
+      const cardSelection = selectQueueCard;
 
-    let cards: ReviewSessionCard[] = [];
+      let cards: ReviewSessionCard[] = [];
 
-    const poolSize = limit * 3;
+      const poolSize = limit * 3;
 
-    // Optional item scoping: "due" / "new" / "cram" keep their semantics
-    // (including affectsSchedule) but draw only from the scoped item's cards.
-    const scopeFilter = args.scope?.itemId
-      ? eq(flashcards.itemId, args.scope.itemId)
-      : undefined;
+      // Optional item scoping: "due" / "new" / "cram" keep their semantics
+      // (including affectsSchedule) but draw only from the scoped item's cards.
+      const scopeFilter = args.scope?.itemId
+        ? eq(flashcards.itemId, args.scope.itemId)
+        : undefined;
 
-    if (args.mode === "due") {
-      const pool = await tx
-        .select(cardSelection)
-        .from(flashcards)
-        .leftJoin(
-          items,
-          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-        )
-        .where(
-          and(
-            eq(flashcards.userId, userId),
-            lte(flashcards.due, now),
-            scopeFilter,
-          ),
-        )
-        .orderBy(asc(flashcards.due))
-        .limit(poolSize);
+      if (args.mode === "due") {
+        const pool = await tx
+          .select(cardSelection)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(
+            and(
+              eq(flashcards.userId, userId),
+              lte(flashcards.due, now),
+              scopeFilter,
+            ),
+          )
+          .orderBy(asc(flashcards.due))
+          .limit(poolSize);
 
-      const nowMs = Date.now();
-      const weights = pool.map((card) => {
-        const overdueMs = nowMs - new Date(card.due).getTime();
-        return Math.max(overdueMs, 1);
+        const nowMs = Date.now();
+        const weights = pool.map((card) => {
+          const overdueMs = nowMs - new Date(card.due).getTime();
+          return Math.max(overdueMs, 1);
+        });
+        cards = weightedRandomSelection(pool, weights, limit);
+      } else if (args.mode === "new") {
+        const pool = await tx
+          .select(cardSelection)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(
+            and(
+              eq(flashcards.userId, userId),
+              eq(flashcards.state, "new"),
+              scopeFilter,
+            ),
+          )
+          .orderBy(asc(flashcards.createdAt))
+          .limit(poolSize);
+
+        const uniformWeights = pool.map(() => 1);
+        cards = weightedRandomSelection(pool, uniformWeights, limit);
+      } else if (args.mode === "item") {
+        if (!args.scope?.itemId)
+          throw new ActionError("Item mode requires an item ID");
+        cards = await tx
+          .select(cardSelection)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(
+            and(
+              eq(flashcards.userId, userId),
+              eq(flashcards.itemId, args.scope.itemId),
+            ),
+          )
+          .orderBy(asc(flashcards.createdAt));
+      } else if (args.mode === "cram") {
+        const pool = await tx
+          .select(cardSelection)
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(and(eq(flashcards.userId, userId), scopeFilter))
+          .orderBy(asc(flashcards.createdAt))
+          .limit(poolSize);
+
+        const uniformWeights = pool.map(() => 1);
+        cards = weightedRandomSelection(pool, uniformWeights, limit);
+      }
+
+      cards = shuffleWithSiblingSpacing(cards);
+      const cardIds = cards.map((c) => c.id);
+
+      await tx.insert(reviewSessions).values({
+        id: sessionId,
+        userId,
+        mode: args.mode,
+        scope: args.scope ?? null,
+        cardIds,
+        cardsPlanned: cardIds.length,
+        cardsCompleted: 0,
+        affectsSchedule,
+        startedAt: now,
       });
-      cards = weightedRandomSelection(pool, weights, limit);
-    } else if (args.mode === "new") {
-      const pool = await tx
-        .select(cardSelection)
-        .from(flashcards)
-        .leftJoin(
-          items,
-          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-        )
-        .where(
-          and(
-            eq(flashcards.userId, userId),
-            eq(flashcards.state, "new"),
-            scopeFilter,
-          ),
-        )
-        .orderBy(asc(flashcards.createdAt))
-        .limit(poolSize);
 
-      const uniformWeights = pool.map(() => 1);
-      cards = weightedRandomSelection(pool, uniformWeights, limit);
-    } else if (args.mode === "item") {
-      if (!args.scope?.itemId)
-        throw new ActionError("Item mode requires an item ID");
-      cards = await tx
-        .select(cardSelection)
-        .from(flashcards)
-        .leftJoin(
-          items,
-          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-        )
-        .where(
-          and(
-            eq(flashcards.userId, userId),
-            eq(flashcards.itemId, args.scope.itemId),
-          ),
-        )
-        .orderBy(asc(flashcards.createdAt));
-    } else if (args.mode === "cram") {
-      const pool = await tx
-        .select(cardSelection)
-        .from(flashcards)
-        .leftJoin(
-          items,
-          and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-        )
-        .where(and(eq(flashcards.userId, userId), scopeFilter))
-        .orderBy(asc(flashcards.createdAt))
-        .limit(poolSize);
+      const data: ReviewSessionData | null = cardIds.length
+        ? {
+            session: {
+              id: sessionId,
+              mode: args.mode,
+              cardsPlanned: cardIds.length,
+              cardsCompleted: 0,
+              affectsSchedule,
+              startedAt: now,
+              endedAt: null,
+            },
+            cards,
+            completedCardIds: [],
+          }
+        : null;
 
-      const uniformWeights = pool.map(() => 1);
-      cards = weightedRandomSelection(pool, uniformWeights, limit);
-    }
-
-    cards = shuffleWithSiblingSpacing(cards);
-    const cardIds = cards.map((c) => c.id);
-
-    await tx.insert(reviewSessions).values({
-      id: sessionId,
-      userId,
-      mode: args.mode,
-      scope: args.scope ?? null,
-      cardIds,
-      cardsPlanned: cardIds.length,
-      cardsCompleted: 0,
-      affectsSchedule,
-      startedAt: now,
+      return { sessionId, cardCount: cardIds.length, data };
     });
-
-    const data: ReviewSessionData | null = cardIds.length
-      ? {
-          session: {
-            id: sessionId,
-            mode: args.mode,
-            cardsPlanned: cardIds.length,
-            cardsCompleted: 0,
-            affectsSchedule,
-            startedAt: now,
-            endedAt: null,
-          },
-          cards,
-          completedCardIds: [],
-        }
-      : null;
-
-    return { sessionId, cardCount: cardIds.length, data };
-  });
-}, "Could not start review session. Please try again.");
+  },
+  "Could not start review session. Please try again.",
+);
 
 export type ReviewSessionCard = FlashcardWithItem;
 
@@ -643,44 +653,47 @@ export const skipCard = safeAction(async function skipCard(args: {
   });
 }, "Could not skip card. Please try again.");
 
-export const endReviewSession = safeAction(async function endReviewSession(args: {
-  sessionId: string;
-  reason: "completed" | "user_ended";
-}): Promise<void> {
-  parseInput(endReviewSessionSchema, args);
-  const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
+export const endReviewSession = safeAction(
+  async function endReviewSession(args: {
+    sessionId: string;
+    reason: "completed" | "user_ended";
+  }): Promise<void> {
+    parseInput(endReviewSessionSchema, args);
+    const userId = await getCurrentUserId();
+    const now = new Date().toISOString();
 
-  await withUser(userId, async (tx) => {
-    const [session] = await tx
-      .select({ endedAt: reviewSessions.endedAt })
-      .from(reviewSessions)
-      .where(
-        and(
-          eq(reviewSessions.id, args.sessionId),
-          eq(reviewSessions.userId, userId),
-        ),
-      );
-    if (!session) throw new ActionError("Review session not found");
-    if (session.endedAt) return;
+    await withUser(userId, async (tx) => {
+      const [session] = await tx
+        .select({ endedAt: reviewSessions.endedAt })
+        .from(reviewSessions)
+        .where(
+          and(
+            eq(reviewSessions.id, args.sessionId),
+            eq(reviewSessions.userId, userId),
+          ),
+        );
+      if (!session) throw new ActionError("Review session not found");
+      if (session.endedAt) return;
 
-    await tx
-      .update(reviewSessions)
-      .set({ endedAt: now })
-      .where(
-        and(
-          eq(reviewSessions.id, args.sessionId),
-          eq(reviewSessions.userId, userId),
-        ),
-      );
-  });
+      await tx
+        .update(reviewSessions)
+        .set({ endedAt: now })
+        .where(
+          and(
+            eq(reviewSessions.id, args.sessionId),
+            eq(reviewSessions.userId, userId),
+          ),
+        );
+    });
 
-  await logReviewEvent(userId, args.sessionId, {
-    type: "session_ended",
-    flashcardId: null,
-    data: { reason: args.reason },
-  });
-}, "Could not end review session. Please try again.");
+    await logReviewEvent(userId, args.sessionId, {
+      type: "session_ended",
+      flashcardId: null,
+      data: { reason: args.reason },
+    });
+  },
+  "Could not end review session. Please try again.",
+);
 
 export type ItemReviewStatus = {
   dueCount: number;
@@ -688,74 +701,90 @@ export type ItemReviewStatus = {
   totalCardCount: number;
 };
 
-export const getItemReviewStatus = safeAction(async function getItemReviewStatus(
-  itemId: string,
-): Promise<ItemReviewStatus> {
-  parseInput(getItemReviewStatusSchema, { itemId });
-  const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-  return withUser(userId, async (tx) => {
-    const [counts] = await tx
-      .select({
-        dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
-        newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
-        totalCards: sql<number>`count(*)::int`,
-      })
-      .from(flashcards)
-      .where(and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)));
-    return {
-      dueCount: counts?.dueCards ?? 0,
-      newCount: counts?.newCards ?? 0,
-      totalCardCount: counts?.totalCards ?? 0,
-    };
-  }, "getItemReviewStatus");
-}, "Could not load review status for this item. Please try again.");
+export const getItemReviewStatus = safeAction(
+  async function getItemReviewStatus(
+    itemId: string,
+  ): Promise<ItemReviewStatus> {
+    parseInput(getItemReviewStatusSchema, { itemId });
+    const userId = await getCurrentUserId();
+    const now = new Date().toISOString();
+    return withUser(
+      userId,
+      async (tx) => {
+        const [counts] = await tx
+          .select({
+            dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
+            newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
+            totalCards: sql<number>`count(*)::int`,
+          })
+          .from(flashcards)
+          .where(
+            and(eq(flashcards.userId, userId), eq(flashcards.itemId, itemId)),
+          );
+        return {
+          dueCount: counts?.dueCards ?? 0,
+          newCount: counts?.newCards ?? 0,
+          totalCardCount: counts?.totalCards ?? 0,
+        };
+      },
+      "getItemReviewStatus",
+    );
+  },
+  "Could not load review status for this item. Please try again.",
+);
 
-export const getReviewStatus = safeAction(async function getReviewStatus(): Promise<{
-  dueCount: number;
-  dueItemCount: number;
-  newCount: number;
-  newItemCount: number;
-  totalCardCount: number;
-  totalItemCount: number;
-  lastReviewedAt: string | null;
-}> {
-  return time("action:getReviewStatus", async () => {
-  const userId = await getCurrentUserId();
-  const now = new Date().toISOString();
-  return withUser(userId, async (tx) => {
-    // Single aggregate scan over flashcards (3 conditional COUNTs in one pass)
-    // plus the latest cardReviews row, in parallel — replaces 4 separate
-    // queries that each ate ~150ms of withUser overhead end-to-end.
-    const [counts, lastRows] = await Promise.all([
-      tx
-        .select({
-          dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
-          dueItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.due} <= ${now})::int`,
-          newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
-          newItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.state} = 'new')::int`,
-          totalCards: sql<number>`count(*)::int`,
-          totalItems: sql<number>`count(distinct ${flashcards.itemId})::int`,
-        })
-        .from(flashcards)
-        .where(eq(flashcards.userId, userId)),
-      tx
-        .select({ reviewedAt: cardReviews.reviewedAt })
-        .from(cardReviews)
-        .where(eq(cardReviews.userId, userId))
-        .orderBy(desc(cardReviews.reviewedAt))
-        .limit(1),
-    ]);
-    const c = counts[0];
-    return {
-      dueCount: c?.dueCards ?? 0,
-      dueItemCount: c?.dueItems ?? 0,
-      newCount: c?.newCards ?? 0,
-      newItemCount: c?.newItems ?? 0,
-      totalCardCount: c?.totalCards ?? 0,
-      totalItemCount: c?.totalItems ?? 0,
-      lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
-    };
-  }, "getReviewStatus");
-  });
-}, "Could not load review status. Please try again.");
+export const getReviewStatus = safeAction(
+  async function getReviewStatus(): Promise<{
+    dueCount: number;
+    dueItemCount: number;
+    newCount: number;
+    newItemCount: number;
+    totalCardCount: number;
+    totalItemCount: number;
+    lastReviewedAt: string | null;
+  }> {
+    return time("action:getReviewStatus", async () => {
+      const userId = await getCurrentUserId();
+      const now = new Date().toISOString();
+      return withUser(
+        userId,
+        async (tx) => {
+          // Single aggregate scan over flashcards (3 conditional COUNTs in one pass)
+          // plus the latest cardReviews row, in parallel — replaces 4 separate
+          // queries that each ate ~150ms of withUser overhead end-to-end.
+          const [counts, lastRows] = await Promise.all([
+            tx
+              .select({
+                dueCards: sql<number>`count(*) filter (where ${flashcards.due} <= ${now})::int`,
+                dueItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.due} <= ${now})::int`,
+                newCards: sql<number>`count(*) filter (where ${flashcards.state} = 'new')::int`,
+                newItems: sql<number>`count(distinct ${flashcards.itemId}) filter (where ${flashcards.state} = 'new')::int`,
+                totalCards: sql<number>`count(*)::int`,
+                totalItems: sql<number>`count(distinct ${flashcards.itemId})::int`,
+              })
+              .from(flashcards)
+              .where(eq(flashcards.userId, userId)),
+            tx
+              .select({ reviewedAt: cardReviews.reviewedAt })
+              .from(cardReviews)
+              .where(eq(cardReviews.userId, userId))
+              .orderBy(desc(cardReviews.reviewedAt))
+              .limit(1),
+          ]);
+          const c = counts[0];
+          return {
+            dueCount: c?.dueCards ?? 0,
+            dueItemCount: c?.dueItems ?? 0,
+            newCount: c?.newCards ?? 0,
+            newItemCount: c?.newItems ?? 0,
+            totalCardCount: c?.totalCards ?? 0,
+            totalItemCount: c?.totalItems ?? 0,
+            lastReviewedAt: lastRows[0]?.reviewedAt ?? null,
+          };
+        },
+        "getReviewStatus",
+      );
+    });
+  },
+  "Could not load review status. Please try again.",
+);

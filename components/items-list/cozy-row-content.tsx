@@ -42,7 +42,7 @@ export const CozyRowContent = ({
         <span
           data-item-title
           className={cn(
-            "font-content text-sm/5 fade-r min-w-0",
+            "fade-r min-w-0 font-content text-sm/5",
             !item.title && !isTyping && "text-muted-foreground",
           )}
         >
@@ -86,7 +86,7 @@ export const CozyRowContent = ({
       >
         <div
           className={cn(
-            "absolute inset-y-0 right-0 flex items-start pt-2 pl-12 pr-2 pointer-events-none invisible group-data-menu-open:visible",
+            "pointer-events-none invisible absolute inset-y-0 right-0 flex items-start pt-2 pr-2 pl-12 group-data-menu-open:visible",
             !suppressHover && "group-hover:visible",
           )}
         >
@@ -104,7 +104,7 @@ export const CozyRowContent = ({
           )}
           <DropdownMenuTrigger
             className={cn(
-              "relative pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:text-foreground outline-none",
+              "pointer-events-auto relative shrink-0 rounded p-1 text-muted-foreground outline-none hover:text-foreground",
               isSelected && "bg-secondary",
             )}
             onClick={stopPropagation}

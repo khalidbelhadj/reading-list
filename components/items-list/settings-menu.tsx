@@ -298,7 +298,7 @@ export const SettingsMenu = ({
         render={
           <button
             type="button"
-            className="font-content text-sm font-medium gap-1.5 inline-flex items-center outline-none select-none"
+            className="inline-flex items-center gap-1.5 font-content text-sm font-medium outline-none select-none"
           >
             <span
               aria-hidden="true"
@@ -517,7 +517,7 @@ export const SettingsMenu = ({
               value={exportFilename}
               onChange={handleExportFilenameChange}
               onKeyDown={handleExportKeyDown}
-              className="flex-1 min-w-0 bg-transparent text-xs outline-none"
+              className="min-w-0 flex-1 bg-transparent text-xs outline-none"
             />
             <span className="pl-1 text-xs text-muted-foreground/60 select-none">
               .csv

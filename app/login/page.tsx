@@ -20,7 +20,7 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-5">
+    <div className="flex min-h-dvh items-center justify-center px-5">
       <LoginForm error={!!error} redirectTo={redirectTo} />
     </div>
   );

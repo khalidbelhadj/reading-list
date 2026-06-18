@@ -28,8 +28,8 @@ const ReturnToApp = () => {
 
   if (!deepLink) {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-5">
-        <div className="flex flex-col items-start gap-4 max-w-md w-full">
+      <div className="flex min-h-dvh items-center justify-center px-5">
+        <div className="flex w-full max-w-md flex-col items-start gap-4">
           <div className="flex flex-col gap-1">
             <h1 className="font-content text-lg">Something went wrong</h1>
             <p className="text-sm text-muted-foreground">
@@ -43,8 +43,8 @@ const ReturnToApp = () => {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-5">
-      <div className="flex flex-col items-start gap-4 max-w-md w-full">
+    <div className="flex min-h-dvh items-center justify-center px-5">
+      <div className="flex w-full max-w-md flex-col items-start gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="font-content text-lg">Signed in</h1>
           <p className="text-sm text-muted-foreground">

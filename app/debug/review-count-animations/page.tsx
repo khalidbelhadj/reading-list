@@ -69,7 +69,7 @@ const VARIANTS: VariantDef[] = [
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
             transition={{ duration: t(0.18), ease: "easeOut" }}
-            className="text-muted-foreground origin-right"
+            className="origin-right text-muted-foreground"
           >
             {value}
           </motion.div>
@@ -90,8 +90,12 @@ const VARIANTS: VariantDef[] = [
             initial={{ width: 0, marginLeft: -6, opacity: 0, x: 20 }}
             animate={{ width: "auto", marginLeft: 0, opacity: 1, x: 0 }}
             exit={{ width: 0, marginLeft: -6, opacity: 0, x: 20 }}
-            transition={{ type: "tween", duration: t(0.25), ease: [0.4, 0, 0.2, 1] }}
-            className="text-muted-foreground whitespace-nowrap"
+            transition={{
+              type: "tween",
+              duration: t(0.25),
+              ease: [0.4, 0, 0.2, 1],
+            }}
+            className="whitespace-nowrap text-muted-foreground"
           >
             {value}
           </motion.div>
@@ -105,7 +109,7 @@ const VARIANTS: VariantDef[] = [
     description:
       "Small pulsing dot while loading, crossfades to the number when ready. Linear-style. Strobes on fast queries.",
     Render: ({ value, t }) => (
-      <div className="relative h-4 min-w-2 grid place-items-center">
+      <div className="relative grid h-4 min-w-2 place-items-center">
         <AnimatePresence mode="wait" initial={false}>
           {value === null ? (
             <motion.div
@@ -114,7 +118,7 @@ const VARIANTS: VariantDef[] = [
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: t(0.15) }}
-              className="size-1.5 rounded-full bg-muted-foreground/40 animate-pulse"
+              className="size-1.5 animate-pulse rounded-full bg-muted-foreground/40"
             />
           ) : (
             <motion.div
@@ -147,11 +151,7 @@ const RollingNumber = ({ value, t }: { value: number; t: Scale }) => {
   return (
     <div className="flex text-muted-foreground tabular-nums">
       {digits.map((d, i) => (
-        <RollingDigit
-          key={`${digits.length}-${i}`}
-          digit={Number(d)}
-          t={t}
-        />
+        <RollingDigit key={`${digits.length}-${i}`} digit={Number(d)} t={t} />
       ))}
     </div>
   );
@@ -215,15 +215,15 @@ const Page = () => {
   }, [replay]);
 
   return (
-    <div className="min-h-dvh px-6 py-10 max-w-3xl mx-auto">
+    <div className="mx-auto min-h-dvh max-w-3xl px-6 py-10">
       <header className="mb-8 flex flex-col gap-2">
         <h1 className="font-content text-2xl font-semibold">
           Review button count, entrance animations
         </h1>
         <p className="text-sm text-muted-foreground">
-          Each row reloads independently. Use the controls to replay an
-          entrance or swap to a different number, animations that depend on
-          value transitions (scale-fade, rolling) replay on value change.
+          Each row reloads independently. Use the controls to replay an entrance
+          or swap to a different number, animations that depend on value
+          transitions (scale-fade, rolling) replay on value change.
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <Button size="sm" onClick={() => replay(7)}>
@@ -259,7 +259,7 @@ const Page = () => {
             key={v.id}
             className="grid grid-cols-[1fr_auto] items-center gap-6 py-5"
           >
-            <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex min-w-0 flex-col gap-1">
               <div className="text-sm font-medium">{v.name}</div>
               <div className="text-xs text-muted-foreground">
                 {v.description}

@@ -33,10 +33,19 @@ const buildBlock = (id: string, front: string, back: string) => {
   return `<card id="${id}">\n<front>\n${f}\n</front>\n<back>\n${b}\n</back>\n</card>`;
 };
 
-type Row = { id: string; item_id: string; front: string; back: string; notes: string | null };
+type Row = {
+  id: string;
+  item_id: string;
+  front: string;
+  back: string;
+  notes: string | null;
+};
 
 const rollback = async (file: string) => {
-  const snapshot = JSON.parse(readFileSync(file, "utf8")) as Record<string, string | null>;
+  const snapshot = JSON.parse(readFileSync(file, "utf8")) as Record<
+    string,
+    string | null
+  >;
   const entries = Object.entries(snapshot);
   console.log(`Rolling back ${entries.length} item(s) from ${file}`);
   for (const [itemId, notes] of entries) {
@@ -88,18 +97,31 @@ const migrate = async (apply: boolean) => {
       buildBlock(c.id, clean(c.front), clean(c.back)),
     );
     const base = (notes ?? "").trimEnd();
-    const newNotes = base ? `${base}\n\n${blocks.join("\n\n")}` : blocks.join("\n\n");
+    const newNotes = base
+      ? `${base}\n\n${blocks.join("\n\n")}`
+      : blocks.join("\n\n");
 
     // Verify every appended card round-trips through the real parser.
-    const reparsed = new Map(parseCardsFromNotes(newNotes).map((c) => [c.id, c]));
+    const reparsed = new Map(
+      parseCardsFromNotes(newNotes).map((c) => [c.id, c]),
+    );
     let safe = true;
     for (const c of toAppend) {
       const got = reparsed.get(c.id);
       if (!got) {
-        unsafe.push({ itemId, cardId: c.id, reason: "not recovered after merge" });
+        unsafe.push({
+          itemId,
+          cardId: c.id,
+          reason: "not recovered after merge",
+        });
         safe = false;
       } else if (got.front !== clean(c.front) || got.back !== clean(c.back)) {
-        unsafe.push({ itemId, cardId: c.id, reason: "content mismatch after merge (likely a delimiter line in content)" });
+        unsafe.push({
+          itemId,
+          cardId: c.id,
+          reason:
+            "content mismatch after merge (likely a delimiter line in content)",
+        });
         safe = false;
       }
     }
@@ -115,30 +137,52 @@ const migrate = async (apply: boolean) => {
   console.log(`Items already migrated:       ${skippedAlready}`);
   console.log(`Items to write:               ${writes.length}`);
   console.log(`Cards to append:              ${appendedCards}`);
-  console.log(`Orphan flashcards (no item):  ${orphans[0]?.n ?? 0} (left untouched)`);
+  console.log(
+    `Orphan flashcards (no item):  ${orphans[0]?.n ?? 0} (left untouched)`,
+  );
   if (unsafe.length > 0) {
-    console.log(`\n⚠️  ${unsafe.length} card(s) FAILED round-trip — their items are NOT written:`);
-    for (const u of unsafe) console.log(`   item ${u.itemId} card ${u.cardId}: ${u.reason}`);
+    console.log(
+      `\n⚠️  ${unsafe.length} card(s) FAILED round-trip — their items are NOT written:`,
+    );
+    for (const u of unsafe)
+      console.log(`   item ${u.itemId} card ${u.cardId}: ${u.reason}`);
   }
   console.log("─".repeat(60));
 
   if (!apply) {
     const sample = writes[0];
     if (sample) {
-      const before = (byItem.get(sample.itemId)?.notes ?? "").trim() || "(empty)";
+      const before =
+        (byItem.get(sample.itemId)?.notes ?? "").trim() || "(empty)";
       console.log(`\nPREVIEW — item ${sample.itemId}`);
-      console.log("  BEFORE notes:\n" + before.split("\n").map((l) => "    " + l).join("\n"));
-      console.log("  AFTER notes:\n" + sample.notes.split("\n").map((l) => "    " + l).join("\n"));
+      console.log(
+        "  BEFORE notes:\n" +
+          before
+            .split("\n")
+            .map((l) => "    " + l)
+            .join("\n"),
+      );
+      console.log(
+        "  AFTER notes:\n" +
+          sample.notes
+            .split("\n")
+            .map((l) => "    " + l)
+            .join("\n"),
+      );
       console.log("─".repeat(60));
     }
-    console.log("DRY RUN — no changes written. Re-run with --apply to migrate.");
+    console.log(
+      "DRY RUN — no changes written. Re-run with --apply to migrate.",
+    );
     await sql.end();
     return;
   }
 
   const snapshotFile = `scripts/flashcard-migration-snapshot.json`;
   writeFileSync(snapshotFile, JSON.stringify(snapshot, null, 2));
-  console.log(`Snapshot written to ${snapshotFile} (use --rollback <file> to restore).`);
+  console.log(
+    `Snapshot written to ${snapshotFile} (use --rollback <file> to restore).`,
+  );
 
   for (const { itemId, notes, trims } of writes) {
     await sql`UPDATE items SET notes = ${notes}, updated_at = now() WHERE id = ${itemId}`;
@@ -146,7 +190,9 @@ const migrate = async (apply: boolean) => {
       await sql`UPDATE flashcards SET front = ${clean(c.front)}, back = ${clean(c.back)}, updated_at = now() WHERE id = ${c.id}`;
     }
   }
-  console.log(`Applied: wrote ${writes.length} item(s), appended ${appendedCards} card(s).`);
+  console.log(
+    `Applied: wrote ${writes.length} item(s), appended ${appendedCards} card(s).`,
+  );
   await sql.end();
 };
 

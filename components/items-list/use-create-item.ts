@@ -39,7 +39,11 @@ export const useCreateItem = () => {
   });
 
   const runCreate = React.useCallback(
-    (args: CreateArgs, callbacks: CreateCallbacks, allowDuplicateUrl: boolean) => {
+    (
+      args: CreateArgs,
+      callbacks: CreateCallbacks,
+      allowDuplicateUrl: boolean,
+    ) => {
       callbacks.onProceed?.();
       createMutation.mutate(
         { ...args, allowDuplicateUrl },

@@ -75,7 +75,7 @@ const PagePreview = ({
           />
         ) : (
           <div className="flex flex-col gap-0.75 px-1.5 pt-1.5">
-            <div className="line-clamp-2 text-[6px] font-semibold leading-[1.2] text-zinc-900">
+            <div className="line-clamp-2 text-[6px] leading-[1.2] font-semibold text-zinc-900">
               {title}
             </div>
             <div className="mt-0.5 h-0.5 w-full rounded-full bg-zinc-300" />
@@ -179,7 +179,7 @@ export const ItemThumbnail = ({
           previewImageUrl={previewImageUrl}
         />
       )}
-      <div className="absolute bottom-1 right-1 flex size-4 items-center justify-center rounded-[3px] bg-background/90 ring-1 ring-foreground/10">
+      <div className="absolute right-1 bottom-1 flex size-4 items-center justify-center rounded-[3px] bg-background/90 ring-1 ring-foreground/10">
         {faviconSrc ? (
           <Image
             src={faviconSrc}

@@ -153,13 +153,19 @@ export const ReviewConfirmDialog = ({
             <AlertDialogCancel>OK</AlertDialogCancel>
           ) : (
             <>
-              <AlertDialogCancel disabled={isStarting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isStarting}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => onConfirm(plannedCount)}
                 disabled={isStarting}
               >
                 {isStarting && <Spinner className="size-3" />}
-                {isCram ? "Start cram" : isNew ? "Start new cards" : "Start review"}
+                {isCram
+                  ? "Start cram"
+                  : isNew
+                    ? "Start new cards"
+                    : "Start review"}
               </AlertDialogAction>
             </>
           )}

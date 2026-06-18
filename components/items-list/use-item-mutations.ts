@@ -1,10 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-  deleteItem,
-  toggleRead,
-  updateItem,
-} from "@/app/actions";
+import { deleteItem, toggleRead, updateItem } from "@/app/actions";
 import { type Item } from "@/lib/types";
 import {
   useInvalidateItemFlashcards,
@@ -96,8 +92,13 @@ export const useItemMutations = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ itemId, fields }: { itemId: string; fields: UpdateItemFields }) =>
-      updateItem(itemId, fields),
+    mutationFn: ({
+      itemId,
+      fields,
+    }: {
+      itemId: string;
+      fields: UpdateItemFields;
+    }) => updateItem(itemId, fields),
     onMutate: async ({ itemId, fields }) => {
       await queryClient.cancelQueries({ queryKey: ["items"] });
       const previous = queryClient.getQueryData<Item[]>(["items"]);

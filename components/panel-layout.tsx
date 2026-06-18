@@ -130,25 +130,22 @@ export const PanelLayout = () => {
     [handleCloseItem],
   );
 
-  const handleOpenItemExpanded = React.useCallback(
-    (id: string) => {
-      // Open without the toggle-close behavior — Cmd+Enter on an already-open
-      // item should expand it, not close it.
-      const params = new URLSearchParams(window.location.search);
-      const current = params.get("item");
-      params.set("item", id);
-      params.set("expanded", "1");
-      const url = `?${params.toString()}`;
-      if (current) {
-        window.history.replaceState(null, "", url);
-      } else {
-        window.history.pushState(null, "", url);
-      }
-      setOpenItemId(id);
-      setExpanded(true);
-    },
-    [],
-  );
+  const handleOpenItemExpanded = React.useCallback((id: string) => {
+    // Open without the toggle-close behavior — Cmd+Enter on an already-open
+    // item should expand it, not close it.
+    const params = new URLSearchParams(window.location.search);
+    const current = params.get("item");
+    params.set("item", id);
+    params.set("expanded", "1");
+    const url = `?${params.toString()}`;
+    if (current) {
+      window.history.replaceState(null, "", url);
+    } else {
+      window.history.pushState(null, "", url);
+    }
+    setOpenItemId(id);
+    setExpanded(true);
+  }, []);
 
   // Reflect manual expand/restore (toolbar button, Cmd+] / Cmd+[) into the
   // URL so the address bar always points at the current view — replaceState
@@ -169,7 +166,7 @@ export const PanelLayout = () => {
   return (
     <div className="h-dvh overflow-hidden">
       <div className="h-full p-2">
-        <div className="h-full flex flex-col md:flex-row">
+        <div className="flex h-full flex-col md:flex-row">
           <ItemsList
             onOpenItem={handleOpenItem}
             onOpenItemExpanded={handleOpenItemExpanded}

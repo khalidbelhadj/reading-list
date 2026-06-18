@@ -80,11 +80,11 @@ const ImageLightbox = ({
   return (
     <DialogPrimitive.Root open={src !== null} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 duration-75 supports-backdrop-filter:backdrop-blur-sm fixed inset-0 isolate z-50" />
+        <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 duration-75 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
           aria-label="Image preview"
           onClick={handlePopupClick}
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 outline-none data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-75"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
         >
           {src && (
             // next/image needs known dimensions; previewed images are user-pasted with arbitrary sizes.
@@ -238,7 +238,9 @@ const ParagraphWithBlankLines = Paragraph.extend({
 // used — yields clean markdown. Higher priority than the Markdown extension (50)
 // so this clipboardTextSerializer wins over tiptap-markdown's.
 type MarkdownSerializer = {
-  markdown: { serializer: { serialize: (content: ProseMirrorNode["content"]) => string } };
+  markdown: {
+    serializer: { serialize: (content: ProseMirrorNode["content"]) => string };
+  };
 };
 
 const CleanClipboardMarkdown = Extension.create({
@@ -313,18 +315,21 @@ export const MarkdownEditor = ({
     [],
   );
 
-  const hasInflightUpload = React.useCallback((e: NonNullable<typeof editor>) => {
-    let uploading = false;
-    e.state.doc.descendants((node) => {
-      if (uploading) return false;
-      if (node.type.name === "image" && node.attrs.uploading) {
-        uploading = true;
-        return false;
-      }
-      return true;
-    });
-    return uploading;
-  }, []);
+  const hasInflightUpload = React.useCallback(
+    (e: NonNullable<typeof editor>) => {
+      let uploading = false;
+      e.state.doc.descendants((node) => {
+        if (uploading) return false;
+        if (node.type.name === "image" && node.attrs.uploading) {
+          uploading = true;
+          return false;
+        }
+        return true;
+      });
+      return uploading;
+    },
+    [],
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -413,7 +418,11 @@ export const MarkdownEditor = ({
       onClick={handleEditorClick}
     >
       <EditorContent editor={editor} />
-      <ImageLightbox src={lightboxSrc} alt={lightboxAlt} onOpenChange={handleLightboxOpenChange} />
+      <ImageLightbox
+        src={lightboxSrc}
+        alt={lightboxAlt}
+        onOpenChange={handleLightboxOpenChange}
+      />
     </div>
   );
 };

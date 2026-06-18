@@ -15,15 +15,25 @@
     "db:prune-orphan-tags": "bun scripts/prune-orphan-tags.ts",
     "analyze": "bun scripts/analyze-complexity.ts && bun scripts/build-complexity-report.ts",
     "lint": "next lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
     "check": "bun run typecheck && next lint --max-warnings 0",
+    "prepare": "husky",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:start": "bun run electron:build && electron .",
     "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"bun dev\" \"wait-on http://localhost:3000 && bun run electron:start\"",
     "electron:pack": "bun run electron:build && electron-builder --mac --arm64",
     "electron:release": "bun run electron:build && electron-builder --mac --arm64 --publish always"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{mjs,cjs,json,css,html}": "prettier --write --ignore-unknown"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
@@ -76,8 +86,12 @@
     "eslint-config-next": "15.5.12",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "husky": "^9.1.7",
     "jest": "^30.4.2",
     "jest-environment-node": "^30.4.1",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.4",
+    "prettier-plugin-tailwindcss": "^0.8.0",
     "react-devtools": "^7.0.1",
     "shadcn": "^3.8.2",
     "typescript": "~5.9.3",

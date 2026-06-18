@@ -1,26 +1,28 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
+import * as React from "react";
+import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const AlertDialog = ({ ...props }: AlertDialogPrimitive.Root.Props) => {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
-}
+  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+};
 
-const AlertDialogTrigger = ({ ...props }: AlertDialogPrimitive.Trigger.Props) => {
+const AlertDialogTrigger = ({
+  ...props
+}: AlertDialogPrimitive.Trigger.Props) => {
   return (
     <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
-  )
-}
+  );
+};
 
 const AlertDialogPortal = ({ ...props }: AlertDialogPrimitive.Portal.Props) => {
   return (
     <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
-  )
-}
+  );
+};
 
 const AlertDialogOverlay = ({
   className,
@@ -31,19 +33,19 @@ const AlertDialogOverlay = ({
       data-slot="alert-dialog-overlay"
       className={cn(
         "fixed inset-0 isolate z-50 duration-75 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogContent = ({
   className,
   size = "default",
   ...props
 }: AlertDialogPrimitive.Popup.Props & {
-  size?: "default" | "sm"
+  size?: "default" | "sm";
 }) => {
   return (
     <AlertDialogPortal>
@@ -53,15 +55,15 @@ const AlertDialogContent = ({
           data-slot="alert-dialog-content"
           data-size={size}
           className={cn(
-            "pointer-events-auto grid w-full max-w-sm gap-3 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 shadow-depth-elevated duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className
+            "pointer-events-auto grid w-full max-w-sm gap-3 rounded-xl bg-popover p-4 text-popover-foreground shadow-depth-elevated ring-1 ring-foreground/10 duration-75 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className,
           )}
           {...props}
         />
       </div>
     </AlertDialogPortal>
-  )
-}
+  );
+};
 
 const AlertDialogHeader = ({
   className,
@@ -72,12 +74,12 @@ const AlertDialogHeader = ({
       data-slot="alert-dialog-header"
       className={cn(
         "grid grid-rows-[auto_1fr] gap-1 has-data-[slot=alert-dialog-media]:gap-x-4",
-        className
+        className,
       )}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogFooter = ({
   className,
@@ -86,14 +88,11 @@ const AlertDialogFooter = ({
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn(
-        "flex flex-row justify-end gap-2",
-        className
-      )}
+      className={cn("flex flex-row justify-end gap-2", className)}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogMedia = ({
   className,
@@ -104,12 +103,12 @@ const AlertDialogMedia = ({
       data-slot="alert-dialog-media"
       className={cn(
         "mb-2 inline-flex size-8 items-center justify-center rounded-md bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-4",
-        className
+        className,
       )}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogTitle = ({
   className,
@@ -120,12 +119,12 @@ const AlertDialogTitle = ({
       data-slot="alert-dialog-title"
       className={cn(
         "text-sm font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
-        className
+        className,
       )}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogDescription = ({
   className,
@@ -136,12 +135,12 @@ const AlertDialogDescription = ({
       data-slot="alert-dialog-description"
       className={cn(
         "text-xs/relaxed text-balance text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
-        className
+        className,
       )}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogAction = ({
   className,
@@ -153,8 +152,8 @@ const AlertDialogAction = ({
       className={cn(className)}
       {...props}
     />
-  )
-}
+  );
+};
 
 const AlertDialogCancel = ({
   className,
@@ -170,8 +169,8 @@ const AlertDialogCancel = ({
       render={<Button variant={variant} size={size} />}
       {...props}
     />
-  )
-}
+  );
+};
 
 export {
   AlertDialog,
@@ -186,4 +185,4 @@ export {
   AlertDialogPortal,
   AlertDialogTitle,
   AlertDialogTrigger,
-}
+};

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   IconBolt,
   IconCalendarDue,
@@ -14,17 +13,13 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import React from "react";
 
-import { IconClaude } from "@/components/ui/claude-icon";
-import { type Item } from "@/lib/types";
-import { stripBlankLineSentinel } from "@/lib/markdown";
-import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { getItemReviewStatus, type ReviewMode } from "@/app/actions";
-import { useStartReview } from "./use-start-review";
-import { ReviewConfirmDialog } from "./review-confirm-dialog";
+import { IconClaude } from "@/components/ui/claude-icon";
 import {
-  ContextMenu as ContextMenuRoot,
   ContextMenuContent,
+  ContextMenu as ContextMenuRoot,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -32,14 +27,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSub,
-  DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { openChatWithClaude } from "@/lib/chat-with-claude";
+import { stripBlankLineSentinel } from "@/lib/markdown";
+import { type Item } from "@/lib/types";
+import { ReviewConfirmDialog } from "./review-confirm-dialog";
+import { useStartReview } from "./use-start-review";
 
 const AUTO_CLOSE_MS = 3000;
 
@@ -129,9 +129,7 @@ const useItemReview = ({
   });
   const { startingMode, startReview } = useStartReview();
   const isStarting = startingMode !== null;
-  const [pendingMode, setPendingMode] = React.useState<ReviewMode | null>(
-    null,
-  );
+  const [pendingMode, setPendingMode] = React.useState<ReviewMode | null>(null);
 
   const handleDueClick = React.useCallback(() => setPendingMode("due"), []);
   const handleNewClick = React.useCallback(() => setPendingMode("new"), []);
@@ -277,10 +275,7 @@ const ItemMenuItems = ({
   return (
     <>
       {canOpenUrl && (
-        <OpenInNewTabItem
-          url={item.url ?? ""}
-          onOpen={handleOpenInNewTab}
-        />
+        <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
       )}
       {onTogglePin && (
         <DropdownMenuItem onClick={onTogglePin}>
@@ -297,7 +292,10 @@ const ItemMenuItems = ({
           <Tooltip open={lastCopied === "__title__"}>
             <TooltipTrigger
               render={
-                <DropdownMenuItem closeOnClick={false} onClick={handleCopyTitle}>
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={handleCopyTitle}
+                >
                   <IconCopy />
                   Copy title
                 </DropdownMenuItem>
@@ -320,7 +318,10 @@ const ItemMenuItems = ({
             <Tooltip open={lastCopied === "__notes__"}>
               <TooltipTrigger
                 render={
-                  <DropdownMenuItem closeOnClick={false} onClick={handleCopyNotes}>
+                  <DropdownMenuItem
+                    closeOnClick={false}
+                    onClick={handleCopyNotes}
+                  >
                     <IconCopy />
                     Copy notes as Markdown
                   </DropdownMenuItem>
@@ -560,7 +561,7 @@ const OpenInNewTabItem = ({
         aria-label={copied ? "Copied" : "Copy URL"}
         onPointerDown={stopPointerDown}
         onClick={handleCopyClick}
-        className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-secondary group-hover/open-tab:opacity-100 focus-visible:opacity-100"
+        className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover/open-tab:opacity-100 hover:bg-secondary focus-visible:opacity-100"
       >
         {copied ? <IconCheck /> : <IconCopy />}
       </button>

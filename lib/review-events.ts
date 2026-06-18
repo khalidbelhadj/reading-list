@@ -4,7 +4,11 @@ import { reviewEvents, reviewSessions } from "@/db/schema";
 
 export type ReviewEvent =
   | { type: "card_shown"; flashcardId: string; data: null }
-  | { type: "answer_revealed"; flashcardId: string; data: { timeToRevealMs: number } }
+  | {
+      type: "answer_revealed";
+      flashcardId: string;
+      data: { timeToRevealMs: number };
+    }
   | {
       type: "card_skipped";
       flashcardId: string;
@@ -16,7 +20,11 @@ export type ReviewEvent =
       data: { fieldsChanged: Array<"front" | "back"> };
     }
   | { type: "session_paused"; flashcardId: null; data: null }
-  | { type: "session_resumed"; flashcardId: null; data: { pauseDurationMs: number } }
+  | {
+      type: "session_resumed";
+      flashcardId: null;
+      data: { pauseDurationMs: number };
+    }
   | {
       type: "session_ended";
       flashcardId: null;
@@ -35,7 +43,12 @@ export const logReviewEvent = async (
     const [session] = await tx
       .select({ id: reviewSessions.id })
       .from(reviewSessions)
-      .where(and(eq(reviewSessions.id, sessionId), eq(reviewSessions.userId, userId)));
+      .where(
+        and(
+          eq(reviewSessions.id, sessionId),
+          eq(reviewSessions.userId, userId),
+        ),
+      );
     if (!session) throw new Error("Review session not found");
 
     await tx.insert(reviewEvents).values({
@@ -58,17 +71,20 @@ type Row = {
 export const parseReviewEvent = (row: Row): ReviewEvent => {
   switch (row.type) {
     case "card_shown":
-      if (!row.flashcardId) throw new Error("card_shown event missing flashcardId");
+      if (!row.flashcardId)
+        throw new Error("card_shown event missing flashcardId");
       return { type: "card_shown", flashcardId: row.flashcardId, data: null };
     case "answer_revealed":
-      if (!row.flashcardId) throw new Error("answer_revealed event missing flashcardId");
+      if (!row.flashcardId)
+        throw new Error("answer_revealed event missing flashcardId");
       return {
         type: "answer_revealed",
         flashcardId: row.flashcardId,
         data: row.data as { timeToRevealMs: number },
       };
     case "card_skipped":
-      if (!row.flashcardId) throw new Error("card_skipped event missing flashcardId");
+      if (!row.flashcardId)
+        throw new Error("card_skipped event missing flashcardId");
       return {
         type: "card_skipped",
         flashcardId: row.flashcardId,

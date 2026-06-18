@@ -6,7 +6,7 @@ import React from "react";
  * only fetch the item the user actually settles on, not every one they pass
  * through.
  */
-export const useDebounced = <T,>(value: T, ms: number): T => {
+export const useDebounced = <T>(value: T, ms: number): T => {
   const [debounced, setDebounced] = React.useState(value);
   React.useEffect(() => {
     const timeout = setTimeout(() => setDebounced(value), ms);

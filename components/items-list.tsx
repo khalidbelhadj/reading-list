@@ -299,7 +299,13 @@ export const ItemsList = ({
         },
       );
     },
-    [requestCreate, handleOpenItem, invalidate, animateTypingTitle, queryClient],
+    [
+      requestCreate,
+      handleOpenItem,
+      invalidate,
+      animateTypingTitle,
+      queryClient,
+    ],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
@@ -442,7 +448,7 @@ export const ItemsList = ({
   // otherwise a query with no local keyword hits flashes "no results" before the
   // trigram pass gets a chance to return any. The skeletons cover that window.
   const emptyNode = emptyState && !searchBackendPending && (
-    <div className="px-1 py-6 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 px-1 py-6 text-center text-xs text-muted-foreground">
       <span>{emptyState.message}</span>
       {emptyState.hasHiddenRead && (
         <Button variant="outline" size="sm" onClick={() => setShowRead(true)}>
@@ -454,7 +460,7 @@ export const ItemsList = ({
 
   // Error / empty placeholder shown at the top of the list body.
   const statusNode = itemsError ? (
-    <div className="px-1 py-6 text-center text-destructive text-xs">
+    <div className="px-1 py-6 text-center text-xs text-destructive">
       Failed to load items
     </div>
   ) : (
@@ -462,10 +468,10 @@ export const ItemsList = ({
   );
 
   return (
-    <div className="electron-toolbar-container relative flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+    <div className="electron-toolbar-container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {/* Header — outside the scroll container so the scrollbar starts
           below it instead of reaching all the way to the top of the panel. */}
-      <div className="relative z-10 mx-auto max-w-175 w-full flex flex-col gap-3 pb-3 bg-background">
+      <div className="relative z-10 mx-auto flex w-full max-w-175 flex-col gap-3 bg-background pb-3">
         <div className="electron-top-bar-inset">
           <Toolbar
             activeTab={activeTab}
@@ -528,7 +534,7 @@ export const ItemsList = ({
 
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 h-8 bg-linear-to-b from-background to-transparent translate-y-full pointer-events-none transition-opacity duration-200",
+            "pointer-events-none absolute right-0 bottom-0 left-0 h-8 translate-y-full bg-linear-to-b from-background to-transparent transition-opacity duration-200",
             scrolled ? "opacity-100" : "opacity-0",
           )}
         />
@@ -537,9 +543,9 @@ export const ItemsList = ({
       {/* Scrollable content */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden"
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
-        <div className="mx-auto max-w-175 pb-5 flex flex-col gap-3">
+        <div className="mx-auto flex max-w-175 flex-col gap-3 pb-5">
           {activeTab === "cards" ? (
             <CardsList
               searchIds={searchOrder ? new Set(searchOrder) : null}
@@ -633,7 +639,7 @@ export const ItemsList = ({
       {/* Bottom-of-list fade — softens the boundary where the list ends, so
           items don't get sliced in half by the item panel's top edge in
           bottom orientation. */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-background to-transparent pointer-events-none z-10" />
+      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-8 bg-linear-to-t from-background to-transparent" />
 
       <DeleteItemDialog
         item={itemToDelete}
