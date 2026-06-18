@@ -160,10 +160,15 @@ function corsHeaders(request: NextRequest, isMcp: boolean): Record<string, strin
     "Access-Control-Max-Age": "86400",
   };
 
+  // Chrome extensions call with credentials (cookie session), so the response
+  // must echo the specific origin and allow credentials — never "*".
+  const isExtension = origin?.startsWith("chrome-extension://");
+
   if (isMcp) {
     headers["Access-Control-Allow-Origin"] = origin ?? "*";
-  } else if (origin && ALLOWED_ORIGINS.has(origin)) {
+  } else if (origin && (ALLOWED_ORIGINS.has(origin) || isExtension)) {
     headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
     headers["Vary"] = "Origin";
   }
 
