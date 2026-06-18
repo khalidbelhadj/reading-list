@@ -9,6 +9,7 @@ const pages = [
   { href: "/debug/review-dialogs", title: "Review dialogs" },
   { href: "/debug/review-summary-preview", title: "Review summary preview" },
   { href: "/debug/spinners", title: "Spinners" },
+  { href: "/debug/suggested-cards", title: "Suggested cards" },
   { href: "/debug/toasts", title: "Toasts" },
 ];
 

@@ -9,6 +9,7 @@ import {
   IconCheck,
   IconChevronDown,
   IconCircleOff,
+  IconCopy,
   IconDeviceDesktop,
   IconDevices,
   IconDownload,
@@ -150,6 +151,7 @@ export const SettingsMenu = ({
   const { theme, density, fullWidth, groupBy, sortBy, showRead, tagsOpen } =
     settings;
   const email = user?.email ?? null;
+  const userId = user?.id ?? null;
   const fullName =
     (user?.user_metadata?.full_name as string) ??
     (user?.user_metadata?.name as string) ??
@@ -165,6 +167,7 @@ export const SettingsMenu = ({
   const [mounted, setMounted] = React.useState(false);
   const [isElectron, setIsElectron] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [copiedUserId, setCopiedUserId] = React.useState(false);
   const [exportFilename, setExportFilename] =
     React.useState(defaultCsvFilename());
 
@@ -197,6 +200,13 @@ export const SettingsMenu = ({
     downloadItemsCsv(queryClient, trimmed);
     setExportOpen(false);
   }, [queryClient, exportFilename]);
+
+  const handleCopyUserId = React.useCallback(() => {
+    if (!userId) return;
+    navigator.clipboard.writeText(userId);
+    setCopiedUserId(true);
+    setTimeout(() => setCopiedUserId(false), 2000);
+  }, [userId]);
 
   const handleLogout = React.useCallback(() => {
     logoutMutation.mutate("local");
@@ -467,15 +477,22 @@ export const SettingsMenu = ({
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {email && (
-                <>
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-                      {email}
-                    </DropdownMenuLabel>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                </>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                    {email}
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
               )}
+              {userId && (
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  onClick={handleCopyUserId}
+                >
+                  {copiedUserId ? <IconCheck /> : <IconCopy />}
+                  {copiedUserId ? "Copied" : "Copy user ID"}
+                </DropdownMenuItem>
+              )}
+              {(email || userId) && <DropdownMenuSeparator />}
               <DropdownMenuItem onClick={handleLogout}>
                 <IconLogout />
                 Log out
