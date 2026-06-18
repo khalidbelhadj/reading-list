@@ -100,7 +100,7 @@ const pickDiverse = (
  */
 export const useSuggestions = (
   items: Item[] | undefined,
-  limit = 5,
+  limit = 20,
 ): Item[] => {
   return React.useMemo(() => {
     if (!items) return [];
