@@ -54,6 +54,13 @@ export const useKeyboardNavigation = ({
   onShowShortcuts: () => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
+  // Ref mirror so the keydown handler can read the live value without
+  // re-binding the listener every time it toggles. suppressHover is true right
+  // after a key nav and flips back to false on the next mousemove, so
+  // `!suppressHoverRef.current` means "the mouse has moved more recently than
+  // the last key" — i.e. the user is actively hovering.
+  const suppressHoverRef = React.useRef(suppressHover);
+  suppressHoverRef.current = suppressHover;
 
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
@@ -297,14 +304,16 @@ export const useKeyboardNavigation = ({
       if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;
-        // No cursor yet — adopt the mouse-hovered row as the starting point
-        // so the first arrow press picks it up instead of jumping to an edge.
-        if (cursorIdx === -1) {
+        // Adopt the mouse-hovered row as the starting point when there's no
+        // cursor yet, or when the mouse is actively hovering (moved more
+        // recently than the last key press) — so navigation continues from
+        // wherever the pointer is rather than a stale keyboard cursor.
+        if (cursorIdx === -1 || !suppressHoverRef.current) {
           const hovered = document.querySelector<HTMLElement>(
             "[data-item-id]:hover",
           );
           const hoveredId = hovered?.dataset.itemId;
-          if (hoveredId && ids.includes(hoveredId)) {
+          if (hoveredId && ids.includes(hoveredId) && hoveredId !== currentCursor) {
             setCursor(hoveredId);
             setSuppressHover(true);
             scrollWithMargin(hoveredId);
