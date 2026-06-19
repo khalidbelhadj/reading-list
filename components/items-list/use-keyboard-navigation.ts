@@ -212,7 +212,7 @@ export const useKeyboardNavigation = ({
     const handleNav = (e: KeyboardEvent) => {
       if (isTypingContext(e)) return;
       const elementTag = (e.target as HTMLElement)?.tagName;
-      if (elementTag === "BUTTON" || elementTag === "A") return;
+      const onInteractive = elementTag === "BUTTON" || elementTag === "A";
 
       // Use the live render order from the DOM (grouped / pinned / collapsed
       // sections diverge from filteredItems' raw order).
@@ -226,6 +226,19 @@ export const useKeyboardNavigation = ({
 
       // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
       const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // When focus rests on a button/link (e.g. a delete dialog just restored
+      // focus to its trigger, or the toolbar is focused), Tab/arrows/Enter keep
+      // their native meaning — but the unambiguous Ctrl+N/P and j/k shortcuts
+      // should still drive the list cursor so navigation survives a delete.
+      const isExplicitNav =
+        (e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey &&
+          (e.code === "KeyN" || e.code === "KeyP")) ||
+        ((e.code === "KeyJ" || e.code === "KeyK") && noMods && !e.shiftKey);
+      if (onInteractive && !isExplicitNav) return;
       const isDown =
         (e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
         (e.key === "ArrowDown" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
