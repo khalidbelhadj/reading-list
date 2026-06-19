@@ -131,6 +131,17 @@ export const ItemsList = ({
 
   const handleOpenItem = onOpenItem;
 
+  // Clicking a row opens it *and* moves the list cursor onto it, so the
+  // keyboard "hovered" highlight follows the click — pressing Ctrl+N/P next
+  // continues from the clicked item, matching Enter-to-open behavior.
+  const handleSelectItem = React.useCallback(
+    (id: string) => {
+      setCursor(id);
+      handleOpenItem(id);
+    },
+    [setCursor, handleOpenItem],
+  );
+
   // Hooks
   const {
     tabItems,
@@ -571,7 +582,7 @@ export const ItemsList = ({
                   items={suggestedItems}
                   open={suggestedOpen}
                   onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                  onSelect={handleOpenItem}
+                  onSelect={handleSelectItem}
                   onDelete={requestDeleteItem}
                   onToggleRead={handleToggleRead}
                   onTogglePin={handleTogglePin}
@@ -584,7 +595,7 @@ export const ItemsList = ({
                   typingTitles={typingTitles}
                   suppressHover={suppressHover}
                   density={density}
-                  onSelect={handleOpenItem}
+                  onSelect={handleSelectItem}
                   onDelete={requestDeleteItem}
                   onToggleRead={handleToggleRead}
                   onTogglePin={handleTogglePin}
@@ -597,7 +608,7 @@ export const ItemsList = ({
                     typingTitles={typingTitles}
                     suppressHover={suppressHover}
                     density={density}
-                    onSelect={handleOpenItem}
+                    onSelect={handleSelectItem}
                     onDelete={requestDeleteItem}
                     onToggleRead={handleToggleRead}
                     onTogglePin={handleTogglePin}
@@ -609,7 +620,7 @@ export const ItemsList = ({
                       typingTitles={typingTitles}
                       suppressHover={suppressHover}
                       density={density}
-                      onSelect={handleOpenItem}
+                      onSelect={handleSelectItem}
                       onDelete={requestDeleteItem}
                       onToggleRead={handleToggleRead}
                       onTogglePin={handleTogglePin}
