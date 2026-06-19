@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { getReviewStatus, type ReviewMode } from "@/app/actions";
-import { type TabId } from "@/components/items-list/use-filters";
 import {
   Tooltip,
   TooltipContent,
@@ -31,15 +30,11 @@ import { SettingsMenu } from "./settings-menu";
 import { useStartReview } from "./use-start-review";
 
 export const Toolbar = ({
-  activeTab,
-  setActiveTabAndUrl,
   hasTags,
   onAdd,
   onPasteUrl,
   isCreating = false,
 }: {
-  activeTab: TabId;
-  setActiveTabAndUrl: (tab: TabId) => void;
   hasTags: boolean;
   onAdd: () => void;
   onPasteUrl: () => void;
@@ -102,17 +97,9 @@ export const Toolbar = ({
         ? (reviewStatus?.newItemCount ?? 0)
         : (reviewStatus?.dueItemCount ?? 0);
 
-  const showFilters = activeTab !== "cards";
-
   return (
     <div className="relative flex items-center pt-1">
-      <SettingsMenu
-        activeTab={activeTab}
-        setActiveTabAndUrl={setActiveTabAndUrl}
-        showFilters={showFilters}
-        showReadingListFilters={showFilters}
-        hasTags={hasTags}
-      />
+      <SettingsMenu hasTags={hasTags} />
 
       <div className="flex-1" />
 

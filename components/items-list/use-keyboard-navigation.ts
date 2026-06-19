@@ -5,7 +5,6 @@ import { type Item } from "@/lib/types";
 import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
 import { dispatchPanelCommand } from "@/lib/panel-events";
 import { setDismissFallback } from "@/lib/dismiss-stack";
-import type { TabId } from "@/components/items-list/use-filters";
 
 // NOTE: This hook is the source of truth for the app's keyboard shortcuts.
 // Whenever you add, remove, or change a binding here, mirror it in the
@@ -14,7 +13,6 @@ import type { TabId } from "@/components/items-list/use-filters";
 
 export const useKeyboardNavigation = ({
   filteredItems,
-  setActiveTabAndUrl,
   setTagsOpen,
   setShowRead,
   cursorRef,
@@ -34,7 +32,6 @@ export const useKeyboardNavigation = ({
   onShowShortcuts,
 }: {
   filteredItems: Item[];
-  setActiveTabAndUrl: (tab: TabId) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   cursorRef: React.RefObject<string | null>;
@@ -96,10 +93,6 @@ export const useKeyboardNavigation = ({
   React.useEffect(() => {
     const handleGlobal = (e: KeyboardEvent) => {
       if (isTypingContext(e)) return;
-      if (e.key === "1" && !e.metaKey && !e.ctrlKey)
-        setActiveTabAndUrl("reading-list");
-      if (e.key === "2" && !e.metaKey && !e.ctrlKey)
-        setActiveTabAndUrl("cards");
       if (e.key === "a" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         onOpenNew();
@@ -124,7 +117,6 @@ export const useKeyboardNavigation = ({
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
   }, [
-    setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
     setCursor,
@@ -339,7 +331,11 @@ export const useKeyboardNavigation = ({
             "[data-item-id]:hover",
           );
           const hoveredId = hovered?.dataset.itemId;
-          if (hoveredId && ids.includes(hoveredId) && hoveredId !== currentCursor) {
+          if (
+            hoveredId &&
+            ids.includes(hoveredId) &&
+            hoveredId !== currentCursor
+          ) {
             setCursor(hoveredId);
             setSuppressHover(true);
             scrollWithMargin(hoveredId);

@@ -11,7 +11,6 @@ export const settingsSchema = z.object({
   showRead: z.boolean().catch(false),
   showSuggestions: z.boolean().catch(true),
   tagsOpen: z.boolean().catch(false),
-  activeTab: z.enum(["reading-list", "cards"]).catch("reading-list"),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -25,7 +24,6 @@ export const DEFAULT_SETTINGS: Settings = {
   showRead: false,
   showSuggestions: true,
   tagsOpen: false,
-  activeTab: "reading-list",
 };
 
 export const parseSettings = (raw: unknown): Settings => {

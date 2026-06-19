@@ -3,10 +3,8 @@
 import {
   IconArrowsMaximize,
   IconArrowsSort,
-  IconBook,
   IconBulb,
   IconCalendar,
-  IconCards,
   IconCheck,
   IconChevronDown,
   IconCircleOff,
@@ -33,11 +31,7 @@ import React from "react";
 
 import { logout } from "@/app/logout/actions";
 import { broadcastSignOut } from "@/lib/auth-broadcast";
-import {
-  type GroupBy,
-  type SortBy,
-  type TabId,
-} from "@/components/items-list/use-filters";
+import { type GroupBy, type SortBy } from "@/components/items-list/use-filters";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -90,16 +84,6 @@ const applyTheme = (theme: ThemeKey) => {
   document.documentElement.classList.toggle("dark", isDark);
 };
 
-const TAB_LABELS: Record<TabId, string> = {
-  "reading-list": "Reading List",
-  cards: "Cards",
-};
-
-const TAB_ICONS: Record<TabId, React.ComponentType<{ className?: string }>> = {
-  "reading-list": IconBook,
-  cards: IconCards,
-};
-
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
   day: "Date",
   tag: "Tag",
@@ -132,19 +116,7 @@ const SORT_BY_ICONS: Record<
   "updated-asc": IconSortAscending,
 };
 
-export const SettingsMenu = ({
-  activeTab,
-  setActiveTabAndUrl,
-  showFilters,
-  showReadingListFilters,
-  hasTags,
-}: {
-  activeTab: TabId;
-  setActiveTabAndUrl: (tab: TabId) => void;
-  showFilters: boolean;
-  showReadingListFilters: boolean;
-  hasTags: boolean;
-}) => {
+export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: user } = useCurrentUser();
@@ -327,129 +299,100 @@ export const SettingsMenu = ({
                 </g>
               </svg>
             </span>
-            {TAB_LABELS[activeTab]}
+            Reading List
             <IconChevronDown className="size-3.5 text-muted-foreground/60" />
           </button>
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
-        {(Object.keys(TAB_LABELS) as TabId[]).map((key) => {
-          const TabIcon = TAB_ICONS[key];
-          return (
-            <DropdownMenuItem
-              key={key}
-              onClick={() => setActiveTabAndUrl(key)}
-              className="pr-7"
-            >
-              <TabIcon />
-              {TAB_LABELS[key]}
-              {activeTab === key && (
-                <IconCheck className="pointer-events-none absolute right-2" />
-              )}
-            </DropdownMenuItem>
-          );
-        })}
+        <DropdownMenuSwitchItem
+          checked={showRead}
+          onCheckedChange={handleShowReadChange}
+        >
+          <IconEye />
+          Show read items
+        </DropdownMenuSwitchItem>
+        <DropdownMenuSwitchItem
+          checked={showSuggestions}
+          onCheckedChange={handleShowSuggestionsChange}
+        >
+          <IconBulb />
+          Show suggestions
+        </DropdownMenuSwitchItem>
+        <DropdownMenuSwitchItem
+          checked={tagsOpen}
+          onCheckedChange={handleTagsOpenChange}
+          disabled={!hasTags}
+        >
+          <IconFilter />
+          Filter by tags
+        </DropdownMenuSwitchItem>
         <DropdownMenuSeparator />
-        {showFilters && (
-          <>
-            {showReadingListFilters && (
-              <DropdownMenuSwitchItem
-                checked={showRead}
-                onCheckedChange={handleShowReadChange}
-              >
-                <IconEye />
-                Show read items
-              </DropdownMenuSwitchItem>
-            )}
-            {showReadingListFilters && (
-              <DropdownMenuSwitchItem
-                checked={showSuggestions}
-                onCheckedChange={handleShowSuggestionsChange}
-              >
-                <IconBulb />
-                Show suggestions
-              </DropdownMenuSwitchItem>
-            )}
-            <DropdownMenuSwitchItem
-              checked={tagsOpen}
-              onCheckedChange={handleTagsOpenChange}
-              disabled={!hasTags}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconLayoutList />
+            Group by
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={groupBy}
+              onValueChange={handleGroupByChange}
             >
-              <IconFilter />
-              Filter by tags
-            </DropdownMenuSwitchItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        {showFilters && (
-          <>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconLayoutList />
-                Group by
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={groupBy}
-                  onValueChange={handleGroupByChange}
-                >
-                  {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((key) => {
-                    const GroupIcon = GROUP_BY_ICONS[key];
-                    return (
-                      <DropdownMenuRadioItem key={key} value={key}>
-                        <GroupIcon />
-                        {GROUP_BY_LABELS[key]}
-                      </DropdownMenuRadioItem>
-                    );
-                  })}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconArrowsSort />
-                Sort by
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={sortBy}
-                  onValueChange={handleSortByChange}
-                >
-                  {(Object.keys(SORT_BY_LABELS) as SortBy[]).map((key) => {
-                    const SortIcon = SORT_BY_ICONS[key];
-                    return (
-                      <DropdownMenuRadioItem key={key} value={key}>
-                        <SortIcon />
-                        {SORT_BY_LABELS[key]}
-                      </DropdownMenuRadioItem>
-                    );
-                  })}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
+              {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((key) => {
+                const GroupIcon = GROUP_BY_ICONS[key];
+                return (
+                  <DropdownMenuRadioItem key={key} value={key}>
+                    <GroupIcon />
+                    {GROUP_BY_LABELS[key]}
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconArrowsSort />
+            Sort by
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={sortBy}
+              onValueChange={handleSortByChange}
+            >
+              {(Object.keys(SORT_BY_LABELS) as SortBy[]).map((key) => {
+                const SortIcon = SORT_BY_ICONS[key];
+                return (
+                  <DropdownMenuRadioItem key={key} value={key}>
+                    <SortIcon />
+                    {SORT_BY_LABELS[key]}
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconList />
+            Density
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={density}
+              onValueChange={handleDensityChange}
+            >
+              <DropdownMenuRadioItem value="cozy">
+                <IconListDetails />
+                Cozy
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="compact">
                 <IconList />
-                Density
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={density}
-                  onValueChange={handleDensityChange}
-                >
-                  <DropdownMenuRadioItem value="cozy">
-                    <IconListDetails />
-                    Cozy
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="compact">
-                    <IconList />
-                    Compact
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </>
-        )}
+                Compact
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <IconPalette />
