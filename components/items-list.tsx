@@ -24,7 +24,6 @@ import { GroupedList } from "./items-list/grouped-list";
 import { ItemRow } from "./items-list/item-row";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
-import { ReviewNudge } from "./items-list/review-nudge";
 import { SearchBar } from "./items-list/search-bar";
 import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
 import { SuggestedSection } from "./items-list/suggested-section";
@@ -517,8 +516,6 @@ export const ItemsList = ({
           initialQuery={initialSearchQuery}
           placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
         />
-
-        <ReviewNudge />
 
         {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
           <TagFilters
