@@ -9,4 +9,4 @@
 // React Fast Refresh for the whole app — every edit then forces a full page
 // reload instead of hot-swapping. Keep UI-only constants that the layout (or
 // any Server Component) needs in modules like this one.
-export const TOOLTIP_DELAY_MS = 1500;
+export const TOOLTIP_DELAY_MS = 500;

@@ -1,11 +1,13 @@
-import React from "react";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import React from "react";
 
-import { useDebounced } from "@/lib/use-debounced";
-import { isModKey } from "@/lib/input-context";
-import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { Spinner } from "@/components/ui/spinner";
+import { isModKey } from "@/lib/input-context";
+import { useDebounced } from "@/lib/use-debounced";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
+import { Button } from "../ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 export type SearchBarHandle = {
   open: () => void;
@@ -312,7 +314,7 @@ export const SearchBar = React.forwardRef<
           {query.length > 0 && (
             <div className="absolute right-1 flex items-center gap-1">
               {isRegex && (
-                <span className="rounded bg-background px-1 py-0.5 text-[10px] font-medium text-muted-foreground select-none">
+                <span className="rounded bg-accent px-1 py-0.5 text-[10px] font-medium text-muted-foreground select-none">
                   regex
                 </span>
               )}
@@ -327,13 +329,21 @@ export const SearchBar = React.forwardRef<
               ) : isFetching ? (
                 <Spinner className="size-3.5" />
               ) : null}
-              <button
-                type="button"
-                onClick={handleClose}
-                className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-              >
-                <IconX className="size-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      onClick={handleClose}
+                      size="icon-xs"
+                      variant="ghost"
+                      className="text-muted-foreground hover:!bg-accent"
+                    >
+                      <IconX className="size-3.5" />
+                    </Button>
+                  }
+                />
+                <TooltipContent>Close search</TooltipContent>
+              </Tooltip>
             </div>
           )}
         </div>
