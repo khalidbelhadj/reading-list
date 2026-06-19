@@ -7,6 +7,11 @@ import { dispatchPanelCommand } from "@/lib/panel-events";
 import { setDismissFallback } from "@/lib/dismiss-stack";
 import type { TabId } from "@/components/items-list/use-filters";
 
+// NOTE: This hook is the source of truth for the app's keyboard shortcuts.
+// Whenever you add, remove, or change a binding here, mirror it in the
+// `?` shortcuts dialog by updating `getShortcutGroups()` in `lib/shortcuts.ts`
+// — that list is presentational only and won't update itself.
+
 export const useKeyboardNavigation = ({
   filteredItems,
   setActiveTabAndUrl,
@@ -22,6 +27,7 @@ export const useKeyboardNavigation = ({
   onPasteCreate,
   onSearchOpen,
   onToggleReadCursor,
+  onTogglePinCursor,
   onChatCursor,
   onToggleDensity,
   onToggleTheme,
@@ -41,6 +47,7 @@ export const useKeyboardNavigation = ({
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
   onToggleReadCursor: () => void;
+  onTogglePinCursor: () => void;
   onChatCursor: () => void;
   onToggleDensity: () => void;
   onToggleTheme: () => void;
@@ -142,6 +149,7 @@ export const useKeyboardNavigation = ({
   // gated on isTypingContext so they fire from anywhere — including the
   // detail-panel editor. The item-scoped ones act on the list cursor.
   //   ⌘⇧M — mark the cursor item read / unread
+  //   ⌘⇧P — pin / unpin the cursor item
   //   ⌘⇧J — chat with Claude about the cursor item
   //   ⌘⇧V — toggle list density (cozy ↔ compact)
   //   ⌘⇧L — toggle theme (light ↔ dark)
@@ -153,6 +161,10 @@ export const useKeyboardNavigation = ({
         case "m":
           e.preventDefault();
           onToggleReadCursor();
+          break;
+        case "p":
+          e.preventDefault();
+          onTogglePinCursor();
           break;
         case "j":
           e.preventDefault();
@@ -170,7 +182,13 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleModShift);
     return () => document.removeEventListener("keydown", handleModShift);
-  }, [onToggleReadCursor, onChatCursor, onToggleDensity, onToggleTheme]);
+  }, [
+    onToggleReadCursor,
+    onTogglePinCursor,
+    onChatCursor,
+    onToggleDensity,
+    onToggleTheme,
+  ]);
 
   // Cmd+Backspace to delete cursor item
   React.useEffect(() => {

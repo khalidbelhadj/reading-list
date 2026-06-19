@@ -343,6 +343,14 @@ export const ItemsList = ({
     handleToggleRead(id, !item.read);
   }, [items, handleToggleRead]);
 
+  const handleTogglePinCursor = React.useCallback(() => {
+    const id = cursorRef.current;
+    if (!id) return;
+    const item = items?.find((i) => i.id === id);
+    if (!item) return;
+    handleTogglePin(id, !item.starred);
+  }, [items, handleTogglePin]);
+
   const handleChatCursor = React.useCallback(() => {
     const id = cursorRef.current;
     if (!id) return;
@@ -380,6 +388,7 @@ export const ItemsList = ({
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
     onToggleReadCursor: handleToggleReadCursor,
+    onTogglePinCursor: handleTogglePinCursor,
     onChatCursor: handleChatCursor,
     onToggleDensity: handleToggleDensity,
     onToggleTheme: handleToggleTheme,
