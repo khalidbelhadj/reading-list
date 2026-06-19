@@ -1,7 +1,5 @@
 import { type Item } from "@/lib/types";
 
-export { relativeTime } from "@/lib/format-time";
-
 export type Density = "compact" | "cozy";
 
 export type EditFields = {
