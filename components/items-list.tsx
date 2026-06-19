@@ -212,6 +212,25 @@ export const ItemsList = ({
     },
     [setCursor],
   );
+  // Jump the cursor to the first / last rendered row (⌘↑/⌘↓, ⌘⇧</>). Reads
+  // live DOM order so it follows search results, filters, and grouping.
+  const jumpCursor = React.useCallback(
+    (edge: "start" | "end") => {
+      const ids = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-item-id]"),
+      )
+        .map((el) => el.dataset.itemId)
+        .filter((id): id is string => !!id);
+      if (ids.length === 0) return;
+      const nextId = edge === "start" ? ids[0] : ids[ids.length - 1];
+      setCursor(nextId);
+      document
+        .querySelector(`[data-item-id="${nextId}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    },
+    [setCursor],
+  );
+
   // When the search filter narrows the list, pin the cursor to the first
   // visible result so Enter from the search input opens the top match.
   React.useEffect(() => {
@@ -509,6 +528,7 @@ export const ItemsList = ({
             activeTab === "cards" ? localSearchFlashcards : localSearchItems
           }
           onCursorNav={navigateCursor}
+          onCursorJump={jumpCursor}
           onCursorOpen={({ meta, shift }) => {
             const id = cursorRef.current;
             if (!id) return;

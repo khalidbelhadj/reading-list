@@ -257,6 +257,33 @@ export const useKeyboardNavigation = ({
           (e.code === "KeyN" || e.code === "KeyP")) ||
         ((e.code === "KeyJ" || e.code === "KeyK") && noMods && !e.shiftKey);
       if (onInteractive && !isExplicitNav) return;
+
+      // Jump to the first / last row in the list. ⌘↑ / ⌘⇧< → start,
+      // ⌘↓ / ⌘⇧> → end. Works on whatever's currently rendered, so it follows
+      // search results, filters, and grouping. (With Shift held, "," and "."
+      // arrive as "<" and ">" on most layouts; fall back to e.code too.)
+      const isJumpStart =
+        (e.key === "ArrowUp" && isModKey(e) && !e.shiftKey && !e.altKey) ||
+        ((e.key === "<" || e.code === "Comma") &&
+          isModKey(e) &&
+          e.shiftKey &&
+          !e.altKey);
+      const isJumpEnd =
+        (e.key === "ArrowDown" && isModKey(e) && !e.shiftKey && !e.altKey) ||
+        ((e.key === ">" || e.code === "Period") &&
+          isModKey(e) &&
+          e.shiftKey &&
+          !e.altKey);
+      if (isJumpStart || isJumpEnd) {
+        e.preventDefault();
+        if (ids.length === 0) return;
+        const nextId = isJumpStart ? ids[0] : ids[ids.length - 1];
+        setCursor(nextId);
+        setSuppressHover(true);
+        scrollWithMargin(nextId);
+        return;
+      }
+
       const isDown =
         (e.code === "KeyN" && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
         (e.key === "ArrowDown" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) ||
