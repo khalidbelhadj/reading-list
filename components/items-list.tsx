@@ -414,7 +414,10 @@ export const ItemsList = ({
   // strip would just be noise.
   const allSuggestions = useSuggestions(items);
   const suggestedItems =
-    activeTab !== "cards" && !searchActive && activeTags.size === 0
+    settings.showSuggestions &&
+    activeTab !== "cards" &&
+    !searchActive &&
+    activeTags.size === 0
       ? allSuggestions
       : [];
 
