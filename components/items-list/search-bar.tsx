@@ -22,6 +22,7 @@ export const SearchBar = React.forwardRef<
     onPendingChange?: (pending: boolean) => void;
     onBackendPendingChange?: (pending: boolean) => void;
     onCursorNav?: (direction: "next" | "prev") => void;
+    onCursorJump?: (edge: "start" | "end") => void;
     onCursorOpen?: (modifier: { meta: boolean; shift: boolean }) => void;
     initialQuery?: string;
     placeholder?: string;
@@ -37,6 +38,7 @@ export const SearchBar = React.forwardRef<
       onPendingChange,
       onBackendPendingChange,
       onCursorNav,
+      onCursorJump,
       onCursorOpen,
       initialQuery = "",
       placeholder = "Search",
@@ -194,6 +196,26 @@ export const SearchBar = React.forwardRef<
           }
           return;
         }
+        // Jump to first / last result — mirrors the global list shortcuts so
+        // the cursor can leap to either end without leaving the search input.
+        // ⌘↑ / ⌘⇧< → start, ⌘↓ / ⌘⇧> → end.
+        const isJumpStart =
+          (e.key === "ArrowUp" && isModKey(e) && !e.altKey && !e.shiftKey) ||
+          ((e.key === "<" || e.code === "Comma") &&
+            isModKey(e) &&
+            e.shiftKey &&
+            !e.altKey);
+        const isJumpEnd =
+          (e.key === "ArrowDown" && isModKey(e) && !e.altKey && !e.shiftKey) ||
+          ((e.key === ">" || e.code === "Period") &&
+            isModKey(e) &&
+            e.shiftKey &&
+            !e.altKey);
+        if (isJumpStart || isJumpEnd) {
+          e.preventDefault();
+          onCursorJump?.(isJumpStart ? "start" : "end");
+          return;
+        }
         const isNext =
           (e.key === "ArrowDown" && !e.metaKey && !e.altKey && !e.shiftKey) ||
           (e.code === "KeyN" &&
@@ -224,7 +246,7 @@ export const SearchBar = React.forwardRef<
           return;
         }
       },
-      [onCursorNav, onCursorOpen],
+      [onCursorNav, onCursorJump, onCursorOpen],
     );
 
     const handleBlur = React.useCallback(() => {

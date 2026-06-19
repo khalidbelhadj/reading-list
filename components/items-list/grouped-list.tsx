@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/context-menu";
 
 import { CollapsibleSection } from "./collapsible-section";
-import { ItemRow } from "./item-row";
+import { ItemList } from "./item-list";
 import { type ItemGroup } from "./use-filters";
-import { resolveRowItem, type Density } from "./utils";
+import { type Density } from "./utils";
 
 type GroupedListProps = {
   groups: ItemGroup[];
@@ -187,23 +187,17 @@ export const GroupedList = ({
               <CollapsibleSection
                 open={isTagGroup ? isOpen : !closedDateKeys.has(group.key)}
               >
-                {group.items.map((item) => {
-                  const typingTitle = typingTitles[item.id];
-                  const rowItem = resolveRowItem(item, typingTitle);
-                  return (
-                    <ItemRow
-                      key={`${group.key}:${item.id}`}
-                      item={rowItem}
-                      suppressHover={suppressHover}
-                      density={density}
-                      isTyping={typingTitle !== undefined}
-                      onSelect={() => onSelect(item.id)}
-                      onDelete={() => onDelete(item.id)}
-                      onToggleRead={() => onToggleRead(item.id, !item.read)}
-                      onTogglePin={() => onTogglePin(item.id, !item.starred)}
-                    />
-                  );
-                })}
+                <ItemList
+                  items={group.items}
+                  keyPrefix={group.key}
+                  typingTitles={typingTitles}
+                  suppressHover={suppressHover}
+                  density={density}
+                  onSelect={onSelect}
+                  onDelete={onDelete}
+                  onToggleRead={onToggleRead}
+                  onTogglePin={onTogglePin}
+                />
               </CollapsibleSection>
             </div>
           );

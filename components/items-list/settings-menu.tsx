@@ -3,6 +3,7 @@
 import {
   IconArrowsMaximize,
   IconArrowsSort,
+  IconBulb,
   IconCalendar,
   IconCheck,
   IconChevronDown,
@@ -120,8 +121,16 @@ export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const { settings, setSetting } = useSettings();
-  const { theme, density, fullWidth, groupBy, sortBy, showRead, tagsOpen } =
-    settings;
+  const {
+    theme,
+    density,
+    fullWidth,
+    groupBy,
+    sortBy,
+    showRead,
+    showSuggestions,
+    tagsOpen,
+  } = settings;
   const email = user?.email ?? null;
   const userId = user?.id ?? null;
   const fullName =
@@ -223,6 +232,11 @@ export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
     [setSetting],
   );
 
+  const handleShowSuggestionsChange = React.useCallback(
+    (checked: boolean) => setSetting("showSuggestions", checked),
+    [setSetting],
+  );
+
   const handleGroupByChange = React.useCallback(
     (value: string) => setSetting("groupBy", value as GroupBy),
     [setSetting],
@@ -297,6 +311,13 @@ export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
         >
           <IconEye />
           Show read items
+        </DropdownMenuSwitchItem>
+        <DropdownMenuSwitchItem
+          checked={showSuggestions}
+          onCheckedChange={handleShowSuggestionsChange}
+        >
+          <IconBulb />
+          Show suggestions
         </DropdownMenuSwitchItem>
         <DropdownMenuSwitchItem
           checked={tagsOpen}

@@ -9,7 +9,7 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
-import { makeOptimisticItem, resolveRowItem } from "./items-list/utils";
+import { makeOptimisticItem } from "./items-list/utils";
 
 import { fetchPageTitle, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
@@ -19,10 +19,9 @@ import { useSettings } from "@/lib/use-settings";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
-import { ItemRow } from "./items-list/item-row";
+import { ItemList } from "./items-list/item-list";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
-import { ReviewNudge } from "./items-list/review-nudge";
 import { SearchBar } from "./items-list/search-bar";
 import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
 import { SuggestedSection } from "./items-list/suggested-section";
@@ -98,6 +97,17 @@ export const ItemsList = ({
 
   const handleOpenItem = onOpenItem;
 
+  // Clicking a row opens it *and* moves the list cursor onto it, so the
+  // keyboard "hovered" highlight follows the click — pressing Ctrl+N/P next
+  // continues from the clicked item, matching Enter-to-open behavior.
+  const handleSelectItem = React.useCallback(
+    (id: string) => {
+      setCursor(id);
+      handleOpenItem(id);
+    },
+    [setCursor, handleOpenItem],
+  );
+
   // Hooks
   const {
     tabItems,
@@ -168,6 +178,25 @@ export const ItemsList = ({
     },
     [setCursor],
   );
+  // Jump the cursor to the first / last rendered row (⌘↑/⌘↓, ⌘⇧</>). Reads
+  // live DOM order so it follows search results, filters, and grouping.
+  const jumpCursor = React.useCallback(
+    (edge: "start" | "end") => {
+      const ids = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-item-id]"),
+      )
+        .map((el) => el.dataset.itemId)
+        .filter((id): id is string => !!id);
+      if (ids.length === 0) return;
+      const nextId = edge === "start" ? ids[0] : ids[ids.length - 1];
+      setCursor(nextId);
+      document
+        .querySelector(`[data-item-id="${nextId}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    },
+    [setCursor],
+  );
+
   // When the search filter narrows the list, pin the cursor to the first
   // visible result so Enter from the search input opens the top match.
   React.useEffect(() => {
@@ -316,6 +345,14 @@ export const ItemsList = ({
     handleToggleRead(id, !item.read);
   }, [items, handleToggleRead]);
 
+  const handleTogglePinCursor = React.useCallback(() => {
+    const id = cursorRef.current;
+    if (!id) return;
+    const item = items?.find((i) => i.id === id);
+    if (!item) return;
+    handleTogglePin(id, !item.starred);
+  }, [items, handleTogglePin]);
+
   const handleChatCursor = React.useCallback(() => {
     const id = cursorRef.current;
     if (!id) return;
@@ -352,6 +389,7 @@ export const ItemsList = ({
     onPasteCreate: requestPasteCreate,
     onSearchOpen: handleSearchOpen,
     onToggleReadCursor: handleToggleReadCursor,
+    onTogglePinCursor: handleTogglePinCursor,
     onChatCursor: handleChatCursor,
     onToggleDensity: handleToggleDensity,
     onToggleTheme: handleToggleTheme,
@@ -380,7 +418,9 @@ export const ItemsList = ({
   // strip would just be noise.
   const allSuggestions = useSuggestions(items);
   const suggestedItems =
-    !searchActive && activeTags.size === 0 ? allSuggestions : [];
+    settings.showSuggestions && !searchActive && activeTags.size === 0
+      ? allSuggestions
+      : [];
 
   // Empty state message
   const emptyState = React.useMemo(() => {
@@ -451,6 +491,7 @@ export const ItemsList = ({
           searchFn={searchItems}
           localSearchFn={localSearchItems}
           onCursorNav={navigateCursor}
+          onCursorJump={jumpCursor}
           onCursorOpen={({ meta, shift }) => {
             const id = cursorRef.current;
             if (!id) return;
@@ -473,8 +514,6 @@ export const ItemsList = ({
           initialQuery={initialSearchQuery}
           placeholder="Search items"
         />
-
-        <ReviewNudge />
 
         {tagsOpen && allTags.length > 0 && (
           <TagFilters
@@ -515,7 +554,7 @@ export const ItemsList = ({
                 items={suggestedItems}
                 open={suggestedOpen}
                 onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                onSelect={handleOpenItem}
+                onSelect={handleSelectItem}
                 onDelete={requestDeleteItem}
                 onToggleRead={handleToggleRead}
                 onTogglePin={handleTogglePin}
@@ -528,7 +567,7 @@ export const ItemsList = ({
                 typingTitles={typingTitles}
                 suppressHover={suppressHover}
                 density={density}
-                onSelect={handleOpenItem}
+                onSelect={handleSelectItem}
                 onDelete={requestDeleteItem}
                 onToggleRead={handleToggleRead}
                 onTogglePin={handleTogglePin}
@@ -541,34 +580,23 @@ export const ItemsList = ({
                   typingTitles={typingTitles}
                   suppressHover={suppressHover}
                   density={density}
-                  onSelect={handleOpenItem}
+                  onSelect={handleSelectItem}
                   onDelete={requestDeleteItem}
                   onToggleRead={handleToggleRead}
                   onTogglePin={handleTogglePin}
                 />
               ) : (
                 <>
-                  {unpinnedItems.map((item) => {
-                    const typingTitle = typingTitles[item.id];
-                    const rowItem = resolveRowItem(item, typingTitle);
-                    return (
-                      <ItemRow
-                        key={item.id}
-                        item={rowItem}
-                        suppressHover={suppressHover}
-                        density={density}
-                        isTyping={typingTitle !== undefined}
-                        onTogglePin={() =>
-                          handleTogglePin(item.id, !item.starred)
-                        }
-                        onToggleRead={() =>
-                          handleToggleRead(item.id, !item.read)
-                        }
-                        onSelect={() => handleOpenItem(item.id)}
-                        onDelete={() => requestDeleteItem(item.id)}
-                      />
-                    );
-                  })}
+                  <ItemList
+                    items={unpinnedItems}
+                    typingTitles={typingTitles}
+                    suppressHover={suppressHover}
+                    density={density}
+                    onSelect={handleSelectItem}
+                    onDelete={requestDeleteItem}
+                    onToggleRead={handleToggleRead}
+                    onTogglePin={handleTogglePin}
+                  />
                   {/* Backend (trigram) pass still running: append loading rows
                         under the instant keyword hits so the search reads as
                         "more coming," not finished. */}
@@ -584,8 +612,9 @@ export const ItemsList = ({
 
       {/* Bottom-of-list fade — softens the boundary where the list ends, so
           items don't get sliced in half by the item panel's top edge in
-          bottom orientation. */}
-      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-8 bg-linear-to-t from-background to-transparent" />
+          side orientation. Hidden in narrow (vertical split) mode where the
+          panel butts directly against the list. */}
+      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 hidden h-8 bg-linear-to-t from-background to-transparent md:block" />
 
       <DeleteItemDialog
         item={itemToDelete}

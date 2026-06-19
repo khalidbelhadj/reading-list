@@ -34,6 +34,20 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
       shortcuts: [
         { label: "Next item", combos: [["J"], ["↓"]] },
         { label: "Previous item", combos: [["K"], ["↑"]] },
+        {
+          label: "Jump to start",
+          combos: [
+            [mod, "↑"],
+            [mod, shift, "<"],
+          ],
+        },
+        {
+          label: "Jump to end",
+          combos: [
+            [mod, "↓"],
+            [mod, shift, ">"],
+          ],
+        },
         { label: "Open item", combos: [[enter]] },
         { label: "Open expanded", combos: [[mod, enter]] },
         { label: "Open URL in new tab", combos: [[mod, shift, enter]] },
@@ -44,6 +58,7 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
       title: "Selected item",
       shortcuts: [
         { label: "Mark read / unread", combos: [[mod, shift, "M"]] },
+        { label: "Pin / unpin", combos: [[mod, shift, "P"]] },
         { label: "Chat with Claude", combos: [[mod, shift, "J"]] },
         { label: "Delete item", combos: [[mod, del]] },
       ],

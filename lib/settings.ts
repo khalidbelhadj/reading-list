@@ -9,6 +9,7 @@ export const settingsSchema = z.object({
     .enum(["created-desc", "created-asc", "updated-desc", "updated-asc"])
     .catch("created-desc"),
   showRead: z.boolean().catch(false),
+  showSuggestions: z.boolean().catch(true),
   tagsOpen: z.boolean().catch(false),
 });
 
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   groupBy: "day",
   sortBy: "created-desc",
   showRead: false,
+  showSuggestions: true,
   tagsOpen: false,
 };
 
