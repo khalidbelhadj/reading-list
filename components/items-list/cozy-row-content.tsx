@@ -92,20 +92,20 @@ export const CozyRowContent = ({
         >
           {/* Occluder so the title/url fade out cleanly behind the menu button.
               Must match the row's background: active rows are a solid
-              bg-secondary, while hovered rows are the page background lifted by
-              a translucent foreground/5 — so stack both layers to match. */}
+              bg-muted, while hovered rows are the page background lifted by
+              a translucent muted/50 — so stack both layers to match. */}
           {isSelected ? (
-            <div className="absolute inset-0 bg-linear-to-r from-transparent via-secondary to-secondary" />
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-muted to-muted" />
           ) : (
             <>
               <div className="absolute inset-0 bg-linear-to-r from-transparent via-background to-background" />
-              <div className="absolute inset-0 bg-linear-to-r from-transparent via-foreground/5 to-foreground/5" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-muted/50 to-muted/50" />
             </>
           )}
           <DropdownMenuTrigger
             className={cn(
               "pointer-events-auto relative shrink-0 rounded p-1 text-muted-foreground outline-none hover:text-foreground",
-              isSelected && "bg-secondary",
+              isSelected && "bg-muted",
             )}
             onClick={stopPropagation}
             onPointerDown={stopPropagation}

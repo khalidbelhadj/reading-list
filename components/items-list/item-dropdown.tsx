@@ -38,6 +38,7 @@ import {
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { stripBlankLineSentinel } from "@/lib/markdown";
 import { type Item } from "@/lib/types";
+import { Button } from "../ui/button";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
 import { useStartReview } from "./use-start-review";
 
@@ -556,15 +557,18 @@ const OpenInNewTabItem = ({
     <DropdownMenuItem onClick={onOpen} className="group/open-tab pr-1">
       <IconExternalLink />
       <span className="flex-1">Open URL</span>
-      <button
-        type="button"
-        aria-label={copied ? "Copied" : "Copy URL"}
-        onPointerDown={stopPointerDown}
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="hover:!bg-accent"
         onClick={handleCopyClick}
-        className="ml-1 flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover/open-tab:opacity-100 hover:bg-secondary focus-visible:opacity-100"
       >
-        {copied ? <IconCheck /> : <IconCopy />}
-      </button>
+        {copied ? (
+          <IconCheck className="size-3" />
+        ) : (
+          <IconCopy className="size-3" />
+        )}
+      </Button>
     </DropdownMenuItem>
   );
 };

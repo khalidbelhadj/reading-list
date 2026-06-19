@@ -52,13 +52,13 @@ export const ItemRow = ({
               density === "cozy"
                 ? "items-stretch gap-3 p-2"
                 : "items-center gap-2 p-1",
-              isOpen && "bg-secondary",
-              !isOpen && isCursor && "bg-foreground/5",
-              !isOpen && !isCursor && !suppressHover && "hover:bg-foreground/5",
+              isOpen && "bg-muted",
+              !isOpen && isCursor && "bg-muted/50",
+              !isOpen && !isCursor && !suppressHover && "hover:bg-muted/50",
               !isOpen &&
                 !isCursor &&
                 (menuOpen || contextMenuOpen) &&
-                "bg-foreground/5",
+                "bg-muted/50",
               isRead && "opacity-50",
             )}
             data-menu-open={menuOpen || contextMenuOpen || undefined}
