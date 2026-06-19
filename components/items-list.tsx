@@ -632,8 +632,9 @@ export const ItemsList = ({
 
       {/* Bottom-of-list fade — softens the boundary where the list ends, so
           items don't get sliced in half by the item panel's top edge in
-          bottom orientation. */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-background to-transparent pointer-events-none z-10" />
+          side orientation. Hidden in narrow (vertical split) mode where the
+          panel butts directly against the list. */}
+      <div className="hidden md:block absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-background to-transparent pointer-events-none z-10" />
 
       <DeleteItemDialog
         item={itemToDelete}
