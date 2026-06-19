@@ -7,6 +7,11 @@ import { dispatchPanelCommand } from "@/lib/panel-events";
 import { setDismissFallback } from "@/lib/dismiss-stack";
 import type { TabId } from "@/components/items-list/use-filters";
 
+// NOTE: This hook is the source of truth for the app's keyboard shortcuts.
+// Whenever you add, remove, or change a binding here, mirror it in the
+// `?` shortcuts dialog by updating `getShortcutGroups()` in `lib/shortcuts.ts`
+// — that list is presentational only and won't update itself.
+
 export const useKeyboardNavigation = ({
   filteredItems,
   setActiveTabAndUrl,
@@ -22,6 +27,7 @@ export const useKeyboardNavigation = ({
   onPasteCreate,
   onSearchOpen,
   onToggleReadCursor,
+  onTogglePinCursor,
   onChatCursor,
   onToggleDensity,
   onToggleTheme,
@@ -41,12 +47,20 @@ export const useKeyboardNavigation = ({
   onPasteCreate: (url: string, tagNames: string[]) => void;
   onSearchOpen: () => void;
   onToggleReadCursor: () => void;
+  onTogglePinCursor: () => void;
   onChatCursor: () => void;
   onToggleDensity: () => void;
   onToggleTheme: () => void;
   onShowShortcuts: () => void;
 }) => {
   const [suppressHover, setSuppressHover] = React.useState(false);
+  // Ref mirror so the keydown handler can read the live value without
+  // re-binding the listener every time it toggles. suppressHover is true right
+  // after a key nav and flips back to false on the next mousemove, so
+  // `!suppressHoverRef.current` means "the mouse has moved more recently than
+  // the last key" — i.e. the user is actively hovering.
+  const suppressHoverRef = React.useRef(suppressHover);
+  suppressHoverRef.current = suppressHover;
 
   // Cmd+V to quick-add a URL
   React.useEffect(() => {
@@ -152,6 +166,7 @@ export const useKeyboardNavigation = ({
   // gated on isTypingContext so they fire from anywhere — including the
   // detail-panel editor. The item-scoped ones act on the list cursor.
   //   ⌘⇧M — mark the cursor item read / unread
+  //   ⌘⇧P — pin / unpin the cursor item
   //   ⌘⇧J — chat with Claude about the cursor item
   //   ⌘⇧V — toggle list density (cozy ↔ compact)
   //   ⌘⇧L — toggle theme (light ↔ dark)
@@ -163,6 +178,10 @@ export const useKeyboardNavigation = ({
         case "m":
           e.preventDefault();
           onToggleReadCursor();
+          break;
+        case "p":
+          e.preventDefault();
+          onTogglePinCursor();
           break;
         case "j":
           e.preventDefault();
@@ -180,7 +199,13 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleModShift);
     return () => document.removeEventListener("keydown", handleModShift);
-  }, [onToggleReadCursor, onChatCursor, onToggleDensity, onToggleTheme]);
+  }, [
+    onToggleReadCursor,
+    onTogglePinCursor,
+    onChatCursor,
+    onToggleDensity,
+    onToggleTheme,
+  ]);
 
   // Cmd+Backspace to delete cursor item
   React.useEffect(() => {
@@ -222,7 +247,7 @@ export const useKeyboardNavigation = ({
     const handleNav = (e: KeyboardEvent) => {
       if (isTypingContext(e)) return;
       const elementTag = (e.target as HTMLElement)?.tagName;
-      if (elementTag === "BUTTON" || elementTag === "A") return;
+      const onInteractive = elementTag === "BUTTON" || elementTag === "A";
 
       // Use the live render order from the DOM (grouped / pinned / collapsed
       // sections diverge from filteredItems' raw order).
@@ -236,6 +261,46 @@ export const useKeyboardNavigation = ({
 
       // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
       const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // When focus rests on a button/link (e.g. a delete dialog just restored
+      // focus to its trigger, or the toolbar is focused), Tab/arrows/Enter keep
+      // their native meaning — but the unambiguous Ctrl+N/P and j/k shortcuts
+      // should still drive the list cursor so navigation survives a delete.
+      const isExplicitNav =
+        (e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey &&
+          (e.code === "KeyN" || e.code === "KeyP")) ||
+        ((e.code === "KeyJ" || e.code === "KeyK") && noMods && !e.shiftKey);
+      if (onInteractive && !isExplicitNav) return;
+
+      // Jump to the first / last row in the list. ⌘↑ / ⌘⇧< → start,
+      // ⌘↓ / ⌘⇧> → end. Works on whatever's currently rendered, so it follows
+      // search results, filters, and grouping. (With Shift held, "," and "."
+      // arrive as "<" and ">" on most layouts; fall back to e.code too.)
+      const isJumpStart =
+        (e.key === "ArrowUp" && isModKey(e) && !e.shiftKey && !e.altKey) ||
+        ((e.key === "<" || e.code === "Comma") &&
+          isModKey(e) &&
+          e.shiftKey &&
+          !e.altKey);
+      const isJumpEnd =
+        (e.key === "ArrowDown" && isModKey(e) && !e.shiftKey && !e.altKey) ||
+        ((e.key === ">" || e.code === "Period") &&
+          isModKey(e) &&
+          e.shiftKey &&
+          !e.altKey);
+      if (isJumpStart || isJumpEnd) {
+        e.preventDefault();
+        if (ids.length === 0) return;
+        const nextId = isJumpStart ? ids[0] : ids[ids.length - 1];
+        setCursor(nextId);
+        setSuppressHover(true);
+        scrollWithMargin(nextId);
+        return;
+      }
+
       const isDown =
         (e.code === "KeyN" &&
           e.ctrlKey &&
@@ -265,14 +330,16 @@ export const useKeyboardNavigation = ({
       if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;
-        // No cursor yet — adopt the mouse-hovered row as the starting point
-        // so the first arrow press picks it up instead of jumping to an edge.
-        if (cursorIdx === -1) {
+        // Adopt the mouse-hovered row as the starting point when there's no
+        // cursor yet, or when the mouse is actively hovering (moved more
+        // recently than the last key press) — so navigation continues from
+        // wherever the pointer is rather than a stale keyboard cursor.
+        if (cursorIdx === -1 || !suppressHoverRef.current) {
           const hovered = document.querySelector<HTMLElement>(
             "[data-item-id]:hover",
           );
           const hoveredId = hovered?.dataset.itemId;
-          if (hoveredId && ids.includes(hoveredId)) {
+          if (hoveredId && ids.includes(hoveredId) && hoveredId !== currentCursor) {
             setCursor(hoveredId);
             setSuppressHover(true);
             scrollWithMargin(hoveredId);

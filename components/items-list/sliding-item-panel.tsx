@@ -441,10 +441,13 @@ export const SlidingItemPanel = ({
   // Placeholder reserves flex space so the list shrinks to make room for the
   // panel in side mode. Frozen at the side size regardless of expand state —
   // when expanded, the visual layer overlays the list rather than pushing it.
-  // The +SLIDE_OFFSET bakes the visual gap between the list and the panel
-  // into the placeholder, since PanelLayout has p-3 but no flex gap.
+  // In side orientation the +SLIDE_OFFSET bakes the visual gap between the list
+  // and the panel into the placeholder, since PanelLayout has p-2 but no flex
+  // gap. In bottom (narrow / vertical split) orientation the panel butts
+  // directly against the main content, so there's no gap to reserve.
+  const layoutGap = orientation === "side" ? SLIDE_OFFSET : 0;
   const layoutSize =
-    phase === "closed" ? 0 : `calc(${sidePrimary} + ${SLIDE_OFFSET}px)`;
+    phase === "closed" ? 0 : `calc(${sidePrimary} + ${layoutGap}px)`;
 
   // Animation durations per transition stage. Used both for the per-phase
   // size/position changes and for matching the toolbar's padding transition
@@ -600,7 +603,9 @@ export const SlidingItemPanel = ({
               : {
                   left: SLIDE_OFFSET,
                   right: SLIDE_OFFSET,
-                  bottom: `${SLIDE_OFFSET + panelHeight}px`,
+                  // No gap above the panel anymore — straddle the boundary so
+                  // the grab handle sits centered on the panel's top edge.
+                  bottom: `${panelHeight + SLIDE_OFFSET / 2}px`,
                   height: SLIDE_OFFSET,
                   transform:
                     phase === "closed"
