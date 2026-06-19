@@ -10,7 +10,6 @@ export const settingsSchema = z.object({
     .catch("created-desc"),
   showRead: z.boolean().catch(false),
   tagsOpen: z.boolean().catch(false),
-  activeTab: z.enum(["reading-list", "cards"]).catch("reading-list"),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -23,7 +22,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sortBy: "created-desc",
   showRead: false,
   tagsOpen: false,
-  activeTab: "reading-list",
 };
 
 export const parseSettings = (raw: unknown): Settings => {

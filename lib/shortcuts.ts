@@ -34,7 +34,6 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
       shortcuts: [
         { label: "Next item", combos: [["J"], ["↓"]] },
         { label: "Previous item", combos: [["K"], ["↑"]] },
-        { label: "Reading List / Cards", combos: [["1"], ["2"]] },
         { label: "Open item", combos: [[enter]] },
         { label: "Open expanded", combos: [[mod, enter]] },
         { label: "Open URL in new tab", combos: [[mod, shift, enter]] },

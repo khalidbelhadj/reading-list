@@ -12,7 +12,6 @@ const parseActiveTagsMap = (raw: string): Record<string, string[]> => {
   return {};
 };
 
-export type TabId = "reading-list" | "cards";
 export type GroupBy = "none" | "tag" | "day";
 export type SortBy =
   | "created-desc"
@@ -158,13 +157,17 @@ const buildGroups = (
   return [];
 };
 
+// Key under which active tag filters are persisted in localStorage. Retained as
+// a stable string (rather than a tab id) so existing users' saved filters carry
+// over now that the reading list is the only view.
+const ACTIVE_TAGS_KEY = "reading-list";
+
 export const useItemsFilters = (
   items: Item[] | undefined,
-  activeTab: TabId,
   searchOrder: string[] | null = null,
 ) => {
-  // activeTagsMap is tab-keyed local-only state — stays in localStorage rather
-  // than the server-backed settings blob.
+  // activeTagsMap is local-only state — stays in localStorage rather than the
+  // server-backed settings blob.
   // Toolbar elements that reflect settings values wrap their mismatching
   // content in `<span suppressHydrationWarning>` to silence the structural
   // mismatch warning when SSR defaults differ from the stored value.
@@ -172,18 +175,18 @@ export const useItemsFilters = (
     Record<string, string[]>
   >("activeTagsMap", {}, parseActiveTagsMap, JSON.stringify);
   const activeTags = React.useMemo(
-    () => new Set(activeTagsMap[activeTab] ?? []),
-    [activeTagsMap, activeTab],
+    () => new Set(activeTagsMap[ACTIVE_TAGS_KEY] ?? []),
+    [activeTagsMap],
   );
   const setActiveTags = React.useCallback(
     (updater: (prev: Set<string>) => Set<string>) => {
       setActiveTagsMap((prev) => {
-        const current = new Set(prev[activeTab] ?? []);
+        const current = new Set(prev[ACTIVE_TAGS_KEY] ?? []);
         const next = updater(current);
-        return { ...prev, [activeTab]: [...next] };
+        return { ...prev, [ACTIVE_TAGS_KEY]: [...next] };
       });
     },
-    [activeTab, setActiveTagsMap],
+    [setActiveTagsMap],
   );
 
   const { settings, setSetting } = useSettings();

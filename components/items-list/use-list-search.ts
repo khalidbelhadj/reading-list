@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import React from "react";
 
@@ -7,7 +6,7 @@ import { type Item } from "@/lib/types";
 import { type SearchBarHandle } from "./search-bar";
 
 /**
- * All state and callbacks for the list/cards search box.
+ * All state and callbacks for the reading-list search box.
  *
  * Search runs in two passes: a synchronous local pass over the in-memory cache
  * (instant, on every keystroke) and a backend trigram pass (fuzzy match on
@@ -20,7 +19,6 @@ import { type SearchBarHandle } from "./search-bar";
  * back; the initial value is captured once on mount from the URL.
  */
 export const useListSearch = (items: Item[] | undefined) => {
-  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
   const [initialSearchQuery] = React.useState(
@@ -92,27 +90,6 @@ export const useListSearch = (items: Item[] | undefined) => {
     [items],
   );
 
-  const localSearchFlashcards = React.useCallback(
-    (query: string) => {
-      const cards = queryClient.getQueryData<
-        Array<{ id: string; front: string; back: string }>
-      >(["all-flashcards"]);
-      if (!cards) return [];
-      const needle = query.toLowerCase();
-      const matches: string[] = [];
-      for (const card of cards) {
-        if (
-          card.front.toLowerCase().includes(needle) ||
-          card.back.toLowerCase().includes(needle)
-        ) {
-          matches.push(card.id);
-        }
-      }
-      return matches;
-    },
-    [queryClient],
-  );
-
   return {
     searchBarRef,
     searchOrder,
@@ -121,7 +98,6 @@ export const useListSearch = (items: Item[] | undefined) => {
     searchBackendPending,
     initialSearchQuery,
     localSearchItems,
-    localSearchFlashcards,
     handleSearchResults,
     handleSearchQueryChange,
     handleSearchPendingChange,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
 import React from "react";
 import { toast } from "sonner";
 
@@ -12,12 +11,11 @@ import { cn } from "@/lib/utils";
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 import { makeOptimisticItem, resolveRowItem } from "./items-list/utils";
 
-import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
+import { fetchPageTitle, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { useSettings } from "@/lib/use-settings";
-import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
@@ -31,7 +29,7 @@ import { SuggestedSection } from "./items-list/suggested-section";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { useCreateItem } from "./items-list/use-create-item";
-import { useItemsFilters, type TabId } from "./items-list/use-filters";
+import { useItemsFilters } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { useListSearch } from "./items-list/use-list-search";
@@ -58,7 +56,6 @@ export const ItemsList = ({
   });
 
   // UI state
-  const searchParams = useSearchParams();
   const { settings, setSetting } = useSettings();
   const density = settings.density;
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
@@ -67,15 +64,6 @@ export const ItemsList = ({
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [suggestedOpen, setSuggestedOpen] = React.useState(true);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
-  // URL ?tab= wins; otherwise fall back to the user's last-used tab from
-  // settings. Local state because the URL still drives intra-session tab
-  // changes — settings just remembers the default across reloads.
-  const [activeTab, setActiveTab] = React.useState<TabId>(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "cards") return "cards";
-    if (tab === "reading-list") return "reading-list";
-    return settings.activeTab;
-  });
 
   // Search — all search state, URL sync, and local/backend passes live here.
   const {
@@ -86,7 +74,6 @@ export const ItemsList = ({
     searchBackendPending,
     initialSearchQuery,
     localSearchItems,
-    localSearchFlashcards,
     handleSearchResults,
     handleSearchQueryChange,
     handleSearchPendingChange,
@@ -109,26 +96,6 @@ export const ItemsList = ({
   // Helpers
   const invalidate = useInvalidateItems();
 
-  const setActiveTabAndUrl = React.useCallback(
-    (tab: TabId) => {
-      setActiveTab(tab);
-      setSetting("activeTab", tab);
-      const params = new URLSearchParams(window.location.search);
-      if (tab === "reading-list") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
-      }
-      const queryString = params.toString();
-      window.history.replaceState(
-        null,
-        "",
-        queryString ? `?${queryString}` : window.location.pathname,
-      );
-    },
-    [setSetting],
-  );
-
   const handleOpenItem = onOpenItem;
 
   // Hooks
@@ -147,7 +114,7 @@ export const ItemsList = ({
     setShowRead,
     groupBy,
     groups,
-  } = useItemsFilters(items, activeTab, searchOrder);
+  } = useItemsFilters(items, searchOrder);
 
   const { handleToggleRead, handleDeleteSingle, handleTogglePin } =
     useItemsMutations({
@@ -370,7 +337,6 @@ export const ItemsList = ({
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
-    setActiveTabAndUrl,
     setTagsOpen,
     setShowRead,
     cursorRef,
@@ -414,9 +380,7 @@ export const ItemsList = ({
   // strip would just be noise.
   const allSuggestions = useSuggestions(items);
   const suggestedItems =
-    activeTab !== "cards" && !searchActive && activeTags.size === 0
-      ? allSuggestions
-      : [];
+    !searchActive && activeTags.size === 0 ? allSuggestions : [];
 
   // Empty state message
   const emptyState = React.useMemo(() => {
@@ -474,8 +438,6 @@ export const ItemsList = ({
       <div className="relative z-10 mx-auto flex w-full max-w-175 flex-col gap-3 bg-background pb-3">
         <div className="electron-top-bar-inset">
           <Toolbar
-            activeTab={activeTab}
-            setActiveTabAndUrl={setActiveTabAndUrl}
             hasTags={allTags.length > 0}
             onAdd={handleOpenNew}
             onPasteUrl={handlePasteUrl}
@@ -485,15 +447,9 @@ export const ItemsList = ({
 
         <SearchBar
           ref={searchBarRef}
-          queryKey={
-            activeTab === "cards"
-              ? ["all-flashcards", "search"]
-              : ["items", "search"]
-          }
-          searchFn={activeTab === "cards" ? searchFlashcards : searchItems}
-          localSearchFn={
-            activeTab === "cards" ? localSearchFlashcards : localSearchItems
-          }
+          queryKey={["items", "search"]}
+          searchFn={searchItems}
+          localSearchFn={localSearchItems}
           onCursorNav={navigateCursor}
           onCursorOpen={({ meta, shift }) => {
             const id = cursorRef.current;
@@ -515,12 +471,12 @@ export const ItemsList = ({
           onPendingChange={handleSearchPendingChange}
           onBackendPendingChange={handleSearchBackendPendingChange}
           initialQuery={initialSearchQuery}
-          placeholder={activeTab === "cards" ? "Search cards" : "Search items"}
+          placeholder="Search items"
         />
 
         <ReviewNudge />
 
-        {tagsOpen && allTags.length > 0 && activeTab !== "cards" && (
+        {tagsOpen && allTags.length > 0 && (
           <TagFilters
             allTags={allTags}
             activeTags={activeTags}
@@ -529,8 +485,6 @@ export const ItemsList = ({
             setActiveTags={setActiveTags}
           />
         )}
-
-        {activeTab === "cards" && <CardsStateBar />}
 
         <div
           className={cn(
@@ -546,38 +500,44 @@ export const ItemsList = ({
         className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
         <div className="mx-auto flex max-w-175 flex-col gap-3 pb-5">
-          {activeTab === "cards" ? (
-            <CardsList
-              searchIds={searchOrder ? new Set(searchOrder) : null}
-              searchPending={searchPending}
-              onOpenItem={handleOpenItem}
-            />
-          ) : (
-            <LoadingFade
-              loading={isLoading || searchPending}
-              skeleton={<ItemsSkeleton density={density} />}
+          <LoadingFade
+            loading={isLoading || searchPending}
+            skeleton={<ItemsSkeleton density={density} />}
+          >
+            <div
+              onMouseMove={
+                suppressHover ? () => setSuppressHover(false) : undefined
+              }
             >
-              <div
-                onMouseMove={
-                  suppressHover ? () => setSuppressHover(false) : undefined
-                }
-              >
-                {statusNode}
+              {statusNode}
 
-                <SuggestedSection
-                  items={suggestedItems}
-                  open={suggestedOpen}
-                  onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                  onSelect={handleOpenItem}
-                  onDelete={requestDeleteItem}
-                  onToggleRead={handleToggleRead}
-                  onTogglePin={handleTogglePin}
-                />
+              <SuggestedSection
+                items={suggestedItems}
+                open={suggestedOpen}
+                onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                onSelect={handleOpenItem}
+                onDelete={requestDeleteItem}
+                onToggleRead={handleToggleRead}
+                onTogglePin={handleTogglePin}
+              />
 
-                <PinnedSection
-                  items={pinnedItems}
-                  open={pinnedOpen}
-                  onToggleOpen={() => setPinnedOpen((p) => !p)}
+              <PinnedSection
+                items={pinnedItems}
+                open={pinnedOpen}
+                onToggleOpen={() => setPinnedOpen((p) => !p)}
+                typingTitles={typingTitles}
+                suppressHover={suppressHover}
+                density={density}
+                onSelect={handleOpenItem}
+                onDelete={requestDeleteItem}
+                onToggleRead={handleToggleRead}
+                onTogglePin={handleTogglePin}
+              />
+
+              {useGroupedLayout ? (
+                <GroupedList
+                  groups={groups}
+                  items={items ?? []}
                   typingTitles={typingTitles}
                   suppressHover={suppressHover}
                   density={density}
@@ -586,53 +546,39 @@ export const ItemsList = ({
                   onToggleRead={handleToggleRead}
                   onTogglePin={handleTogglePin}
                 />
-
-                {useGroupedLayout ? (
-                  <GroupedList
-                    groups={groups}
-                    items={items ?? []}
-                    typingTitles={typingTitles}
-                    suppressHover={suppressHover}
-                    density={density}
-                    onSelect={handleOpenItem}
-                    onDelete={requestDeleteItem}
-                    onToggleRead={handleToggleRead}
-                    onTogglePin={handleTogglePin}
-                  />
-                ) : (
-                  <>
-                    {unpinnedItems.map((item) => {
-                      const typingTitle = typingTitles[item.id];
-                      const rowItem = resolveRowItem(item, typingTitle);
-                      return (
-                        <ItemRow
-                          key={item.id}
-                          item={rowItem}
-                          suppressHover={suppressHover}
-                          density={density}
-                          isTyping={typingTitle !== undefined}
-                          onTogglePin={() =>
-                            handleTogglePin(item.id, !item.starred)
-                          }
-                          onToggleRead={() =>
-                            handleToggleRead(item.id, !item.read)
-                          }
-                          onSelect={() => handleOpenItem(item.id)}
-                          onDelete={() => requestDeleteItem(item.id)}
-                        />
-                      );
-                    })}
-                    {/* Backend (trigram) pass still running: append loading rows
+              ) : (
+                <>
+                  {unpinnedItems.map((item) => {
+                    const typingTitle = typingTitles[item.id];
+                    const rowItem = resolveRowItem(item, typingTitle);
+                    return (
+                      <ItemRow
+                        key={item.id}
+                        item={rowItem}
+                        suppressHover={suppressHover}
+                        density={density}
+                        isTyping={typingTitle !== undefined}
+                        onTogglePin={() =>
+                          handleTogglePin(item.id, !item.starred)
+                        }
+                        onToggleRead={() =>
+                          handleToggleRead(item.id, !item.read)
+                        }
+                        onSelect={() => handleOpenItem(item.id)}
+                        onDelete={() => requestDeleteItem(item.id)}
+                      />
+                    );
+                  })}
+                  {/* Backend (trigram) pass still running: append loading rows
                         under the instant keyword hits so the search reads as
                         "more coming," not finished. */}
-                    {searchActive && searchBackendPending && (
-                      <ItemsSkeleton density={density} />
-                    )}
-                  </>
-                )}
-              </div>
-            </LoadingFade>
-          )}
+                  {searchActive && searchBackendPending && (
+                    <ItemsSkeleton density={density} />
+                  )}
+                </>
+              )}
+            </div>
+          </LoadingFade>
         </div>
       </div>
 
