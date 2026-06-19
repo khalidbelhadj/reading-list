@@ -59,11 +59,11 @@ export const SuggestedSection = ({
   if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-col mb-4">
+    <div className="mb-4 flex flex-col">
       <button
         type="button"
         onClick={onToggleOpen}
-        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors outline-none select-none"
+        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
       >
         <IconBulb className="size-3" />
         Suggested

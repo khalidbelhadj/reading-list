@@ -1,7 +1,5 @@
 import { type Item } from "@/lib/types";
 
-export { relativeTime } from "@/lib/format-time";
-
 export type Density = "compact" | "cozy";
 
 export type EditFields = {
@@ -53,7 +51,9 @@ export function makeOptimisticItem(
   };
 }
 
-export function getFaviconSrc(item: Pick<Item, "faviconUrl" | "url">): string | null {
+export function getFaviconSrc(
+  item: Pick<Item, "faviconUrl" | "url">,
+): string | null {
   if (item.faviconUrl) return item.faviconUrl;
   try {
     const domain = new URL(item.url).hostname;

@@ -19,48 +19,60 @@ import {
 } from "@/lib/schemas";
 import { time } from "@/lib/perf";
 
-export const getFlashcards = safeAction(async function getFlashcards(itemId: string) {
-  return time("action:getFlashcards", async () => {
-  parseInput(getFlashcardsSchema, { itemId });
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) =>
-    tx
-      .select()
-      .from(flashcards)
-      .where(and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)))
-      .orderBy(desc(flashcards.createdAt)),
-    "getFlashcards",
+export const getFlashcards = safeAction(async function getFlashcards(
+  itemId: string,
+) {
+  return time(
+    "action:getFlashcards",
+    async () => {
+      parseInput(getFlashcardsSchema, { itemId });
+      const userId = await getCurrentUserId();
+      return withUser(
+        userId,
+        (tx) =>
+          tx
+            .select()
+            .from(flashcards)
+            .where(
+              and(eq(flashcards.itemId, itemId), eq(flashcards.userId, userId)),
+            )
+            .orderBy(desc(flashcards.createdAt)),
+        "getFlashcards",
+      );
+    },
+    { itemId },
   );
-  }, { itemId });
 }, "Could not load flashcards. Please try again.");
 
 export const getAllFlashcards = safeAction(async function getAllFlashcards() {
   return time("action:getAllFlashcards", async () => {
-  const userId = await getCurrentUserId();
-  return withUser(userId, (tx) =>
-    tx
-      .select({
-        id: flashcards.id,
-        front: flashcards.front,
-        back: flashcards.back,
-        state: flashcards.state,
-        due: flashcards.due,
-        itemId: flashcards.itemId,
-        itemTitle: items.title,
-        itemUrl: items.url,
-        itemFaviconUrl: items.faviconUrl,
-        createdAt: flashcards.createdAt,
-        updatedAt: flashcards.updatedAt,
-      })
-      .from(flashcards)
-      .leftJoin(
-        items,
-        and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-      )
-      .where(eq(flashcards.userId, userId))
-      .orderBy(desc(flashcards.createdAt)),
-    "getAllFlashcards",
-  );
+    const userId = await getCurrentUserId();
+    return withUser(
+      userId,
+      (tx) =>
+        tx
+          .select({
+            id: flashcards.id,
+            front: flashcards.front,
+            back: flashcards.back,
+            state: flashcards.state,
+            due: flashcards.due,
+            itemId: flashcards.itemId,
+            itemTitle: items.title,
+            itemUrl: items.url,
+            itemFaviconUrl: items.faviconUrl,
+            createdAt: flashcards.createdAt,
+            updatedAt: flashcards.updatedAt,
+          })
+          .from(flashcards)
+          .leftJoin(
+            items,
+            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+          )
+          .where(eq(flashcards.userId, userId))
+          .orderBy(desc(flashcards.createdAt)),
+      "getAllFlashcards",
+    );
   });
 }, "Could not load flashcards. Please try again.");
 
@@ -91,7 +103,9 @@ export const updateFlashcard = safeAction(async function updateFlashcard(
   );
 }, "Could not update flashcard. Please try again.");
 
-export const deleteFlashcard = safeAction(async function deleteFlashcard(id: string) {
+export const deleteFlashcard = safeAction(async function deleteFlashcard(
+  id: string,
+) {
   parseInput(deleteFlashcardSchema, { id });
   const userId = await getCurrentUserId();
   await withUser(userId, (tx) => deleteFlashcardsLib(tx, userId, [id]));

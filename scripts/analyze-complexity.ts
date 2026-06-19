@@ -11,14 +11,27 @@
  * Nothing here imports app code, so it is safe to run standalone.
  */
 import ts from "typescript";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, dirname, extname } from "node:path";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  existsSync,
+} from "node:fs";
+import { join, relative, dirname } from "node:path";
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ["app", "components", "lib", "db", "hooks"];
 const OUT_DIR = join(ROOT, "analysis", "code");
 const OUT_JSON = join(OUT_DIR, "metrics.json");
-const IGNORE = new Set(["node_modules", ".next", "electron", "dist-electron", "drizzle"]);
+const IGNORE = new Set([
+  "node_modules",
+  ".next",
+  "electron",
+  "dist-electron",
+  "drizzle",
+]);
 
 type EffectInfo = { line: number; depCount: number | null };
 type FnInfo = {
@@ -37,7 +50,12 @@ type FileMetrics = {
   group: string;
   loc: number;
   codeLoc: number;
-  hooks: { total: number; useState: number; useEffect: number; byName: Record<string, number> };
+  hooks: {
+    total: number;
+    useState: number;
+    useEffect: number;
+    byName: Record<string, number>;
+  };
   effects: EffectInfo[];
   maxJsxDepth: number;
   maxComplexity: number;
@@ -49,7 +67,11 @@ type FileMetrics = {
 const isPascal = (name: string) => /^[A-Z]/.test(name);
 const isHookName = (name: string) => /^use[A-Z]/.test(name);
 
-type FnWithBody = ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction | ts.MethodDeclaration;
+type FnWithBody =
+  | ts.FunctionDeclaration
+  | ts.FunctionExpression
+  | ts.ArrowFunction
+  | ts.MethodDeclaration;
 const isFnWithBody = (node: ts.Node): node is FnWithBody =>
   (ts.isFunctionDeclaration(node) ||
     ts.isFunctionExpression(node) ||
@@ -64,16 +86,19 @@ const walkFiles = (dir: string, acc: string[]) => {
     const full = join(dir, entry);
     const st = statSync(full);
     if (st.isDirectory()) walkFiles(full, acc);
-    else if (/\.(ts|tsx)$/.test(entry) && !/\.d\.ts$/.test(entry)) acc.push(full);
+    else if (/\.(ts|tsx)$/.test(entry) && !/\.d\.ts$/.test(entry))
+      acc.push(full);
   }
 };
 
 /** Group label used to cluster files in the treemap (the immediate meaningful folder). */
 const groupOf = (rel: string): string => {
   const parts = rel.split("/");
-  if (parts[0] === "components" && parts[1] === "items-list") return "components/items-list";
+  if (parts[0] === "components" && parts[1] === "items-list")
+    return "components/items-list";
   if (parts[0] === "components" && parts[1] === "ui") return "components/ui";
-  if (parts[0] === "components" && parts[1] === "flashcards") return "components/flashcards";
+  if (parts[0] === "components" && parts[1] === "flashcards")
+    return "components/flashcards";
   if (parts[0] === "components") return "components";
   if (parts[0] === "app" && parts[1] === "actions") return "app/actions";
   if (parts[0] === "app" && parts[1] === "api") return "app/api";
@@ -97,7 +122,8 @@ const resolveImport = (spec: string, fromFile: string): string | null => {
     join(base, "index.tsx"),
   ];
   for (const c of candidates) {
-    if (existsSync(c) && statSync(c).isFile()) return relative(ROOT, c).replace(/\\/g, "/");
+    if (existsSync(c) && statSync(c).isFile())
+      return relative(ROOT, c).replace(/\\/g, "/");
   }
   // Unresolved internal (e.g. points at a non-ts asset) — keep raw-ish so it still shows as a node.
   if (existsSync(base)) return relative(ROOT, base).replace(/\\/g, "/");
@@ -166,7 +192,8 @@ const renderedTags = (fnBody: ts.Node): string[] => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       let base: ts.Node = node.tagName;
       while (ts.isPropertyAccessExpression(base)) base = base.expression;
-      if (ts.isIdentifier(base) && /^[A-Z]/.test(base.text)) tags.add(base.text);
+      if (ts.isIdentifier(base) && /^[A-Z]/.test(base.text))
+        tags.add(base.text);
     }
     ts.forEachChild(node, visit);
   };
@@ -179,7 +206,11 @@ const containsJsx = (fnBody: ts.Node): boolean => {
   const visit = (node: ts.Node) => {
     if (found) return;
     if (node !== fnBody && ts.isFunctionLike(node)) return;
-    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) {
+    if (
+      ts.isJsxElement(node) ||
+      ts.isJsxSelfClosingElement(node) ||
+      ts.isJsxFragment(node)
+    ) {
       found = true;
       return;
     }
@@ -192,9 +223,12 @@ const containsJsx = (fnBody: ts.Node): boolean => {
 const nameOfFunction = (node: ts.FunctionLikeDeclaration): string => {
   if (ts.isFunctionDeclaration(node) && node.name) return node.name.text;
   const parent = node.parent;
-  if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) return parent.name.text;
-  if (ts.isPropertyAssignment(parent) && ts.isIdentifier(parent.name)) return parent.name.text;
-  if (ts.isMethodDeclaration(node) && node.name && ts.isIdentifier(node.name)) return node.name.text;
+  if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name))
+    return parent.name.text;
+  if (ts.isPropertyAssignment(parent) && ts.isIdentifier(parent.name))
+    return parent.name.text;
+  if (ts.isMethodDeclaration(node) && node.name && ts.isIdentifier(node.name))
+    return node.name.text;
   return "(anonymous)";
 };
 
@@ -208,37 +242,63 @@ const propsCount = (node: ts.FunctionLikeDeclaration): number => {
 const analyzeFile = (absPath: string): FileMetrics => {
   const src = readFileSync(absPath, "utf8");
   const rel = relative(ROOT, absPath).replace(/\\/g, "/");
-  const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sf = ts.createSourceFile(
+    rel,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
 
   const lines = src.split("\n");
   const loc = lines.length;
   const codeLoc = lines.filter((l) => {
     const t = l.trim();
-    return t.length > 0 && !t.startsWith("//") && !t.startsWith("*") && !t.startsWith("/*");
+    return (
+      t.length > 0 &&
+      !t.startsWith("//") &&
+      !t.startsWith("*") &&
+      !t.startsWith("/*")
+    );
   }).length;
 
-  const hooks = { total: 0, useState: 0, useEffect: 0, byName: {} as Record<string, number> };
+  const hooks = {
+    total: 0,
+    useState: 0,
+    useEffect: 0,
+    byName: {} as Record<string, number>,
+  };
   const effects: EffectInfo[] = [];
   const functions: FnInfo[] = [];
   const internalImports = new Set<string>();
   const externalImports = new Set<string>();
 
-  const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  const lineOf = (node: ts.Node) =>
+    sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
 
   const visit = (node: ts.Node) => {
     // Imports
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       const spec = node.moduleSpecifier.text;
       const resolved = resolveImport(spec, absPath);
       if (resolved) internalImports.add(resolved);
-      else externalImports.add(spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0]);
+      else
+        externalImports.add(
+          spec.startsWith("@")
+            ? spec.split("/").slice(0, 2).join("/")
+            : spec.split("/")[0],
+        );
     }
 
     // Hook calls — match both bare `useX()` and namespaced `React.useX()`.
     if (ts.isCallExpression(node)) {
       let callee: string | null = null;
       if (ts.isIdentifier(node.expression)) callee = node.expression.text;
-      else if (ts.isPropertyAccessExpression(node.expression)) callee = node.expression.name.text;
+      else if (ts.isPropertyAccessExpression(node.expression))
+        callee = node.expression.name.text;
       if (callee && isHookName(callee)) {
         hooks.total++;
         hooks.byName[callee] = (hooks.byName[callee] ?? 0) + 1;
@@ -247,7 +307,9 @@ const analyzeFile = (absPath: string): FileMetrics => {
           hooks.useEffect++;
           const depsArg = node.arguments[1];
           const depCount =
-            depsArg && ts.isArrayLiteralExpression(depsArg) ? depsArg.elements.length : null;
+            depsArg && ts.isArrayLiteralExpression(depsArg)
+              ? depsArg.elements.length
+              : null;
           effects.push({ line: lineOf(node), depCount });
         }
       }
@@ -258,7 +320,9 @@ const analyzeFile = (absPath: string): FileMetrics => {
       const body: ts.Node = node.body!; // guaranteed by isFnWithBody
       const name = nameOfFunction(node);
       const hasJsx = containsJsx(body);
-      const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+      const startLine = sf.getLineAndCharacterOfPosition(
+        node.getStart(sf),
+      ).line;
       const endLine = sf.getLineAndCharacterOfPosition(node.getEnd()).line;
       functions.push({
         name,
@@ -299,7 +363,8 @@ const analyzeFile = (absPath: string): FileMetrics => {
 const allFiles: string[] = [];
 for (const d of SCAN_DIRS) walkFiles(join(ROOT, d), allFiles);
 // middleware.ts lives at the root
-if (existsSync(join(ROOT, "middleware.ts"))) allFiles.push(join(ROOT, "middleware.ts"));
+if (existsSync(join(ROOT, "middleware.ts")))
+  allFiles.push(join(ROOT, "middleware.ts"));
 
 const files = allFiles.map(analyzeFile).sort((a, b) => b.loc - a.loc);
 
@@ -322,15 +387,25 @@ const totals = {
   hooks: files.reduce((s, f) => s + f.hooks.total, 0),
   useEffect: files.reduce((s, f) => s + f.hooks.useEffect, 0),
   useState: files.reduce((s, f) => s + f.hooks.useState, 0),
-  components: files.reduce((s, f) => s + f.functions.filter((fn) => fn.isComponent).length, 0),
-  customHooks: files.reduce((s, f) => s + f.functions.filter((fn) => fn.isHook).length, 0),
+  components: files.reduce(
+    (s, f) => s + f.functions.filter((fn) => fn.isComponent).length,
+    0,
+  ),
+  customHooks: files.reduce(
+    (s, f) => s + f.functions.filter((fn) => fn.isHook).length,
+    0,
+  ),
   internalEdges: edges.length,
 };
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT_JSON, JSON.stringify({ totals, files, edges }, null, 2));
 
-console.log(`Analyzed ${files.length} files (${totals.loc.toLocaleString()} lines).`);
-console.log(`  ${totals.components} components, ${totals.customHooks} custom hooks, ${totals.hooks} hook calls, ${totals.useEffect} effects.`);
+console.log(
+  `Analyzed ${files.length} files (${totals.loc.toLocaleString()} lines).`,
+);
+console.log(
+  `  ${totals.components} components, ${totals.customHooks} custom hooks, ${totals.hooks} hook calls, ${totals.useEffect} effects.`,
+);
 console.log(`  ${edges.length} internal import edges.`);
 console.log(`Wrote ${relative(ROOT, OUT_JSON)}`);

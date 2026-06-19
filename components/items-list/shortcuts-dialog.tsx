@@ -40,10 +40,7 @@ export const ShortcutsDialog = ({
                   <span>{shortcut.label}</span>
                   <div className="flex shrink-0 items-center gap-1">
                     {shortcut.combos.map((combo, comboIndex) => (
-                      <div
-                        key={comboIndex}
-                        className="flex items-center gap-1"
-                      >
+                      <div key={comboIndex} className="flex items-center gap-1">
                         {comboIndex > 0 && (
                           <span className="text-muted-foreground/40">/</span>
                         )}

@@ -66,7 +66,9 @@ const looksLikePdfByMagic = async (rawUrl: string): Promise<boolean> => {
 // Resolve an item URL to a fetchable PDF URL, or null if the link isn't a
 // PDF. Tries the cheap suffix/arxiv check first, then falls back to a
 // magic-byte probe over the network.
-export const getPdfUrlForItem = async (rawUrl: string): Promise<string | null> => {
+export const getPdfUrlForItem = async (
+  rawUrl: string,
+): Promise<string | null> => {
   const direct = tryUrlMatchPdf(rawUrl);
   if (direct) return direct;
   if (await looksLikePdfByMagic(rawUrl)) return rawUrl;
@@ -205,14 +207,21 @@ const extractTitleFromText = async (
 
     // Group consecutive items at similar (y, font size) into a single line.
     // PDF coordinates have origin bottom-left, so larger y == higher on page.
-    items.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
+    items.sort(
+      (a, b) =>
+        b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4],
+    );
     const lines: Line[] = [];
     for (const it of items) {
       const size = Math.abs(it.transform[3]);
       const y = it.transform[5];
       const str = it.str;
       const last = lines[lines.length - 1];
-      if (last && Math.abs(last.y - y) < 2 && Math.abs(last.size - size) < 0.5) {
+      if (
+        last &&
+        Math.abs(last.y - y) < 2 &&
+        Math.abs(last.size - size) < 0.5
+      ) {
         // Continue current line. Add a space if pdfjs split mid-word
         // without one (typical for figure captions / ligatures).
         const needsSpace = !last.text.endsWith(" ") && !str.startsWith(" ");

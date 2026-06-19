@@ -81,8 +81,8 @@ export const DeleteItemDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {item && (
-          <div className="flex items-center gap-2 rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5 min-w-0 overflow-hidden">
-            <div className="size-5 shrink-0 flex items-center justify-center">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5">
+            <div className="flex size-5 shrink-0 items-center justify-center">
               {faviconSrc ? (
                 <Image
                   src={faviconSrc}
@@ -96,7 +96,7 @@ export const DeleteItemDialog = ({
                 <IconFileFilled className="size-5 text-muted-foreground" />
               )}
             </div>
-            <span className="font-content text-sm truncate">
+            <span className="truncate font-content text-sm">
               {item.title || "Untitled"}
             </span>
           </div>

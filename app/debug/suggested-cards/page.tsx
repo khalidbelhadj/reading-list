@@ -320,7 +320,7 @@ const Toggle = ({
   checked: boolean;
   onChange: (next: boolean) => void;
 }) => (
-  <label className="flex select-none items-center gap-2 text-xs text-muted-foreground">
+  <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
     <Switch size="sm" checked={checked} onCheckedChange={onChange} />
     <span>{label}</span>
   </label>
@@ -346,7 +346,11 @@ const SuggestedCardsPlayground = () => {
 
         {/* Controls */}
         <div className="sticky top-0 z-10 -mx-5 flex flex-wrap items-center gap-x-6 gap-y-3 bg-background/95 px-5 py-4 backdrop-blur">
-          <Toggle label="Domain" checked={showDomain} onChange={setShowDomain} />
+          <Toggle
+            label="Domain"
+            checked={showDomain}
+            onChange={setShowDomain}
+          />
           <Toggle label="Dim read" checked={dimRead} onChange={setDimRead} />
         </div>
 

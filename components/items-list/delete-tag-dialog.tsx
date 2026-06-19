@@ -64,9 +64,8 @@ export const DeleteTagDialog = ({
           <AlertDialogDescription>
             {tag && (
               <>
-                This will remove{" "}
-                <span className="font-medium">{tag.name}</span> from{" "}
-                {itemCount} {itemCount === 1 ? "item" : "items"}.
+                This will remove <span className="font-medium">{tag.name}</span>{" "}
+                from {itemCount} {itemCount === 1 ? "item" : "items"}.
               </>
             )}
           </AlertDialogDescription>

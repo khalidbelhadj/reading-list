@@ -45,7 +45,10 @@ export type ItemGroup = {
 
 // Smart day-bucket label derived from an ISO timestamp. Recent items get
 // natural-language labels; older items collapse to "Month YYYY" buckets.
-const dayBucket = (iso: string, now: Date): { key: string; label: string; sortKey: number } => {
+const dayBucket = (
+  iso: string,
+  now: Date,
+): { key: string; label: string; sortKey: number } => {
   const at = new Date(iso);
   const startOfDay = (d: Date) => {
     const startDate = new Date(d);
@@ -60,8 +63,10 @@ const dayBucket = (iso: string, now: Date): { key: string; label: string; sortKe
 
   // sortKey: newer = higher.
   if (diffDays === 0) return { key: "today", label: "Today", sortKey: 1e15 };
-  if (diffDays === 1) return { key: "yesterday", label: "Yesterday", sortKey: 1e15 - 1 };
-  if (diffDays < 7) return { key: "this-week", label: "This week", sortKey: 1e15 - 2 };
+  if (diffDays === 1)
+    return { key: "yesterday", label: "Yesterday", sortKey: 1e15 - 1 };
+  if (diffDays < 7)
+    return { key: "this-week", label: "This week", sortKey: 1e15 - 2 };
   if (
     at.getFullYear() === now.getFullYear() &&
     at.getMonth() === now.getMonth()
@@ -106,7 +111,11 @@ const buildGroups = (
         items: groupItems,
       }));
     if (untagged.length > 0) {
-      groups.push({ key: "tag:__untagged__", label: "Untagged", items: untagged });
+      groups.push({
+        key: "tag:__untagged__",
+        label: "Untagged",
+        items: untagged,
+      });
     }
     return groups;
   }
@@ -119,15 +128,25 @@ const buildGroups = (
       : "createdAt";
     const ascending = sortBy.endsWith("-asc");
     const now = new Date();
-    const buckets = new Map<string, { label: string; sortKey: number; items: Item[] }>();
+    const buckets = new Map<
+      string,
+      { label: string; sortKey: number; items: Item[] }
+    >();
     for (const item of items) {
       const bucket = dayBucket(item[axis], now);
       const existing = buckets.get(bucket.key);
       if (existing) existing.items.push(item);
-      else buckets.set(bucket.key, { label: bucket.label, sortKey: bucket.sortKey, items: [item] });
+      else
+        buckets.set(bucket.key, {
+          label: bucket.label,
+          sortKey: bucket.sortKey,
+          items: [item],
+        });
     }
     return [...buckets.entries()]
-      .sort(([, a], [, b]) => (ascending ? a.sortKey - b.sortKey : b.sortKey - a.sortKey))
+      .sort(([, a], [, b]) =>
+        ascending ? a.sortKey - b.sortKey : b.sortKey - a.sortKey,
+      )
       .map(([key, value]) => ({
         key: `day:${key}`,
         label: value.label,
@@ -152,33 +171,35 @@ export const useItemsFilters = (
   const [activeTagsMap, setActiveTagsMap] = useLocalStorage<
     Record<string, string[]>
   >("activeTagsMap", {}, parseActiveTagsMap, JSON.stringify);
-  const activeTags = React.useMemo(() => new Set(activeTagsMap[activeTab] ?? []), [activeTagsMap, activeTab]);
-  const setActiveTags = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
-    setActiveTagsMap((prev) => {
-      const current = new Set(prev[activeTab] ?? []);
-      const next = updater(current);
-      return { ...prev, [activeTab]: [...next] };
-    });
-  }, [activeTab, setActiveTagsMap]);
+  const activeTags = React.useMemo(
+    () => new Set(activeTagsMap[activeTab] ?? []),
+    [activeTagsMap, activeTab],
+  );
+  const setActiveTags = React.useCallback(
+    (updater: (prev: Set<string>) => Set<string>) => {
+      setActiveTagsMap((prev) => {
+        const current = new Set(prev[activeTab] ?? []);
+        const next = updater(current);
+        return { ...prev, [activeTab]: [...next] };
+      });
+    },
+    [activeTab, setActiveTagsMap],
+  );
 
   const { settings, setSetting } = useSettings();
   const { tagsOpen, showRead, groupBy, sortBy } = settings;
-  const setTagsOpen = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
-    (next) => setSetting("tagsOpen", next),
-    [setSetting],
-  );
-  const setShowRead = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
-    (next) => setSetting("showRead", next),
-    [setSetting],
-  );
-  const setGroupBy = React.useCallback<React.Dispatch<React.SetStateAction<GroupBy>>>(
-    (next) => setSetting("groupBy", next),
-    [setSetting],
-  );
-  const setSortBy = React.useCallback<React.Dispatch<React.SetStateAction<SortBy>>>(
-    (next) => setSetting("sortBy", next),
-    [setSetting],
-  );
+  const setTagsOpen = React.useCallback<
+    React.Dispatch<React.SetStateAction<boolean>>
+  >((next) => setSetting("tagsOpen", next), [setSetting]);
+  const setShowRead = React.useCallback<
+    React.Dispatch<React.SetStateAction<boolean>>
+  >((next) => setSetting("showRead", next), [setSetting]);
+  const setGroupBy = React.useCallback<
+    React.Dispatch<React.SetStateAction<GroupBy>>
+  >((next) => setSetting("groupBy", next), [setSetting]);
+  const setSortBy = React.useCallback<
+    React.Dispatch<React.SetStateAction<SortBy>>
+  >((next) => setSetting("sortBy", next), [setSetting]);
 
   // Server hands us items in created-desc order; for any other sort, re-sort
   // client-side. Skip the work when the default matches the server order.
@@ -219,7 +240,8 @@ export const useItemsFilters = (
   const filteredItems = React.useMemo(() => {
     const passesFilters = (item: Item) => {
       if (!showRead && item.read) return false;
-      if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name))) return false;
+      if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name)))
+        return false;
       return true;
     };
     if (searchOrder !== null) {
@@ -234,34 +256,41 @@ export const useItemsFilters = (
     return tabItems.filter(passesFilters);
   }, [tabItems, showRead, activeTags, searchOrder]);
 
-  const toggleTag = React.useCallback((tagName: string) => {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tagName)) {
-        next.delete(tagName);
-      } else {
-        next.add(tagName);
-      }
-      return next;
-    });
-  }, [setActiveTags]);
+  const toggleTag = React.useCallback(
+    (tagName: string) => {
+      setActiveTags((prev) => {
+        const next = new Set(prev);
+        if (next.has(tagName)) {
+          next.delete(tagName);
+        } else {
+          next.add(tagName);
+        }
+        return next;
+      });
+    },
+    [setActiveTags],
+  );
 
   // While searching, the results are already ordered (local-first, then
   // server-only) — collapse pinned/grouped into the flat filtered list so the
   // render path stays a single ordered column.
   const pinnedItems = React.useMemo(
-    () => (searchOrder !== null ? [] : filteredItems.filter((item) => item.starred)),
+    () =>
+      searchOrder !== null ? [] : filteredItems.filter((item) => item.starred),
     [filteredItems, searchOrder],
   );
 
   const unpinnedItems = React.useMemo(
     () =>
-      searchOrder !== null ? filteredItems : filteredItems.filter((item) => !item.starred),
+      searchOrder !== null
+        ? filteredItems
+        : filteredItems.filter((item) => !item.starred),
     [filteredItems, searchOrder],
   );
 
   const groups = React.useMemo(
-    () => (searchOrder !== null ? [] : buildGroups(unpinnedItems, groupBy, sortBy)),
+    () =>
+      searchOrder !== null ? [] : buildGroups(unpinnedItems, groupBy, sortBy),
     [unpinnedItems, groupBy, sortBy, searchOrder],
   );
 

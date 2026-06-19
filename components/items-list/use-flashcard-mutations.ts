@@ -13,7 +13,9 @@ export const useFlashcardMutations = <T extends { id: string }>({
   onDeleteSettled?: (id: string) => void;
 }) => {
   const queryClient = useQueryClient();
-  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(null);
+  const [deletingCardId, setDeletingCardId] = React.useState<string | null>(
+    null,
+  );
 
   const updateCardMutation = useMutation({
     mutationFn: ({

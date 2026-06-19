@@ -2,17 +2,9 @@
 
 import React from "react";
 import { notFound } from "next/navigation";
-import {
-  IconMinus,
-  IconPlus,
-  IconClock,
-  IconCards,
-} from "@tabler/icons-react";
+import { IconMinus, IconPlus, IconClock, IconCards } from "@tabler/icons-react";
 
-import {
-  AlertDialog,
-  AlertDialogContent,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -27,8 +19,7 @@ const formatDuration = (seconds: number) => {
   return `${minutes} min`;
 };
 
-const estimateFor = (count: number) =>
-  formatDuration(count * SECONDS_PER_CARD);
+const estimateFor = (count: number) => formatDuration(count * SECONDS_PER_CARD);
 
 // ---------------------------------------------------------------------------
 // Variant A — Big time hero
@@ -39,7 +30,7 @@ const VariantHeroTime = ({ onClose }: { onClose: () => void }) => {
   return (
     <div className="flex flex-col gap-6 p-2">
       <div className="flex flex-col items-center gap-1 pt-2">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs tracking-wide text-muted-foreground uppercase">
           Estimated time
         </span>
         <span className="font-content text-5xl tabular-nums">
@@ -94,9 +85,7 @@ const VariantPresets = ({ onClose }: { onClose: () => void }) => {
               onClick={() => setCount(preset)}
               className={cn(
                 "flex flex-col items-start gap-0.5 rounded-md px-4 py-3 text-left transition-colors",
-                isSelected
-                  ? "bg-secondary"
-                  : "bg-card hover:bg-card/70",
+                isSelected ? "bg-secondary" : "bg-card hover:bg-card/70",
               )}
             >
               <span className="font-content text-2xl tabular-nums">
@@ -131,9 +120,7 @@ const VariantStepper = ({ onClose }: { onClose: () => void }) => {
     <div className="flex flex-col gap-5 p-2">
       <div className="flex flex-col gap-1">
         <h2 className="font-content text-lg">Start review</h2>
-        <p className="text-sm text-muted-foreground">
-          {TOTAL_CARDS} cards due
-        </p>
+        <p className="text-sm text-muted-foreground">{TOTAL_CARDS} cards due</p>
       </div>
       <div className="flex items-center justify-center gap-6">
         <Button
@@ -145,10 +132,10 @@ const VariantStepper = ({ onClose }: { onClose: () => void }) => {
           <IconMinus className="size-4" />
         </Button>
         <div className="flex flex-col items-center">
-          <span className="font-content text-5xl tabular-nums leading-none">
+          <span className="font-content text-5xl leading-none tabular-nums">
             {count}
           </span>
-          <span className="text-xs text-muted-foreground mt-1">
+          <span className="mt-1 text-xs text-muted-foreground">
             {count === 1 ? "card" : "cards"}
           </span>
         </div>
@@ -245,8 +232,8 @@ const VariantTimeFirst = ({ onClose }: { onClose: () => void }) => {
       <div className="flex flex-col gap-1">
         <h2 className="font-content text-lg">How long do you have?</h2>
         <p className="text-sm text-muted-foreground">
-          {TOTAL_CARDS} cards due, pick a duration and we&rsquo;ll fit as
-          many in as we can.
+          {TOTAL_CARDS} cards due, pick a duration and we&rsquo;ll fit as many
+          in as we can.
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -351,9 +338,7 @@ const VariantInlineMinimal = ({ onClose }: { onClose: () => void }) => {
         }}
       />
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {TOTAL_CARDS} due
-        </span>
+        <span className="text-xs text-muted-foreground">{TOTAL_CARDS} due</span>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={onClose}>
             Cancel
@@ -432,8 +417,8 @@ const ReviewDialogsPlayground = () => {
           <h1 className="font-content text-xl">Start-review dialogs</h1>
           <p className="text-sm text-muted-foreground">
             Concepts for the &ldquo;start review&rdquo; dialog. Click a card to
-            preview it as a modal. Each shows card count, estimated time, and
-            a way to pick the session size.
+            preview it as a modal. Each shows card count, estimated time, and a
+            way to pick the session size.
           </p>
         </div>
 

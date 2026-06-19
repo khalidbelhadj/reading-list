@@ -11,8 +11,10 @@ const APP_HOSTS = new Set(["reading-list.khalidbelhadj.com", "localhost"]);
 const isAppNavigation = (url: string) => {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === "about:" || parsed.protocol === "data:") return true;
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    if (parsed.protocol === "about:" || parsed.protocol === "data:")
+      return true;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return false;
     return APP_HOSTS.has(parsed.hostname);
   } catch {
     return false;
@@ -115,7 +117,10 @@ if (app.isPackaged) {
   app.setName("Reading List");
 } else {
   app.setName("Reading List Dev");
-  app.setPath("userData", path.join(app.getPath("appData"), "Reading List Dev"));
+  app.setPath(
+    "userData",
+    path.join(app.getPath("appData"), "Reading List Dev"),
+  );
 }
 
 // Custom protocol registration. macOS dispatches via open-url; Windows/Linux
@@ -146,7 +151,9 @@ if (!gotLock) {
     sendDeepLink(url);
   });
 
-  ipcMain.handle("open-external", (_event, url: string) => shell.openExternal(url));
+  ipcMain.handle("open-external", (_event, url: string) =>
+    shell.openExternal(url),
+  );
 
   // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
   // "change" listener when the macOS appearance flips while the app is

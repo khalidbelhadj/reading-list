@@ -134,7 +134,8 @@ const ToastsPlayground = () => {
           <h1 className="font-content text-xl">Toasts</h1>
           <p className="text-sm text-muted-foreground">
             Click a card to fire that variant. Sonner is the underlying library;
-            styling comes from <code className="font-mono text-xs">components/ui/sonner.tsx</code>.
+            styling comes from{" "}
+            <code className="font-mono text-xs">components/ui/sonner.tsx</code>.
           </p>
         </div>
 

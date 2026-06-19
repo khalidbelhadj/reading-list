@@ -240,10 +240,10 @@ export const DetailPanel = React.forwardRef<
       <div
         ref={ref}
         data-detail-panel
-        className="flex flex-1 flex-col gap-2 w-full pb-12"
+        className="flex w-full flex-1 flex-col gap-2 pb-12"
       >
         {/* Item form card */}
-        <div className="flex flex-col gap-2 flex-1">
+        <div className="flex flex-1 flex-col gap-2">
           {/* Favicon + Title */}
           <div data-title-row className="relative">
             <span
@@ -251,7 +251,7 @@ export const DetailPanel = React.forwardRef<
               // Height matches the title's first line (text-xl × leading-tight =
               // 1.5625rem) so items-center vertically centers the 20px icon on
               // that line instead of top-aligning it 2.5px too high.
-              className="absolute left-0 top-0 inline-flex h-6.25 w-5 items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute top-0 left-0 inline-flex h-6.25 w-5 items-center justify-center overflow-hidden"
             >
               {faviconSrc ? (
                 <Image
@@ -276,7 +276,7 @@ export const DetailPanel = React.forwardRef<
               placeholder="Untitled"
               spellCheck
               style={{ textIndent: "2rem" }}
-              className="font-content block w-full text-xl font-semibold leading-tight bg-transparent placeholder:text-muted-foreground wrap-break-word"
+              className="block w-full bg-transparent font-content text-xl leading-tight font-semibold wrap-break-word placeholder:text-muted-foreground"
             />
             {isNew && (
               <>
@@ -287,7 +287,7 @@ export const DetailPanel = React.forwardRef<
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-muted-foreground/40 shrink-0 hover:text-foreground"
+                          className="shrink-0 text-muted-foreground/40 hover:text-foreground"
                           onClick={onCancel}
                         />
                       }
@@ -303,7 +303,7 @@ export const DetailPanel = React.forwardRef<
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-muted-foreground/50 shrink-0 -ml-2 hover:text-foreground"
+                        className="-ml-2 shrink-0 text-muted-foreground/50 hover:text-foreground"
                         disabled={isSaving}
                         onClick={handleSave}
                       />
@@ -339,7 +339,7 @@ export const DetailPanel = React.forwardRef<
                     "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
                 } as React.CSSProperties
               }
-              className="min-w-0 text-sm text-muted-foreground/70 bg-transparent whitespace-nowrap overflow-hidden"
+              className="min-w-0 overflow-hidden bg-transparent text-sm whitespace-nowrap text-muted-foreground/70"
             />
 
             {item?.url && (
@@ -366,7 +366,7 @@ export const DetailPanel = React.forwardRef<
 
           {/* Notes */}
           <div
-            className="flex-1 min-h-32 cursor-text flex flex-col"
+            className="flex min-h-32 flex-1 cursor-text flex-col"
             onClick={(event) => {
               const target = event.target as HTMLElement;
               if (target.closest(".ProseMirror")) return;

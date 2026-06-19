@@ -6,7 +6,13 @@ export type DuplicateItem = {
 };
 
 export const sanitizeRedirect = (next: string | undefined | null): string => {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
+  if (
+    !next ||
+    !next.startsWith("/") ||
+    next.startsWith("//") ||
+    next.includes("\\")
+  )
+    return "/";
   try {
     const url = new URL(next, "http://dummy");
     if (url.hostname !== "dummy") return "/";
@@ -60,4 +66,3 @@ export const normalizeUrl = (raw: string): string | null => {
     return null;
   }
 };
-

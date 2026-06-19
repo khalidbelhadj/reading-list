@@ -13,19 +13,24 @@ import {
   type SettingsPatch,
 } from "@/lib/settings";
 
-export const getSettings = safeAction(async function getSettings(): Promise<Settings> {
-  const userId = await getCurrentUserId();
-  return withUser(userId, async (tx) => {
-    const [row] = await tx
-      .select({ data: userSettings.data })
-      .from(userSettings)
-      .where(eq(userSettings.userId, userId))
-      .limit(1);
-    return parseSettings(row?.data);
-  });
-}, "Could not load settings.");
+export const getSettings = safeAction(
+  async function getSettings(): Promise<Settings> {
+    const userId = await getCurrentUserId();
+    return withUser(userId, async (tx) => {
+      const [row] = await tx
+        .select({ data: userSettings.data })
+        .from(userSettings)
+        .where(eq(userSettings.userId, userId))
+        .limit(1);
+      return parseSettings(row?.data);
+    });
+  },
+  "Could not load settings.",
+);
 
-export const updateSettings = safeAction(async function updateSettings(patch: SettingsPatch) {
+export const updateSettings = safeAction(async function updateSettings(
+  patch: SettingsPatch,
+) {
   const parsed = settingsPatchSchema.parse(patch);
   const keys = Object.keys(parsed);
   if (keys.length === 0) return;

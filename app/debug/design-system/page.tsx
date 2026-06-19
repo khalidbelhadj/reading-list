@@ -165,7 +165,7 @@ const Row = ({
       align === "start" ? "items-start" : "items-center"
     }`}
   >
-    <div className="text-[11px] text-muted-foreground font-mono">{label}</div>
+    <div className="font-mono text-[11px] text-muted-foreground">{label}</div>
     <div className="flex flex-wrap items-center gap-2">{children}</div>
   </div>
 );
@@ -175,7 +175,9 @@ const ColorSwatch = ({ name, desc }: { name: string; desc: string }) => {
   const [value, setValue] = React.useState<string>("");
   React.useEffect(() => {
     if (!ref.current) return;
-    const v = getComputedStyle(ref.current).getPropertyValue(`--${name}`).trim();
+    const v = getComputedStyle(ref.current)
+      .getPropertyValue(`--${name}`)
+      .trim();
     setValue(v);
   }, [name]);
   return (
@@ -187,10 +189,10 @@ const ColorSwatch = ({ name, desc }: { name: string; desc: string }) => {
         className="h-12 w-full rounded-md border border-border/40"
         style={{ background: `var(--${name})` }}
       />
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <div className="font-mono text-[11px] truncate">{name}</div>
-        <div className="text-[10px] text-muted-foreground truncate">{desc}</div>
-        <div className="font-mono text-[10px] text-muted-foreground truncate">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="truncate font-mono text-[11px]">{name}</div>
+        <div className="truncate text-[10px] text-muted-foreground">{desc}</div>
+        <div className="truncate font-mono text-[10px] text-muted-foreground">
           {value || "…"}
         </div>
       </div>
@@ -260,7 +262,7 @@ const DesignSystemPage = () => {
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <div className="mx-auto max-w-5xl px-6 py-12 flex flex-col gap-16">
+      <div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-12">
         <header className="flex items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
             <h1 className="font-content text-3xl font-semibold tracking-tight">
@@ -282,7 +284,7 @@ const DesignSystemPage = () => {
           title="Colors"
           description="oklch tokens defined in app/globals.css. Toggle theme to see light/dark values."
         >
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {colorTokens.map((t) => (
               <ColorSwatch key={t.name} name={t.name} desc={t.desc} />
             ))}
@@ -291,7 +293,7 @@ const DesignSystemPage = () => {
 
         {/* ─── shadows ────────────────────────────────────────────────────── */}
         <Section title="Shadows" description="Depth utilities for elevation.">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {shadowTokens.map((t) => (
               <ShadowSwatch key={t.name} name={t.name} desc={t.desc} />
             ))}
@@ -793,7 +795,7 @@ const DesignSystemPage = () => {
             <Spinner className="size-6" />
           </Row>
           <Row label="Skeleton" align="start">
-            <div className="flex flex-col gap-2 w-72">
+            <div className="flex w-72 flex-col gap-2">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-4 w-2/3" />
@@ -804,7 +806,7 @@ const DesignSystemPage = () => {
         {/* ─── separators ─────────────────────────────────────────────────── */}
         <Section title="Separators">
           <Row label="horizontal" align="start">
-            <div className="w-full max-w-sm flex flex-col gap-2 text-xs">
+            <div className="flex w-full max-w-sm flex-col gap-2 text-xs">
               <span>Above</span>
               <Separator />
               <span>Below</span>
@@ -826,14 +828,14 @@ const DesignSystemPage = () => {
           title="Icons"
           description="@tabler/icons-react, a sample of icons used across the app."
         >
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
             {iconSamples.map(({ Icon, name }) => (
               <div
                 key={name}
                 className="flex flex-col items-center justify-center gap-1.5 rounded-lg bg-card p-3 text-[10px] text-muted-foreground"
               >
                 <Icon className="size-5 text-foreground" />
-                <span className="font-mono truncate w-full text-center">
+                <span className="w-full truncate text-center font-mono">
                   {name}
                 </span>
               </div>

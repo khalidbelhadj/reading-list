@@ -35,7 +35,11 @@ const addDays = (iso: string, days: number) =>
 
 const clampEase = (ease: number) => Math.max(MIN_EASE, ease);
 
-export const schedule = (prev: SrsState, rating: Rating, now: string): SrsState => {
+export const schedule = (
+  prev: SrsState,
+  rating: Rating,
+  now: string,
+): SrsState => {
   const isGraduated = prev.state === "review";
   const isRelearning = prev.state === "relearning";
 
@@ -127,7 +131,10 @@ export const schedule = (prev: SrsState, rating: Rating, now: string): SrsState 
     }
     case "hard": {
       const ease = clampEase(prev.easeFactor - 0.15);
-      const interval = Math.max(1, Math.round(prev.interval * HARD_INTERVAL_MULT));
+      const interval = Math.max(
+        1,
+        Math.round(prev.interval * HARD_INTERVAL_MULT),
+      );
       return {
         state: "review",
         interval,
@@ -150,7 +157,10 @@ export const schedule = (prev: SrsState, rating: Rating, now: string): SrsState 
     }
     case "easy": {
       const ease = prev.easeFactor + 0.15;
-      const interval = Math.max(1, Math.round(prev.interval * prev.easeFactor * EASY_BONUS));
+      const interval = Math.max(
+        1,
+        Math.round(prev.interval * prev.easeFactor * EASY_BONUS),
+      );
       return {
         state: "review",
         interval,

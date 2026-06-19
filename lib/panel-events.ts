@@ -11,7 +11,9 @@ export type PanelCommand = "expand" | "collapse" | "peek";
 const EVENT = "rl:panel-command";
 
 export const dispatchPanelCommand = (command: PanelCommand): void => {
-  window.dispatchEvent(new CustomEvent<PanelCommand>(EVENT, { detail: command }));
+  window.dispatchEvent(
+    new CustomEvent<PanelCommand>(EVENT, { detail: command }),
+  );
 };
 
 export const subscribePanelCommand = (

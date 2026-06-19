@@ -164,7 +164,9 @@ const CircleIcon = ({ cfg, size }: { cfg: Cfg; size: number }) => (
     className="flex items-center justify-center rounded-full"
     style={{ background: cfg.tone.tint, width: size, height: size }}
   >
-    <cfg.Icon style={{ color: cfg.tone.color, width: size / 2, height: size / 2 }} />
+    <cfg.Icon
+      style={{ color: cfg.tone.color, width: size / 2, height: size / 2 }}
+    />
   </div>
 );
 
@@ -343,7 +345,7 @@ const Toggle = ({
   checked: boolean;
   onChange: (next: boolean) => void;
 }) => (
-  <label className="flex select-none items-center gap-2 text-xs text-muted-foreground">
+  <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
     <Switch size="sm" checked={checked} onCheckedChange={onChange} />
     <span>{label}</span>
   </label>
@@ -357,7 +359,7 @@ const Field = ({
   children: React.ReactNode;
 }) => (
   <div className="flex flex-col gap-1">
-    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+    <span className="text-[11px] font-medium tracking-wide text-muted-foreground/70 uppercase">
       {label}
     </span>
     {children}

@@ -6,13 +6,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction } from "@/lib/safe-action";
 import { deleteTagById } from "@/lib/tags";
-import {
-  parseInput,
-  renameTagSchema,
-  deleteTagSchema,
-} from "@/lib/schemas";
+import { parseInput, renameTagSchema, deleteTagSchema } from "@/lib/schemas";
 
-export const renameTag = safeAction(async function renameTag(tagId: number, newName: string) {
+export const renameTag = safeAction(async function renameTag(
+  tagId: number,
+  newName: string,
+) {
   parseInput(renameTagSchema, { tagId, newName });
   const userId = await getCurrentUserId();
   const trimmed = newName.trim().toLowerCase();

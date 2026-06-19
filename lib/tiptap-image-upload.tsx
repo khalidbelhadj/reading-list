@@ -21,7 +21,12 @@ export type ImageUploadOptions = ImageOptions & {
 
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
-const ImageUploadNodeView = ({ node, editor, getPos, selected }: NodeViewProps) => {
+const ImageUploadNodeView = ({
+  node,
+  editor,
+  getPos,
+  selected,
+}: NodeViewProps) => {
   const src = (node.attrs.src as string | null) ?? "";
   const alt = (node.attrs.alt as string | null) ?? "";
   const title = (node.attrs.title as string | null) ?? undefined;
@@ -158,7 +163,7 @@ const ImageUploadNodeView = ({ node, editor, getPos, selected }: NodeViewProps) 
       {uploading && loaded && (
         <Spinner
           aria-label="Uploading image"
-          className="pointer-events-none absolute top-1/2 left-1/2 size-6 -mt-3 -ml-3 text-foreground"
+          className="pointer-events-none absolute top-1/2 left-1/2 -mt-3 -ml-3 size-6 text-foreground"
         />
       )}
     </NodeViewWrapper>
@@ -245,7 +250,9 @@ const insertPlaceholders = (
           uploading: false,
           uploadId: null,
         };
-        view.dispatch(view.state.tr.setNodeMarkup(target.pos, undefined, attrs));
+        view.dispatch(
+          view.state.tr.setNodeMarkup(target.pos, undefined, attrs),
+        );
         releaseObjectUrl(uploadId);
       })
       .catch((err: unknown) => {
@@ -267,11 +274,13 @@ const insertPlaceholders = (
 export const ImageUpload = Image.extend<ImageUploadOptions>({
   addOptions() {
     const parent = this.parent?.() as ImageOptions | undefined;
-    const base: ImageOptions = parent ?? {
-      inline: false,
-      allowBase64: false,
-      HTMLAttributes: {},
-    } as ImageOptions;
+    const base: ImageOptions =
+      parent ??
+      ({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {},
+      } as ImageOptions);
     return {
       ...base,
       upload: null,

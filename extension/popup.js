@@ -11,7 +11,9 @@ const settingsEl = document.getElementById("settings");
 const svg = (paths) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 const ICON = {
-  bookmark: svg(`<path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4z" />`),
+  bookmark: svg(
+    `<path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4z" />`,
+  ),
   check: `<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5l9.5 -10.5" /></svg>`,
   arrow: svg(`<path d="M5 12h14" /><path d="M13 6l6 6l-6 6" />`),
   spinner: `<span class="spinner"></span>`,
@@ -144,7 +146,11 @@ const init = async () => {
 
 // Enter triggers the primary action
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !actionEl.disabled && card.classList.contains("state-unsaved")) {
+  if (
+    e.key === "Enter" &&
+    !actionEl.disabled &&
+    card.classList.contains("state-unsaved")
+  ) {
     actionEl.click();
   }
 });

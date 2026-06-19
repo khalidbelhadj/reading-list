@@ -6,11 +6,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import type MarkdownIt from "markdown-it";
 
 import { newCardId as newId } from "@/lib/card-id";
-import {
-  extractSideRaw,
-  findCardClose,
-  ID_ATTR,
-} from "@/lib/card-parse";
+import { extractSideRaw, findCardClose, ID_ATTR } from "@/lib/card-parse";
 
 type SerializerState = {
   write: (text: string) => void;
@@ -106,7 +102,10 @@ export const Card = Node.create({
   addStorage() {
     return {
       markdown: {
-        serialize(state: SerializerState, node: { attrs: { cardId?: string } }) {
+        serialize(
+          state: SerializerState,
+          node: { attrs: { cardId?: string } },
+        ) {
           const id = node.attrs.cardId ?? newId();
           state.write(`<card id="${id}">\n`);
           state.renderContent(node);
@@ -170,8 +169,7 @@ export const Card = Node.create({
     return {
       "Mod-Shift-c": () => this.editor.commands.insertCard(),
       Tab: ({ editor }) => moveWithinCard(editor as Editor, "forward"),
-      "Shift-Tab": ({ editor }) =>
-        moveWithinCard(editor as Editor, "backward"),
+      "Shift-Tab": ({ editor }) => moveWithinCard(editor as Editor, "backward"),
       Enter: ({ editor }) => exitOnEmptyBackTrailing(editor as Editor),
       "Mod-Enter": ({ editor }) => exitCard(editor as Editor, "forward"),
       "Mod-Shift-Enter": ({ editor }) => exitCard(editor as Editor, "backward"),
@@ -222,17 +220,12 @@ const moveWithinCard = (editor: Editor, direction: "forward" | "backward") => {
       ? sideContentStart + 1 // start of first paragraph content
       : sideContentStart + targetSide.content.size - 1; // end of last paragraph content
 
-  const tr = state.tr.setSelection(
-    TextSelection.create(state.doc, targetPos),
-  );
+  const tr = state.tr.setSelection(TextSelection.create(state.doc, targetPos));
   editor.view.dispatch(tr.scrollIntoView());
   return true;
 };
 
-const escapeAtDocEdge = (
-  editor: Editor,
-  direction: "forward" | "backward",
-) => {
+const escapeAtDocEdge = (editor: Editor, direction: "forward" | "backward") => {
   const { state } = editor;
   const { $from, empty } = state.selection;
   if (!empty) return false;
@@ -289,11 +282,11 @@ const exitCard = (
   }
 
   const insertPos = tr.mapping.map(exitPos);
-  const neighborBefore = insertPos > 0 ? tr.doc.resolve(insertPos).nodeBefore : null;
+  const neighborBefore =
+    insertPos > 0 ? tr.doc.resolve(insertPos).nodeBefore : null;
   const neighborAfter = tr.doc.resolve(insertPos).nodeAfter;
   const adjacentNode = direction === "forward" ? neighborAfter : neighborBefore;
-  const needsParagraph =
-    !adjacentNode || adjacentNode.type.name === "card";
+  const needsParagraph = !adjacentNode || adjacentNode.type.name === "card";
 
   let selectionPos: number;
   if (needsParagraph) {

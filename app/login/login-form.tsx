@@ -87,7 +87,7 @@ export const LoginForm = ({
   }, []);
 
   return (
-    <div className="flex flex-col items-start gap-4 max-w-md w-full">
+    <div className="flex w-full max-w-md flex-col items-start gap-4">
       <div className="flex flex-col gap-1">
         <h1 className="font-content text-lg">Sign in</h1>
         <p className="text-sm text-muted-foreground">

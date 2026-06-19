@@ -17,7 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isModKey } from "@/lib/input-context";
 import { stripBlankLineSentinel } from "@/lib/markdown";
@@ -93,7 +97,7 @@ export const FlashcardCard = ({
 
   return (
     <div
-      className="font-content group relative rounded-lg bg-card px-4 py-3 flex flex-col"
+      className="group relative flex flex-col rounded-lg bg-card px-4 py-3 font-content"
       onBlur={editing ? handleFocusOut : undefined}
     >
       <FlashcardDropdown card={card} deleting={deleting} onDelete={onDelete} />
@@ -126,7 +130,7 @@ export const FlashcardCard = ({
             />
           </div>
           {card.back && (
-            <div className="cursor-pointer mt-0.5" onClick={handleBackClick}>
+            <div className="mt-0.5 cursor-pointer" onClick={handleBackClick}>
               <MarkdownEditor
                 value={card.back}
                 editable={false}
@@ -186,7 +190,7 @@ const FlashcardDropdown = ({
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "z-20 absolute top-1 right-1 text-muted-foreground/30 hover:text-foreground hover:bg-accent",
+                    "absolute top-1 right-1 z-20 text-muted-foreground/30 hover:bg-accent hover:text-foreground",
                     deleting
                       ? "opacity-100"
                       : "opacity-0 group-hover:opacity-100 data-popup-open:opacity-100",

@@ -61,7 +61,7 @@ export const TagRenameInput = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       size={Math.max(value.length, 1)}
-      className="h-5 rounded-md bg-badge px-2 text-[0.625rem] font-medium text-badge-foreground outline-none ring-1 ring-foreground/20 field-sizing-content"
+      className="field-sizing-content h-5 rounded-md bg-badge px-2 text-[0.625rem] font-medium text-badge-foreground ring-1 ring-foreground/20 outline-none"
     />
   );
 };

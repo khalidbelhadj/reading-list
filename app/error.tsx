@@ -31,8 +31,8 @@ const Error = ({
   }, [error.digest]);
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-5">
-      <div className="group/error flex flex-col items-start gap-4 max-w-md w-full">
+    <div className="flex min-h-dvh items-center justify-center px-5">
+      <div className="group/error flex w-full max-w-md flex-col items-start gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="font-content text-lg">Something went wrong</h1>
           <p className="text-sm text-muted-foreground">
@@ -58,7 +58,7 @@ const Error = ({
                     type="button"
                     aria-label="Copy error reference"
                     onClick={handleCopyRef}
-                    className="flex size-6 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover/error:opacity-100 focus-visible:opacity-100"
+                    className="flex size-6 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity group-hover/error:opacity-100 hover:bg-secondary hover:text-foreground focus-visible:opacity-100"
                   >
                     {copied ? (
                       <IconCheck className="size-3.5" />

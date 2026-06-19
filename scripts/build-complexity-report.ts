@@ -15,7 +15,9 @@ const metrics = readFileSync(join(OUT_DIR, "metrics.json"), "utf8");
 
 const html = TEMPLATE_FN().replace("/*__DATA__*/null", metrics);
 writeFileSync(join(OUT_DIR, "report.html"), html);
-console.log(`Wrote analysis/code/report.html (${(html.length / 1024).toFixed(0)} KB). Open it in a browser.`);
+console.log(
+  `Wrote analysis/code/report.html (${(html.length / 1024).toFixed(0)} KB). Open it in a browser.`,
+);
 
 // The template is defined after use; hoisting via function declaration keeps the file readable.
 function TEMPLATE_FN(): string {
