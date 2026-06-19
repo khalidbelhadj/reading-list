@@ -4,6 +4,7 @@ import {
   IconArrowsMaximize,
   IconArrowsSort,
   IconBook,
+  IconBulb,
   IconCalendar,
   IconCards,
   IconCheck,
@@ -148,8 +149,16 @@ export const SettingsMenu = ({
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const { settings, setSetting } = useSettings();
-  const { theme, density, fullWidth, groupBy, sortBy, showRead, tagsOpen } =
-    settings;
+  const {
+    theme,
+    density,
+    fullWidth,
+    groupBy,
+    sortBy,
+    showRead,
+    showSuggestions,
+    tagsOpen,
+  } = settings;
   const email = user?.email ?? null;
   const userId = user?.id ?? null;
   const fullName =
@@ -251,6 +260,11 @@ export const SettingsMenu = ({
     [setSetting],
   );
 
+  const handleShowSuggestionsChange = React.useCallback(
+    (checked: boolean) => setSetting("showSuggestions", checked),
+    [setSetting],
+  );
+
   const handleGroupByChange = React.useCallback(
     (value: string) => setSetting("groupBy", value as GroupBy),
     [setSetting],
@@ -345,6 +359,15 @@ export const SettingsMenu = ({
               >
                 <IconEye />
                 Show read items
+              </DropdownMenuSwitchItem>
+            )}
+            {showReadingListFilters && (
+              <DropdownMenuSwitchItem
+                checked={showSuggestions}
+                onCheckedChange={handleShowSuggestionsChange}
+              >
+                <IconBulb />
+                Show suggestions
               </DropdownMenuSwitchItem>
             )}
             <DropdownMenuSwitchItem
