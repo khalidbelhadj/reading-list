@@ -10,7 +10,7 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
-import { makeOptimisticItem, resolveRowItem } from "./items-list/utils";
+import { makeOptimisticItem } from "./items-list/utils";
 
 import { fetchPageTitle, searchFlashcards, searchItems } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
@@ -21,7 +21,7 @@ import { CardsList, CardsStateBar } from "./items-list/cards-list";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
-import { ItemRow } from "./items-list/item-row";
+import { ItemList } from "./items-list/item-list";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
 import { ReviewNudge } from "./items-list/review-nudge";
@@ -604,27 +604,16 @@ export const ItemsList = ({
                   />
                 ) : (
                   <>
-                    {unpinnedItems.map((item) => {
-                      const typingTitle = typingTitles[item.id];
-                      const rowItem = resolveRowItem(item, typingTitle);
-                      return (
-                        <ItemRow
-                          key={item.id}
-                          item={rowItem}
-                          suppressHover={suppressHover}
-                          density={density}
-                          isTyping={typingTitle !== undefined}
-                          onTogglePin={() =>
-                            handleTogglePin(item.id, !item.starred)
-                          }
-                          onToggleRead={() =>
-                            handleToggleRead(item.id, !item.read)
-                          }
-                          onSelect={() => handleOpenItem(item.id)}
-                          onDelete={() => requestDeleteItem(item.id)}
-                        />
-                      );
-                    })}
+                    <ItemList
+                      items={unpinnedItems}
+                      typingTitles={typingTitles}
+                      suppressHover={suppressHover}
+                      density={density}
+                      onSelect={handleOpenItem}
+                      onDelete={requestDeleteItem}
+                      onToggleRead={handleToggleRead}
+                      onTogglePin={handleTogglePin}
+                    />
                     {/* Backend (trigram) pass still running: append loading rows
                         under the instant keyword hits so the search reads as
                         "more coming," not finished. */}

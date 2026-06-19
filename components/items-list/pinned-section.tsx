@@ -4,8 +4,8 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { CollapsibleSection } from "./collapsible-section";
-import { ItemRow } from "./item-row";
-import { resolveRowItem, type Density } from "./utils";
+import { ItemList } from "./item-list";
+import { type Density } from "./utils";
 
 type PinnedSectionProps = {
   items: Item[];
@@ -55,23 +55,16 @@ export const PinnedSection = ({
         />
       </button>
       <CollapsibleSection open={open}>
-        {items.map((item) => {
-          const typingTitle = typingTitles[item.id];
-          const rowItem = resolveRowItem(item, typingTitle);
-          return (
-            <ItemRow
-              key={item.id}
-              item={rowItem}
-              suppressHover={suppressHover}
-              density={density}
-              isTyping={typingTitle !== undefined}
-              onTogglePin={() => onTogglePin(item.id, !item.starred)}
-              onToggleRead={() => onToggleRead(item.id, !item.read)}
-              onSelect={() => onSelect(item.id)}
-              onDelete={() => onDelete(item.id)}
-            />
-          );
-        })}
+        <ItemList
+          items={items}
+          typingTitles={typingTitles}
+          suppressHover={suppressHover}
+          density={density}
+          onSelect={onSelect}
+          onDelete={onDelete}
+          onToggleRead={onToggleRead}
+          onTogglePin={onTogglePin}
+        />
       </CollapsibleSection>
     </div>
   );
