@@ -9,8 +9,27 @@ const savedMsg = document.getElementById("saved-msg");
 
 const isOn = (el) => el.getAttribute("aria-checked") === "true";
 
+// the last-saved settings, used to detect unsaved changes
+let saved = { devMode: false, appUrl: "", openIn: "web" };
+
+const current = () => ({
+  devMode: isOn(toggle),
+  appUrl: input.value.trim(),
+  openIn: isOn(openInAppToggle) ? "app" : "web",
+});
+
+const isDirty = () => {
+  const now = current();
+  return (
+    now.devMode !== saved.devMode ||
+    now.appUrl !== saved.appUrl ||
+    now.openIn !== saved.openIn
+  );
+};
+
 const refresh = () => {
   urlField.hidden = !isOn(toggle);
+  saveBtn.disabled = !isDirty();
 };
 
 const init = async () => {
@@ -21,31 +40,31 @@ const init = async () => {
     "aria-checked",
     openIn === "app" ? "true" : "false",
   );
+  saved = current();
   refresh();
 };
 
-const bindToggle = (el, onToggle) => {
+const bindToggle = (el) => {
   el.addEventListener("click", () => {
     el.setAttribute("aria-checked", isOn(el) ? "false" : "true");
     savedMsg.hidden = true;
-    onToggle?.();
+    refresh();
   });
 };
 
-bindToggle(toggle, refresh);
+bindToggle(toggle);
 bindToggle(openInAppToggle);
 
 input.addEventListener("input", () => {
   savedMsg.hidden = true;
+  refresh();
 });
 
 saveBtn.addEventListener("click", async () => {
-  await setSettings({
-    devMode: isOn(toggle),
-    appUrl: input.value.trim(),
-    openIn: isOn(openInAppToggle) ? "app" : "web",
-  });
+  saved = current();
+  await setSettings(saved);
   savedMsg.hidden = false;
+  refresh();
 });
 
 init();
