@@ -462,13 +462,14 @@ export const ItemsList = ({
     </div>
   );
 
-  // Error / empty placeholder shown at the top of the list body.
-  const statusNode = itemsError ? (
+  // Error placeholder. When the items query errors, this replaces the entire
+  // list body — error and content are mutually exclusive, never shown together
+  // (React Query keeps stale `data` on a failed refetch, so we must not fall
+  // through to rendering the cached list underneath the error).
+  const errorNode = (
     <div className="px-1 py-6 text-center text-xs text-destructive">
       Failed to load items
     </div>
-  ) : (
-    emptyNode
   );
 
   return (
@@ -543,40 +544,30 @@ export const ItemsList = ({
             loading={isLoading || searchPending}
             skeleton={<ItemsSkeleton density={density} />}
           >
-            <div
-              onMouseMove={
-                suppressHover ? () => setSuppressHover(false) : undefined
-              }
-            >
-              {statusNode}
+            {itemsError ? (
+              errorNode
+            ) : (
+              <div
+                onMouseMove={
+                  suppressHover ? () => setSuppressHover(false) : undefined
+                }
+              >
+                {emptyNode}
 
-              <SuggestedSection
-                items={suggestedItems}
-                open={suggestedOpen}
-                onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                onSelect={handleSelectItem}
-                onDelete={requestDeleteItem}
-                onToggleRead={handleToggleRead}
-                onTogglePin={handleTogglePin}
-              />
+                <SuggestedSection
+                  items={suggestedItems}
+                  open={suggestedOpen}
+                  onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                  onSelect={handleSelectItem}
+                  onDelete={requestDeleteItem}
+                  onToggleRead={handleToggleRead}
+                  onTogglePin={handleTogglePin}
+                />
 
-              <PinnedSection
-                items={pinnedItems}
-                open={pinnedOpen}
-                onToggleOpen={() => setPinnedOpen((p) => !p)}
-                typingTitles={typingTitles}
-                suppressHover={suppressHover}
-                density={density}
-                onSelect={handleSelectItem}
-                onDelete={requestDeleteItem}
-                onToggleRead={handleToggleRead}
-                onTogglePin={handleTogglePin}
-              />
-
-              {useGroupedLayout ? (
-                <GroupedList
-                  groups={groups}
-                  items={items ?? []}
+                <PinnedSection
+                  items={pinnedItems}
+                  open={pinnedOpen}
+                  onToggleOpen={() => setPinnedOpen((p) => !p)}
                   typingTitles={typingTitles}
                   suppressHover={suppressHover}
                   density={density}
@@ -585,10 +576,11 @@ export const ItemsList = ({
                   onToggleRead={handleToggleRead}
                   onTogglePin={handleTogglePin}
                 />
-              ) : (
-                <>
-                  <ItemList
-                    items={unpinnedItems}
+
+                {useGroupedLayout ? (
+                  <GroupedList
+                    groups={groups}
+                    items={items ?? []}
                     typingTitles={typingTitles}
                     suppressHover={suppressHover}
                     density={density}
@@ -597,15 +589,28 @@ export const ItemsList = ({
                     onToggleRead={handleToggleRead}
                     onTogglePin={handleTogglePin}
                   />
-                  {/* Backend (trigram) pass still running: append loading rows
+                ) : (
+                  <>
+                    <ItemList
+                      items={unpinnedItems}
+                      typingTitles={typingTitles}
+                      suppressHover={suppressHover}
+                      density={density}
+                      onSelect={handleSelectItem}
+                      onDelete={requestDeleteItem}
+                      onToggleRead={handleToggleRead}
+                      onTogglePin={handleTogglePin}
+                    />
+                    {/* Backend (trigram) pass still running: append loading rows
                         under the instant keyword hits so the search reads as
                         "more coming," not finished. */}
-                  {searchActive && searchBackendPending && (
-                    <ItemsSkeleton density={density} />
-                  )}
-                </>
-              )}
-            </div>
+                    {searchActive && searchBackendPending && (
+                      <ItemsSkeleton density={density} />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </LoadingFade>
         </div>
       </div>
