@@ -66,7 +66,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (result.ok) {
       notify(
         "Saved to reading list",
-        payload.title || payload.url,
+        result.title || payload.title || payload.url,
         itemUrl(result.appUrl, result.itemId),
       );
     } else {
