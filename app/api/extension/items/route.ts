@@ -92,7 +92,9 @@ export async function POST(request: NextRequest) {
       undefined,
       allowDuplicateUrl === true,
     );
-    return NextResponse.json(result);
+    // Echo back the title we resolved (possibly fetched server-side) so the
+    // extension can show it in its notification instead of the bare url.
+    return NextResponse.json({ ...result, title: resolvedTitle });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -65,10 +65,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     const result = await saveItem(payload);
     if (result.ok) {
-      notify("Saved to reading list", payload.title || payload.url, {
-        appUrl: result.appUrl,
-        itemId: result.itemId,
-      });
+      notify(
+        "Saved to reading list",
+        result.title || payload.title || payload.url,
+        { appUrl: result.appUrl, itemId: result.itemId },
+      );
     } else {
       notify(
         "Already in your reading list",
