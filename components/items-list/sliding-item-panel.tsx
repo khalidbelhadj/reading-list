@@ -75,7 +75,7 @@ const PANEL_SIZE_CONFIG: Record<
     storageKey: "panel-width",
     min: 360,
     default: 520,
-    viewportGutter: 480,
+    viewportGutter: 320,
   },
   height: {
     storageKey: "panel-height",
