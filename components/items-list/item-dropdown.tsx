@@ -549,10 +549,6 @@ const OpenInNewTabItem = ({
     [url],
   );
 
-  const stopPointerDown = React.useCallback((e: React.PointerEvent) => {
-    e.stopPropagation();
-  }, []);
-
   return (
     <DropdownMenuItem onClick={onOpen} className="group/open-tab pr-1">
       <IconExternalLink />

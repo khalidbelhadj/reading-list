@@ -1,10 +1,16 @@
 "use client";
 
-import { Node, mergeAttributes, type Editor } from "@tiptap/react";
+import {
+  Node,
+  mergeAttributes,
+  ReactNodeViewRenderer,
+  type Editor,
+} from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type MarkdownIt from "markdown-it";
 
+import { CardNodeView } from "@/components/ui/card-node-view";
 import { newCardId as newId } from "@/lib/card-id";
 import { extractSideRaw, findCardClose, ID_ATTR } from "@/lib/card-parse";
 
@@ -75,6 +81,11 @@ export const Card = Node.create({
   content: "cardFront cardBack",
   defining: true,
   isolating: true,
+  draggable: true,
+
+  addNodeView() {
+    return ReactNodeViewRenderer(CardNodeView);
+  },
 
   addAttributes() {
     return {
