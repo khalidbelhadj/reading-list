@@ -1,4 +1,5 @@
 import {
+  IconAppWindow,
   IconBolt,
   IconCalendarDue,
   IconCards,
@@ -38,6 +39,7 @@ import {
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { stripBlankLineSentinel } from "@/lib/markdown";
 import { type Item } from "@/lib/types";
+import { useIsElectron } from "@/lib/use-is-electron";
 import { Button } from "../ui/button";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
 import { useStartReview } from "./use-start-review";
@@ -200,6 +202,7 @@ const ItemReviewDialog = ({ review }: { review: ItemReviewState }) => (
 // the menu items. Used by both ItemDropdown and ItemContextMenu so the copy
 // feedback behaviour stays consistent across both entry points.
 const useItemMenuActions = ({ item }: { item: Item }) => {
+  const isElectron = useIsElectron();
   const [lastCopied, setLastCopied] = React.useState<string | null>(null);
   const [copyTriggered, setCopyTriggered] = React.useState(false);
 
@@ -229,6 +232,12 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
 
+  // Hand the item off to the desktop app via its readinglist:// protocol; the
+  // OS launches/focuses the app and DeepLinkItemWatcher selects the item.
+  const handleOpenInApp = React.useCallback(() => {
+    window.location.assign(`readinglist://item/${encodeURIComponent(item.id)}`);
+  }, [item.id]);
+
   const handleChatWithClaude = React.useCallback(() => {
     openChatWithClaude(item);
   }, [item]);
@@ -238,6 +247,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     !!item.notes && stripBlankLineSentinel(item.notes).trim().length > 0;
 
   return {
+    isElectron,
     lastCopied,
     copyTriggered,
     setCopyTriggered,
@@ -245,6 +255,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     handleCopyTitle,
     handleCopyNotes,
     handleOpenInNewTab,
+    handleOpenInApp,
     handleChatWithClaude,
     canOpenUrl,
     hasNotes,
@@ -258,10 +269,12 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
 const ItemMenuItems = ({
   item,
   review,
+  isElectron,
   canOpenUrl,
   hasNotes,
   lastCopied,
   handleOpenInNewTab,
+  handleOpenInApp,
   handleChatWithClaude,
   handleCopyId,
   handleCopyTitle,
@@ -277,6 +290,12 @@ const ItemMenuItems = ({
     <>
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
+      )}
+      {!isElectron && (
+        <DropdownMenuItem onClick={handleOpenInApp}>
+          <IconAppWindow />
+          Open in desktop app
+        </DropdownMenuItem>
       )}
       {onTogglePin && (
         <DropdownMenuItem onClick={onTogglePin}>

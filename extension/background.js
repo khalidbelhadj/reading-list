@@ -1,9 +1,10 @@
-import { saveItem, itemUrl } from "./api.js";
+import { saveItem, openItem } from "./api.js";
 
 const MENU_PAGE = "save-page";
 const MENU_LINK = "save-link";
 
-// Map a notification id -> the app URL to open when the user clicks it.
+// Map a notification id -> { appUrl, itemId } to open when the user clicks it.
+// Resolved to a web or app URL at click time per the user's "open in" setting.
 const pendingOpens = new Map();
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -19,25 +20,25 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-const notify = (title, message, openUrl) => {
+const notify = (title, message, open) => {
   chrome.notifications.create(
     {
       type: "basic",
       iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
       title,
       message,
-      ...(openUrl ? { buttons: [{ title: "Open in reading list" }] } : {}),
+      ...(open ? { buttons: [{ title: "Open in reading list" }] } : {}),
     },
     (id) => {
-      if (openUrl && id) pendingOpens.set(id, openUrl);
+      if (open && id) pendingOpens.set(id, open);
     },
   );
 };
 
 const openFromNotification = (notificationId) => {
-  const url = pendingOpens.get(notificationId);
-  if (url) {
-    chrome.tabs.create({ url });
+  const open = pendingOpens.get(notificationId);
+  if (open) {
+    void openItem(open.appUrl, open.itemId);
     pendingOpens.delete(notificationId);
     chrome.notifications.clear(notificationId);
   }
@@ -64,16 +65,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     const result = await saveItem(payload);
     if (result.ok) {
-      notify(
-        "Saved to reading list",
-        payload.title || payload.url,
-        itemUrl(result.appUrl, result.itemId),
-      );
+      notify("Saved to reading list", payload.title || payload.url, {
+        appUrl: result.appUrl,
+        itemId: result.itemId,
+      });
     } else {
       notify(
         "Already in your reading list",
         result.duplicate?.title || payload.url,
-        itemUrl(result.appUrl, result.duplicate.id),
+        { appUrl: result.appUrl, itemId: result.duplicate.id },
       );
     }
   } catch (err) {

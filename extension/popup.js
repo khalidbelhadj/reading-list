@@ -1,4 +1,4 @@
-import { lookupItem, saveItem, itemUrl, getAppUrl } from "./api.js";
+import { lookupItem, saveItem, openItem, getAppUrl } from "./api.js";
 
 const card = document.getElementById("card");
 const faviconEl = document.getElementById("favicon");
@@ -56,7 +56,7 @@ const hostOf = (url) => {
 
 const openCurrentItem = async () => {
   if (!ctx.item) return;
-  await chrome.tabs.create({ url: itemUrl(ctx.appUrl, ctx.item.id) });
+  await openItem(ctx.appUrl, ctx.item.id);
   window.close();
 };
 

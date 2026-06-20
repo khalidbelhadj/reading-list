@@ -4,18 +4,24 @@
 
 export const PRODUCTION_URL = "https://reading-list.khalidbelhadj.com";
 const DEFAULT_DEV_URL = "http://localhost:3000";
+// Where "Open in reading list" sends the user: "web" (a browser tab) or "app"
+// (the desktop app, via its readinglist:// protocol handler).
+const DEFAULT_OPEN_IN = "web";
 
 const trim = (url) => url.replace(/\/+$/, "");
 
-// Returns { devMode, appUrl } as stored (appUrl is the dev override).
+// Returns { devMode, appUrl, openIn } as stored (appUrl is the dev override).
 export const getSettings = async () => {
-  const { devMode = false, appUrl = DEFAULT_DEV_URL } =
-    await chrome.storage.sync.get(["devMode", "appUrl"]);
-  return { devMode, appUrl };
+  const {
+    devMode = false,
+    appUrl = DEFAULT_DEV_URL,
+    openIn = DEFAULT_OPEN_IN,
+  } = await chrome.storage.sync.get(["devMode", "appUrl", "openIn"]);
+  return { devMode, appUrl, openIn };
 };
 
-export const setSettings = async ({ devMode, appUrl }) => {
-  await chrome.storage.sync.set({ devMode, appUrl: trim(appUrl) });
+export const setSettings = async ({ devMode, appUrl, openIn }) => {
+  await chrome.storage.sync.set({ devMode, appUrl: trim(appUrl), openIn });
 };
 
 // The effective base url: the dev override when dev mode is on, else production.
@@ -26,6 +32,19 @@ export const getAppUrl = async () => {
 
 export const itemUrl = (appUrl, itemId) =>
   `${appUrl}/?item=${encodeURIComponent(itemId)}`;
+
+// Deep link the desktop app's readinglist:// protocol handler resolves to a
+// specific item. The renderer (deep-link-item-watcher) selects it.
+export const itemDeepLink = (itemId) =>
+  `readinglist://item/${encodeURIComponent(itemId)}`;
+
+// Open a saved item in a new tab, honoring the user's "open in" preference:
+// the desktop app (via readinglist://) or the web app.
+export const openItem = async (appUrl, itemId) => {
+  const { openIn } = await getSettings();
+  const url = openIn === "app" ? itemDeepLink(itemId) : itemUrl(appUrl, itemId);
+  await chrome.tabs.create({ url });
+};
 
 // Look up whether the given url is already saved. Returns { item, appUrl }
 // where item is { id, title, url, faviconUrl } or null.
