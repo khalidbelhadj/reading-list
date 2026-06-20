@@ -1,6 +1,12 @@
-import { IconBulb, IconChevronRight } from "@tabler/icons-react";
+import { IconBulb, IconBulbOff, IconChevronRight } from "@tabler/icons-react";
 import React from "react";
 
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +18,7 @@ type SuggestedSectionProps = {
   items: Item[];
   open: boolean;
   onToggleOpen: () => void;
+  onHide: () => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
@@ -28,6 +35,7 @@ export const SuggestedSection = ({
   items,
   open,
   onToggleOpen,
+  onHide,
   onSelect,
   onDelete,
   onToggleRead,
@@ -60,20 +68,32 @@ export const SuggestedSection = ({
 
   return (
     <div className="mb-4 flex flex-col">
-      <button
-        type="button"
-        onClick={onToggleOpen}
-        className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
-      >
-        <IconBulb className="size-3" />
-        Suggested
-        <IconChevronRight
-          className={cn(
-            "size-3 transition-transform duration-150",
-            open && "rotate-90",
-          )}
-        />
-      </button>
+      <ContextMenu>
+        <ContextMenuTrigger
+          render={
+            <button
+              type="button"
+              onClick={onToggleOpen}
+              className="inline-flex w-fit items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
+            />
+          }
+        >
+          <IconBulb className="size-3" />
+          Suggested
+          <IconChevronRight
+            className={cn(
+              "size-3 transition-transform duration-150",
+              open && "rotate-90",
+            )}
+          />
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <DropdownMenuItem onClick={onHide}>
+            <IconBulbOff />
+            Hide suggestions
+          </DropdownMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       <CollapsibleSection open={open}>
         <div className="relative">
           <div

@@ -558,6 +558,7 @@ export const ItemsList = ({
                   items={suggestedItems}
                   open={suggestedOpen}
                   onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                  onHide={() => setSetting("showSuggestions", false)}
                   onSelect={handleSelectItem}
                   onDelete={requestDeleteItem}
                   onToggleRead={handleToggleRead}
