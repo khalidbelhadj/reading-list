@@ -660,31 +660,80 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;
 }
-.markdown-editor .ProseMirror card.card-block {
+/* Card visuals are intentionally unscoped: when a card is dragged, tiptap
+   clones the .card-node into <body> as the drag image, outside the
+   `.markdown-editor .ProseMirror` scope. Keeping these rules global means the
+   drag preview is styled identically — rounded, padded, with the separator. */
+.card-node {
+  position: relative;
+  margin: 0.5rem 0;
+}
+.card-block {
   display: block;
-  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.5rem 1rem;
-  margin: 0.5rem 0;
   font-family: var(--font-content), serif;
 }
-.dark .markdown-editor .ProseMirror card.card-block {
-  background: oklch(0.31 0.004 85);
-}
-.markdown-editor .ProseMirror front.card-side,
-.markdown-editor .ProseMirror back.card-side {
+front.card-side,
+back.card-side {
   display: block;
 }
-.markdown-editor .ProseMirror front.card-side {
+front.card-side {
   font-weight: 500;
 }
-.markdown-editor .ProseMirror back.card-side {
+back.card-side {
   color: var(--muted-foreground);
-  margin-top: 0.125rem;
+  /* Edge-to-edge dashed divider: negative horizontal margin pulls the rule out
+     to the card border, then matching padding restores the text inset. */
+  margin: 0.5rem -1rem 0;
+  padding: 0.5rem 1rem 0;
+  border-top: 1px dashed var(--border);
 }
-.markdown-editor .ProseMirror card.card-block > front.card-side > *:first-child,
-.markdown-editor .ProseMirror card.card-block > back.card-side > *:first-child {
+.card-block > front.card-side > *:first-child,
+.card-block > back.card-side > *:first-child {
   margin-top: 0;
+}
+/* Card chrome: drag handle + actions menu. Hidden by default (so it never
+   shows in the drag-image clone) and revealed only inside the editor on hover
+   or while the menu is open. */
+.card-controls {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: flex;
+  gap: 0.125rem;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.markdown-editor .ProseMirror .card-node:hover .card-controls,
+.markdown-editor .ProseMirror .card-controls[data-menu-open] {
+  opacity: 1;
+}
+.card-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.card-control-button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.card-control-button[data-drag-handle] {
+  cursor: grab;
+}
+.card-control-button[data-drag-handle]:active {
+  cursor: grabbing;
+}
+.card-control-button svg {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 /* Empty-state placeholder for contenteditable elements. The element drives
    the placeholder color via --ce-placeholder-color so each caller can
