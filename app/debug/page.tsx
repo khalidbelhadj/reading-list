@@ -11,6 +11,7 @@ const pages = [
   { href: "/debug/spinners", title: "Spinners" },
   { href: "/debug/suggested-cards", title: "Suggested cards" },
   { href: "/debug/toasts", title: "Toasts" },
+  { href: "/debug/version", title: "Version & build info" },
 ];
 
 const DebugIndexPage = () => {
