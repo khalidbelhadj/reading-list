@@ -39,6 +39,8 @@ const themeBg = () => (nativeTheme.shouldUseDarkColors ? DARK_BG : LIGHT_BG);
 const sendDeepLink = (url: string) => {
   if (mainWindow && !mainWindow.webContents.isLoading()) {
     mainWindow.webContents.send("deep-link", url);
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
   } else {
     pendingDeepLink = url;
     if (mainWindow) mainWindow.focus();
