@@ -118,6 +118,33 @@ export const DetailPanel = React.forwardRef<
       lastSavedRef.current = { ...lastSavedRef.current, tags: serverTagsKey };
     }, [serverTagsKey, localTagsKey, isNew, item?.tags]);
 
+    // Adopt external updates to title/url/notes (cross-device sync via the
+    // Realtime watcher refetching ["items"]) the same way the tags effect above
+    // does: per field, only when the local value has no unsaved edits (local
+    // still equals last-saved). So an open-but-unedited panel refreshes, while
+    // an in-progress edit wins and flushes on the next save instead of being
+    // clobbered. Without this the editor keeps showing stale content because
+    // title/url/notes are seeded once at mount and never re-derived from `item`.
+    const serverTitle = item?.title ?? "";
+    const serverUrl = item?.url ?? "";
+    const serverNotes = item?.notes ?? "";
+    React.useEffect(() => {
+      if (isNew) return;
+      const saved = lastSavedRef.current;
+      if (serverTitle !== saved.title && title === saved.title) {
+        setTitle(serverTitle);
+        lastSavedRef.current = { ...lastSavedRef.current, title: serverTitle };
+      }
+      if (serverUrl !== saved.url && url === saved.url) {
+        setUrl(serverUrl);
+        lastSavedRef.current = { ...lastSavedRef.current, url: serverUrl };
+      }
+      if (serverNotes !== saved.notes && notes === saved.notes) {
+        setNotes(serverNotes);
+        lastSavedRef.current = { ...lastSavedRef.current, notes: serverNotes };
+      }
+    }, [serverTitle, serverUrl, serverNotes, title, url, notes, isNew]);
+
     // Debounced server save
     React.useEffect(() => {
       if (isNew || !currentId || currentId === "new") return;
