@@ -241,7 +241,15 @@ export const SlidingItemPanel = ({
     const startPhase = phaseRef.current;
     if (startPhase === "closed") return;
     setPhase("closed");
-    const tUnmount = setTimeout(() => setRenderedId(null), OPEN_MS);
+    const tUnmount = setTimeout(() => {
+      // Slide-off is done and the panel is off-screen + empty. Forget the
+      // phase we just closed from, so the *next* open starts at "side" width
+      // instead of inheriting a stale "fullw" — otherwise reopening a new item
+      // in preview mode flashes full-width and shrinks to side mid-slide-in.
+      // (lastOpenPhaseRef exists only to preserve shape *during* slide-off.)
+      lastOpenPhaseRef.current = "side";
+      setRenderedId(null);
+    }, OPEN_MS);
     return () => clearTimeout(tUnmount);
   }, [itemId]);
 
