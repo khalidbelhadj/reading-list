@@ -135,7 +135,6 @@ export const startReviewSessionSchema = z.object({
       tagIds: z.array(z.number().int()).optional(),
     })
     .optional(),
-  limit: limitSchema.optional(),
 });
 
 export const rateCardSchema = z.object({

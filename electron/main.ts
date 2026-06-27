@@ -12,6 +12,18 @@ const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
 const PROD_URL = "https://reading-list.khalidbelhadj.com";
 const PROTOCOL = "readinglist";
 
+// The dev server's port doubles as a per-instance id: each dev window targets
+// its own port, so keying identity off the port lets arbitrarily many dev
+// instances run side by side (separate userData, separate single-instance
+// lock, separate window) with zero per-instance bookkeeping.
+const devPort = (() => {
+  try {
+    return new URL(DEV_URL).port || "3000";
+  } catch {
+    return "3000";
+  }
+})();
+
 // Hostnames the renderer is allowed to navigate to. Anything else gets pushed
 // to the system browser so the desktop window only ever shows our own app.
 const APP_HOSTS = new Set(["reading-list.khalidbelhadj.com", "localhost"]);
@@ -36,11 +48,17 @@ const iconPath = (file: string) =>
 let mainWindow: BrowserWindow | null = null;
 let pendingDeepLink: string | null = null;
 
-// Traffic-light geometry. The native macOS window buttons don't scale with the
-// renderer's page zoom, so we move them ourselves: their inset is the base
-// position multiplied by the current zoom factor, keeping them aligned with the
-// (zoomed) toolbar content. BASE matches the design at zoom 1.
+// Traffic-light geometry. The native macOS window buttons are a fixed physical
+// size and don't scale with the renderer's page zoom, so we move them ourselves
+// to track the (zoom-scaled) toolbar content. The toolbar scales about the
+// top-left origin, so a content point at inset I (at zoom 1) sits at I*zoom when
+// zoomed. To keep the dot's *center* on that point — without the dot itself
+// growing — the top-left inset is (BASE + RADIUS)*zoom - RADIUS: the radius is
+// scaled into the anchor, then subtracted back so it stays a fixed offset.
+// At zoom 1 this is exactly BASE (18), matching the tuned default. The CSS
+// toolbar clearance in globals.css mirrors this with the same coefficients.
 const BASE_TRAFFIC_LIGHT_INSET = 18;
+const TRAFFIC_LIGHT_RADIUS = 6;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_RATIO = 1.2;
@@ -48,6 +66,12 @@ let zoomFactor = 1;
 
 const clampZoom = (value: number) =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+
+const trafficLightInset = (zoom: number) =>
+  Math.round(
+    (BASE_TRAFFIC_LIGHT_INSET + TRAFFIC_LIGHT_RADIUS) * zoom -
+      TRAFFIC_LIGHT_RADIUS,
+  );
 
 // Single source of truth for zoom. Applies the factor to the page, repositions
 // the traffic lights to track the scaled content, and tells the renderer so its
@@ -57,7 +81,7 @@ const setZoom = (next: number) => {
   zoomFactor = clampZoom(next);
   mainWindow.webContents.setZoomFactor(zoomFactor);
   if (process.platform === "darwin") {
-    const inset = Math.round(BASE_TRAFFIC_LIGHT_INSET * zoomFactor);
+    const inset = trafficLightInset(zoomFactor);
     mainWindow.setWindowButtonPosition({ x: inset, y: inset });
   }
   mainWindow.webContents.send("zoom", zoomFactor);
@@ -144,6 +168,16 @@ const createWindow = () => {
     setZoom(zoomFactor * (direction === "in" ? ZOOM_RATIO : 1 / ZOOM_RATIO));
   });
 
+  // In dev, stamp the port into the window title so multiple instances are
+  // tellable apart in the dock / window switcher. The page sets its own
+  // <title>, so re-append on every page-title-updated.
+  if (!app.isPackaged) {
+    mainWindow.webContents.on("page-title-updated", (event, title) => {
+      event.preventDefault();
+      mainWindow?.setTitle(`${title} — :${devPort}`);
+    });
+  }
+
   const url = app.isPackaged ? PROD_URL : DEV_URL;
   mainWindow.loadURL(url);
 
@@ -162,14 +196,18 @@ const createWindow = () => {
 // don't share a userData dir (which would also share the single-instance
 // lock — launching the packaged app while dev is running would otherwise
 // trigger requestSingleInstanceLock() === false and silently quit).
+//
+// The name is further suffixed with the dev port, so two dev instances on
+// different ports get distinct userData dirs and therefore distinct
+// single-instance locks. Without this, the second `electron .` would fail
+// requestSingleInstanceLock() and merely refocus the first window instead of
+// opening its own. As a bonus, each instance gets isolated cookies/localStorage.
 if (app.isPackaged) {
   app.setName("Reading List");
 } else {
-  app.setName("Reading List Dev");
-  app.setPath(
-    "userData",
-    path.join(app.getPath("appData"), "Reading List Dev"),
-  );
+  const devName = `Reading List Dev ${devPort}`;
+  app.setName(devName);
+  app.setPath("userData", path.join(app.getPath("appData"), devName));
 }
 
 // Custom protocol registration. macOS dispatches via open-url; Windows/Linux

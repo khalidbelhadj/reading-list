@@ -234,13 +234,18 @@ html.electron .electron-top-bar-inset {
 }
 
 /* Traffic-light clearance for the top bars. The native macOS window buttons
-   are a fixed physical size and don't scale with the page zoom, but CSS px do
-   — so to reserve the same physical gap at any zoom the clearance is divided
-   by the zoom factor (broadcast from the main process into --zoom). It grows
-   as the page zooms out and shrinks as it zooms in. Defaults to 1 on web /
-   before the first broadcast. */
+   are a fixed physical size and don't scale with the page zoom, but the main
+   process moves their inset to (18 + 6)*zoom - 6 to track the zoom-scaled
+   toolbar (see electron/main.ts). This clearance has to follow the dots:
+   - the `24px` term (un-divided, so it scales *with* zoom like the dots' inset)
+     tracks how far the dots travel inward as you zoom in;
+   - the `56px / zoom` term reserves a constant *physical* gap for the dots'
+     fixed width + breathing room (CSS px shrink under zoom, so dividing keeps
+     it constant). Without the 24px term the dots would outrun a flat gap and
+     overlap the logo when zoomed in. 24 + 56 = 80 matches the tuned zoom-1
+     look. --zoom is broadcast from the main process; defaults to 1 on web. */
 html.electron {
-  --traffic-clearance: calc(80px / var(--zoom, 1));
+  --traffic-clearance: calc(24px + 56px / var(--zoom, 1));
 }
 
 /* List panel's top bar. Uses a container query so the padding kicks in based

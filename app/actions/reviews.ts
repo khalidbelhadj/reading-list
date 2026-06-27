@@ -182,43 +182,10 @@ const shuffleWithSiblingSpacing = <T extends { itemId: string | null }>(
   return cards;
 };
 
-const weightedRandomSelection = <T>(
-  pool: T[],
-  weights: number[],
-  count: number,
-): T[] => {
-  const selected: T[] = [];
-  const remainingIndices = pool.map((_, i) => i);
-  const remainingWeights = [...weights];
-
-  const actualCount = Math.min(count, pool.length);
-  for (let pick = 0; pick < actualCount; pick++) {
-    let totalWeight = 0;
-    for (const weight of remainingWeights) totalWeight += weight;
-
-    let random = Math.random() * totalWeight;
-    let chosenIdx = 0;
-    for (let i = 0; i < remainingWeights.length; i++) {
-      random -= remainingWeights[i];
-      if (random <= 0) {
-        chosenIdx = i;
-        break;
-      }
-    }
-
-    selected.push(pool[remainingIndices[chosenIdx]]);
-    remainingIndices.splice(chosenIdx, 1);
-    remainingWeights.splice(chosenIdx, 1);
-  }
-
-  return selected;
-};
-
 export const startReviewSession = safeAction(
   async function startReviewSession(args: {
     mode: ReviewMode;
     scope?: ReviewScope;
-    limit?: number;
   }): Promise<{
     sessionId: string;
     cardCount: number;
@@ -229,14 +196,11 @@ export const startReviewSession = safeAction(
     const sessionId = crypto.randomUUID();
     const now = new Date().toISOString();
     const affectsSchedule = args.mode !== "cram";
-    const limit = args.limit ?? 5;
 
     return withUser(userId, async (tx) => {
       const cardSelection = selectQueueCard;
 
       let cards: ReviewSessionCard[] = [];
-
-      const poolSize = limit * 3;
 
       // Optional item scoping: "due" / "new" / "cram" keep their semantics
       // (including affectsSchedule) but draw only from the scoped item's cards.
@@ -244,8 +208,10 @@ export const startReviewSession = safeAction(
         ? eq(flashcards.itemId, args.scope.itemId)
         : undefined;
 
+      // Sessions target every matching card — no cap. The final
+      // shuffleWithSiblingSpacing decides presentation order.
       if (args.mode === "due") {
-        const pool = await tx
+        cards = await tx
           .select(cardSelection)
           .from(flashcards)
           .leftJoin(
@@ -259,17 +225,9 @@ export const startReviewSession = safeAction(
               scopeFilter,
             ),
           )
-          .orderBy(asc(flashcards.due))
-          .limit(poolSize);
-
-        const nowMs = Date.now();
-        const weights = pool.map((card) => {
-          const overdueMs = nowMs - new Date(card.due).getTime();
-          return Math.max(overdueMs, 1);
-        });
-        cards = weightedRandomSelection(pool, weights, limit);
+          .orderBy(asc(flashcards.due));
       } else if (args.mode === "new") {
-        const pool = await tx
+        cards = await tx
           .select(cardSelection)
           .from(flashcards)
           .leftJoin(
@@ -283,11 +241,7 @@ export const startReviewSession = safeAction(
               scopeFilter,
             ),
           )
-          .orderBy(asc(flashcards.createdAt))
-          .limit(poolSize);
-
-        const uniformWeights = pool.map(() => 1);
-        cards = weightedRandomSelection(pool, uniformWeights, limit);
+          .orderBy(asc(flashcards.createdAt));
       } else if (args.mode === "item") {
         if (!args.scope?.itemId)
           throw new ActionError("Item mode requires an item ID");
@@ -306,7 +260,7 @@ export const startReviewSession = safeAction(
           )
           .orderBy(asc(flashcards.createdAt));
       } else if (args.mode === "cram") {
-        const pool = await tx
+        cards = await tx
           .select(cardSelection)
           .from(flashcards)
           .leftJoin(
@@ -314,11 +268,7 @@ export const startReviewSession = safeAction(
             and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
           )
           .where(and(eq(flashcards.userId, userId), scopeFilter))
-          .orderBy(asc(flashcards.createdAt))
-          .limit(poolSize);
-
-        const uniformWeights = pool.map(() => 1);
-        cards = weightedRandomSelection(pool, uniformWeights, limit);
+          .orderBy(asc(flashcards.createdAt));
       }
 
       cards = shuffleWithSiblingSpacing(cards);

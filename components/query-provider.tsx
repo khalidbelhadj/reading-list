@@ -9,6 +9,8 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import React from "react";
 import { toast } from "sonner";
 
+import { useDevDevtools } from "@/lib/use-dev-devtools";
+
 const makeQueryClient = () => {
   const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
@@ -46,6 +48,7 @@ const getQueryClient = () => {
 
 export const QueryProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = getQueryClient();
+  const [devtoolsEnabled] = useDevDevtools();
 
   // One-shot cleanup for the removed Prompts feature's localStorage entry.
   // Safe to remove once it has shipped to all clients.
@@ -58,7 +61,7 @@ export const QueryProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === "development" && (
+      {process.env.NODE_ENV === "development" && devtoolsEnabled && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}
     </QueryClientProvider>
