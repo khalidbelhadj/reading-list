@@ -5,6 +5,7 @@ import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { AuthWatcher } from "@/components/auth-watcher";
 import { DeepLinkItemWatcher } from "@/components/deep-link-item-watcher";
+import { DevBanner } from "@/components/dev-banner";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -73,6 +74,7 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
           </QueryProvider>
         </Suspense>
         <Toaster />
+        <DevBanner />
       </body>
     </html>
   );

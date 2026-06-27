@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
   // pdfjs (legacy build) and @napi-rs/canvas both ship native or
   // platform-specific bits that Next's bundler garbles — keep them external.
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  // Hide the floating Next.js dev indicator (the circular "N" badge) — it
+  // overlaps the bottom dev banner. Dev-only UI; no effect on production.
+  devIndicators: false,
   // Stamp the moment of the build so /debug/version can report it (Vercel has
   // no native deploy-timestamp env var). Evaluated once per build.
   env: {

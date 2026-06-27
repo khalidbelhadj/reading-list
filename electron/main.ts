@@ -5,6 +5,18 @@ const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
 const PROD_URL = "https://reading-list.khalidbelhadj.com";
 const PROTOCOL = "readinglist";
 
+// The dev server's port doubles as a per-instance id: each dev window targets
+// its own port, so keying identity off the port lets arbitrarily many dev
+// instances run side by side (separate userData, separate single-instance
+// lock, separate window) with zero per-instance bookkeeping.
+const devPort = (() => {
+  try {
+    return new URL(DEV_URL).port || "3000";
+  } catch {
+    return "3000";
+  }
+})();
+
 // Hostnames the renderer is allowed to navigate to. Anything else gets pushed
 // to the system browser so the desktop window only ever shows our own app.
 const APP_HOSTS = new Set(["reading-list.khalidbelhadj.com", "localhost"]);
@@ -97,6 +109,16 @@ const createWindow = () => {
     }
   });
 
+  // In dev, stamp the port into the window title so multiple instances are
+  // tellable apart in the dock / window switcher. The page sets its own
+  // <title>, so re-append on every page-title-updated.
+  if (!app.isPackaged) {
+    mainWindow.webContents.on("page-title-updated", (event, title) => {
+      event.preventDefault();
+      mainWindow?.setTitle(`${title} — :${devPort}`);
+    });
+  }
+
   const url = app.isPackaged ? PROD_URL : DEV_URL;
   mainWindow.loadURL(url);
 
@@ -115,14 +137,18 @@ const createWindow = () => {
 // don't share a userData dir (which would also share the single-instance
 // lock — launching the packaged app while dev is running would otherwise
 // trigger requestSingleInstanceLock() === false and silently quit).
+//
+// The name is further suffixed with the dev port, so two dev instances on
+// different ports get distinct userData dirs and therefore distinct
+// single-instance locks. Without this, the second `electron .` would fail
+// requestSingleInstanceLock() and merely refocus the first window instead of
+// opening its own. As a bonus, each instance gets isolated cookies/localStorage.
 if (app.isPackaged) {
   app.setName("Reading List");
 } else {
-  app.setName("Reading List Dev");
-  app.setPath(
-    "userData",
-    path.join(app.getPath("appData"), "Reading List Dev"),
-  );
+  const devName = `Reading List Dev ${devPort}`;
+  app.setName(devName);
+  app.setPath("userData", path.join(app.getPath("appData"), devName));
 }
 
 // Custom protocol registration. macOS dispatches via open-url; Windows/Linux
