@@ -2,7 +2,7 @@
 
 import { notFound } from "next/navigation";
 
-import { ReviewSession } from "@/app/review/[sessionId]/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import type { ReviewSessionCard, ReviewSessionData } from "@/app/actions";
 
 // Dev-only route to drive the full interactive review flow (reveal → rate →

@@ -1,8 +1,7 @@
 "use client";
 
 import { IconCards, IconChevronDown, IconSettings } from "@tabler/icons-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "@tanstack/react-router";
 
 import {
   Tooltip,
@@ -26,7 +25,7 @@ const isRouteActive = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
 export const PageNav = ({ hasTags }: { hasTags: boolean }) => {
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const from = useNavFrom();
   const animate = from !== null;
 
@@ -86,6 +85,10 @@ export const PageNav = ({ hasTags }: { hasTags: boolean }) => {
   );
 };
 
+// The handful of in-SPA destinations the nav links to. Kept as a literal union
+// so TanStack Link's typed `to` is satisfied without a cast.
+type NavHref = "/" | "/review" | "/settings";
+
 const NavLink = ({
   href,
   label,
@@ -96,7 +99,7 @@ const NavLink = ({
   className,
   children,
 }: {
-  href: string;
+  href: NavHref;
   label: string;
   active: boolean;
   wasActive: boolean;
@@ -107,7 +110,7 @@ const NavLink = ({
 }) => {
   const link = (
     <Link
-      href={href}
+      to={href}
       onClick={onNavigate}
       className={cn(
         NAV_ITEM_BASE,

@@ -1,7 +1,7 @@
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import React from "react";
 
-import { useVirtualScrollRef } from "./virtual-scroll-context";
+import { useVirtualScroll } from "./virtual-scroll-context";
 
 // useLayoutEffect warns during SSR; fall back to useEffect on the server. The
 // list only renders meaningfully on the client (it needs a scroll element), so
@@ -57,24 +57,15 @@ export const VirtualList = <T,>({
   onVirtualizerChange,
   children,
 }: VirtualListProps<T>) => {
-  const contextScrollRef = useVirtualScrollRef();
-  const scrollRef = scrollElementRef ?? contextScrollRef;
+  const context = useVirtualScroll();
+  // Resolve the scroll node, preferring the context's state-tracked element so
+  // the measurement effect below re-runs when the shared container (re)mounts.
+  // An explicit `scrollElementRef` prop is the escape hatch for standalone use
+  // outside a provider.
+  const scrollElement =
+    scrollElementRef?.current ?? context?.scrollElement ?? null;
   const innerRef = React.useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = React.useState(0);
-
-  // Resolve the live scroll element into state so the measurement effect can
-  // depend on the *element* rather than the ref object. The container can be
-  // swapped under us without the ref object's identity changing — navigating
-  // away and back remounts the viewport DOM while a stable context ref keeps
-  // pointing at the fresh node. Keying the effect on the ref object alone left
-  // its scroll/resize listeners bound to the dead element, so post-navigation
-  // scrolls never re-measured scrollMargin and rows went missing. Synced every
-  // render; the bail-out keeps it from looping.
-  const [scrollEl, setScrollEl] = React.useState<HTMLElement | null>(null);
-  useIsomorphicLayoutEffect(() => {
-    const el = scrollRef?.current ?? null;
-    setScrollEl((prev) => (prev === el ? prev : el));
-  });
 
   // Keep `scrollMargin` in sync with this list's offset inside the shared
   // viewport. With several lists stacked in one scroller, a single on-mount read
@@ -85,6 +76,7 @@ export const VirtualList = <T,>({
   // content, the next settled frame, and scroll (offset-invariant, so it's a
   // cheap self-correction the moment the user scrolls).
   useIsomorphicLayoutEffect(() => {
+    const scrollEl = scrollElement;
     const inner = innerRef.current;
     if (!scrollEl || !inner) return;
 
@@ -140,11 +132,11 @@ export const VirtualList = <T,>({
       observer.disconnect();
       scrollEl.removeEventListener("scroll", measure);
     };
-  }, [scrollEl]);
+  }, [scrollElement]);
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollEl,
+    getScrollElement: () => scrollElement,
     estimateSize: () => estimateSize,
     overscan,
     scrollMargin,

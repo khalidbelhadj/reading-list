@@ -1,6 +1,6 @@
 "use client";
 
-import { SessionSummaryView } from "@/app/review/[sessionId]/review-session";
+import { SessionSummaryView } from "@/components/review/review-session";
 import type { SessionSummary } from "@/app/actions";
 
 // Dev-only route to iterate on the session summary screen without having to

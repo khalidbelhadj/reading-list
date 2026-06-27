@@ -1,4 +1,3 @@
-import { useSearchParams } from "next/navigation";
 import React from "react";
 
 import { type Item } from "@/lib/types";
@@ -19,10 +18,12 @@ import { type SearchBarHandle } from "./search-bar";
  * back; the initial value is captured once on mount from the URL.
  */
 export const useListSearch = (items: Item[] | undefined) => {
-  const searchParams = useSearchParams();
-
-  const [initialSearchQuery] = React.useState(
-    () => searchParams.get("q") ?? "",
+  // Read once on mount straight from the URL (writes go through window.history
+  // below). The SPA is client-only, so window is always present here.
+  const [initialSearchQuery] = React.useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("q") ?? ""),
   );
   const [searchOrder, setSearchOrder] = React.useState<string[] | null>(null);
   // Mirror of the live query text (the URL holds the canonical copy). Kept in
@@ -30,7 +31,7 @@ export const useListSearch = (items: Item[] | undefined) => {
   // state. The list already re-renders per keystroke via `searchOrder`, so this
   // adds no extra renders.
   const [searchQuery, setSearchQuery] = React.useState(
-    () => searchParams.get("q") ?? "",
+    () => initialSearchQuery,
   );
   const [searchPending, setSearchPending] = React.useState(
     () => initialSearchQuery.length > 0,
