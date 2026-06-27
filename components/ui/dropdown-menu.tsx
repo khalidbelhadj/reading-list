@@ -220,7 +220,7 @@ const DropdownMenuSwitchItem = ({
         data-slot="dropdown-menu-switch-item-indicator"
         className="pointer-events-none ml-auto inline-flex h-[14px] w-[24px] shrink-0 items-center rounded-full border border-transparent transition-colors group-data-checked/dropdown-menu-switch-item:bg-primary group-data-unchecked/dropdown-menu-switch-item:bg-input dark:group-data-unchecked/dropdown-menu-switch-item:bg-input/80"
       >
-        <span className="block size-3 rounded-full bg-background transition-transform group-data-checked/dropdown-menu-switch-item:translate-x-[calc(100%-2px)] group-data-unchecked/dropdown-menu-switch-item:translate-x-0 dark:bg-foreground dark:group-data-checked/dropdown-menu-switch-item:bg-primary-foreground" />
+        <span className="block size-3 rounded-full bg-background transition-transform group-data-checked/dropdown-menu-switch-item:translate-x-[calc(100%-2px)] group-data-unchecked/dropdown-menu-switch-item:translate-x-0 dark:bg-foreground" />
       </span>
     </MenuPrimitive.CheckboxItem>
   );

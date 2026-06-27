@@ -66,8 +66,8 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
     {
       title: "View",
       shortcuts: [
-        { label: "Filter by tags", combos: [["T"]] },
-        { label: "Show / hide read", combos: [["R"]] },
+        { label: "Filter by tags", combos: [[mod, shift, "F"]] },
+        { label: "Show / hide read", combos: [[mod, shift, "H"]] },
         { label: "Toggle density", combos: [[mod, shift, "V"]] },
         { label: "Toggle theme", combos: [[mod, shift, "L"]] },
         {
