@@ -1,7 +1,7 @@
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import React from "react";
 
-import { useVirtualScrollRef } from "./virtual-scroll-context";
+import { useVirtualScroll } from "./virtual-scroll-context";
 
 // useLayoutEffect warns during SSR; fall back to useEffect on the server. The
 // list only renders meaningfully on the client (it needs a scroll element), so
@@ -57,8 +57,13 @@ export const VirtualList = <T,>({
   onVirtualizerChange,
   children,
 }: VirtualListProps<T>) => {
-  const contextScrollRef = useVirtualScrollRef();
-  const scrollRef = scrollElementRef ?? contextScrollRef;
+  const context = useVirtualScroll();
+  // Resolve the scroll node, preferring the context's state-tracked element so
+  // the measurement effect below re-runs when the shared container (re)mounts.
+  // An explicit `scrollElementRef` prop is the escape hatch for standalone use
+  // outside a provider.
+  const scrollElement =
+    scrollElementRef?.current ?? context?.scrollElement ?? null;
   const innerRef = React.useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = React.useState(0);
 
@@ -71,7 +76,7 @@ export const VirtualList = <T,>({
   // content, the next settled frame, and scroll (offset-invariant, so it's a
   // cheap self-correction the moment the user scrolls).
   useIsomorphicLayoutEffect(() => {
-    const scrollEl = scrollRef?.current;
+    const scrollEl = scrollElement;
     const inner = innerRef.current;
     if (!scrollEl || !inner) return;
 
@@ -127,11 +132,11 @@ export const VirtualList = <T,>({
       observer.disconnect();
       scrollEl.removeEventListener("scroll", measure);
     };
-  }, [scrollRef]);
+  }, [scrollElement]);
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollRef?.current ?? null,
+    getScrollElement: () => scrollElement,
     estimateSize: () => estimateSize,
     overscan,
     scrollMargin,

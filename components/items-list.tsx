@@ -100,8 +100,20 @@ export const ItemsList = ({
   }, []);
 
   // Shared scroll viewport for the list body. Provided to every virtualized
-  // section through context so they window against it.
+  // section through context so they window against it. Tracked as state (via a
+  // callback ref) as well as a ref: virtualized sections key their measurement
+  // on the node identity, so they need a re-render when it (re)mounts — a bare
+  // ref wouldn't notify them and they'd measure against null after a remount.
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [scrollContainerEl, setScrollContainerEl] =
+    React.useState<HTMLDivElement | null>(null);
+  const setScrollContainer = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollContainerRef.current = node;
+      setScrollContainerEl(node);
+    },
+    [],
+  );
   // Each navigable section (pinned, flat list, every group) registers its rows
   // here, giving keyboard nav one ordered, scroll-aware view across them all —
   // without items-list needing to know which sections are mounted.
@@ -429,13 +441,13 @@ export const ItemsList = ({
 
   // Effects
   React.useEffect(() => {
-    const el = scrollContainerRef.current;
+    const el = scrollContainerEl;
     if (!el) return;
     const onScroll = () => setScrolled(el.scrollTop > 0);
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [scrollContainerEl]);
 
   // Derived state
   // Empty state message
@@ -534,7 +546,10 @@ export const ItemsList = ({
   );
 
   return (
-    <VirtualScrollProvider scrollRef={scrollContainerRef}>
+    <VirtualScrollProvider
+      scrollRef={scrollContainerRef}
+      scrollElement={scrollContainerEl}
+    >
       <NavRegistryProvider registry={navRegistry}>
         <div className="electron-toolbar-container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Header — outside the scroll container so the scrollbar starts
@@ -599,7 +614,7 @@ export const ItemsList = ({
 
           {/* Scrollable content */}
           <div
-            ref={scrollContainerRef}
+            ref={setScrollContainer}
             className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
           >
             <div className="mx-auto flex max-w-175 flex-col gap-3 pb-5">
