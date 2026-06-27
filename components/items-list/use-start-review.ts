@@ -1,5 +1,5 @@
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/app/actions";
 
 export const useStartReview = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [startingMode, setStartingMode] = React.useState<ReviewMode | null>(
     null,
@@ -25,7 +25,7 @@ export const useStartReview = () => {
       if (data) {
         queryClient.setQueryData(["review-session", sessionId], data);
       }
-      router.push(`/review/${sessionId}`);
+      navigate({ to: "/review/$sessionId", params: { sessionId } });
     },
     onError: () => setStartingMode(null),
   });

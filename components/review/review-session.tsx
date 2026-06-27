@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconFileFilled, IconInfoCircle } from "@tabler/icons-react";
@@ -132,7 +132,7 @@ export const ReviewSession = ({
             size="lg"
             className="w-fit"
             nativeButton={false}
-            render={<Link href="/" />}
+            render={<Link to="/" />}
           >
             Back to list
           </Button>
@@ -505,7 +505,7 @@ const ReviewSessionInner = ({
             size="lg"
             className="w-fit"
             nativeButton={false}
-            render={<Link href="/" />}
+            render={<Link to="/" />}
           >
             Back to list
           </Button>
@@ -856,7 +856,7 @@ export const SessionSummaryView = ({
             variant="ghost"
             size="lg"
             nativeButton={false}
-            render={<Link href="/" />}
+            render={<Link to="/" />}
           >
             Back to list
           </Button>

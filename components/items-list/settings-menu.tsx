@@ -25,7 +25,6 @@ import {
   IconTag,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import React from "react";
 
 import { logout } from "@/app/logout/actions";
@@ -123,7 +122,6 @@ export const SettingsMenu = ({
   trigger: React.ReactElement;
 }) => {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const { data: user } = useCurrentUser();
   const { settings, setSetting } = useSettings();
   const {
@@ -166,7 +164,9 @@ export const SettingsMenu = ({
     },
     onSuccess: () => {
       queryClient.clear();
-      router.replace("/login");
+      // Hard navigation out of the SPA — /login is a native Next route, and a
+      // full reload guarantees all client caches are cleared post-logout.
+      window.location.replace("/login");
     },
   });
 
