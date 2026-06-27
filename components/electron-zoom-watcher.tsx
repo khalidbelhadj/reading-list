@@ -10,14 +10,27 @@ import React from "react";
 // so the CSS gap must grow (gap = clearance / zoom) to keep clearing them.
 export const ElectronZoomWatcher = () => {
   React.useEffect(() => {
-    if (typeof window === "undefined" || !window.readingList) return;
+    if (typeof window === "undefined") return;
+    const bridge = window.readingList;
+    // Feature-detect each method: the desktop shell loads this web app remotely
+    // and ships its own preload, so an older installed binary may expose
+    // `readingList` without the zoom methods added in a later release.
+    if (
+      !bridge ||
+      typeof bridge.getZoomFactor !== "function" ||
+      typeof bridge.onZoomChange !== "function"
+    )
+      return;
     const apply = (zoom: number) => {
       document.documentElement.style.setProperty("--zoom", String(zoom));
     };
     // Sync the current value on mount (covers HMR remounts that miss the last
     // broadcast), then subscribe to subsequent changes.
-    window.readingList.getZoomFactor().then(apply);
-    return window.readingList.onZoomChange(apply);
+    bridge
+      .getZoomFactor()
+      .then(apply)
+      .catch(() => {});
+    return bridge.onZoomChange(apply);
   }, []);
 
   return null;
