@@ -233,18 +233,31 @@ html.electron .electron-top-bar-inset {
   app-region: drag;
 }
 
-/* Traffic-light clearance for the list panel's top bar. Uses a container
-   query so the padding kicks in based on the list's *own* width, not the
-   viewport — which matters when the item panel is open and the list is
-   squeezed even on a wide window. Gradient: 0 → 80px as the list's width
-   shrinks from 860px to 700px (the content max-width). Below 700px the
-   content fills the list, so 80px stays constant. */
+/* Traffic-light clearance for the top bars. The native macOS window buttons
+   are a fixed physical size and don't scale with the page zoom, but CSS px do
+   — so to reserve the same physical gap at any zoom the clearance is divided
+   by the zoom factor (broadcast from the main process into --zoom). It grows
+   as the page zooms out and shrinks as it zooms in. Defaults to 1 on web /
+   before the first broadcast. */
+html.electron {
+  --traffic-clearance: calc(80px / var(--zoom, 1));
+}
+
+/* List panel's top bar. Uses a container query so the padding kicks in based
+   on the list's *own* width, not the viewport — which matters when the item
+   panel is open and the list is squeezed even on a wide window. Gradient:
+   0 → clearance as the list's width shrinks from 860px to 700px (the content
+   max-width). Below 700px the content fills the list, so it stays constant. */
 .electron-toolbar-container {
   container-type: inline-size;
 }
 @container (max-width: 860px) {
   html.electron .electron-toolbar-container .electron-top-bar-inset {
-    padding-left: clamp(0px, calc(80px - max(0px, (100cqw - 700px) / 2)), 80px);
+    padding-left: clamp(
+      0px,
+      calc(var(--traffic-clearance) - max(0px, (100cqw - 700px) / 2)),
+      var(--traffic-clearance)
+    );
   }
 }
 
@@ -257,14 +270,14 @@ html.electron.full-width .max-w-175 {
 /* Without the centered max-width, content sits flush against the left edge —
    reserve the full traffic-light clearance unconditionally. */
 html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
-  padding-left: 80px;
+  padding-left: var(--traffic-clearance);
 }
 
 /* The side-panel toolbar covers the top-left of the window once it starts
    expanding, so the traffic-light clearance must always be reserved —
    regardless of viewport width. */
 html.electron .panel-toolbar.electron-top-bar-inset {
-  padding-left: 80px;
+  padding-left: var(--traffic-clearance);
 }
 
 html.electron .electron-top-bar-inset button,

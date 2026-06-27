@@ -5,6 +5,7 @@ import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { AuthWatcher } from "@/components/auth-watcher";
 import { DeepLinkItemWatcher } from "@/components/deep-link-item-watcher";
+import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -66,6 +67,7 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
           <QueryProvider>
             <AuthWatcher />
             <DeepLinkItemWatcher />
+            <ElectronZoomWatcher />
             <ItemsSyncWatcher />
             <TooltipProvider delay={TOOLTIP_DELAY_MS}>
               {children}
