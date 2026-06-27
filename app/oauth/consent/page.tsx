@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 import { ConsentForm } from "./consent-form";
 
 export default async function ConsentPage({
@@ -11,9 +12,14 @@ export default async function ConsentPage({
 
   if (!authorizationId) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-destructive">Missing authorization_id</p>
-      </div>
+      <NonIdealState
+        fullPage
+        align="center"
+        size="sm"
+        tone="error"
+        title="Missing authorization_id"
+        description="This authorization link is incomplete. Start over from the app that sent you here."
+      />
     );
   }
 
@@ -33,11 +39,14 @@ export default async function ConsentPage({
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-destructive">
-          {error?.message || "Invalid authorization request"}
-        </p>
-      </div>
+      <NonIdealState
+        fullPage
+        align="center"
+        size="sm"
+        tone="error"
+        title={error?.message || "Invalid authorization request"}
+        description="We couldn't verify this authorization request. Try connecting again from the app."
+      />
     );
   }
 

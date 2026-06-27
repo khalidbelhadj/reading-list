@@ -5,6 +5,7 @@ import React from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +20,19 @@ import { useSettings } from "@/lib/use-settings";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
-import { ItemList } from "./items-list/item-list";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
 import { SearchBar } from "./items-list/search-bar";
 import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
 import { SuggestedSection } from "./items-list/suggested-section";
+import {
+  NavRegistryProvider,
+  useNavRegistry,
+} from "./items-list/list-nav-registry";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
+import { VirtualItemList } from "./items-list/virtual-item-list";
+import { VirtualScrollProvider } from "./items-list/virtual-scroll-context";
 import { useCreateItem } from "./items-list/use-create-item";
 import { useItemsFilters } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
@@ -68,6 +74,7 @@ export const ItemsList = ({
   const {
     searchBarRef,
     searchOrder,
+    searchQuery,
     searchActive,
     searchPending,
     searchBackendPending,
@@ -91,6 +98,14 @@ export const ItemsList = ({
     cursorRef.current = id;
     setCursorId(id);
   }, []);
+
+  // Shared scroll viewport for the list body. Provided to every virtualized
+  // section through context so they window against it.
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  // Each navigable section (pinned, flat list, every group) registers its rows
+  // here, giving keyboard nav one ordered, scroll-aware view across them all —
+  // without items-list needing to know which sections are mounted.
+  const navRegistry = useNavRegistry();
 
   // Helpers
   const invalidate = useInvalidateItems();
@@ -133,18 +148,42 @@ export const ItemsList = ({
       setCursor,
     });
 
+  // Derived layout flags — computed here (rather than just before render)
+  // because the keyboard-nav order depends on them.
+  // Group rows by date/tag only outside of search — search results carry their
+  // own relevance order, so we fall back to the flat list while searching.
+  const useGroupedLayout = groupBy !== "none" && !searchActive;
+
+  // "Suggested next reads" — top unread items by heuristic score. Computed over
+  // the full item set, but only surfaced on the plain reading-list view: while
+  // searching or filtering by tags the user has already narrowed intent, so the
+  // strip would just be noise.
+  const allSuggestions = useSuggestions(items);
+  const suggestedItems = React.useMemo(
+    () =>
+      settings.showSuggestions && !searchActive && activeTags.size === 0
+        ? allSuggestions
+        : [],
+    [settings.showSuggestions, searchActive, activeTags, allSuggestions],
+  );
+
+  // Keyboard nav reads the cursor order and scrolls rows through the registry,
+  // so it stays correct across the flat list, pinned section, and every group —
+  // including rows scrolled out of a virtualized window.
+  const getOrderedIds = React.useCallback(
+    () => navRegistry.getOrderedIds(),
+    [navRegistry],
+  );
+  const scrollToId = React.useCallback(
+    (id: string) => navRegistry.scrollToId(id),
+    [navRegistry],
+  );
+
   // Cursor navigation driven from inside the search input — arrows / Ctrl+N/P
   // move the cursor without unfocusing, so Enter opens the highlighted item.
   const navigateCursor = React.useCallback(
     (direction: "next" | "prev") => {
-      // Read the live render order from the DOM so nav matches what's visible
-      // — grouped, pinned, and collapsed sections all reshuffle relative to
-      // filteredItems (which is in raw creation-date order).
-      const ids = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-item-id]"),
-      )
-        .map((el) => el.dataset.itemId)
-        .filter((id): id is string => !!id);
+      const ids = getOrderedIds();
       if (ids.length === 0) return;
       const current = cursorRef.current;
       const idx = current ? ids.indexOf(current) : -1;
@@ -155,13 +194,10 @@ export const ItemsList = ({
           "[data-item-id]:hover",
         );
         const hoveredId = hovered?.dataset.itemId;
-        if (hoveredId) {
-          const hoveredIdx = ids.indexOf(hoveredId);
-          if (hoveredIdx !== -1) {
-            setCursor(hoveredId);
-            hovered?.scrollIntoView({ block: "nearest" });
-            return;
-          }
+        if (hoveredId && ids.includes(hoveredId)) {
+          setCursor(hoveredId);
+          scrollToId(hoveredId);
+          return;
         }
       }
       const nextId =
@@ -173,28 +209,21 @@ export const ItemsList = ({
             ? ids[Math.min(idx + 1, ids.length - 1)]
             : ids[Math.max(idx - 1, 0)];
       setCursor(nextId);
-      const el = document.querySelector(`[data-item-id="${nextId}"]`);
-      el?.scrollIntoView({ block: "nearest" });
+      scrollToId(nextId);
     },
-    [setCursor],
+    [getOrderedIds, scrollToId, setCursor],
   );
-  // Jump the cursor to the first / last rendered row (⌘↑/⌘↓, ⌘⇧</>). Reads
-  // live DOM order so it follows search results, filters, and grouping.
+  // Jump the cursor to the first / last rendered row (⌘↑/⌘↓, ⌘⇧</>). Follows
+  // search results, filters, and grouping via the shared order.
   const jumpCursor = React.useCallback(
     (edge: "start" | "end") => {
-      const ids = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-item-id]"),
-      )
-        .map((el) => el.dataset.itemId)
-        .filter((id): id is string => !!id);
+      const ids = getOrderedIds();
       if (ids.length === 0) return;
       const nextId = edge === "start" ? ids[0] : ids[ids.length - 1];
       setCursor(nextId);
-      document
-        .querySelector(`[data-item-id="${nextId}"]`)
-        ?.scrollIntoView({ block: "nearest" });
+      scrollToId(nextId);
     },
-    [setCursor],
+    [getOrderedIds, scrollToId, setCursor],
   );
 
   // When the search filter narrows the list, pin the cursor to the first
@@ -374,6 +403,8 @@ export const ItemsList = ({
 
   const { suppressHover, setSuppressHover } = useKeyboardNavigation({
     filteredItems,
+    getOrderedIds,
+    scrollToId,
     setTagsOpen,
     setShowRead,
     cursorRef,
@@ -397,7 +428,6 @@ export const ItemsList = ({
   });
 
   // Effects
-  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -408,25 +438,17 @@ export const ItemsList = ({
   }, []);
 
   // Derived state
-  // Group rows by date/tag only outside of search — search results carry their
-  // own relevance order, so we fall back to the flat list while searching.
-  const useGroupedLayout = groupBy !== "none" && !searchActive;
-
-  // "Suggested next reads" — top unread items by heuristic score. Computed over
-  // the full item set, but only surfaced on the plain reading-list view: while
-  // searching or filtering by tags the user has already narrowed intent, so the
-  // strip would just be noise.
-  const allSuggestions = useSuggestions(items);
-  const suggestedItems =
-    settings.showSuggestions && !searchActive && activeTags.size === 0
-      ? allSuggestions
-      : [];
-
   // Empty state message
   const emptyState = React.useMemo(() => {
     if (filteredItems.length > 0) return null;
     if (tabItems.length === 0)
-      return { message: "Nothing here yet", hasHiddenRead: false };
+      return {
+        message: "Nothing here yet",
+        description:
+          "Save articles, papers, and links to read later, and they'll show up here.",
+        hasHiddenRead: false,
+        canAdd: true,
+      };
 
     const searchSet = searchOrder ? new Set(searchOrder) : null;
     const hiddenReadCount = !showRead
@@ -442,24 +464,58 @@ export const ItemsList = ({
     if (hiddenReadCount > 0) {
       return {
         message: `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`,
+        description: "Read items are hidden. Show them to pick back up.",
         hasHiddenRead: true,
+        canAdd: false,
       };
     }
-    return { message: "No items match your filters", hasHiddenRead: false };
-  }, [filteredItems, tabItems, showRead, activeTags, searchOrder]);
+    const trimmedQuery = searchQuery.trim();
+    if (searchActive && trimmedQuery) {
+      return {
+        message: `No results for “${trimmedQuery}”`,
+        description: "Try different keywords, or check your spelling.",
+        hasHiddenRead: false,
+        canAdd: false,
+      };
+    }
+    return {
+      message: "No items match your filters",
+      description: "Try a different search, or clear your tag filters.",
+      hasHiddenRead: false,
+      canAdd: false,
+    };
+  }, [
+    filteredItems,
+    tabItems,
+    showRead,
+    activeTags,
+    searchOrder,
+    searchActive,
+    searchQuery,
+  ]);
 
   // Hold the "no matches" message while the backend search is still resolving —
   // otherwise a query with no local keyword hits flashes "no results" before the
   // trigram pass gets a chance to return any. The skeletons cover that window.
   const emptyNode = emptyState && !searchBackendPending && (
-    <div className="flex flex-col items-center gap-2 px-1 py-6 text-center text-xs text-muted-foreground">
-      <span>{emptyState.message}</span>
-      {emptyState.hasHiddenRead && (
-        <Button variant="outline" size="sm" onClick={() => setShowRead(true)}>
-          Show read
-        </Button>
-      )}
-    </div>
+    <NonIdealState
+      align="center"
+      size="sm"
+      className="py-6"
+      title={emptyState.message}
+      description={emptyState.description}
+      actions={
+        emptyState.canAdd ? (
+          <Button size="sm" onClick={handleOpenNew}>
+            Add item
+          </Button>
+        ) : emptyState.hasHiddenRead ? (
+          <Button variant="outline" size="sm" onClick={() => setShowRead(true)}>
+            Show read
+          </Button>
+        ) : undefined
+      }
+    />
   );
 
   // Error placeholder. When the items query errors, this replaces the entire
@@ -467,133 +523,115 @@ export const ItemsList = ({
   // (React Query keeps stale `data` on a failed refetch, so we must not fall
   // through to rendering the cached list underneath the error).
   const errorNode = (
-    <div className="px-1 py-6 text-center text-xs text-destructive">
-      Failed to load items
-    </div>
+    <NonIdealState
+      align="center"
+      size="sm"
+      tone="error"
+      className="py-6"
+      title="Failed to load items"
+      description="Check your connection and try again."
+    />
   );
 
   return (
-    <div className="electron-toolbar-container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      {/* Header — outside the scroll container so the scrollbar starts
+    <VirtualScrollProvider scrollRef={scrollContainerRef}>
+      <NavRegistryProvider registry={navRegistry}>
+        <div className="electron-toolbar-container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Header — outside the scroll container so the scrollbar starts
           below it instead of reaching all the way to the top of the panel. */}
-      <div className="relative z-10 mx-auto flex w-full max-w-175 flex-col gap-3 bg-background pb-3">
-        <div className="electron-top-bar-inset">
-          <Toolbar
-            hasTags={allTags.length > 0}
-            onAdd={handleOpenNew}
-            onPasteUrl={handlePasteUrl}
-            isCreating={isCreating || isFetchingPasteTitle}
-          />
-        </div>
+          <div className="relative z-10 mx-auto flex w-full max-w-175 flex-col gap-3 bg-background pb-3">
+            <div className="electron-top-bar-inset">
+              <Toolbar
+                hasTags={allTags.length > 0}
+                onAdd={handleOpenNew}
+                onPasteUrl={handlePasteUrl}
+                isCreating={isCreating || isFetchingPasteTitle}
+              />
+            </div>
 
-        <SearchBar
-          ref={searchBarRef}
-          queryKey={["items", "search"]}
-          searchFn={searchItems}
-          localSearchFn={localSearchItems}
-          onCursorNav={navigateCursor}
-          onCursorJump={jumpCursor}
-          onCursorOpen={({ meta, shift }) => {
-            const id = cursorRef.current;
-            if (!id) return;
-            if (meta && shift) {
-              const item = items?.find((i) => i.id === id);
-              if (item?.url && URL.canParse(item.url))
-                window.open(item.url, "_blank");
-              return;
-            }
-            if (meta) {
-              onOpenItemExpanded(id);
-              return;
-            }
-            handleOpenItem(id);
-          }}
-          onResults={handleSearchResults}
-          onQueryChange={handleSearchQueryChange}
-          onPendingChange={handleSearchPendingChange}
-          onBackendPendingChange={handleSearchBackendPendingChange}
-          initialQuery={initialSearchQuery}
-          placeholder="Search items"
-        />
-
-        {tagsOpen && allTags.length > 0 && (
-          <TagFilters
-            allTags={allTags}
-            activeTags={activeTags}
-            items={tabItems}
-            toggleTag={toggleTag}
-            setActiveTags={setActiveTags}
-          />
-        )}
-
-        <div
-          className={cn(
-            "pointer-events-none absolute right-0 bottom-0 left-0 h-8 translate-y-full bg-linear-to-b from-background to-transparent transition-opacity duration-200",
-            scrolled ? "opacity-100" : "opacity-0",
-          )}
-        />
-      </div>
-
-      {/* Scrollable content */}
-      <div
-        ref={scrollContainerRef}
-        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
-      >
-        <div className="mx-auto flex max-w-175 flex-col gap-3 pb-5">
-          <LoadingFade
-            loading={isLoading || searchPending}
-            skeleton={<ItemsSkeleton density={density} />}
-          >
-            {itemsError ? (
-              errorNode
-            ) : (
-              <div
-                onMouseMove={
-                  suppressHover ? () => setSuppressHover(false) : undefined
+            <SearchBar
+              ref={searchBarRef}
+              queryKey={["items", "search"]}
+              searchFn={searchItems}
+              localSearchFn={localSearchItems}
+              onCursorNav={navigateCursor}
+              onCursorJump={jumpCursor}
+              onCursorOpen={({ meta, shift }) => {
+                const id = cursorRef.current;
+                if (!id) return;
+                if (meta && shift) {
+                  const item = items?.find((i) => i.id === id);
+                  if (item?.url && URL.canParse(item.url))
+                    window.open(item.url, "_blank");
+                  return;
                 }
+                if (meta) {
+                  onOpenItemExpanded(id);
+                  return;
+                }
+                handleOpenItem(id);
+              }}
+              onResults={handleSearchResults}
+              onQueryChange={handleSearchQueryChange}
+              onPendingChange={handleSearchPendingChange}
+              onBackendPendingChange={handleSearchBackendPendingChange}
+              initialQuery={initialSearchQuery}
+              placeholder="Search items"
+            />
+
+            {tagsOpen && allTags.length > 0 && (
+              <TagFilters
+                allTags={allTags}
+                activeTags={activeTags}
+                items={tabItems}
+                toggleTag={toggleTag}
+                setActiveTags={setActiveTags}
+              />
+            )}
+
+            <div
+              className={cn(
+                "pointer-events-none absolute right-0 bottom-0 left-0 h-8 translate-y-full bg-linear-to-b from-background to-transparent transition-opacity duration-200",
+                scrolled ? "opacity-100" : "opacity-0",
+              )}
+            />
+          </div>
+
+          {/* Scrollable content */}
+          <div
+            ref={scrollContainerRef}
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+          >
+            <div className="mx-auto flex max-w-175 flex-col gap-3 pb-5">
+              <LoadingFade
+                loading={isLoading || searchPending}
+                skeleton={<ItemsSkeleton density={density} />}
               >
-                {emptyNode}
-
-                <SuggestedSection
-                  items={suggestedItems}
-                  open={suggestedOpen}
-                  onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                  onHide={() => setSetting("showSuggestions", false)}
-                  onSelect={handleSelectItem}
-                  onDelete={requestDeleteItem}
-                  onToggleRead={handleToggleRead}
-                  onTogglePin={handleTogglePin}
-                />
-
-                <PinnedSection
-                  items={pinnedItems}
-                  open={pinnedOpen}
-                  onToggleOpen={() => setPinnedOpen((p) => !p)}
-                  typingTitles={typingTitles}
-                  suppressHover={suppressHover}
-                  density={density}
-                  onSelect={handleSelectItem}
-                  onDelete={requestDeleteItem}
-                  onToggleRead={handleToggleRead}
-                  onTogglePin={handleTogglePin}
-                />
-
-                {useGroupedLayout ? (
-                  <GroupedList
-                    groups={groups}
-                    items={items ?? []}
-                    typingTitles={typingTitles}
-                    suppressHover={suppressHover}
-                    density={density}
-                    onSelect={handleSelectItem}
-                    onDelete={requestDeleteItem}
-                    onToggleRead={handleToggleRead}
-                    onTogglePin={handleTogglePin}
-                  />
+                {itemsError ? (
+                  errorNode
                 ) : (
-                  <>
-                    <ItemList
-                      items={unpinnedItems}
+                  <div
+                    onMouseMove={
+                      suppressHover ? () => setSuppressHover(false) : undefined
+                    }
+                  >
+                    {emptyNode}
+
+                    <SuggestedSection
+                      items={suggestedItems}
+                      open={suggestedOpen}
+                      onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                      onHide={() => setSetting("showSuggestions", false)}
+                      onSelect={handleSelectItem}
+                      onDelete={requestDeleteItem}
+                      onToggleRead={handleToggleRead}
+                      onTogglePin={handleTogglePin}
+                    />
+
+                    <PinnedSection
+                      items={pinnedItems}
+                      open={pinnedOpen}
+                      onToggleOpen={() => setPinnedOpen((p) => !p)}
                       typingTitles={typingTitles}
                       suppressHover={suppressHover}
                       density={density}
@@ -602,43 +640,73 @@ export const ItemsList = ({
                       onToggleRead={handleToggleRead}
                       onTogglePin={handleTogglePin}
                     />
-                    {/* Backend (trigram) pass still running: append loading rows
+
+                    {useGroupedLayout ? (
+                      <GroupedList
+                        groups={groups}
+                        items={items ?? []}
+                        typingTitles={typingTitles}
+                        suppressHover={suppressHover}
+                        density={density}
+                        onSelect={handleSelectItem}
+                        onDelete={requestDeleteItem}
+                        onToggleRead={handleToggleRead}
+                        onTogglePin={handleTogglePin}
+                      />
+                    ) : (
+                      <>
+                        <VirtualItemList
+                          items={unpinnedItems}
+                          typingTitles={typingTitles}
+                          suppressHover={suppressHover}
+                          density={density}
+                          onSelect={handleSelectItem}
+                          onDelete={requestDeleteItem}
+                          onToggleRead={handleToggleRead}
+                          onTogglePin={handleTogglePin}
+                        />
+                        {/* Backend (trigram) pass still running: append loading rows
                         under the instant keyword hits so the search reads as
                         "more coming," not finished. */}
-                    {searchActive && searchBackendPending && (
-                      <ItemsSkeleton density={density} />
+                        {searchActive && searchBackendPending && (
+                          <ItemsSkeleton density={density} />
+                        )}
+                      </>
                     )}
-                  </>
+                  </div>
                 )}
-              </div>
-            )}
-          </LoadingFade>
-        </div>
-      </div>
+              </LoadingFade>
+            </div>
+          </div>
 
-      {/* Bottom-of-list fade — softens the boundary where the list ends, so
+          {/* Bottom-of-list fade — softens the boundary where the list ends, so
           items don't get sliced in half by the item panel's top edge in
           side orientation. Hidden in narrow (vertical split) mode where the
           panel butts directly against the list. */}
-      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 hidden h-8 bg-linear-to-t from-background to-transparent md:block" />
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 hidden h-8 bg-linear-to-t from-background to-transparent md:block" />
 
-      <DeleteItemDialog
-        item={itemToDelete}
-        open={deleteOpen}
-        deleting={false}
-        onOpenChange={setDeleteOpen}
-        onConfirm={confirmDelete}
-      />
+          <DeleteItemDialog
+            item={itemToDelete}
+            open={deleteOpen}
+            deleting={false}
+            onOpenChange={setDeleteOpen}
+            onConfirm={confirmDelete}
+          />
 
-      <DuplicateDialog
-        open={duplicateDialog !== null}
-        onOpenChange={dismissDuplicateDialog}
-        existing={duplicateDialog?.existing ?? null}
-        onOpenExisting={handleDuplicateOpenExisting}
-        onCreateAnyway={handleDuplicateCreateAnyway}
-      />
+          <DuplicateDialog
+            open={duplicateDialog !== null}
+            onOpenChange={dismissDuplicateDialog}
+            existing={duplicateDialog?.existing ?? null}
+            onOpenExisting={handleDuplicateOpenExisting}
+            onCreateAnyway={handleDuplicateCreateAnyway}
+          />
 
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-    </div>
+          <ShortcutsDialog
+            open={shortcutsOpen}
+            onOpenChange={setShortcutsOpen}
+          />
+        </div>
+      </NavRegistryProvider>
+    </VirtualScrollProvider>
   );
 };
