@@ -6,7 +6,6 @@ import {
   IconBulb,
   IconCalendar,
   IconCheck,
-  IconChevronDown,
   IconCircleOff,
   IconCopy,
   IconDeviceDesktop,
@@ -116,7 +115,13 @@ const SORT_BY_ICONS: Record<
   "updated-asc": IconSortAscending,
 };
 
-export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
+export const SettingsMenu = ({
+  hasTags,
+  trigger,
+}: {
+  hasTags: boolean;
+  trigger: React.ReactElement;
+}) => {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: user } = useCurrentUser();
@@ -280,30 +285,7 @@ export const SettingsMenu = ({ hasTags }: { hasTags: boolean }) => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 font-content text-sm font-medium outline-none select-none"
-          >
-            <span
-              aria-hidden="true"
-              className="relative inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-primary shadow-depth-button-primary"
-            >
-              <svg viewBox="0 0 24 24" className="size-3">
-                <g transform="translate(3 3) scale(0.75)">
-                  <path
-                    className="fill-primary-foreground"
-                    d="M14 2a5 5 0 0 1 5 5v14a1 1 0 0 1 -1.555 .832l-5.445 -3.63l-5.444 3.63a1 1 0 0 1 -1.55 -.72l-.006 -.112v-14a5 5 0 0 1 5 -5h4z"
-                  />
-                </g>
-              </svg>
-            </span>
-            Reading List
-            <IconChevronDown className="size-3.5 text-muted-foreground/60" />
-          </button>
-        }
-      />
+      <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
         <DropdownMenuSwitchItem
           checked={showRead}
