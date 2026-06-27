@@ -10,24 +10,24 @@ import confetti from "canvas-confetti";
 import {
   endReviewSession,
   getReviewSession,
-  getReviewStatus,
   getSessionSummary,
   rateCard,
   skipCard,
+  type ReviewMode,
   type ReviewSessionCard,
   type ReviewSessionData,
   type SessionSummary,
 } from "@/app/actions";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverDescription,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -39,7 +39,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getFaviconSrc } from "@/components/items-list/utils";
-import { useStartReview } from "@/components/items-list/use-start-review";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { intervalShort, duration } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
@@ -93,16 +92,27 @@ const useCompletionConfetti = () => {
   }, []);
 };
 
-export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
+export const ReviewSession = ({
+  sessionId,
+  previewData,
+}: {
+  sessionId: string;
+  // When provided, the session runs entirely in-memory (no server reads or
+  // writes) — used by the dev-only debug preview route. See ReviewSessionInner.
+  previewData?: ReviewSessionData;
+}) => {
   const { data, isLoading } = useQuery({
     queryKey: ["review-session", sessionId],
     queryFn: () => getReviewSession(sessionId),
+    enabled: !previewData,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
-  if (isLoading) {
+  const resolved = previewData ?? data;
+
+  if (!previewData && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner className="size-5 text-muted-foreground" />
@@ -110,7 +120,7 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
     );
   }
 
-  if (!data) {
+  if (!resolved) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4 text-center">
@@ -131,23 +141,34 @@ export const ReviewSession = ({ sessionId }: { sessionId: string }) => {
     );
   }
 
-  return <ReviewSessionInner sessionId={sessionId} initialData={data} />;
+  return (
+    <ReviewSessionInner
+      sessionId={sessionId}
+      initialData={resolved}
+      preview={Boolean(previewData)}
+    />
+  );
 };
 
 const ReviewSessionInner = ({
   sessionId,
   initialData,
+  preview = false,
 }: {
   sessionId: string;
   initialData: ReviewSessionData;
+  // Preview mode: rate/skip/end/log all become no-ops and the summary is
+  // computed from the in-memory ratings rather than fetched from the server.
+  preview?: boolean;
 }) => {
   const queryClient = useQueryClient();
-  const logEvent = useEventLogger(sessionId);
+  const logEvent = useEventLogger(preview ? null : sessionId);
 
   const { data } = useQuery({
     queryKey: ["review-session", sessionId],
     queryFn: () => getReviewSession(sessionId),
     initialData,
+    enabled: !preview,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -170,6 +191,19 @@ const ReviewSessionInner = ({
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [revealed, setRevealed] = React.useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = React.useState(false);
+  // Preview-only: ending early has no server `endedAt` to read back, so we
+  // track it locally; ratings accumulate here to build the summary.
+  const [previewEnded, setPreviewEnded] = React.useState(false);
+  const previewStartRef = React.useRef(performance.now());
+  const previewStatsRef = React.useRef({
+    again: 0,
+    hard: 0,
+    good: 0,
+    easy: 0,
+    totalActiveMs: 0,
+    revealSum: 0,
+    revealCount: 0,
+  });
 
   const cardShownAtRef = React.useRef<number | null>(null);
   const revealedAtRef = React.useRef<number | null>(null);
@@ -207,8 +241,9 @@ const ReviewSessionInner = ({
 
   const endMutation = useMutation({
     mutationFn: (reason: "completed" | "user_ended") =>
-      endReviewSession({ sessionId, reason }),
+      preview ? Promise.resolve() : endReviewSession({ sessionId, reason }),
     onSuccess: () => {
+      if (preview) return;
       queryClient.invalidateQueries({
         queryKey: ["review-session", sessionId],
       });
@@ -228,8 +263,9 @@ const ReviewSessionInner = ({
       rating: Rating;
       durationMs: number;
       timeToRevealMs: number | null;
-    }) => rateCard({ sessionId, ...args }),
+    }) => (preview ? Promise.resolve() : rateCard({ sessionId, ...args })),
     onSuccess: () => {
+      if (preview) return;
       queryClient.invalidateQueries({
         queryKey: ["review-summary", sessionId],
       });
@@ -249,6 +285,16 @@ const ReviewSessionInner = ({
       const isLast = currentIndex >= cards.length - 1;
       const flashcardId = currentCard.id;
 
+      if (preview) {
+        const stats = previewStatsRef.current;
+        stats[rating] += 1;
+        stats.totalActiveMs += durationMs;
+        if (timeToRevealMs != null) {
+          stats.revealSum += timeToRevealMs;
+          stats.revealCount += 1;
+        }
+      }
+
       rateMutation.mutate(
         { flashcardId, rating, durationMs, timeToRevealMs },
         {
@@ -263,7 +309,14 @@ const ReviewSessionInner = ({
       setRevealed(false);
       setCurrentIndex((i) => i + 1);
     },
-    [currentCard, currentIndex, cards.length, rateMutation, endMutation],
+    [
+      currentCard,
+      currentIndex,
+      cards.length,
+      rateMutation,
+      endMutation,
+      preview,
+    ],
   );
 
   const createRateHandler = (rating: Rating) => () => {
@@ -275,12 +328,14 @@ const ReviewSessionInner = ({
     const now = performance.now();
     const shownAt = cardShownAtRef.current ?? now;
     const durationMs = Math.round(now - shownAt);
-    skipCard({
-      sessionId,
-      flashcardId: currentCard.id,
-      afterReveal: revealed,
-      durationMs,
-    });
+    if (!preview) {
+      skipCard({
+        sessionId,
+        flashcardId: currentCard.id,
+        afterReveal: revealed,
+        durationMs,
+      });
+    }
 
     const isLast = currentIndex >= cards.length - 1;
     setRevealed(false);
@@ -293,6 +348,7 @@ const ReviewSessionInner = ({
     currentIndex,
     cards.length,
     endMutation,
+    preview,
   ]);
 
   const handleRequestEnd = React.useCallback(() => {
@@ -301,14 +357,29 @@ const ReviewSessionInner = ({
   }, [endMutation.isPending, sessionEnded]);
   const handleConfirmEnd = React.useCallback(() => {
     if (endMutation.isPending || sessionEnded) return;
+    if (preview) {
+      setEndConfirmOpen(false);
+      setPreviewEnded(true);
+      return;
+    }
     endMutation.mutate("user_ended");
-  }, [endMutation, sessionEnded]);
+  }, [endMutation, sessionEnded, preview]);
   const handleRequestEndOpenChange = React.useCallback(
+    // The trigger toggles via onOpenChange, so handle both directions; the
+    // pending guard keeps it pinned open while the end request is in flight.
     (open: boolean) => {
-      if (!open && !endMutation.isPending) setEndConfirmOpen(false);
+      if (endMutation.isPending) return;
+      setEndConfirmOpen(open);
     },
     [endMutation.isPending],
   );
+
+  // Mirror open state into a ref so the keyboard handler can read it without
+  // re-subscribing on every toggle.
+  const endConfirmOpenRef = React.useRef(endConfirmOpen);
+  React.useEffect(() => {
+    endConfirmOpenRef.current = endConfirmOpen;
+  }, [endConfirmOpen]);
 
   React.useEffect(() => {
     if (sessionEnded) return;
@@ -323,6 +394,9 @@ const ReviewSessionInner = ({
           return;
         }
       }
+      // While the end-session popover is open it owns the keyboard — let it
+      // handle Escape/outside-click to close; don't rate or skip behind it.
+      if (endConfirmOpenRef.current) return;
       if (e.key === " ") {
         e.preventDefault();
         if (!revealed) handleReveal();
@@ -356,9 +430,39 @@ const ReviewSessionInner = ({
     handleRequestEnd,
   ]);
 
-  if (sessionEnded || currentIndex >= cards.length) {
+  if (sessionEnded || previewEnded || currentIndex >= cards.length) {
+    const previewSummary: SessionSummary | undefined = preview
+      ? {
+          mode: session.mode as ReviewMode,
+          scope: null,
+          totalCards: cards.length,
+          ratedCards:
+            previewStatsRef.current.again +
+            previewStatsRef.current.hard +
+            previewStatsRef.current.good +
+            previewStatsRef.current.easy,
+          ratings: {
+            again: previewStatsRef.current.again,
+            hard: previewStatsRef.current.hard,
+            good: previewStatsRef.current.good,
+            easy: previewStatsRef.current.easy,
+          },
+          totalActiveMs: previewStatsRef.current.totalActiveMs,
+          wallClockMs: Math.round(performance.now() - previewStartRef.current),
+          avgTimeToRevealMs: previewStatsRef.current.revealCount
+            ? Math.round(
+                previewStatsRef.current.revealSum /
+                  previewStatsRef.current.revealCount,
+              )
+            : null,
+        }
+      : undefined;
     return (
-      <SessionSummaryView sessionId={sessionId} cardCount={cards.length} />
+      <SessionSummaryView
+        sessionId={sessionId}
+        cardCount={cards.length}
+        mockSummary={previewSummary}
+      />
     );
   }
 
@@ -416,15 +520,46 @@ const ReviewSessionInner = ({
               />
             ))}
           </div>
-          <button
-            type="button"
-            onClick={handleRequestEnd}
-            disabled={endMutation.isPending}
-            className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-60"
+          <Popover
+            open={endConfirmOpen}
+            onOpenChange={handleRequestEndOpenChange}
           >
-            {endMutation.isPending && <Spinner className="size-3" />}
-            End session
-          </button>
+            <PopoverTrigger
+              disabled={endMutation.isPending}
+              render={
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-60"
+                />
+              }
+            >
+              {endMutation.isPending && <Spinner className="size-3" />}
+              End session
+            </PopoverTrigger>
+            <PopoverContent align="end" side="bottom" sideOffset={8}>
+              <PopoverHeader>
+                <PopoverTitle>End this session?</PopoverTitle>
+                <PopoverDescription>
+                  You&rsquo;ve reviewed {currentIndex} of {cards.length} cards.
+                  You can&rsquo;t resume this session, so ending it now will
+                  finish it for good.
+                </PopoverDescription>
+              </PopoverHeader>
+              <PopoverFooter>
+                <PopoverClose disabled={endMutation.isPending}>
+                  Keep going
+                </PopoverClose>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmEnd}
+                  disabled={endMutation.isPending}
+                >
+                  {endMutation.isPending && <Spinner className="size-3" />}
+                  End session
+                </Button>
+              </PopoverFooter>
+            </PopoverContent>
+          </Popover>
         </div>
       </header>
 
@@ -533,35 +668,6 @@ const ReviewSessionInner = ({
           )}
         </footer>
       </div>
-
-      <AlertDialog
-        open={endConfirmOpen}
-        onOpenChange={handleRequestEndOpenChange}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>End this session?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You&rsquo;ve reviewed {currentIndex} of {cards.length} cards. You
-              can&rsquo;t resume this session, so ending it now will finish it
-              for good.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={endMutation.isPending}>
-              Keep going
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleConfirmEnd}
-              disabled={endMutation.isPending}
-            >
-              {endMutation.isPending && <Spinner className="size-3" />}
-              End session
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
@@ -591,16 +697,6 @@ export const SessionSummaryView = ({
   const summary = mockSummary ?? query.data;
   const isSummaryLoading = mockSummary ? false : query.isLoading;
 
-  // Fetch up-front so the "Keep going" button never pops in after render —
-  // either it's there from the first paint, or it's not.
-  const statusQuery = useQuery({
-    queryKey: ["review-status"],
-    queryFn: getReviewStatus,
-    enabled: !mockSummary,
-  });
-  const reviewStatus = statusQuery.data;
-  const isStatusLoading = mockSummary ? false : statusQuery.isLoading;
-
   const fireCompletionConfetti = useCompletionConfetti();
   const firedRef = React.useRef(false);
   React.useEffect(() => {
@@ -611,35 +707,7 @@ export const SessionSummaryView = ({
     }
   }, [summary, cardCount, fireCompletionConfetti]);
 
-  const { startingMode, startReview } = useStartReview();
-  const isStartingMore = startingMode !== null;
-
-  const hasMoreCards = React.useMemo(() => {
-    if (!summary || !reviewStatus) return false;
-    // Scoped sessions (e.g. item-scoped due/new/cram) can't use the global
-    // counts to know whether more cards remain in scope — hide "Keep going".
-    if (summary.scope) return false;
-    switch (summary.mode) {
-      case "due":
-        return reviewStatus.dueCount > 0;
-      case "new":
-        return reviewStatus.newCount > 0;
-      case "cram":
-        return reviewStatus.totalCardCount > 0;
-      default:
-        // "item" / "filter" sessions need item context we don't have here;
-        // hide "Keep going" rather than show a button that might no-op.
-        return false;
-    }
-  }, [summary, reviewStatus]);
-
-  const handleKeepGoing = React.useCallback(() => {
-    if (!summary || isStartingMore || !hasMoreCards) return;
-    const nextLimit = cardCount > 0 ? cardCount : 10;
-    startReview(summary.mode, nextLimit);
-  }, [summary, isStartingMore, hasMoreCards, startReview, cardCount]);
-
-  if (isSummaryLoading || isStatusLoading || !summary) {
+  if (isSummaryLoading || !summary) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner className="size-5 text-muted-foreground" />
@@ -736,16 +804,6 @@ export const SessionSummaryView = ({
           >
             Back to list
           </Button>
-          {hasMoreCards && (
-            <Button
-              size="lg"
-              onClick={handleKeepGoing}
-              disabled={isStartingMore}
-            >
-              {isStartingMore ? <Spinner className="size-4" /> : null}
-              Keep going
-            </Button>
-          )}
         </div>
       </div>
     </div>

@@ -31,6 +31,10 @@ const ROUTES: { href: string; title: string }[] = [
   { href: "/debug/kbd", title: "Debug - Kbd styles" },
   { href: "/debug/review-count-animations", title: "Debug - Count animations" },
   { href: "/debug/review-dialogs", title: "Debug - Review dialogs" },
+  {
+    href: "/debug/review-session-preview",
+    title: "Debug - Review session",
+  },
   { href: "/debug/review-summary-preview", title: "Debug - Review summary" },
   { href: "/debug/spinners", title: "Debug - Spinners" },
   { href: "/debug/suggested-cards", title: "Debug - Suggested cards" },
