@@ -43,7 +43,13 @@ export const ThemeToggle = () => {
     // re-sync the current value once on mount.
     let unsubscribeElectron: (() => void) | undefined;
     const bridge = window.readingList;
-    if (bridge) {
+    // Feature-detect: an older installed desktop shell may expose `readingList`
+    // without the nativeTheme methods added in a later release.
+    if (
+      bridge &&
+      typeof bridge.onNativeThemeChange === "function" &&
+      typeof bridge.getNativeTheme === "function"
+    ) {
       unsubscribeElectron = bridge.onNativeThemeChange((d) => applySystem(d));
       bridge
         .getNativeTheme()
