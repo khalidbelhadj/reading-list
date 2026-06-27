@@ -104,14 +104,6 @@ export const useKeyboardNavigation = ({
         e.preventDefault();
         onOpenNew();
       }
-      if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        setTagsOpen((v) => !v);
-      }
-      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        setShowRead((v) => !v);
-      }
       if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         onSearchOpen();
@@ -123,14 +115,7 @@ export const useKeyboardNavigation = ({
     };
     document.addEventListener("keydown", handleGlobal);
     return () => document.removeEventListener("keydown", handleGlobal);
-  }, [
-    setTagsOpen,
-    setShowRead,
-    setCursor,
-    onOpenNew,
-    onSearchOpen,
-    onShowShortcuts,
-  ]);
+  }, [setCursor, onOpenNew, onSearchOpen, onShowShortcuts]);
 
   // Command shortcuts for search + panel view transitions. Unlike the shortcuts
   // above, these are NOT gated on isTypingContext: Cmd+K should jump to search
@@ -169,6 +154,8 @@ export const useKeyboardNavigation = ({
   //   ⌘⇧J — chat with Claude about the cursor item
   //   ⌘⇧V — toggle list density (cozy ↔ compact)
   //   ⌘⇧L — toggle theme (light ↔ dark)
+  //   ⌘⇧F — toggle the tag filter
+  //   ⌘⇧H — show / hide read items
   React.useEffect(() => {
     const handleModShift = (e: KeyboardEvent) => {
       if (!isModKey(e) || !e.shiftKey || e.altKey) return;
@@ -194,6 +181,14 @@ export const useKeyboardNavigation = ({
           e.preventDefault();
           onToggleTheme();
           break;
+        case "f":
+          e.preventDefault();
+          setTagsOpen((v) => !v);
+          break;
+        case "h":
+          e.preventDefault();
+          setShowRead((v) => !v);
+          break;
       }
     };
     document.addEventListener("keydown", handleModShift);
@@ -204,6 +199,8 @@ export const useKeyboardNavigation = ({
     onChatCursor,
     onToggleDensity,
     onToggleTheme,
+    setTagsOpen,
+    setShowRead,
   ]);
 
   // Cmd+Backspace to delete cursor item
