@@ -8,6 +8,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:nobanner": "NEXT_PUBLIC_DEV_BANNER=off next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "db:push": "drizzle-kit push",
@@ -24,7 +25,7 @@
     "prepare": "husky",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:start": "bun run electron:build && electron .",
-    "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"bun dev\" \"wait-on http://localhost:3000 && bun run electron:start\"",
+    "electron:dev": "bun scripts/electron-dev.ts",
     "electron:pack": "bun run electron:build && electron-builder --mac --arm64",
     "electron:release": "bun run electron:build && electron-builder --mac --arm64 --publish always"
   },

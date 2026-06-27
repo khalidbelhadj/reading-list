@@ -25,8 +25,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PageNav } from "./page-nav";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
-import { SettingsMenu } from "./settings-menu";
 import { useStartReview } from "./use-start-review";
 
 export const Toolbar = ({
@@ -70,13 +70,10 @@ export const Toolbar = ({
     },
     [isStarting],
   );
-  const handleConfirm = React.useCallback(
-    (limit: number) => {
-      if (!pendingMode) return;
-      startReview(pendingMode, limit);
-    },
-    [pendingMode, startReview],
-  );
+  const handleConfirm = React.useCallback(() => {
+    if (!pendingMode) return;
+    startReview(pendingMode);
+  }, [pendingMode, startReview]);
   const wasStartingRef = React.useRef(false);
   React.useEffect(() => {
     if (wasStartingRef.current && !isStarting && pendingMode !== null) {
@@ -99,7 +96,7 @@ export const Toolbar = ({
 
   return (
     <div className="relative flex items-center pt-1">
-      <SettingsMenu hasTags={hasTags} />
+      <PageNav hasTags={hasTags} />
 
       <div className="flex-1" />
 

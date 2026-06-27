@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld("readingList", {
       ipcRenderer.off("native-theme", listener);
     };
   },
+  getZoomFactor: (): Promise<number> => ipcRenderer.invoke("zoom-current"),
+  onZoomChange: (cb: (zoom: number) => void) => {
+    const listener = (_event: unknown, zoom: number) => cb(zoom);
+    ipcRenderer.on("zoom", listener);
+    return () => {
+      ipcRenderer.off("zoom", listener);
+    };
+  },
 });
 
 // Tag the document so CSS can reserve a left buffer for the macOS traffic

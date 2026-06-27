@@ -17,6 +17,17 @@ export const intervalShort = (dueIso: string, nowIso: string): string => {
   return `${months}mo`;
 };
 
+// Absolute timestamp for the item context menu, e.g. "Jun 12, 2026, 3:42 PM".
+export const absoluteTimestamp = (iso: string): string =>
+  new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
 // Elapsed duration, e.g. "45s", "2m", "2m 13s".
 export const duration = (ms: number): string => {
   const seconds = Math.floor(ms / SECOND);
