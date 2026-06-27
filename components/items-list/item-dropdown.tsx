@@ -147,13 +147,10 @@ const useItemReview = ({
     [isStarting],
   );
 
-  const handleConfirm = React.useCallback(
-    (limit: number) => {
-      if (!pendingMode) return;
-      startReview(pendingMode, limit, { itemId: item.id });
-    },
-    [pendingMode, startReview, item.id],
-  );
+  const handleConfirm = React.useCallback(() => {
+    if (!pendingMode) return;
+    startReview(pendingMode, { itemId: item.id });
+  }, [pendingMode, startReview, item.id]);
 
   const wasStartingRef = React.useRef(false);
   React.useEffect(() => {
