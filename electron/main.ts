@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  shell,
+} from "electron";
 import path from "node:path";
 
 const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
@@ -41,6 +48,45 @@ const iconPath = (file: string) =>
 let mainWindow: BrowserWindow | null = null;
 let pendingDeepLink: string | null = null;
 
+// Traffic-light geometry. The native macOS window buttons are a fixed physical
+// size and don't scale with the renderer's page zoom, so we move them ourselves
+// to track the (zoom-scaled) toolbar content. The toolbar scales about the
+// top-left origin, so a content point at inset I (at zoom 1) sits at I*zoom when
+// zoomed. To keep the dot's *center* on that point — without the dot itself
+// growing — the top-left inset is (BASE + RADIUS)*zoom - RADIUS: the radius is
+// scaled into the anchor, then subtracted back so it stays a fixed offset.
+// At zoom 1 this is exactly BASE (18), matching the tuned default. The CSS
+// toolbar clearance in globals.css mirrors this with the same coefficients.
+const BASE_TRAFFIC_LIGHT_INSET = 18;
+const TRAFFIC_LIGHT_RADIUS = 6;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3;
+const ZOOM_RATIO = 1.2;
+let zoomFactor = 1;
+
+const clampZoom = (value: number) =>
+  Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+
+const trafficLightInset = (zoom: number) =>
+  Math.round(
+    (BASE_TRAFFIC_LIGHT_INSET + TRAFFIC_LIGHT_RADIUS) * zoom -
+      TRAFFIC_LIGHT_RADIUS,
+  );
+
+// Single source of truth for zoom. Applies the factor to the page, repositions
+// the traffic lights to track the scaled content, and tells the renderer so its
+// CSS can widen the toolbar's left clearance (gap = clearance / zoom).
+const setZoom = (next: number) => {
+  if (!mainWindow) return;
+  zoomFactor = clampZoom(next);
+  mainWindow.webContents.setZoomFactor(zoomFactor);
+  if (process.platform === "darwin") {
+    const inset = trafficLightInset(zoomFactor);
+    mainWindow.setWindowButtonPosition({ x: inset, y: inset });
+  }
+  mainWindow.webContents.send("zoom", zoomFactor);
+};
+
 // Approximations of --background tokens from app/globals.css. Used as the
 // window background color so fast resizes don't expose a white (or dark)
 // strip that mismatches the page until React paints.
@@ -66,7 +112,10 @@ const createWindow = () => {
     minWidth: 400,
     minHeight: 400,
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 18, y: 18 },
+    trafficLightPosition: {
+      x: BASE_TRAFFIC_LIGHT_INSET,
+      y: BASE_TRAFFIC_LIGHT_INSET,
+    },
     backgroundColor: themeBg(),
     icon: iconPath("icon.png"),
     webPreferences: {
@@ -107,6 +156,16 @@ const createWindow = () => {
       mainWindow.webContents.send("deep-link", pendingDeepLink);
       pendingDeepLink = null;
     }
+    // Re-assert zoom after every (re)load: setZoomFactor resets to 1 on
+    // navigation, and the freshly mounted renderer needs the current factor to
+    // size its toolbar clearance.
+    setZoom(zoomFactor);
+  });
+
+  // Ctrl/Cmd + mouse-wheel zoom. We own the zoom factor, so step it ourselves
+  // and let setZoom reposition the buttons and notify the renderer.
+  mainWindow.webContents.on("zoom-changed", (_event, direction) => {
+    setZoom(zoomFactor * (direction === "in" ? ZOOM_RATIO : 1 / ZOOM_RATIO));
   });
 
   // In dev, stamp the port into the window title so multiple instances are
@@ -183,6 +242,10 @@ if (!gotLock) {
     shell.openExternal(url),
   );
 
+  // Renderer reads the current zoom on mount so its toolbar clearance is
+  // correct even if it remounts (HMR) after the last "zoom" broadcast.
+  ipcMain.handle("zoom-current", () => zoomFactor);
+
   // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
   // "change" listener when the macOS appearance flips while the app is
   // running. nativeTheme.on("updated", ...) is the authoritative signal —
@@ -201,6 +264,57 @@ if (!gotLock) {
     if (process.platform === "darwin") {
       app.dock?.setIcon(iconPath("icon.png"));
     }
+
+    // Custom menu so the zoom shortcuts route through setZoom (which also
+    // repositions the traffic lights). Everything else reuses Electron's
+    // built-in role submenus, so the standard items are unchanged.
+    const isMac = process.platform === "darwin";
+    const menu = Menu.buildFromTemplate([
+      ...(isMac
+        ? ([{ role: "appMenu" }] as Electron.MenuItemConstructorOptions[])
+        : []),
+      { role: "fileMenu" },
+      { role: "editMenu" },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          {
+            label: "Actual Size",
+            accelerator: "CmdOrCtrl+0",
+            click: () => setZoom(1),
+          },
+          {
+            label: "Zoom In",
+            accelerator: "CmdOrCtrl+Plus",
+            click: () => setZoom(zoomFactor * ZOOM_RATIO),
+          },
+          {
+            // Cmd/Ctrl + "=" (the unshifted key) also zooms in. A second
+            // hidden item carries that accelerator since a menu item only
+            // binds one.
+            label: "Zoom In",
+            accelerator: "CmdOrCtrl+=",
+            visible: false,
+            acceleratorWorksWhenHidden: true,
+            click: () => setZoom(zoomFactor * ZOOM_RATIO),
+          },
+          {
+            label: "Zoom Out",
+            accelerator: "CmdOrCtrl+-",
+            click: () => setZoom(zoomFactor / ZOOM_RATIO),
+          },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
+      },
+      { role: "windowMenu" },
+    ]);
+    Menu.setApplicationMenu(menu);
+
     createWindow();
 
     app.on("activate", () => {
