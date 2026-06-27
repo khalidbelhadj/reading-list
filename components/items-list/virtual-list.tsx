@@ -62,6 +62,20 @@ export const VirtualList = <T,>({
   const innerRef = React.useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = React.useState(0);
 
+  // Resolve the live scroll element into state so the measurement effect can
+  // depend on the *element* rather than the ref object. The container can be
+  // swapped under us without the ref object's identity changing — navigating
+  // away and back remounts the viewport DOM while a stable context ref keeps
+  // pointing at the fresh node. Keying the effect on the ref object alone left
+  // its scroll/resize listeners bound to the dead element, so post-navigation
+  // scrolls never re-measured scrollMargin and rows went missing. Synced every
+  // render; the bail-out keeps it from looping.
+  const [scrollEl, setScrollEl] = React.useState<HTMLElement | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    const el = scrollRef?.current ?? null;
+    setScrollEl((prev) => (prev === el ? prev : el));
+  });
+
   // Keep `scrollMargin` in sync with this list's offset inside the shared
   // viewport. With several lists stacked in one scroller, a single on-mount read
   // is fragile: a StrictMode remount or late reflow can leave a list's offset
@@ -71,7 +85,6 @@ export const VirtualList = <T,>({
   // content, the next settled frame, and scroll (offset-invariant, so it's a
   // cheap self-correction the moment the user scrolls).
   useIsomorphicLayoutEffect(() => {
-    const scrollEl = scrollRef?.current;
     const inner = innerRef.current;
     if (!scrollEl || !inner) return;
 
@@ -127,11 +140,11 @@ export const VirtualList = <T,>({
       observer.disconnect();
       scrollEl.removeEventListener("scroll", measure);
     };
-  }, [scrollRef]);
+  }, [scrollEl]);
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollRef?.current ?? null,
+    getScrollElement: () => scrollEl,
     estimateSize: () => estimateSize,
     overscan,
     scrollMargin,
