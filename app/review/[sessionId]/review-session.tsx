@@ -191,6 +191,13 @@ const ReviewSessionInner = ({
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [revealed, setRevealed] = React.useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = React.useState(false);
+  // `copiedItemId` drives the tooltip label; `itemIdCopyOpen` force-opens the
+  // tooltip after a copy. They reset on a stagger so the label stays "Copied
+  // ID" through the close animation instead of flashing back to "Copy item ID".
+  const [copiedItemId, setCopiedItemId] = React.useState(false);
+  const [itemIdCopyOpen, setItemIdCopyOpen] = React.useState(false);
+  const [itemIdTooltipOpen, setItemIdTooltipOpen] = React.useState(false);
+  const copyTimersRef = React.useRef<ReturnType<typeof setTimeout>[]>([]);
   // Preview-only: ending early has no server `endedAt` to read back, so we
   // track it locally; ratings accumulate here to build the summary.
   const [previewEnded, setPreviewEnded] = React.useState(false);
@@ -211,6 +218,26 @@ const ReviewSessionInner = ({
 
   const sessionEnded = Boolean(session.endedAt);
   const currentCard: ReviewSessionCard | undefined = cards[currentIndex];
+
+  const handleCopyItemId = React.useCallback((itemId: string) => {
+    navigator.clipboard.writeText(itemId).then(
+      () => {
+        copyTimersRef.current.forEach(clearTimeout);
+        setCopiedItemId(true);
+        setItemIdCopyOpen(true);
+        copyTimersRef.current = [
+          // Start closing the tooltip...
+          setTimeout(() => setItemIdCopyOpen(false), 1300),
+          // ...then clear the label once the close animation has finished, so
+          // it never flashes back to "Copy item ID" mid-fade.
+          setTimeout(() => setCopiedItemId(false), 1500),
+        ];
+      },
+      () => {},
+    );
+  }, []);
+
+  React.useEffect(() => () => copyTimersRef.current.forEach(clearTimeout), []);
 
   React.useEffect(() => {
     if (sessionEnded || !currentCard) return;
@@ -498,6 +525,29 @@ const ReviewSessionInner = ({
     ? safeHostname(currentCard.itemUrl)
     : null;
 
+  const itemId = currentCard.itemId;
+
+  const metaContent = (
+    <>
+      {favicon ? (
+        <Image
+          src={favicon}
+          alt=""
+          width={14}
+          height={14}
+          className="size-3.5 rounded-[3px]"
+          unoptimized
+        />
+      ) : (
+        <IconFileFilled className="size-3.5" />
+      )}
+      {currentCard.itemTitle && (
+        <span className="italic">{currentCard.itemTitle}</span>
+      )}
+      {itemDomain && <span>· {itemDomain}</span>}
+    </>
+  );
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="electron-top-bar-inset sticky top-0 z-10 bg-background pt-3 pb-2">
@@ -533,7 +583,6 @@ const ReviewSessionInner = ({
                 />
               }
             >
-              {endMutation.isPending && <Spinner className="size-3" />}
               End session
             </PopoverTrigger>
             <PopoverContent align="end" side="bottom" sideOffset={8}>
@@ -566,26 +615,33 @@ const ReviewSessionInner = ({
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 pb-6">
         <main className="flex flex-1 flex-col justify-center py-12">
           <div className="flex flex-col gap-6">
-            {(currentCard.itemTitle || itemDomain) && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {favicon ? (
-                  <Image
-                    src={favicon}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="size-3.5 rounded-[3px]"
-                    unoptimized
+            {(currentCard.itemTitle || itemDomain) &&
+              (itemId ? (
+                <Tooltip
+                  open={itemIdTooltipOpen || itemIdCopyOpen}
+                  onOpenChange={setItemIdTooltipOpen}
+                >
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="-mx-1.5 h-auto w-fit gap-2 px-1.5 py-1 text-xs font-normal text-muted-foreground"
+                        onClick={() => handleCopyItemId(itemId)}
+                      >
+                        {metaContent}
+                      </Button>
+                    }
                   />
-                ) : (
-                  <IconFileFilled className="size-3.5" />
-                )}
-                {currentCard.itemTitle && (
-                  <span className="italic">{currentCard.itemTitle}</span>
-                )}
-                {itemDomain && <span>· {itemDomain}</span>}
-              </div>
-            )}
+                  <TooltipContent>
+                    {copiedItemId ? "Copied ID" : "Copy item ID"}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {metaContent}
+                </div>
+              ))}
 
             <div className="font-content">
               <MarkdownEditor
