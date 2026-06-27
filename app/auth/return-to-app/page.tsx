@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 
 const ReturnToApp = () => {
   const params = useSearchParams();
@@ -28,38 +29,31 @@ const ReturnToApp = () => {
 
   if (!deepLink) {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-5">
-        <div className="flex w-full max-w-md flex-col items-start gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-content text-lg">Something went wrong</h1>
-            <p className="text-sm text-muted-foreground">
-              The sign-in callback didn&apos;t include an authorization code.
-              Try signing in again from the Reading List app.
-            </p>
-          </div>
-        </div>
-      </div>
+      <NonIdealState
+        fullPage
+        titleAs="h1"
+        title="Something went wrong"
+        description="The sign-in callback didn't include an authorization code. Try signing in again from the Reading List app."
+      />
     );
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center px-5">
-      <div className="flex w-full max-w-md flex-col items-start gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-content text-lg">Signed in</h1>
-          <p className="text-sm text-muted-foreground">
-            {opened
-              ? "Return to Reading List to continue. You can close this tab."
-              : "Opening Reading List…"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button nativeButton={false} render={<a href={deepLink} />}>
-            Open Reading List
-          </Button>
-        </div>
-      </div>
-    </div>
+    <NonIdealState
+      fullPage
+      titleAs="h1"
+      title="Signed in"
+      description={
+        opened
+          ? "Return to Reading List to continue. You can close this tab."
+          : "Opening Reading List…"
+      }
+      actions={
+        <Button nativeButton={false} render={<a href={deepLink} />}>
+          Open Reading List
+        </Button>
+      }
+    />
   );
 };
 

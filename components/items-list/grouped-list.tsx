@@ -16,10 +16,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
-import { CollapsibleSection } from "./collapsible-section";
-import { ItemList } from "./item-list";
 import { type ItemGroup } from "./use-filters";
 import { type Density } from "./utils";
+import { VirtualItemGroup } from "./virtual-item-group";
 
 type GroupedListProps = {
   groups: ItemGroup[];
@@ -137,68 +136,65 @@ export const GroupedList = ({
               </span>
             </Button>
           );
+          const headerNode = isTagGroup ? (
+            tagForGroup ? (
+              <ContextMenu
+                onOpenChange={(open) =>
+                  setContextMenuOpenTagId(open ? tagForGroup.id : null)
+                }
+              >
+                <ContextMenuTrigger render={<div />}>
+                  {headerButton}
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => startRename(tagForGroup)}>
+                    <IconPencil />
+                    Rename
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    variant="destructive"
+                    onClick={() => setPendingDeleteTag(tagForGroup)}
+                  >
+                    <IconTrash />
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ) : (
+              headerButton
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => toggleDateGroup(group.key)}
+              className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
+            >
+              {group.label}
+              <IconChevronRight
+                className={cn(
+                  "size-3 transition-transform duration-150",
+                  !closedDateKeys.has(group.key) && "rotate-90",
+                )}
+              />
+            </button>
+          );
           return (
             <div
               key={group.key}
-              className={cn("flex flex-col", !isTagGroup && "mt-4 first:mt-0")}
+              className={cn(!isTagGroup && "mt-4 first:mt-0")}
             >
-              {isTagGroup ? (
-                tagForGroup ? (
-                  <ContextMenu
-                    onOpenChange={(open) =>
-                      setContextMenuOpenTagId(open ? tagForGroup.id : null)
-                    }
-                  >
-                    <ContextMenuTrigger render={<div />}>
-                      {headerButton}
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => startRename(tagForGroup)}>
-                        <IconPencil />
-                        Rename
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        variant="destructive"
-                        onClick={() => setPendingDeleteTag(tagForGroup)}
-                      >
-                        <IconTrash />
-                        Delete
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ) : (
-                  headerButton
-                )
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => toggleDateGroup(group.key)}
-                  className="inline-flex items-center gap-1 px-1 pb-0.5 text-xs text-muted-foreground transition-colors outline-none select-none hover:text-foreground"
-                >
-                  {group.label}
-                  <IconChevronRight
-                    className={cn(
-                      "size-3 transition-transform duration-150",
-                      !closedDateKeys.has(group.key) && "rotate-90",
-                    )}
-                  />
-                </button>
-              )}
-              <CollapsibleSection
+              <VirtualItemGroup
+                header={headerNode}
                 open={isTagGroup ? isOpen : !closedDateKeys.has(group.key)}
-              >
-                <ItemList
-                  items={group.items}
-                  keyPrefix={group.key}
-                  typingTitles={typingTitles}
-                  suppressHover={suppressHover}
-                  density={density}
-                  onSelect={onSelect}
-                  onDelete={onDelete}
-                  onToggleRead={onToggleRead}
-                  onTogglePin={onTogglePin}
-                />
-              </CollapsibleSection>
+                items={group.items}
+                typingTitles={typingTitles}
+                suppressHover={suppressHover}
+                density={density}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onToggleRead={onToggleRead}
+                onTogglePin={onTogglePin}
+              />
             </div>
           );
         })}

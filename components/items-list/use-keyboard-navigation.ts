@@ -13,6 +13,8 @@ import { setDismissFallback } from "@/lib/dismiss-stack";
 
 export const useKeyboardNavigation = ({
   filteredItems,
+  getOrderedIds,
+  scrollToId,
   setTagsOpen,
   setShowRead,
   cursorRef,
@@ -32,6 +34,11 @@ export const useKeyboardNavigation = ({
   onShowShortcuts,
 }: {
   filteredItems: Item[];
+  // The cursor's visual order, reconstructed from data so it stays correct even
+  // when the virtualized flat list has off-screen (unmounted) rows.
+  getOrderedIds: () => string[];
+  // Scrolls a row into view, driving the virtualizer when the row is unmounted.
+  scrollToId: (id: string) => void;
   setTagsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowRead: React.Dispatch<React.SetStateAction<boolean>>;
   cursorRef: React.RefObject<string | null>;
@@ -214,40 +221,15 @@ export const useKeyboardNavigation = ({
 
   // Ctrl+N/P navigation
   React.useEffect(() => {
-    const scrollWithMargin = (id: string) => {
-      const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
-      if (!el) return;
-      // Walk up to find the row's scrollable ancestor — the list now lives
-      // inside a scrolling container, not the window.
-      let container: HTMLElement | null = el.parentElement;
-      while (container) {
-        const overflowY = getComputedStyle(container).overflowY;
-        if (overflowY === "auto" || overflowY === "scroll") break;
-        container = container.parentElement;
-      }
-      if (!container) return;
-      const rect = el.getBoundingClientRect();
-      const cRect = container.getBoundingClientRect();
-      const margin = rect.height * 3;
-      if (rect.top - margin < cRect.top) {
-        container.scrollBy({ top: rect.top - cRect.top - margin });
-      } else if (rect.bottom + margin > cRect.bottom) {
-        container.scrollBy({ top: rect.bottom - cRect.bottom + margin });
-      }
-    };
-
     const handleNav = (e: KeyboardEvent) => {
       if (isTypingContext(e)) return;
       const elementTag = (e.target as HTMLElement)?.tagName;
       const onInteractive = elementTag === "BUTTON" || elementTag === "A";
 
-      // Use the live render order from the DOM (grouped / pinned / collapsed
-      // sections diverge from filteredItems' raw order).
-      const ids = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-item-id]"),
-      )
-        .map((el) => el.dataset.itemId)
-        .filter((id): id is string => !!id);
+      // The cursor's visual order, reconstructed from data (grouped / pinned /
+      // collapsed sections diverge from filteredItems' raw order, and the flat
+      // list's off-screen rows aren't in the DOM to query).
+      const ids = getOrderedIds();
       const currentCursor = cursorRef.current;
       const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
 
@@ -289,7 +271,7 @@ export const useKeyboardNavigation = ({
         const nextId = isJumpStart ? ids[0] : ids[ids.length - 1];
         setCursor(nextId);
         setSuppressHover(true);
-        scrollWithMargin(nextId);
+        scrollToId(nextId);
         return;
       }
 
@@ -338,7 +320,7 @@ export const useKeyboardNavigation = ({
           ) {
             setCursor(hoveredId);
             setSuppressHover(true);
-            scrollWithMargin(hoveredId);
+            scrollToId(hoveredId);
             return;
           }
         }
@@ -352,7 +334,7 @@ export const useKeyboardNavigation = ({
               : ids[Math.max(cursorIdx - 1, 0)];
         setCursor(nextId);
         setSuppressHover(true);
-        scrollWithMargin(nextId);
+        scrollToId(nextId);
         return;
       }
 
@@ -402,6 +384,8 @@ export const useKeyboardNavigation = ({
     return () => document.removeEventListener("keydown", handleNav);
   }, [
     filteredItems,
+    getOrderedIds,
+    scrollToId,
     setSuppressHover,
     cursorRef,
     setCursor,
