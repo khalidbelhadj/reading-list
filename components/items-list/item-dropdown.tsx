@@ -27,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -37,6 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
+import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
 import { type Item } from "@/lib/types";
 import { useIsElectron } from "@/lib/use-is-electron";
@@ -413,9 +415,26 @@ const ItemMenuItems = ({
           Delete
         </DropdownMenuItem>
       )}
+      <DropdownMenuSeparator />
+      <ItemTimestamps item={item} />
     </>
   );
 };
+
+// Non-interactive footer showing when the item was created and last edited,
+// Notion-style, at the very bottom of the menu.
+const ItemTimestamps = ({ item }: { item: Item }) => (
+  <div className="px-2 py-1 text-xs leading-snug text-muted-foreground select-none">
+    <div>
+      Created{" "}
+      <span className="tabular-nums">{absoluteTimestamp(item.createdAt)}</span>
+    </div>
+    <div>
+      Edited{" "}
+      <span className="tabular-nums">{absoluteTimestamp(item.updatedAt)}</span>
+    </div>
+  </div>
+);
 
 export const ItemDropdown = ({
   item,
