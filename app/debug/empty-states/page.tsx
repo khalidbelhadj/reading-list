@@ -232,6 +232,53 @@ const STYLES: StyleDef[] = [
     ),
   },
   {
+    id: "status-message",
+    name: "Status message",
+    description: "Text only, red on error (no icon)",
+    render: (cfg) => {
+      // Title and description share one normal size; the description is faint.
+      // On error both turn red and the action becomes destructive — otherwise
+      // the action is an outline button. This style never shows an icon.
+      const isError = cfg.toneKey === "error";
+      return (
+        <div className={stack(cfg, "justify-center gap-1 py-12")}>
+          <p
+            className={cn(
+              "font-content text-sm",
+              isError ? "text-destructive" : "text-foreground",
+            )}
+          >
+            {cfg.title || "Untitled"}
+          </p>
+          {cfg.showDescription && cfg.description && (
+            <p
+              className={cn(
+                "max-w-xs text-sm",
+                isError ? "text-destructive/70" : "text-muted-foreground",
+              )}
+            >
+              {cfg.description}
+            </p>
+          )}
+          {(cfg.showPrimary || cfg.showSecondary) && (
+            <div className="mt-3 flex items-center gap-2">
+              {cfg.showPrimary && (
+                <Button size="sm" variant={isError ? "destructive" : "outline"}>
+                  {cfg.primaryLabel || "Action"}
+                </Button>
+              )}
+              {cfg.showSecondary && (
+                <Button size="sm" variant="ghost">
+                  {cfg.secondaryLabel || "Learn more"}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    },
+  },
+  {
     id: "card",
     name: "Card",
     description: "On bg-card, rounded",

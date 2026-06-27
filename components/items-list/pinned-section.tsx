@@ -1,10 +1,13 @@
 import { IconChevronRight, IconPinFilled } from "@tabler/icons-react";
+import React from "react";
 
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { CollapsibleSection } from "./collapsible-section";
 import { ItemList } from "./item-list";
+import { scrollIntoViewWithMargin, useNavSection } from "./list-nav-registry";
+import { useVirtualScrollRef } from "./virtual-scroll-context";
 import { type Density } from "./utils";
 
 type PinnedSectionProps = {
@@ -36,10 +39,34 @@ export const PinnedSection = ({
   onToggleRead,
   onTogglePin,
 }: PinnedSectionProps) => {
+  const scrollRef = useVirtualScrollRef();
+  const sectionRef = React.useRef<HTMLDivElement>(null);
+  // Read latest values inside the stable nav-section closures.
+  const itemsRef = React.useRef(items);
+  itemsRef.current = items;
+  const openRef = React.useRef(open);
+  openRef.current = open;
+
+  // Pinned rows aren't virtualized (the section is bounded), so they're always
+  // in the DOM — register them for keyboard nav with a plain DOM scroll.
+  useNavSection({
+    getElement: () => sectionRef.current,
+    getIds: () =>
+      openRef.current ? itemsRef.current.map((item) => item.id) : [],
+    scrollToId: (id) => {
+      if (!openRef.current || !itemsRef.current.some((item) => item.id === id))
+        return false;
+      const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
+      if (el && scrollRef?.current)
+        scrollIntoViewWithMargin(scrollRef.current, el);
+      return true;
+    },
+  });
+
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-4 flex flex-col">
+    <div ref={sectionRef} className="mb-4 flex flex-col">
       <button
         type="button"
         onClick={onToggleOpen}

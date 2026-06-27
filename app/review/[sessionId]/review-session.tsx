@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
@@ -122,11 +123,13 @@ export const ReviewSession = ({
 
   if (!resolved) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="text-sm text-muted-foreground">
-            Review session not found.
-          </div>
+      <NonIdealState
+        fullPage
+        align="center"
+        size="sm"
+        title="Review session not found"
+        description="It may have ended, or the link is no longer valid."
+        actions={
           <Button
             variant="ghost"
             size="lg"
@@ -136,8 +139,8 @@ export const ReviewSession = ({
           >
             Back to list
           </Button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
@@ -495,11 +498,13 @@ const ReviewSessionInner = ({
 
   if (!currentCard) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="text-sm text-muted-foreground">
-            No cards available for this session.
-          </div>
+      <NonIdealState
+        fullPage
+        align="center"
+        size="sm"
+        title="No cards available"
+        description="This review session doesn't have any cards to show."
+        actions={
           <Button
             variant="ghost"
             size="lg"
@@ -509,8 +514,8 @@ const ReviewSessionInner = ({
           >
             Back to list
           </Button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 

@@ -4,6 +4,7 @@ import React from "react";
 import { IconCheck, IconClipboard } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 import {
   Tooltip,
   TooltipContent,
@@ -31,16 +32,14 @@ const Error = ({
   }, [error.digest]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center px-5">
-      <div className="group/error flex w-full max-w-md flex-col items-start gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-content text-lg">Something went wrong</h1>
-          <p className="text-sm text-muted-foreground">
-            We hit an unexpected error. Try again, and if it keeps happening let
-            us know.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <NonIdealState
+      fullPage
+      titleAs="h1"
+      className="group/error"
+      title="Something went wrong"
+      description="We hit an unexpected error. Try again, and if it keeps happening let us know."
+      actions={
+        <>
           <Button onClick={reset}>Reload</Button>
           <Button
             variant="ghost"
@@ -73,9 +72,9 @@ const Error = ({
               </TooltipContent>
             </Tooltip>
           )}
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 };
 

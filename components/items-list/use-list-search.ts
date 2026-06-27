@@ -25,6 +25,13 @@ export const useListSearch = (items: Item[] | undefined) => {
     () => searchParams.get("q") ?? "",
   );
   const [searchOrder, setSearchOrder] = React.useState<string[] | null>(null);
+  // Mirror of the live query text (the URL holds the canonical copy). Kept in
+  // state so consumers can word UI around it, e.g. the "No results for …" empty
+  // state. The list already re-renders per keystroke via `searchOrder`, so this
+  // adds no extra renders.
+  const [searchQuery, setSearchQuery] = React.useState(
+    () => searchParams.get("q") ?? "",
+  );
   const [searchPending, setSearchPending] = React.useState(
     () => initialSearchQuery.length > 0,
   );
@@ -49,6 +56,7 @@ export const useListSearch = (items: Item[] | undefined) => {
   );
 
   const handleSearchQueryChange = React.useCallback((query: string) => {
+    setSearchQuery(query);
     const params = new URLSearchParams(window.location.search);
     const existing = params.get("q") ?? "";
     if (existing === query) return;
@@ -93,6 +101,7 @@ export const useListSearch = (items: Item[] | undefined) => {
   return {
     searchBarRef,
     searchOrder,
+    searchQuery,
     searchActive,
     searchPending,
     searchBackendPending,
