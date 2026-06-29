@@ -402,6 +402,48 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 .markdown-editor .ProseMirror li > p {
   margin: 0;
 }
+.markdown-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.1rem;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li > label {
+  display: flex;
+  align-items: center;
+  margin-top: 0.18rem;
+  user-select: none;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+/* Native checkboxes default to light styling; opt the empty box into the dark
+   palette so it doesn't render as a bright white square on dark backgrounds. */
+.dark
+  .markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  input[type="checkbox"] {
+  color-scheme: dark;
+}
+.markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  li[data-checked="true"]
+  > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
 .markdown-editor .ProseMirror code {
   background: var(--muted);
   padding: 0.05rem 0.3rem;

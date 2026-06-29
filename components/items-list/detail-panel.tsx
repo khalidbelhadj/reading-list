@@ -396,6 +396,11 @@ export const DetailPanel = React.forwardRef<
             className="flex min-h-32 flex-1 cursor-text flex-col"
             onClick={(event) => {
               const target = event.target as HTMLElement;
+              // Ignore clicks that bubble here from portaled UI (e.g. the link
+              // popover rendered into <body>): React routes their events through
+              // this handler even though they're not physically inside the notes
+              // area, which would otherwise yank the caret to the end of the note.
+              if (!event.currentTarget.contains(target)) return;
               if (target.closest(".ProseMirror")) return;
               const editorEl =
                 event.currentTarget.querySelector<HTMLElement>(".ProseMirror");
