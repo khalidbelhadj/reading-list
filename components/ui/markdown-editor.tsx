@@ -7,10 +7,12 @@ import {
   Extension,
   type Editor,
 } from "@tiptap/react";
+import { InputRule } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Paragraph from "@tiptap/extension-paragraph";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin } from "@tiptap/pm/state";
@@ -23,6 +25,10 @@ import { isModKey } from "@/lib/input-context";
 import { requestImageUpload } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
+import {
+  MarkdownBubbleMenu,
+  MarkdownLinkMenu,
+} from "@/components/ui/markdown-bubble-menu";
 import { CodeBlockNodeView } from "@/components/ui/code-block-node-view";
 import { lowlight } from "@/lib/lowlight";
 import { BLANK_LINE_SENTINEL, stripBlankLineSentinel } from "@/lib/markdown";
@@ -263,6 +269,35 @@ const CleanClipboardMarkdown = Extension.create({
   },
 });
 
+// TipTap's built-in task-list rule only fires on a bare "[ ] " at the start of
+// a line. People type the GFM form "- [ ] " out of habit, but the "- " triggers
+// the bullet-list rule first, leaving the caret inside a bullet where the
+// checkbox rule can't match. This rule fires on "[ ]"/"[x]" + space in either
+// context: it lifts the item out of any surrounding bullet/ordered list (a no-op
+// when there isn't one) and converts it to a task item, so both "- [ ] " and a
+// bare "[ ] " produce a checklist. Higher priority than TaskList (100) so it
+// wins over the built-in rule.
+const TaskListMarkdownShortcut = Extension.create({
+  name: "taskListMarkdownShortcut",
+  priority: 200,
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\s*\[([ xX]?)\]\s$/,
+        handler: ({ range, match, chain }) => {
+          const checked = match[1].toLowerCase() === "x";
+          chain()
+            .deleteRange(range)
+            .liftListItem("listItem")
+            .toggleTaskList()
+            .updateAttributes("taskItem", { checked })
+            .run();
+        },
+      }),
+    ];
+  },
+});
+
 export const MarkdownEditor = ({
   value,
   onChange,
@@ -336,9 +371,18 @@ export const MarkdownEditor = ({
     editable,
     autofocus: autoFocus ? "end" : false,
     extensions: [
-      StarterKit.configure({ codeBlock: false, paragraph: false }),
+      StarterKit.configure({
+        codeBlock: false,
+        paragraph: false,
+        // Clicking a link should place the caret so the link popover can appear,
+        // not navigate away from the editor.
+        link: { openOnClick: false },
+      }),
       ParagraphWithBlankLines,
       CodeBlockWithLineNav.configure({ lowlight }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      TaskListMarkdownShortcut,
       DeleteEmptyFirstBlock,
       Card,
       CardFront,
@@ -418,6 +462,12 @@ export const MarkdownEditor = ({
       onClick={handleEditorClick}
     >
       <EditorContent editor={editor} />
+      {editor && editable && (
+        <>
+          <MarkdownBubbleMenu editor={editor} />
+          <MarkdownLinkMenu editor={editor} />
+        </>
+      )}
       <ImageLightbox
         src={lightboxSrc}
         alt={lightboxAlt}
