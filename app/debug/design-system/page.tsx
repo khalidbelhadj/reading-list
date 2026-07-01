@@ -1,5 +1,6 @@
 "use client";
 
+import { notFound } from "next/navigation";
 import React from "react";
 import {
   IconAdjustments,
@@ -251,6 +252,9 @@ const iconSamples = [
 ];
 
 const DesignSystemPage = () => {
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
   const [tab, setTab] = React.useState("first");
   const [checked, setChecked] = React.useState(true);
   const [switched, setSwitched] = React.useState(true);

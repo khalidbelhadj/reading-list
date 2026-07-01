@@ -8,7 +8,8 @@ import {
 import { withUser } from "@/db";
 import { items, tags, itemsTags, flashcards } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { getCurrentUserIdFromRequest } from "@/lib/auth";
+import { getCurrentUserIdFromRequest, UnauthorizedError } from "@/lib/auth";
+import { ActionError } from "@/lib/safe-action";
 import {
   searchItems as searchItemsQuery,
   searchFlashcards,
@@ -451,11 +452,22 @@ async function handleTool(name: string, args: unknown, userId: string) {
         };
     }
   } catch (error) {
+    // Surface deliberate, client-safe errors (input validation via parseInput,
+    // auth) verbatim; genericize everything else so raw Postgres detail
+    // (constraint names, SQL fragments) never reaches MCP clients — the way
+    // safeAction does for server actions.
+    if (error instanceof ActionError || error instanceof UnauthorizedError) {
+      return {
+        content: [{ type: "text" as const, text: error.message }],
+        isError: true,
+      };
+    }
+    console.error("[mcp:handleTool]", name, error);
     return {
       content: [
         {
           type: "text" as const,
-          text: error instanceof Error ? error.message : String(error),
+          text: "Something went wrong. Please try again.",
         },
       ],
       isError: true,

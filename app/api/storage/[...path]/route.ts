@@ -21,7 +21,7 @@ export async function GET(
   }
 
   const [bucket, ...keyParts] = path;
-  if (!ALLOWED_BUCKETS.has(bucket)) {
+  if (bucket === undefined || !ALLOWED_BUCKETS.has(bucket)) {
     return new NextResponse("Unknown bucket", { status: 404 });
   }
 

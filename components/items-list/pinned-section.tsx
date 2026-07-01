@@ -4,23 +4,14 @@ import React from "react";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { CollapsibleSection } from "./collapsible-section";
 import { ItemList } from "./item-list";
 import { scrollIntoViewWithMargin, useNavSection } from "./list-nav-registry";
 import { useVirtualScrollRef } from "./virtual-scroll-context";
-import { type Density } from "./utils";
 
 type PinnedSectionProps = {
   items: Item[];
   open: boolean;
   onToggleOpen: () => void;
-  typingTitles: Record<string, string>;
-  suppressHover: boolean;
-  density?: Density;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleRead: (id: string, read: boolean) => void;
-  onTogglePin: (id: string, starred: boolean) => void;
 };
 
 /**
@@ -31,13 +22,6 @@ export const PinnedSection = ({
   items,
   open,
   onToggleOpen,
-  typingTitles,
-  suppressHover,
-  density = "compact",
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
 }: PinnedSectionProps) => {
   const scrollRef = useVirtualScrollRef();
   const sectionRef = React.useRef<HTMLDivElement>(null);
@@ -81,18 +65,7 @@ export const PinnedSection = ({
           )}
         />
       </button>
-      <CollapsibleSection open={open}>
-        <ItemList
-          items={items}
-          typingTitles={typingTitles}
-          suppressHover={suppressHover}
-          density={density}
-          onSelect={onSelect}
-          onDelete={onDelete}
-          onToggleRead={onToggleRead}
-          onTogglePin={onTogglePin}
-        />
-      </CollapsibleSection>
+      {open && <ItemList items={items} />}
     </div>
   );
 };

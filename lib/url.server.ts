@@ -11,18 +11,19 @@ const isPrivateIPv4 = (ip: string): boolean => {
   if (parts.length !== 4) return false;
   if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
 
-  const [a, b] = parts;
+  const [a, b, c] = parts;
+  if (a === undefined || b === undefined || c === undefined) return false;
   if (a === 0) return true;
   if (a === 10) return true;
   if (a === 127) return true;
   if (a === 169 && b === 254) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 192 && b === 168) return true;
-  if (a === 192 && b === 0 && parts[2] === 0) return true;
-  if (a === 192 && b === 0 && parts[2] === 2) return true;
+  if (a === 192 && b === 0 && c === 0) return true;
+  if (a === 192 && b === 0 && c === 2) return true;
   if (a === 198 && (b === 18 || b === 19)) return true;
-  if (a === 198 && b === 51 && parts[2] === 100) return true;
-  if (a === 203 && b === 0 && parts[2] === 113) return true;
+  if (a === 198 && b === 51 && c === 100) return true;
+  if (a === 203 && b === 0 && c === 113) return true;
   if (a >= 224) return true;
   if (a === 100 && b >= 64 && b <= 127) return true;
   return false;
@@ -36,16 +37,21 @@ const expandIPv6 = (ip: string): number[] | null => {
   const v4Match = base.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
   let head = base;
   let tail4: number[] | null = null;
-  if (v4Match) {
+  if (v4Match?.[1] !== undefined && v4Match[2] !== undefined) {
     const v4Parts = v4Match[2].split(".").map(Number);
+    const [p0, p1, p2, p3] = v4Parts;
     if (
       v4Parts.length !== 4 ||
+      p0 === undefined ||
+      p1 === undefined ||
+      p2 === undefined ||
+      p3 === undefined ||
       v4Parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
     ) {
       return null;
     }
     head = v4Match[1].replace(/:$/, ":");
-    tail4 = [(v4Parts[0] << 8) | v4Parts[1], (v4Parts[2] << 8) | v4Parts[3]];
+    tail4 = [(p0 << 8) | p1, (p2 << 8) | p3];
   }
 
   const doubleColon = head.indexOf("::");
@@ -79,28 +85,41 @@ const isPrivateIPv6 = (ip: string): boolean => {
   const groups = expandIPv6(ip);
   if (!groups) return true;
 
+  const [g0, g1, g2, g3, g4, g5, g6, g7] = groups;
+  if (
+    g0 === undefined ||
+    g1 === undefined ||
+    g2 === undefined ||
+    g3 === undefined ||
+    g4 === undefined ||
+    g5 === undefined ||
+    g6 === undefined ||
+    g7 === undefined
+  ) {
+    return true;
+  }
+
   if (groups.every((g) => g === 0)) return true;
-  if (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) return true;
+  if (groups.slice(0, 7).every((g) => g === 0) && g7 === 1) return true;
 
   if (
-    groups[0] === 0 &&
-    groups[1] === 0 &&
-    groups[2] === 0 &&
-    groups[3] === 0 &&
-    groups[4] === 0 &&
-    groups[5] === 0xffff
+    g0 === 0 &&
+    g1 === 0 &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0 &&
+    g5 === 0xffff
   ) {
-    const v4 = `${(groups[6] >> 8) & 0xff}.${groups[6] & 0xff}.${(groups[7] >> 8) & 0xff}.${groups[7] & 0xff}`;
+    const v4 = `${(g6 >> 8) & 0xff}.${g6 & 0xff}.${(g7 >> 8) & 0xff}.${g7 & 0xff}`;
     return isPrivateIPv4(v4);
   }
 
-  if ((groups[0] & 0xfe00) === 0xfc00) return true;
-  if ((groups[0] & 0xffc0) === 0xfe80) return true;
-  if ((groups[0] & 0xff00) === 0xff00) return true;
-  if (groups[0] === 0x0064 && groups[1] === 0xff9b && groups[2] === 0x0001)
-    return true;
-  if (groups[0] === 0x2001 && groups[1] === 0x0db8) return true;
-  if (groups[0] === 0x2001 && groups[1] === 0x0000) return true;
+  if ((g0 & 0xfe00) === 0xfc00) return true;
+  if ((g0 & 0xffc0) === 0xfe80) return true;
+  if ((g0 & 0xff00) === 0xff00) return true;
+  if (g0 === 0x0064 && g1 === 0xff9b && g2 === 0x0001) return true;
+  if (g0 === 0x2001 && g1 === 0x0db8) return true;
+  if (g0 === 0x2001 && g1 === 0x0000) return true;
 
   return false;
 };

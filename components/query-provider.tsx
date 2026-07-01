@@ -29,7 +29,7 @@ const makeQueryClient = () => {
         const [title, ...rest] = message.split(". ");
         const description = rest.join(". ");
         toast.error(
-          title.replace(/\.$/, ""),
+          (title ?? "").replace(/\.$/, ""),
           description ? { description } : undefined,
         );
       },

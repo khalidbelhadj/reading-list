@@ -180,7 +180,7 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(
       );
     const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const match = ogMatch || titleMatch;
-    if (!match) return null;
+    if (!match || match[1] === undefined) return null;
     return decodeHtmlEntities(match[1]);
   } catch {
     return null;
@@ -188,8 +188,7 @@ export const fetchPageTitle = safeAction(async function fetchPageTitle(
 }, "Could not fetch page title. Please try again.");
 
 export type CreateItemResult =
-  | { ok: true; itemId: string }
-  | { ok: false; duplicate: DuplicateItem };
+  { ok: true; itemId: string } | { ok: false; duplicate: DuplicateItem };
 
 export const createItem = safeAction(async function createItem(
   title: string,
@@ -222,6 +221,9 @@ export const createItem = safeAction(async function createItem(
     const [itemId] = await createItemsLib(tx, userId, [
       { title, url, tagNames, faviconUrl, notes, id },
     ]);
+    if (itemId === undefined) {
+      throw new Error("Failed to create item.");
+    }
     return { ok: true as const, itemId };
   });
 }, "Could not create item. Please try again.");

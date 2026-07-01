@@ -209,12 +209,13 @@ const extractTitleFromText = async (
     // PDF coordinates have origin bottom-left, so larger y == higher on page.
     items.sort(
       (a, b) =>
-        b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4],
+        (b.transform[5] ?? 0) - (a.transform[5] ?? 0) ||
+        (a.transform[4] ?? 0) - (b.transform[4] ?? 0),
     );
     const lines: Line[] = [];
     for (const it of items) {
-      const size = Math.abs(it.transform[3]);
-      const y = it.transform[5];
+      const size = Math.abs(it.transform[3] ?? 0);
+      const y = it.transform[5] ?? 0;
       const str = it.str;
       const last = lines[lines.length - 1];
       if (

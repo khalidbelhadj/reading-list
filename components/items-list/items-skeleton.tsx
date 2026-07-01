@@ -20,7 +20,7 @@ export const ItemsSkeleton = ({
 }) => (
   <div className="flex flex-col space-y-px">
     {Array.from({ length: count }).map((_, i) => {
-      const titleRem = TITLE_WIDTHS[i % TITLE_WIDTHS.length];
+      const titleRem = TITLE_WIDTHS[i % TITLE_WIDTHS.length] ?? 24;
       const urlRem = titleRem * 0.55;
       const opacity = Math.max(1 - i * 0.07, 0.1);
       if (density === "cozy") {

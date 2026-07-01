@@ -2,12 +2,13 @@ import { type Virtualizer } from "@tanstack/react-virtual";
 import React from "react";
 
 import { type Item } from "@/lib/types";
+import { useSettings } from "@/lib/use-settings";
 
 import { ItemRow } from "./item-row";
 import { scrollIntoViewWithMargin, useNavSection } from "./list-nav-registry";
 import { useVirtualScrollRef } from "./virtual-scroll-context";
 import { VirtualList } from "./virtual-list";
-import { resolveRowItem, type Density } from "./utils";
+import { type Density } from "./utils";
 
 // Fixed row pitch per density (row box + the 1px inter-row gap). Rows are a
 // uniform height within a density, so the virtualizer uses these directly
@@ -20,16 +21,9 @@ const ROW_HEIGHT: Record<Density, number> = {
 
 type VirtualItemListProps = {
   items: Item[];
-  typingTitles: Record<string, string>;
-  suppressHover: boolean;
-  density?: Density;
   // Optional explicit scroll viewport; defaults to the nearest
   // VirtualScrollProvider.
   scrollElementRef?: React.RefObject<HTMLElement | null>;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleRead: (id: string, read: boolean) => void;
-  onTogglePin: (id: string, starred: boolean) => void;
 };
 
 /**
@@ -42,15 +36,9 @@ type VirtualItemListProps = {
  */
 export const VirtualItemList = ({
   items,
-  typingTitles,
-  suppressHover,
-  density = "compact",
   scrollElementRef,
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
 }: VirtualItemListProps) => {
+  const density = useSettings().settings.density;
   const contextScrollRef = useVirtualScrollRef();
   const scrollRef = scrollElementRef ?? contextScrollRef;
   const sectionRef = React.useRef<HTMLDivElement>(null);
@@ -95,22 +83,7 @@ export const VirtualItemList = ({
         scrollElementRef={scrollRef ?? undefined}
         onVirtualizerChange={handleVirtualizerChange}
       >
-        {(item) => {
-          const typingTitle = typingTitles[item.id];
-          const rowItem = resolveRowItem(item, typingTitle);
-          return (
-            <ItemRow
-              item={rowItem}
-              suppressHover={suppressHover}
-              density={density}
-              isTyping={typingTitle !== undefined}
-              onSelect={() => onSelect(item.id)}
-              onDelete={() => onDelete(item.id)}
-              onToggleRead={() => onToggleRead(item.id, !item.read)}
-              onTogglePin={() => onTogglePin(item.id, !item.starred)}
-            />
-          );
-        }}
+        {(item) => <ItemRow item={item} />}
       </VirtualList>
     </div>
   );

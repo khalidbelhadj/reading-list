@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { getVersionInfo } from "@/lib/version";
@@ -30,6 +31,9 @@ const Row = ({
 const empty = <span className="text-muted-foreground">—</span>;
 
 const VersionPage = () => {
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
   const info = getVersionInfo();
 
   return (

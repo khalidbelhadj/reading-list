@@ -92,9 +92,10 @@ next.stdout?.on("data", (chunk: Buffer) => {
   process.stdout.write(chunk); // keep Next's colored logs intact
   if (detected) return;
   const match = stripAnsi(chunk.toString()).match(/localhost:(\d+)/);
-  if (!match) return;
+  const port = match?.[1];
+  if (!port) return;
   detected = true;
-  void launchElectron(match[1]);
+  void launchElectron(port);
 });
 
 next.on("exit", (code) => shutdown(code ?? 0));

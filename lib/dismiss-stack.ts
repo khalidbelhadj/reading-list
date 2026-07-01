@@ -92,7 +92,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     const entry = stack[stack.length - 1];
     e.preventDefault();
     e.stopPropagation();
-    entry.dismiss();
+    entry?.dismiss();
     return;
   }
   // Rule 5 — nothing dismissible is open.
@@ -105,6 +105,7 @@ const handleFocusIn = (e: FocusEvent) => {
   if (!target || stack.length < 2) return;
   for (let i = stack.length - 1; i >= 0; i--) {
     const entry = stack[i];
+    if (!entry) continue;
     if (entry.contains?.(target)) {
       if (i !== stack.length - 1) {
         stack.splice(i, 1);

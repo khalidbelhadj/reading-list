@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 import { makeOptimisticItem } from "./items-list/utils";
 
-import { fetchPageTitle, searchItems } from "@/app/actions";
+import { fetchPageTitle } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
@@ -20,6 +20,10 @@ import { useSettings } from "@/lib/use-settings";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
+import {
+  ItemRowProvider,
+  type ItemActions,
+} from "./items-list/item-row-context";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
 import { SearchBar } from "./items-list/search-bar";
@@ -70,20 +74,18 @@ export const ItemsList = ({
   const [suggestedOpen, setSuggestedOpen] = React.useState(true);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
 
-  // Search — all search state, URL sync, and local/backend passes live here.
+  // Search — all search state, URL sync, and local/backend passes live in the
+  // hook; SearchBar is a controlled input reading/writing `searchQuery`.
   const {
     searchBarRef,
-    searchOrder,
     searchQuery,
+    setSearchQuery,
+    isFetching: searchFetching,
+    resultCount: searchResultCount,
+    searchOrder,
     searchActive,
     searchPending,
     searchBackendPending,
-    initialSearchQuery,
-    localSearchItems,
-    handleSearchResults,
-    handleSearchQueryChange,
-    handleSearchPendingChange,
-    handleSearchBackendPendingChange,
     handleSearchOpen,
   } = useListSearch(items);
 
@@ -220,6 +222,7 @@ export const ItemsList = ({
           : direction === "next"
             ? ids[Math.min(idx + 1, ids.length - 1)]
             : ids[Math.max(idx - 1, 0)];
+      if (!nextId) return;
       setCursor(nextId);
       scrollToId(nextId);
     },
@@ -232,6 +235,7 @@ export const ItemsList = ({
       const ids = getOrderedIds();
       if (ids.length === 0) return;
       const nextId = edge === "start" ? ids[0] : ids[ids.length - 1];
+      if (!nextId) return;
       setCursor(nextId);
       scrollToId(nextId);
     },
@@ -545,6 +549,18 @@ export const ItemsList = ({
     />
   );
 
+  // Row actions delivered to the list tree via context instead of drilled
+  // through six layers of layout/virtualization primitives that never use them.
+  const itemActions = React.useMemo<ItemActions>(
+    () => ({
+      onSelect: handleSelectItem,
+      onDelete: requestDeleteItem,
+      onToggleRead: handleToggleRead,
+      onTogglePin: handleTogglePin,
+    }),
+    [handleSelectItem, requestDeleteItem, handleToggleRead, handleTogglePin],
+  );
+
   return (
     <VirtualScrollProvider
       scrollRef={scrollContainerRef}
@@ -566,9 +582,10 @@ export const ItemsList = ({
 
             <SearchBar
               ref={searchBarRef}
-              queryKey={["items", "search"]}
-              searchFn={searchItems}
-              localSearchFn={localSearchItems}
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              resultCount={searchResultCount}
+              isFetching={searchFetching}
               onCursorNav={navigateCursor}
               onCursorJump={jumpCursor}
               onCursorOpen={({ meta, shift }) => {
@@ -586,11 +603,6 @@ export const ItemsList = ({
                 }
                 handleOpenItem(id);
               }}
-              onResults={handleSearchResults}
-              onQueryChange={handleSearchQueryChange}
-              onPendingChange={handleSearchPendingChange}
-              onBackendPendingChange={handleSearchBackendPendingChange}
-              initialQuery={initialSearchQuery}
               placeholder="Search items"
             />
 
@@ -625,70 +637,48 @@ export const ItemsList = ({
                 {itemsError ? (
                   errorNode
                 ) : (
-                  <div
-                    onMouseMove={
-                      suppressHover ? () => setSuppressHover(false) : undefined
-                    }
+                  <ItemRowProvider
+                    actions={itemActions}
+                    suppressHover={suppressHover}
+                    typingTitles={typingTitles}
                   >
-                    {emptyNode}
+                    <div
+                      onMouseMove={
+                        suppressHover
+                          ? () => setSuppressHover(false)
+                          : undefined
+                      }
+                    >
+                      {emptyNode}
 
-                    <SuggestedSection
-                      items={suggestedItems}
-                      open={suggestedOpen}
-                      onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                      onHide={() => setSetting("showSuggestions", false)}
-                      onSelect={handleSelectItem}
-                      onDelete={requestDeleteItem}
-                      onToggleRead={handleToggleRead}
-                      onTogglePin={handleTogglePin}
-                    />
-
-                    <PinnedSection
-                      items={pinnedItems}
-                      open={pinnedOpen}
-                      onToggleOpen={() => setPinnedOpen((p) => !p)}
-                      typingTitles={typingTitles}
-                      suppressHover={suppressHover}
-                      density={density}
-                      onSelect={handleSelectItem}
-                      onDelete={requestDeleteItem}
-                      onToggleRead={handleToggleRead}
-                      onTogglePin={handleTogglePin}
-                    />
-
-                    {useGroupedLayout ? (
-                      <GroupedList
-                        groups={groups}
-                        items={items ?? []}
-                        typingTitles={typingTitles}
-                        suppressHover={suppressHover}
-                        density={density}
-                        onSelect={handleSelectItem}
-                        onDelete={requestDeleteItem}
-                        onToggleRead={handleToggleRead}
-                        onTogglePin={handleTogglePin}
+                      <SuggestedSection
+                        items={suggestedItems}
+                        open={suggestedOpen}
+                        onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                        onHide={() => setSetting("showSuggestions", false)}
                       />
-                    ) : (
-                      <>
-                        <VirtualItemList
-                          items={unpinnedItems}
-                          typingTitles={typingTitles}
-                          suppressHover={suppressHover}
-                          density={density}
-                          onSelect={handleSelectItem}
-                          onDelete={requestDeleteItem}
-                          onToggleRead={handleToggleRead}
-                          onTogglePin={handleTogglePin}
-                        />
-                        {/* Backend (trigram) pass still running: append loading rows
-                        under the instant keyword hits so the search reads as
-                        "more coming," not finished. */}
-                        {searchActive && searchBackendPending && (
-                          <ItemsSkeleton density={density} />
-                        )}
-                      </>
-                    )}
-                  </div>
+
+                      <PinnedSection
+                        items={pinnedItems}
+                        open={pinnedOpen}
+                        onToggleOpen={() => setPinnedOpen((p) => !p)}
+                      />
+
+                      {useGroupedLayout ? (
+                        <GroupedList groups={groups} items={items ?? []} />
+                      ) : (
+                        <>
+                          <VirtualItemList items={unpinnedItems} />
+                          {/* Backend (trigram) pass still running: append loading
+                          rows under the instant keyword hits so the search reads
+                          as "more coming," not finished. */}
+                          {searchActive && searchBackendPending && (
+                            <ItemsSkeleton density={density} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </ItemRowProvider>
                 )}
               </LoadingFade>
             </div>
