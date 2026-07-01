@@ -12,6 +12,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "db:push": "drizzle-kit push",
+    "db:setup": "bun db/setup.ts",
     "db:seed": "bun db/seed.ts",
     "db:prune-orphan-tags": "bun scripts/prune-orphan-tags.ts",
     "analyze": "bun scripts/analyze-complexity.ts && bun scripts/build-complexity-report.ts",
