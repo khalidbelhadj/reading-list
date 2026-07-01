@@ -285,7 +285,7 @@ const TaskListMarkdownShortcut = Extension.create({
       new InputRule({
         find: /^\s*\[([ xX]?)\]\s$/,
         handler: ({ range, match, chain }) => {
-          const checked = match[1].toLowerCase() === "x";
+          const checked = (match[1] ?? "").toLowerCase() === "x";
           chain()
             .deleteRange(range)
             .liftListItem("listItem")

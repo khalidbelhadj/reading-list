@@ -2,45 +2,55 @@ import React from "react";
 
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
+import { useSettings } from "@/lib/use-settings";
 
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
-import { type Density } from "./utils";
+import { resolveRowItem } from "./utils";
 import { ItemRowContent } from "./item-row-content";
 import { CozyRowContent } from "./cozy-row-content";
 import { useIsCursor, useIsOpenItem } from "./cursor-store";
+import { useItemActions, useItemRowState } from "./item-row-context";
 
-export const ItemRow = ({
-  item,
-  suppressHover,
-  isTyping,
-  density = "compact",
-  onTogglePin,
-  onToggleRead,
-  onSelect,
-  onDelete,
-}: {
-  item: Item;
-  suppressHover: boolean;
-  isTyping?: boolean;
-  density?: Density;
-  onTogglePin?: () => void;
-  onToggleRead?: () => void;
-  onSelect: () => void;
-  onDelete?: () => void;
-}) => {
+export const ItemRow = ({ item }: { item: Item }) => {
+  const density = useSettings().settings.density;
+  const { onSelect, onDelete, onToggleRead, onTogglePin } = useItemActions();
+  const { suppressHover, typingTitles } = useItemRowState();
+
   const isCursor = useIsCursor(item.id);
   const isOpen = useIsOpenItem(item.id);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
 
+  // Overlay the in-progress typewriter title (post-paste) onto the row for
+  // display, without touching the cached item.
+  const typingTitle = typingTitles[item.id];
+  const rowItem = resolveRowItem(item, typingTitle);
+  const isTyping = typingTitle !== undefined;
   const isRead = item.read;
+
+  const handleSelect = React.useCallback(
+    () => onSelect(item.id),
+    [onSelect, item.id],
+  );
+  const handleTogglePin = React.useCallback(
+    () => onTogglePin(item.id, !item.starred),
+    [onTogglePin, item.id, item.starred],
+  );
+  const handleToggleRead = React.useCallback(
+    () => onToggleRead(item.id, !item.read),
+    [onToggleRead, item.id, item.read],
+  );
+  const handleDelete = React.useCallback(
+    () => onDelete(item.id),
+    [onDelete, item.id],
+  );
 
   return (
     <ItemContextMenu
-      item={item}
-      onTogglePin={onTogglePin}
-      onToggleRead={onToggleRead}
-      onDelete={onDelete}
+      item={rowItem}
+      onTogglePin={handleTogglePin}
+      onToggleRead={handleToggleRead}
+      onDelete={handleDelete}
       onOpenChange={setContextMenuOpen}
     >
       <ItemContextMenuTrigger
@@ -62,34 +72,34 @@ export const ItemRow = ({
               isRead && "opacity-50",
             )}
             data-menu-open={menuOpen || contextMenuOpen || undefined}
-            onClick={onSelect}
+            onClick={handleSelect}
           />
         }
       >
         {density === "cozy" ? (
           <CozyRowContent
-            item={item}
+            item={rowItem}
             isSelected={isOpen}
             isTyping={isTyping}
             menuOpen={menuOpen}
             suppressHover={suppressHover}
             onMenuOpenChange={setMenuOpen}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onDelete={onDelete}
+            onTogglePin={handleTogglePin}
+            onToggleRead={handleToggleRead}
+            onDelete={handleDelete}
           />
         ) : (
           <ItemRowContent
-            item={item}
+            item={rowItem}
             flashcardCount={item.flashcardCount}
             isSelected={isOpen}
             isTyping={isTyping}
             menuOpen={menuOpen}
             suppressHover={suppressHover}
             onMenuOpenChange={setMenuOpen}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onDelete={onDelete}
+            onTogglePin={handleTogglePin}
+            onToggleRead={handleToggleRead}
+            onDelete={handleDelete}
           />
         )}
       </ItemContextMenuTrigger>

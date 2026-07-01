@@ -1,10 +1,8 @@
 import { IconSearch, IconX } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { isModKey } from "@/lib/input-context";
-import { useDebounced } from "@/lib/use-debounced";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -13,142 +11,42 @@ export type SearchBarHandle = {
   open: () => void;
 };
 
+/**
+ * Controlled presentational search input. The query text and all search results
+ * live in {@link useListSearch}; this component only renders the field, animates
+ * open/closed, manages focus + the dismiss layer, and delegates cursor keys
+ * (arrows / Ctrl+N/P / Enter / ⌘↑↓) to the list.
+ */
 export const SearchBar = React.forwardRef<
   SearchBarHandle,
   {
-    queryKey: readonly unknown[];
-    searchFn: (query: string) => Promise<Array<{ id: string }>>;
-    localSearchFn?: (query: string) => string[];
-    onResults: (ids: string[] | null) => void;
-    onQueryChange?: (query: string) => void;
-    onPendingChange?: (pending: boolean) => void;
-    onBackendPendingChange?: (pending: boolean) => void;
+    query: string;
+    onQueryChange: (query: string) => void;
+    resultCount: number | null;
+    isFetching: boolean;
     onCursorNav?: (direction: "next" | "prev") => void;
     onCursorJump?: (edge: "start" | "end") => void;
     onCursorOpen?: (modifier: { meta: boolean; shift: boolean }) => void;
-    initialQuery?: string;
     placeholder?: string;
   }
 >(
   (
     {
-      queryKey,
-      searchFn,
-      localSearchFn,
-      onResults,
+      query,
       onQueryChange,
-      onPendingChange,
-      onBackendPendingChange,
+      resultCount,
+      isFetching,
       onCursorNav,
       onCursorJump,
       onCursorOpen,
-      initialQuery = "",
       placeholder = "Search",
     },
     ref,
   ) => {
-    const [isOpen, setIsOpen] = React.useState(() => initialQuery.length > 0);
-    const [query, setQuery] = React.useState(initialQuery);
+    const [isOpen, setIsOpen] = React.useState(() => query.length > 0);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
     const containerRef = React.useRef<HTMLDivElement | null>(null);
-    const trimmedQuery = query.trim();
-    const debouncedQuery = useDebounced(trimmedQuery, 200);
-    const isRegex = /^\/.*\/$/.test(trimmedQuery);
-    const queryRef = React.useRef(trimmedQuery);
-    queryRef.current = trimmedQuery;
-
-    // Synchronous local pass — runs on every keystroke against already-cached
-    // data so the list narrows the instant the user types. Skipped for regex
-    // (server-only) and when no local search function is provided. Preserves
-    // insertion order so the parent can render local hits first.
-    const localOrder = React.useMemo(() => {
-      if (!localSearchFn || isRegex || trimmedQuery.length === 0) return null;
-      return localSearchFn(trimmedQuery);
-    }, [localSearchFn, isRegex, trimmedQuery]);
-    const localIdSet = React.useMemo(
-      () => (localOrder ? new Set(localOrder) : null),
-      [localOrder],
-    );
-
-    const { data, isFetching } = useQuery({
-      queryKey: [...queryKey, debouncedQuery],
-      queryFn: () => searchFn(debouncedQuery),
-      enabled: debouncedQuery.length > 0,
-      staleTime: Infinity,
-    });
-
-    // On cold mount with an initial query (e.g. user navigated back to ?q=foo),
-    // results aren't in yet — but if local search is enabled we already have a
-    // synchronous result set, so only signal pending when we have neither.
-    const [hasLoadedOnce, setHasLoadedOnce] = React.useState(
-      initialQuery.length === 0,
-    );
-    React.useEffect(() => {
-      if (data !== undefined && !hasLoadedOnce) setHasLoadedOnce(true);
-    }, [data, hasLoadedOnce]);
-    const initialPending =
-      !hasLoadedOnce && trimmedQuery.length > 0 && localOrder === null;
-    React.useEffect(() => {
-      onPendingChange?.(initialPending);
-    }, [initialPending, onPendingChange]);
-
-    // The backend (trigram) pass hasn't settled for the *current* input yet —
-    // either we're still inside the debounce window (debounced query lags the
-    // input) or its fetch is in flight (no data for that key). Drives the
-    // "more results loading" skeletons appended under the instant local hits. We
-    // gate on data being present rather than isFetching, so a background refetch
-    // (e.g. an item edit invalidating the query) doesn't re-flash the skeletons.
-    const backendPending =
-      trimmedQuery.length > 0 &&
-      !(debouncedQuery === trimmedQuery && data !== undefined);
-    React.useEffect(() => {
-      onBackendPendingChange?.(backendPending);
-    }, [backendPending, onBackendPendingChange]);
-
-    React.useEffect(() => {
-      if (trimmedQuery.length === 0) {
-        onResults(null);
-        return;
-      }
-      // Server data is fresh as long as its debounced query matches the current
-      // input and we have results. We intentionally do NOT gate on isFetching:
-      // when items are invalidated (e.g. after editing an item) the search query
-      // refetches in the background, and React Query keeps the prior data for the
-      // same key — so we keep showing it instead of flashing the unfiltered list.
-      const serverFresh = debouncedQuery === trimmedQuery && !!data;
-      const serverOrder = serverFresh && data ? data.map((r) => r.id) : null;
-
-      if (localOrder && serverOrder) {
-        const merged = [...localOrder];
-        const seen = localIdSet!;
-        for (const id of serverOrder) if (!seen.has(id)) merged.push(id);
-        onResults(merged);
-        return;
-      }
-      if (localOrder) {
-        onResults(localOrder);
-        return;
-      }
-      if (serverOrder) {
-        onResults(serverOrder);
-        return;
-      }
-      onResults(null);
-    }, [
-      localOrder,
-      localIdSet,
-      data,
-      debouncedQuery,
-      trimmedQuery,
-      isFetching,
-      onResults,
-    ]);
-
-    // Only sync the URL when the debounced query settles — typing should feel
-    // instant, not pay a history.replaceState cost on every keystroke.
-    React.useEffect(() => {
-      onQueryChange?.(debouncedQuery);
-    }, [debouncedQuery, onQueryChange]);
+    const isRegex = /^\/.*\/$/.test(query.trim());
 
     React.useImperativeHandle(
       ref,
@@ -163,19 +61,18 @@ export const SearchBar = React.forwardRef<
 
     // If we land mounted with an active query (e.g. user navigated back from an
     // item page while a search was in progress), put focus on the input so they
-    // can keep refining without an extra click.
+    // can keep refining without an extra click. Captured once at mount.
+    const openedWithQueryRef = React.useRef(query.length > 0);
     React.useEffect(() => {
-      if (initialQuery.length === 0) return;
-      requestAnimationFrame(() => inputRef.current?.focus());
-      // initialQuery is captured once at mount on the parent side, so this only
-      // fires on the initial mount.
-    }, [initialQuery]);
+      if (openedWithQueryRef.current) {
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+    }, []);
 
     const handleClose = React.useCallback(() => {
-      setQuery("");
-      onResults(null);
+      onQueryChange("");
       setIsOpen(false);
-    }, [onResults]);
+    }, [onQueryChange]);
 
     const handleKeyDown = React.useCallback(
       (e: React.KeyboardEvent) => {
@@ -275,19 +172,6 @@ export const SearchBar = React.forwardRef<
       }
     }, [isOpen]);
 
-    const resultCount = React.useMemo(() => {
-      if (trimmedQuery.length === 0) return null;
-      const serverFresh = debouncedQuery === trimmedQuery && !!data;
-      if (localIdSet && serverFresh && data) {
-        let extra = 0;
-        for (const r of data) if (!localIdSet.has(r.id)) extra++;
-        return localIdSet.size + extra;
-      }
-      if (localIdSet) return localIdSet.size;
-      if (serverFresh && data) return data.length;
-      return null;
-    }, [localIdSet, data, debouncedQuery, trimmedQuery]);
-
     return (
       <div
         ref={containerRef}
@@ -304,7 +188,7 @@ export const SearchBar = React.forwardRef<
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={placeholder}

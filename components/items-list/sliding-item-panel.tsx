@@ -933,9 +933,7 @@ const PanelInner = ({
               <DetailPanel
                 key={item.id}
                 item={item}
-                isNew={false}
                 onSave={handleSave}
-                onCreate={() => {}}
                 onDelete={() => setDeleteOpen(true)}
               />
             ) : null}

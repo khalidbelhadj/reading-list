@@ -186,7 +186,8 @@ const ReviewSessionInner = ({
 
   const initialIndex = React.useMemo(() => {
     for (let i = 0; i < cards.length; i++) {
-      if (!completedOnMount.has(cards[i].id)) return i;
+      const card = cards[i];
+      if (card !== undefined && !completedOnMount.has(card.id)) return i;
     }
     return cards.length;
   }, [cards, completedOnMount]);

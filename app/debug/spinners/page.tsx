@@ -334,6 +334,8 @@ const SpinnersPlayground = () => {
     setTimeout(() => setLoading(false), 2000);
   }, []);
 
+  if (!selected) return null;
+
   return (
     <div className="min-h-dvh px-5 py-10">
       <style dangerouslySetInnerHTML={{ __html: spinnerStyles }} />

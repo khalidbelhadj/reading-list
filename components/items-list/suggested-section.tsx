@@ -10,8 +10,8 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { CollapsibleSection } from "./collapsible-section";
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
+import { useItemActions } from "./item-row-context";
 import { ItemThumbnail } from "./item-thumbnail";
 
 type SuggestedSectionProps = {
@@ -19,10 +19,6 @@ type SuggestedSectionProps = {
   open: boolean;
   onToggleOpen: () => void;
   onHide: () => void;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleRead: (id: string, read: boolean) => void;
-  onTogglePin: (id: string, starred: boolean) => void;
 };
 
 /**
@@ -36,11 +32,8 @@ export const SuggestedSection = ({
   open,
   onToggleOpen,
   onHide,
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
 }: SuggestedSectionProps) => {
+  const { onSelect, onDelete, onToggleRead, onTogglePin } = useItemActions();
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   // Edge fades hint at off-screen cards: left fades in once scrolled away from
   // the start, right fades out as you reach the end.
@@ -94,7 +87,7 @@ export const SuggestedSection = ({
           </DropdownMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-      <CollapsibleSection open={open}>
+      {open && (
         <div className="relative">
           <div
             ref={scrollRef}
@@ -144,7 +137,7 @@ export const SuggestedSection = ({
             )}
           />
         </div>
-      </CollapsibleSection>
+      )}
     </div>
   );
 };

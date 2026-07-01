@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createItem, fetchPageTitle } from "@/app/actions/items";
 import { UnauthorizedError, getCurrentUserId } from "@/lib/auth";
+import { ActionError } from "@/lib/safe-action";
 import { withUser } from "@/db";
 import { items } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -39,9 +40,16 @@ export async function GET(request: NextRequest) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const message =
-      error instanceof Error ? error.message : "Could not look up item";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Surface deliberate, client-safe errors verbatim; genericize the rest so
+    // raw Postgres detail never reaches the extension (cf. safeAction).
+    if (error instanceof ActionError) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    console.error("[extension:GET /items]", error);
+    return NextResponse.json(
+      { error: "Could not look up item" },
+      { status: 500 },
+    );
   }
 }
 
@@ -99,8 +107,12 @@ export async function POST(request: NextRequest) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const message =
-      error instanceof Error ? error.message : "Could not save item";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Surface deliberate, client-safe errors verbatim; genericize the rest so
+    // raw Postgres detail never reaches the extension (cf. safeAction).
+    if (error instanceof ActionError) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    console.error("[extension:POST /items]", error);
+    return NextResponse.json({ error: "Could not save item" }, { status: 500 });
   }
 }

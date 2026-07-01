@@ -140,7 +140,10 @@ export const VirtualList = <T,>({
     estimateSize: () => estimateSize,
     overscan,
     scrollMargin,
-    getItemKey: (index) => getKey(items[index]),
+    getItemKey: (index) => {
+      const item = items[index];
+      return item ? getKey(item) : index;
+    },
   });
 
   React.useEffect(() => {
@@ -157,19 +160,23 @@ export const VirtualList = <T,>({
       className="relative w-full"
       style={{ height: virtualizer.getTotalSize() }}
     >
-      {virtualItems.map((virtualItem) => (
-        <div
-          key={virtualItem.key}
-          data-index={virtualItem.index}
-          className="absolute top-0 left-0 w-full pb-px"
-          style={{
-            height: virtualItem.size,
-            transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
-          }}
-        >
-          {children(items[virtualItem.index], virtualItem.index)}
-        </div>
-      ))}
+      {virtualItems.map((virtualItem) => {
+        const item = items[virtualItem.index];
+        if (!item) return null;
+        return (
+          <div
+            key={virtualItem.key}
+            data-index={virtualItem.index}
+            className="absolute top-0 left-0 w-full pb-px"
+            style={{
+              height: virtualItem.size,
+              transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
+            }}
+          >
+            {children(item, virtualItem.index)}
+          </div>
+        );
+      })}
     </div>
   );
 };

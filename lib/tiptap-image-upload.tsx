@@ -228,6 +228,7 @@ const insertPlaceholders = (
 
   files.forEach((file, i) => {
     const uploadId = uploadIds[i];
+    if (!uploadId) return;
     upload(file)
       .then((url) => {
         if (view.isDestroyed) {

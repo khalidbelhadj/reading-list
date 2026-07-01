@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import Link from "next/link";
 
 const pages = [
@@ -15,6 +16,9 @@ const pages = [
 ];
 
 const DebugIndexPage = () => {
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
       <div className="flex w-full max-w-md flex-col items-start gap-4">

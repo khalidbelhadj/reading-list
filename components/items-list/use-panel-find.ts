@@ -285,7 +285,8 @@ export const usePanelFind = ({
       all.length === 0 ? 0 : Math.min(currentIndexRef.current, all.length - 1);
     setCurrentIndex(nextIndex);
     applyHighlights(nextIndex);
-    if (all.length > 0) scrollMatchIntoView(all[nextIndex], root);
+    const nextMatch = all[nextIndex];
+    if (nextMatch) scrollMatchIntoView(nextMatch, root);
   }, [query, scrollRef, applyHighlights]);
 
   // Recompute when query changes or the bar opens. useLayoutEffect (rather
@@ -354,7 +355,8 @@ export const usePanelFind = ({
       setCurrentIndex(wrapped);
       applyHighlights(wrapped);
       const root = scrollRef.current;
-      if (root) scrollMatchIntoView(matches[wrapped], root);
+      const match = matches[wrapped];
+      if (root && match) scrollMatchIntoView(match, root);
     },
     [applyHighlights, scrollRef],
   );

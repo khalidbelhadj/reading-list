@@ -35,7 +35,7 @@ export const cardMarkdownPlugin = (md: MarkdownIt) => {
     "card",
     (state, startLine, endLine, silent) => {
       const lineAt = (index: number) => {
-        const pos = state.bMarks[index] + state.tShift[index];
+        const pos = (state.bMarks[index] ?? 0) + (state.tShift[index] ?? 0);
         return state.src.slice(pos, state.eMarks[index]);
       };
 
@@ -301,7 +301,9 @@ const exitCard = (
 
   let selectionPos: number;
   if (needsParagraph) {
-    tr.insert(insertPos, schema.nodes.paragraph.create());
+    const paragraphType = schema.nodes.paragraph;
+    if (!paragraphType) return false;
+    tr.insert(insertPos, paragraphType.create());
     selectionPos = insertPos + 1;
   } else if (direction === "forward") {
     selectionPos = insertPos + 1;
