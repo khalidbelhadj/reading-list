@@ -55,7 +55,7 @@ Single-page reading list app with an MCP server for AI integrations.
 
 - **Fetching:** React Query with `queryKey: ["items"]`. SSR prefetch via `HydrationBoundary` in `app/page.tsx`.
 - **Mutations:** Server actions (`app/actions.ts`) called via `useMutation` → `invalidateQueries(["items"])` on success.
-- **Cross-device sync:** DB triggers (`drizzle/0011_items_sync_broadcast.sql`) broadcast on the per-user Realtime topic `items-sync:<userId>`; `components/items-sync-watcher.tsx` (mounted in the root layout) invalidates the affected query caches. Items queries use the provider's default 30s `staleTime` + refetch-on-focus — do not set `staleTime: Infinity` on `["items"]`.
+- **Cross-device sync:** DB triggers (the `items_sync_notify` trigger in `db/setup.sql`) broadcast on the per-user Realtime topic `items-sync:<userId>`; `components/items-sync-watcher.tsx` (mounted in the root layout) invalidates the affected query caches. Items queries use the provider's default 30s `staleTime` + refetch-on-focus — do not set `staleTime: Infinity` on `["items"]`.
 - **No local state for items** — React Query is the cache. Component state only for UI (selection, editing, search).
 - **No undo/redo, no offline queue, no localStorage persistence.**
 
