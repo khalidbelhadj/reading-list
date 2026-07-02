@@ -1,6 +1,3 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-
 const pages = [
   { href: "/debug/code-block", title: "Code block language picker" },
   { href: "/debug/design-system", title: "Design system" },
@@ -16,9 +13,6 @@ const pages = [
 ];
 
 const DebugIndexPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
       <div className="flex w-full max-w-md flex-col items-start gap-4">
@@ -31,13 +25,13 @@ const DebugIndexPage = () => {
         <ul className="flex w-full flex-col gap-1">
           {pages.map(({ href, title }) => (
             <li key={href}>
-              <Link
+              <a
                 href={href}
                 className="flex items-baseline justify-between gap-4 py-1 text-sm text-muted-foreground hover:text-foreground"
               >
                 <span className="text-foreground">{title}</span>
                 <span className="font-mono text-xs">{href}</span>
-              </Link>
+              </a>
             </li>
           ))}
         </ul>

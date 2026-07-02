@@ -1,7 +1,3 @@
-"use client";
-
-import { notFound } from "next/navigation";
-
 import { SessionSummaryView } from "@/components/review/review-session";
 import type { SessionSummary } from "@/app/actions";
 
@@ -20,9 +16,6 @@ const STUB: SessionSummary = {
 };
 
 const ReviewSummaryPreview = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return (
     <SessionSummaryView
       sessionId="preview"

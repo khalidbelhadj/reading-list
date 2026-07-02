@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 
 import { isModKey } from "@/lib/input-context";

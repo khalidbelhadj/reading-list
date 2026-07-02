@@ -1,5 +1,3 @@
-"use client";
-
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
@@ -8,7 +6,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import React from "react";
 
 import { Button } from "@/components/ui/button";

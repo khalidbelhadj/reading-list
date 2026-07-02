@@ -1,7 +1,3 @@
-"use client";
-
-import { notFound } from "next/navigation";
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
@@ -193,9 +189,6 @@ const sizes = [
 ];
 
 const KbdDebugPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return (
     <div className="min-h-dvh px-5 py-10">
       <div className="mx-auto flex max-w-2xl flex-col gap-10">

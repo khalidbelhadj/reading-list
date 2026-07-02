@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 import {
   IconBookmark,
   IconBookmarkFilled,
@@ -392,9 +389,6 @@ const SpinnersPlayground = () => {
 };
 
 const SpinnersPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <SpinnersPlayground />;
 };
 
