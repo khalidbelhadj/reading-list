@@ -1,4 +1,4 @@
-import { getVersionInfo } from "@/lib/version";
+import type { VersionInfo } from "@/lib/version";
 
 import { CopyButton } from "./copy-button";
 
@@ -27,9 +27,9 @@ const Row = ({
 
 const empty = <span className="text-muted-foreground">—</span>;
 
-const VersionPage = () => {
-  const info = getVersionInfo();
-
+// Build/deploy info panel. `info` is resolved server-side by the /version
+// route's loader (the env vars it reads only exist on the server).
+const VersionPage = ({ info }: { info: VersionInfo }) => {
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
       <div className="flex w-full max-w-md flex-col items-start gap-4">
@@ -64,12 +64,12 @@ const VersionPage = () => {
 
         <div className="flex w-full items-center justify-between gap-4">
           <a
-            href="/debug/version.json"
+            href="/version.json"
             target="_blank"
             rel="noreferrer"
             className="font-mono text-xs text-muted-foreground hover:text-foreground"
           >
-            /debug/version.json
+            /version.json
           </a>
           <CopyButton value={JSON.stringify(info, null, 2)} />
         </div>

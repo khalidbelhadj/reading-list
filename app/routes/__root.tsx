@@ -14,8 +14,7 @@ import { DeepLinkItemWatcher } from "@/components/deep-link-item-watcher";
 import { DevBanner } from "@/components/dev-banner";
 import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
-import { PageEmptyState } from "@/components/items-list/page-empty-state";
-import { SecondaryPage } from "@/components/items-list/secondary-page";
+import { NotFound } from "@/components/not-found";
 import { RouteError } from "@/components/route-error";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -110,11 +109,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       }),
     shellComponent: RootDocument,
     component: RootComponent,
+    // Error/404 pages use the big fullPage NonIdealState layout (title,
+    // faint description, action buttons) — the same design the old Next
+    // error.tsx/not-found.tsx pages had.
     errorComponent: RouteError,
-    notFoundComponent: () => (
-      <SecondaryPage>
-        <PageEmptyState message="This page doesn't exist." />
-      </SecondaryPage>
-    ),
+    notFoundComponent: NotFound,
   },
 );

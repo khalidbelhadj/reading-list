@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VersionDotjsonRouteImport } from './routes/version[.]json'
+import { Route as VersionRouteImport } from './routes/version'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DevErrorRouteImport } from './routes/dev-error'
@@ -17,8 +19,6 @@ import { Route as ReviewIndexRouteImport } from './routes/review.index'
 import { Route as DebugIndexRouteImport } from './routes/debug.index'
 import { Route as ReviewSessionIdRouteImport } from './routes/review.$sessionId'
 import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
-import { Route as DebugVersionDotjsonRouteImport } from './routes/debug.version[.]json'
-import { Route as DebugVersionRouteImport } from './routes/debug.version'
 import { Route as DebugToastsRouteImport } from './routes/debug.toasts'
 import { Route as DebugSuggestedCardsRouteImport } from './routes/debug.suggested-cards'
 import { Route as DebugSpinnersRouteImport } from './routes/debug.spinners'
@@ -37,6 +37,16 @@ import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes
 import { Route as ApiStorageSplatRouteImport } from './routes/api.storage.$'
 import { Route as ApiExtensionItemsRouteImport } from './routes/api.extension.items'
 
+const VersionDotjsonRoute = VersionDotjsonRouteImport.update({
+  id: '/version.json',
+  path: '/version.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VersionRoute = VersionRouteImport.update({
+  id: '/version',
+  path: '/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -75,16 +85,6 @@ const ReviewSessionIdRoute = ReviewSessionIdRouteImport.update({
 const OauthConsentRoute = OauthConsentRouteImport.update({
   id: '/oauth/consent',
   path: '/oauth/consent',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugVersionDotjsonRoute = DebugVersionDotjsonRouteImport.update({
-  id: '/debug/version.json',
-  path: '/debug/version.json',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugVersionRoute = DebugVersionRouteImport.update({
-  id: '/debug/version',
-  path: '/debug/version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DebugToastsRoute = DebugToastsRouteImport.update({
@@ -182,6 +182,8 @@ export interface FileRoutesByFullPath {
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/version': typeof VersionRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -197,8 +199,6 @@ export interface FileRoutesByFullPath {
   '/debug/spinners': typeof DebugSpinnersRoute
   '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
   '/debug/toasts': typeof DebugToastsRoute
-  '/debug/version': typeof DebugVersionRoute
-  '/debug/version.json': typeof DebugVersionDotjsonRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/review/$sessionId': typeof ReviewSessionIdRoute
   '/debug/': typeof DebugIndexRoute
@@ -211,6 +211,8 @@ export interface FileRoutesByTo {
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/version': typeof VersionRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -226,8 +228,6 @@ export interface FileRoutesByTo {
   '/debug/spinners': typeof DebugSpinnersRoute
   '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
   '/debug/toasts': typeof DebugToastsRoute
-  '/debug/version': typeof DebugVersionRoute
-  '/debug/version.json': typeof DebugVersionDotjsonRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/review/$sessionId': typeof ReviewSessionIdRoute
   '/debug': typeof DebugIndexRoute
@@ -241,6 +241,8 @@ export interface FileRoutesById {
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/version': typeof VersionRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -256,8 +258,6 @@ export interface FileRoutesById {
   '/debug/spinners': typeof DebugSpinnersRoute
   '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
   '/debug/toasts': typeof DebugToastsRoute
-  '/debug/version': typeof DebugVersionRoute
-  '/debug/version.json': typeof DebugVersionDotjsonRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/review/$sessionId': typeof ReviewSessionIdRoute
   '/debug/': typeof DebugIndexRoute
@@ -272,6 +272,8 @@ export interface FileRouteTypes {
     | '/dev-error'
     | '/login'
     | '/settings'
+    | '/version'
+    | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/auth/callback'
@@ -287,8 +289,6 @@ export interface FileRouteTypes {
     | '/debug/spinners'
     | '/debug/suggested-cards'
     | '/debug/toasts'
-    | '/debug/version'
-    | '/debug/version.json'
     | '/oauth/consent'
     | '/review/$sessionId'
     | '/debug/'
@@ -301,6 +301,8 @@ export interface FileRouteTypes {
     | '/dev-error'
     | '/login'
     | '/settings'
+    | '/version'
+    | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/auth/callback'
@@ -316,8 +318,6 @@ export interface FileRouteTypes {
     | '/debug/spinners'
     | '/debug/suggested-cards'
     | '/debug/toasts'
-    | '/debug/version'
-    | '/debug/version.json'
     | '/oauth/consent'
     | '/review/$sessionId'
     | '/debug'
@@ -330,6 +330,8 @@ export interface FileRouteTypes {
     | '/dev-error'
     | '/login'
     | '/settings'
+    | '/version'
+    | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/auth/callback'
@@ -345,8 +347,6 @@ export interface FileRouteTypes {
     | '/debug/spinners'
     | '/debug/suggested-cards'
     | '/debug/toasts'
-    | '/debug/version'
-    | '/debug/version.json'
     | '/oauth/consent'
     | '/review/$sessionId'
     | '/debug/'
@@ -360,6 +360,8 @@ export interface RootRouteChildren {
   DevErrorRoute: typeof DevErrorRoute
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  VersionRoute: typeof VersionRoute
+  VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiMcpRoute: typeof ApiMcpRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -375,8 +377,6 @@ export interface RootRouteChildren {
   DebugSpinnersRoute: typeof DebugSpinnersRoute
   DebugSuggestedCardsRoute: typeof DebugSuggestedCardsRoute
   DebugToastsRoute: typeof DebugToastsRoute
-  DebugVersionRoute: typeof DebugVersionRoute
-  DebugVersionDotjsonRoute: typeof DebugVersionDotjsonRoute
   OauthConsentRoute: typeof OauthConsentRoute
   ReviewSessionIdRoute: typeof ReviewSessionIdRoute
   DebugIndexRoute: typeof DebugIndexRoute
@@ -387,6 +387,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/version.json': {
+      id: '/version.json'
+      path: '/version.json'
+      fullPath: '/version.json'
+      preLoaderRoute: typeof VersionDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/version': {
+      id: '/version'
+      path: '/version'
+      fullPath: '/version'
+      preLoaderRoute: typeof VersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -441,20 +455,6 @@ declare module '@tanstack/react-router' {
       path: '/oauth/consent'
       fullPath: '/oauth/consent'
       preLoaderRoute: typeof OauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/version.json': {
-      id: '/debug/version.json'
-      path: '/debug/version.json'
-      fullPath: '/debug/version.json'
-      preLoaderRoute: typeof DebugVersionDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/version': {
-      id: '/debug/version'
-      path: '/debug/version'
-      fullPath: '/debug/version'
-      preLoaderRoute: typeof DebugVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/debug/toasts': {
@@ -584,6 +584,8 @@ const rootRouteChildren: RootRouteChildren = {
   DevErrorRoute: DevErrorRoute,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  VersionRoute: VersionRoute,
+  VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
   ApiMcpRoute: ApiMcpRoute,
@@ -600,8 +602,6 @@ const rootRouteChildren: RootRouteChildren = {
   DebugSpinnersRoute: DebugSpinnersRoute,
   DebugSuggestedCardsRoute: DebugSuggestedCardsRoute,
   DebugToastsRoute: DebugToastsRoute,
-  DebugVersionRoute: DebugVersionRoute,
-  DebugVersionDotjsonRoute: DebugVersionDotjsonRoute,
   OauthConsentRoute: OauthConsentRoute,
   ReviewSessionIdRoute: ReviewSessionIdRoute,
   DebugIndexRoute: DebugIndexRoute,

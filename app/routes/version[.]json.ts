@@ -6,9 +6,9 @@ import { createFileRoute } from "@tanstack/react-router";
 // This endpoint is unauthenticated (the request middleware skips auth for
 // `.json` paths), so it must not leak internal detail. Omit `commit.message`
 // — it can contain internal notes, customer names, or "fix <sensitive>"
-// wording. The dev-only /debug/version page still shows the full info via
+// wording. The auth-gated /version page still shows the full info via
 // getVersionInfo().
-export const Route = createFileRoute("/debug/version.json")({
+export const Route = createFileRoute("/version.json")({
   server: {
     handlers: {
       GET: async () => {

@@ -37,7 +37,7 @@ const ROUTES: { href: string; title: string }[] = [
   { href: "/debug/spinners", title: "Debug - Spinners" },
   { href: "/debug/suggested-cards", title: "Debug - Suggested cards" },
   { href: "/debug/toasts", title: "Debug - Toasts" },
-  { href: "/debug/version", title: "Debug - Version & build info" },
+  { href: "/version", title: "Version & build info" },
 ];
 
 const COLLAPSED_KEY = "dev-banner-collapsed";
