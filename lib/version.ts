@@ -1,5 +1,3 @@
-import nextPkg from "next/package.json";
-
 import pkg from "@/package.json";
 
 // Fallback for local/dev where Vercel's git env vars are absent.
@@ -24,14 +22,13 @@ export type VersionInfo = {
   };
   runtime: {
     node: string;
-    next: string;
   };
 };
 
 // Build/deploy metadata for debugging and bug reports. On Vercel the
 // VERCEL_GIT_* / VERCEL_* values are injected as system env vars (readable at
-// runtime in server code); BUILD_TIME is stamped at build time in
-// next.config.ts. Everything is null when running outside a Vercel deploy.
+// runtime in server code); BUILD_TIME is stamped at build time via `define`
+// in vite.config.ts. Everything is null when running outside a Vercel deploy.
 export const getVersionInfo = (): VersionInfo => {
   const env = process.env;
   const sha = env.VERCEL_GIT_COMMIT_SHA ?? null;
@@ -59,7 +56,6 @@ export const getVersionInfo = (): VersionInfo => {
     },
     runtime: {
       node: process.version,
-      next: nextPkg.version,
     },
   };
 };

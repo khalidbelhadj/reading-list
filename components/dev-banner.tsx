@@ -1,12 +1,10 @@
-"use client";
-
 import {
   IconChevronRight,
   IconCornerDownLeft,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
-import { usePathname, useRouter } from "next/navigation";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +44,7 @@ const COLLAPSED_KEY = "dev-banner-collapsed";
 
 const DevBannerInner = () => {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const isElectron = useIsElectron();
 
   const [devtoolsEnabled, setDevtoolsEnabled] = useDevDevtools();
@@ -84,7 +82,9 @@ const DevBannerInner = () => {
 
   const navigate = useCallback(
     (href: string) => {
-      router.push(href);
+      // Arbitrary (possibly hand-typed) paths — go through the untyped
+      // history API rather than the typed router.navigate.
+      router.history.push(href);
       setOpen(false);
       setQuery("");
       inputRef.current?.blur();

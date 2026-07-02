@@ -2,8 +2,8 @@
 /**
  * One-command Electron dev launcher with automatic port selection.
  *
- * Runs `next dev` (which auto-picks the first free port when 3000 is taken),
- * reads the port Next *actually* bound from its stdout, waits for the server to
+ * Runs `vite dev` (which auto-picks the next free port when 3000 is taken),
+ * reads the port Vite *actually* bound from its stdout, waits for the server to
  * answer, then starts Electron pointed at that exact URL via ELECTRON_DEV_URL.
  *
  * Because electron/main.ts keys its userData dir + single-instance lock off the
@@ -15,11 +15,11 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-// Strip ANSI color codes (ESC [ ... m) before matching Next's URL line.
+// Strip ANSI color codes (ESC [ ... m) before matching Vite's URL line.
 const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
 
 // Walk up from cwd to the nearest node_modules/.bin and prepend it to PATH, so
-// `next` resolves whether invoked via `bun run electron:dev` or directly — and
+// `vite` resolves whether invoked via `bun run electron:dev` or directly — and
 // in git worktrees, where node_modules lives in the main checkout's root rather
 // than the worktree.
 const findBinDir = () => {
@@ -41,12 +41,13 @@ const env = {
     : (process.env.PATH ?? ""),
 };
 
-// PORT pins a port (Next errors if it's taken); unset lets Next auto-select.
+// PORT pins a port (--strictPort makes Vite error if it's taken); unset lets
+// Vite auto-select starting from the config default (3000).
 const requestedPort = process.env.PORT;
-const nextArgs = ["dev", "--turbopack"];
-if (requestedPort) nextArgs.push("-p", requestedPort);
+const viteArgs = ["dev"];
+if (requestedPort) viteArgs.push("--port", requestedPort, "--strictPort");
 
-const next = spawn("next", nextArgs, {
+const devServer = spawn("vite", viteArgs, {
   stdio: ["inherit", "pipe", "inherit"],
   env,
 });
@@ -58,14 +59,14 @@ let detected = false;
 const shutdown = (code: number) => {
   if (shuttingDown) return;
   shuttingDown = true;
-  next.kill("SIGTERM");
+  devServer.kill("SIGTERM");
   electron?.kill("SIGTERM");
   process.exit(code);
 };
 
 const waitForServer = async (url: string) => {
   // Mirror the old `wait-on` step: hold the window until the dev server answers,
-  // otherwise Electron's first paint races the initial Turbopack compile.
+  // otherwise Electron's first paint races the initial compile.
   for (let attempt = 0; attempt < 600; attempt++) {
     try {
       await fetch(url, { method: "HEAD" });
@@ -88,8 +89,8 @@ const launchElectron = async (port: string) => {
   electron.on("exit", () => shutdown(0));
 };
 
-next.stdout?.on("data", (chunk: Buffer) => {
-  process.stdout.write(chunk); // keep Next's colored logs intact
+devServer.stdout?.on("data", (chunk: Buffer) => {
+  process.stdout.write(chunk); // keep Vite's colored logs intact
   if (detected) return;
   const match = stripAnsi(chunk.toString()).match(/localhost:(\d+)/);
   const port = match?.[1];
@@ -98,6 +99,6 @@ next.stdout?.on("data", (chunk: Buffer) => {
   void launchElectron(port);
 });
 
-next.on("exit", (code) => shutdown(code ?? 0));
+devServer.on("exit", (code) => shutdown(code ?? 0));
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));

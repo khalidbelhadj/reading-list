@@ -1,8 +1,5 @@
-"use client";
-
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -189,9 +186,6 @@ const ReviewButtonShell = ({ children }: { children: React.ReactNode }) => {
 };
 
 const Page = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   // null = "loading", number = "ready"
   const [value, setValue] = React.useState<number | null>(null);
   const [slow, setSlow] = React.useState(true);

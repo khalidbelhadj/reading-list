@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import {
   useEditor,
@@ -94,7 +92,6 @@ const ImageLightbox = ({
         >
           {src && (
             // next/image needs known dimensions; previewed images are user-pasted with arbitrary sizes.
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={alt}
