@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
     if (process.env[key] === undefined) process.env[key] = value;
   }
 
+  // pdfjs (legacy build) and @napi-rs/canvas ship native or platform-specific
+  // bits (.node binaries) that bundling garbles — keep them external and out
+  // of the dependency optimizer in every environment (the Next config did the
+  // same via serverExternalPackages).
+  const nativeServerPackages = ["@napi-rs/canvas", "pdfjs-dist"];
+
   return {
     // Default to 3000 (CORS allowlist, extension, Electron all assume it);
     // honor PORT so tools (preview harness, electron-dev) can pin one.
@@ -24,11 +30,15 @@ export default defineConfig(({ mode }) => {
       viteReact(),
       tailwindcss(),
     ],
+    optimizeDeps: { exclude: nativeServerPackages },
     ssr: {
-      // pdfjs (legacy build) and @napi-rs/canvas ship native or
-      // platform-specific bits that bundling garbles — keep them external
-      // (the Next config did the same via serverExternalPackages).
-      external: ["@napi-rs/canvas", "pdfjs-dist"],
+      external: nativeServerPackages,
+      optimizeDeps: { exclude: nativeServerPackages },
+    },
+    environments: {
+      server: {
+        optimizeDeps: { exclude: nativeServerPackages },
+      },
     },
     define: {
       // Client code reads these exact expressions; inline them at build time.
