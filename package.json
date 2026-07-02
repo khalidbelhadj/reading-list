@@ -10,7 +10,7 @@
     "dev": "vite dev",
     "dev:nobanner": "NEXT_PUBLIC_DEV_BANNER=off vite dev",
     "build": "vite build",
-    "start": "bun scripts/serve.ts",
+    "start": "node --env-file-if-exists=.env.local .output/server/index.mjs",
     "db:push": "drizzle-kit push",
     "db:setup": "bun db/setup.ts",
     "db:seed": "bun db/seed.ts",
@@ -76,6 +76,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",
+    "@tanstack/nitro-v2-vite-plugin": "^1.155.0",
     "@tanstack/react-query-devtools": "^5.101.0",
     "@types/bun": "^1.3.14",
     "@types/canvas-confetti": "^1.9.0",

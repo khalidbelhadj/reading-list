@@ -10,7 +10,7 @@ All commands use `bun` (not npm/npx):
 - `bun run check` — **Run this before declaring any code change done.** Runs `tsc --noEmit` followed by `eslint . --max-warnings 0`. Both must pass with zero errors *and* zero warnings. Warnings are not optional — fix them or `_`-prefix the identifier; do not ignore output.
 - `bun run typecheck` / `bun run lint` — Individual halves of `check`, if you need to isolate a failure.
 - `bun run build` — Production build via `vite build` (avoid unless explicitly asked — use `bun run check` instead)
-- `bun run start` — Serve the production build locally (`scripts/serve.ts`, requires `bun run build` first)
+- `bun run start` — Serve the production build locally (nitro's node server in `.output/`, requires `bun run build` first)
 - `bun run db:push` — Push Drizzle schema to database
 - `bun run db:seed` — Seed database with sample data
 - `bun x drizzle-kit generate` — Generate Drizzle migrations

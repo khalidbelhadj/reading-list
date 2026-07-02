@@ -1,4 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
+import { nitroV2Plugin } from "@tanstack/nitro-v2-vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
@@ -27,6 +28,19 @@ export default defineConfig(({ mode }) => {
     plugins: [
       tsconfigPaths(),
       tanstackStart({ srcDirectory: "app" }),
+      // Deployment adapter: wraps the server build with nitro, which
+      // auto-detects the platform — on Vercel it emits the Build Output API
+      // layout (one serverless function + static assets); locally it emits a
+      // runnable node server in .output/. Without this, `vite build` produces
+      // a bare fetch handler Vercel doesn't know how to host (404s).
+      nitroV2Plugin({
+        // Keep native/platform-specific packages out of the server bundle;
+        // nitro traces and copies them into the output's node_modules.
+        externals: { external: nativeServerPackages },
+        // Pin the serverless function next to the Supabase DB (AWS eu-west-1)
+        // — replaces the old Next.js `preferredRegion = "dub1"` export.
+        vercel: { functions: { regions: ["dub1"] } },
+      }),
       viteReact(),
       tailwindcss(),
     ],
