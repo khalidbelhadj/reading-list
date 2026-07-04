@@ -1,7 +1,7 @@
 // Per-user Realtime topic that database triggers broadcast on whenever
 // reading-list data changes — regardless of entry point (web UI server
 // actions, the MCP server, manual SQL). The sending side lives in
-// drizzle/0011_items_sync_broadcast.sql; the receiving side is
+// db/setup.sql (the items_sync_notify trigger); the receiving side is
 // components/items-sync-watcher.tsx.
 export const itemsSyncChannelName = (userId: string) => `items-sync:${userId}`;
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { SessionSummaryView } from "@/components/review/review-session";
 import type { SessionSummary } from "@/app/actions";
 

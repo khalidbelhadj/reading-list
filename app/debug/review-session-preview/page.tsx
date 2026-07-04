@@ -1,7 +1,3 @@
-"use client";
-
-import { notFound } from "next/navigation";
-
 import { ReviewSession } from "@/components/review/review-session";
 import type { ReviewSessionCard, ReviewSessionData } from "@/app/actions";
 
@@ -87,9 +83,6 @@ const STUB: ReviewSessionData = {
 };
 
 const ReviewSessionPreview = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <ReviewSession sessionId="preview" previewData={STUB} />;
 };
 

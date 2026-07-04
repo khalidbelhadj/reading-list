@@ -32,7 +32,7 @@ export const getYouTubeVideoId = (raw: string): string | null => {
     const path = url.pathname.replace(/\/+$/, "");
     if (host === "youtu.be") {
       const id = path.slice(1).split("/")[0];
-      return /^[\w-]{11}$/.test(id) ? id : null;
+      return id && /^[\w-]{11}$/.test(id) ? id : null;
     }
     if (host === "youtube.com" || host === "m.youtube.com") {
       if (path === "/watch") {
@@ -40,9 +40,9 @@ export const getYouTubeVideoId = (raw: string): string | null => {
         return id && /^[\w-]{11}$/.test(id) ? id : null;
       }
       const shortsMatch = path.match(/^\/shorts\/([\w-]{11})/);
-      if (shortsMatch) return shortsMatch[1];
+      if (shortsMatch?.[1]) return shortsMatch[1];
       const embedMatch = path.match(/^\/embed\/([\w-]{11})/);
-      if (embedMatch) return embedMatch[1];
+      if (embedMatch?.[1]) return embedMatch[1];
     }
     return null;
   } catch {

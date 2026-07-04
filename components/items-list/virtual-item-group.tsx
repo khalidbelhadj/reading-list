@@ -6,7 +6,6 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { VirtualItemList } from "./virtual-item-list";
-import { type Density } from "./utils";
 
 type VirtualItemGroupProps = {
   items: Item[];
@@ -19,14 +18,7 @@ type VirtualItemGroupProps = {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  density?: Density;
-  suppressHover?: boolean;
-  typingTitles?: Record<string, string>;
   scrollElementRef?: React.RefObject<HTMLElement | null>;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleRead: (id: string, read: boolean) => void;
-  onTogglePin: (id: string, starred: boolean) => void;
 };
 
 /**
@@ -47,14 +39,7 @@ export const VirtualItemGroup = ({
   open: openProp,
   defaultOpen = true,
   onOpenChange,
-  density = "compact",
-  suppressHover = false,
-  typingTitles = {},
   scrollElementRef,
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
 }: VirtualItemGroupProps) => {
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   const isControlled = openProp !== undefined;
@@ -86,17 +71,7 @@ export const VirtualItemGroup = ({
         </Button>
       )}
       {open && (
-        <VirtualItemList
-          items={items}
-          typingTitles={typingTitles}
-          suppressHover={suppressHover}
-          density={density}
-          scrollElementRef={scrollElementRef}
-          onSelect={onSelect}
-          onDelete={onDelete}
-          onToggleRead={onToggleRead}
-          onTogglePin={onTogglePin}
-        />
+        <VirtualItemList items={items} scrollElementRef={scrollElementRef} />
       )}
     </div>
   );

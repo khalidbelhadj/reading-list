@@ -1,5 +1,4 @@
-"use server";
-
+// Server-only implementations — see ./index.ts for the RPC layer.
 import { withUser } from "@/db";
 import { items, flashcards, reviewSessions, cardReviews } from "@/db/schema";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
@@ -155,7 +154,11 @@ export const getAllCardsForCram = safeAction(
 const shuffle = <T>(array: T[]): T[] => {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    const a = array[i];
+    const b = array[j];
+    if (a === undefined || b === undefined) continue;
+    array[i] = b;
+    array[j] = a;
   }
   return array;
 };
@@ -166,11 +169,17 @@ const shuffleWithSiblingSpacing = <T extends { itemId: string | null }>(
   shuffle(cards);
 
   for (let i = 1; i < cards.length; i++) {
-    if (cards[i].itemId !== null && cards[i].itemId === cards[i - 1].itemId) {
+    const current = cards[i];
+    const previous = cards[i - 1];
+    if (current === undefined || previous === undefined) continue;
+    if (current.itemId !== null && current.itemId === previous.itemId) {
       let swapped = false;
       for (let j = i + 1; j < cards.length; j++) {
-        if (cards[j].itemId !== cards[i].itemId) {
-          [cards[i], cards[j]] = [cards[j], cards[i]];
+        const candidate = cards[j];
+        if (candidate === undefined) continue;
+        if (candidate.itemId !== current.itemId) {
+          cards[i] = candidate;
+          cards[j] = current;
           swapped = true;
           break;
         }

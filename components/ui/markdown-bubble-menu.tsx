@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { createPortal } from "react-dom";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -499,9 +497,14 @@ export const MarkdownLinkMenu = ({ editor }: { editor: Editor }) => {
         close();
         return;
       }
+      const linkMark = editor.schema.marks.link;
+      if (!linkMark) {
+        close();
+        return;
+      }
       const range = getMarkRange(
         editor.state.doc.resolve(editor.state.selection.from),
-        editor.schema.marks.link,
+        linkMark,
       );
       if (!range) {
         close();
@@ -580,12 +583,10 @@ export const MarkdownLinkMenu = ({ editor }: { editor: Editor }) => {
       .chain()
       .focus()
       .command(({ tr, state }) => {
+        const linkMark = state.schema.marks.link;
+        if (!linkMark) return false;
         tr.insertText(text, from, to);
-        tr.addMark(
-          from,
-          from + text.length,
-          state.schema.marks.link.create({ href }),
-        );
+        tr.addMark(from, from + text.length, linkMark.create({ href }));
         return true;
       })
       .setTextSelection(from + text.length)

@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
@@ -41,9 +38,6 @@ const CodeBlockPlayground = () => {
 };
 
 const CodeBlockPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <CodeBlockPlayground />;
 };
 

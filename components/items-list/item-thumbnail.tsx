@@ -1,6 +1,6 @@
 import { IconFileFilled } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import React from "react";
 
 import { generateItemPreview } from "@/app/actions";

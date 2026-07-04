@@ -4,7 +4,8 @@ import { ActionError } from "@/lib/safe-action";
 export const parseInput = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new ActionError(result.error.issues[0].message);
+    const firstIssue = result.error.issues[0];
+    throw new ActionError(firstIssue?.message ?? "Invalid input");
   }
   return result.data;
 };

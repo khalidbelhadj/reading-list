@@ -105,7 +105,7 @@ const groupOf = (rel: string): string => {
   if (parts[0] === "app" && parts[1] === "debug") return "app/debug";
   if (parts[0] === "app" && parts[1] === "review") return "app/review";
   if (parts[0] === "app") return "app";
-  return parts[0];
+  return parts[0] ?? rel;
 };
 
 /** Resolve an import specifier to a repo-relative file path, or null if external. */
@@ -289,7 +289,7 @@ const analyzeFile = (absPath: string): FileMetrics => {
         externalImports.add(
           spec.startsWith("@")
             ? spec.split("/").slice(0, 2).join("/")
-            : spec.split("/")[0],
+            : (spec.split("/")[0] ?? spec),
         );
     }
 

@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const pages = [
   { href: "/debug/code-block", title: "Code block language picker" },
   { href: "/debug/design-system", title: "Design system" },
@@ -11,7 +9,7 @@ const pages = [
   { href: "/debug/spinners", title: "Spinners" },
   { href: "/debug/suggested-cards", title: "Suggested cards" },
   { href: "/debug/toasts", title: "Toasts" },
-  { href: "/debug/version", title: "Version & build info" },
+  { href: "/version", title: "Version & build info" },
 ];
 
 const DebugIndexPage = () => {
@@ -27,13 +25,13 @@ const DebugIndexPage = () => {
         <ul className="flex w-full flex-col gap-1">
           {pages.map(({ href, title }) => (
             <li key={href}>
-              <Link
+              <a
                 href={href}
                 className="flex items-baseline justify-between gap-4 py-1 text-sm text-muted-foreground hover:text-foreground"
               >
                 <span className="text-foreground">{title}</span>
                 <span className="font-mono text-xs">{href}</span>
-              </Link>
+              </a>
             </li>
           ))}
         </ul>

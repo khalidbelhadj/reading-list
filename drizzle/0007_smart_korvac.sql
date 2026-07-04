@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS "items_lists";
-DROP TABLE IF EXISTS "lists";

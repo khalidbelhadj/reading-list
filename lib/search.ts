@@ -56,7 +56,9 @@ export type SearchResult = {
 
 const parseMode = (query: string): { mode: SearchMode; pattern: string } => {
   const regexMatch = query.match(/^\/(.+)\/$/);
-  if (regexMatch) return { mode: "regex", pattern: regexMatch[1] };
+  if (regexMatch && regexMatch[1] !== undefined) {
+    return { mode: "regex", pattern: regexMatch[1] };
+  }
   return { mode: "fuzzy", pattern: query };
 };
 

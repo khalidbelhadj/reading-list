@@ -1,7 +1,5 @@
-"use client";
-
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
 import {
@@ -15,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 // a "Log out everywhere" on another device evicts this one in near-real-time
 // instead of waiting for the next token refresh to fail.
 export const AuthWatcher = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
@@ -26,7 +24,7 @@ export const AuthWatcher = () => {
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         queryClient.clear();
-        router.replace("/login");
+        navigate({ to: "/login", replace: true });
       }
     });
 
@@ -51,7 +49,7 @@ export const AuthWatcher = () => {
       subscription.unsubscribe();
       if (channel) supabase.removeChannel(channel);
     };
-  }, [queryClient, router]);
+  }, [queryClient, navigate]);
 
   return null;
 };
