@@ -197,14 +197,16 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
     },
   ];
 
+  const textAction: BlockAction = {
+    key: "paragraph",
+    label: "Text",
+    Icon: IconPilcrow,
+    active: editorState.paragraph,
+    run: () => editor.chain().focus().setParagraph().run(),
+  };
+
   const blockActions: BlockAction[] = [
-    {
-      key: "paragraph",
-      label: "Text",
-      Icon: IconPilcrow,
-      active: editorState.paragraph,
-      run: () => editor.chain().focus().setParagraph().run(),
-    },
+    textAction,
     {
       key: "heading1",
       label: "Heading 1",
@@ -267,7 +269,7 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
   // as the fallback when nothing more specific matches.
   const activeBlock =
     blockActions.find((block) => block.key !== "paragraph" && block.active) ??
-    blockActions[0];
+    textAction;
 
   const openLinkEditor = React.useCallback(() => {
     setLinkValue(editorState.href);
