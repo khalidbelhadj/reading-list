@@ -25,6 +25,7 @@ import { isModKey } from "@/lib/input-context";
 import { requestImageUpload } from "@/app/actions-storage";
 import { ImageUpload } from "@/lib/tiptap-image-upload";
 import { Card, CardFront, CardBack } from "@/components/ui/markdown-card";
+import { InlineMath, BlockMath } from "@/components/ui/markdown-math";
 import {
   MarkdownBubbleMenu,
   MarkdownLinkMenu,
@@ -387,6 +388,8 @@ export const MarkdownEditor = ({
       Card,
       CardFront,
       CardBack,
+      InlineMath,
+      BlockMath,
       ImageUpload.configure({
         upload: async (file) => {
           // Two-step direct upload: ask the server for a signed URL, then PUT
