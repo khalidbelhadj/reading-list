@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import katex from "katex";

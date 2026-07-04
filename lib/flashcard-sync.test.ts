@@ -37,18 +37,21 @@ describe("parseCardsFromNotes", () => {
     const [c] = parseCardsFromNotes(
       card("multi001", "line one\nline two", "- a\n- b"),
     );
+    if (!c) throw new Error("expected a parsed card");
     expect(c.front).toBe("line one\nline two");
     expect(c.back).toBe("- a\n- b");
   });
 
   it("treats an empty card (blank-line sentinel) as empty strings", () => {
     const [c] = parseCardsFromNotes(card("empt0001", "&nbsp;", "&nbsp;"));
+    if (!c) throw new Error("expected a parsed card");
     expect(c.front).toBe("");
     expect(c.back).toBe("");
   });
 
   it("returns id null when the <card> tag has no id attribute", () => {
     const [c] = parseCardsFromNotes(card(null, "q", "a"));
+    if (!c) throw new Error("expected a parsed card");
     expect(c.id).toBeNull();
   });
 
@@ -62,6 +65,7 @@ describe("parseCardsFromNotes", () => {
     const [c] = parseCardsFromNotes(
       '<card id="nf000001">\n<front>\nq\n</front>\n</card>',
     );
+    if (!c) throw new Error("expected a parsed card");
     expect(c.front).toBe("q");
     expect(c.back).toBe("");
   });
@@ -75,14 +79,17 @@ describe("parseCardsFromNotes", () => {
       );
       const result = parseCardsFromNotes(notes);
       expect(result).toHaveLength(1);
-      expect(result[0].front).toBe('```\nparse("</card>")\n```');
-      expect(result[0].back).toBe("the answer");
+      const [c] = result;
+      if (!c) throw new Error("expected a parsed card");
+      expect(c.front).toBe('```\nparse("</card>")\n```');
+      expect(c.back).toBe("the answer");
     });
 
     it("does not break on </card> in inline code", () => {
       const [c] = parseCardsFromNotes(
         card("inl00001", "`</card>` closes it", "yes"),
       );
+      if (!c) throw new Error("expected a parsed card");
       expect(c.front).toBe("`</card>` closes it");
       expect(c.back).toBe("yes");
     });
@@ -91,6 +98,7 @@ describe("parseCardsFromNotes", () => {
       const [c] = parseCardsFromNotes(
         card("mid00001", "`</front>` ends front", "ok"),
       );
+      if (!c) throw new Error("expected a parsed card");
       expect(c.front).toBe("`</front>` ends front");
     });
 
@@ -98,6 +106,7 @@ describe("parseCardsFromNotes", () => {
       const [c] = parseCardsFromNotes(
         card("fen00001", "```\n</front>\n```", "back text"),
       );
+      if (!c) throw new Error("expected a parsed card");
       expect(c.front).toBe("```\n</front>\n```");
       expect(c.back).toBe("back text");
     });
@@ -124,6 +133,7 @@ describe("normalizeCardIds", () => {
     const { notes: out, changed } = normalizeCardIds(card(null, "q", "a"));
     expect(changed).toBe(true);
     const [c] = parseCardsFromNotes(out);
+    if (!c) throw new Error("expected a parsed card");
     expect(typeof c.id).toBe("string");
     expect(c.id).toHaveLength(8);
   });
@@ -256,15 +266,17 @@ describe("syncFlashcardsFromNotes", () => {
     );
 
     expect(rec.inserted).toHaveLength(1);
-    expect(rec.inserted[0]).toMatchObject({
+    const insertedRow = rec.inserted[0];
+    if (!insertedRow) throw new Error("expected an inserted row");
+    expect(insertedRow).toMatchObject({
       id: "stable01",
       userId: "user-1",
       itemId: "item-1",
       front: "Q",
       back: "A",
     });
-    expect(typeof rec.inserted[0].createdAt).toBe("string");
-    expect(typeof rec.inserted[0].updatedAt).toBe("string");
+    expect(typeof insertedRow.createdAt).toBe("string");
+    expect(typeof insertedRow.updatedAt).toBe("string");
     expect(result.diff.toInsert).toHaveLength(1);
   });
 

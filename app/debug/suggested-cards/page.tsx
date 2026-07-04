@@ -1,8 +1,5 @@
-"use client";
-
 import React from "react";
-import Image from "next/image";
-import { notFound } from "next/navigation";
+import Image from "@/components/ui/image";
 import { IconFileFilled, IconSparkles } from "@tabler/icons-react";
 
 import { Switch } from "@/components/ui/switch";
@@ -387,9 +384,6 @@ const SuggestedCardsPlayground = () => {
 };
 
 const SuggestedCardsPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <SuggestedCardsPlayground />;
 };
 

@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 import {
   IconAlertCircle,
   IconAlertTriangle,
@@ -614,9 +611,6 @@ const EmptyStatesPlayground = () => {
 };
 
 const EmptyStatesPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <EmptyStatesPlayground />;
 };
 

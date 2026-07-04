@@ -60,7 +60,9 @@ export const extractSideRaw = (
   let start = -1;
   let fence = false;
   for (let i = 0; i < body.length; i++) {
-    const trimmed = body[i].trim();
+    const line = body[i];
+    if (line === undefined) break;
+    const trimmed = line.trim();
     if (FENCE.test(trimmed)) {
       fence = !fence;
       continue;
@@ -75,7 +77,9 @@ export const extractSideRaw = (
   let end = -1;
   fence = false;
   for (let i = start + 1; i < body.length; i++) {
-    const trimmed = body[i].trim();
+    const line = body[i];
+    if (line === undefined) break;
+    const trimmed = line.trim();
     if (FENCE.test(trimmed)) {
       fence = !fence;
       continue;
@@ -98,7 +102,9 @@ export const parseCardsFromNotes = (notes: string): ParsedCard[] => {
   let i = 0;
   let insideFence = false;
   while (i < lines.length) {
-    const trimmed = lines[i].trim();
+    const line = lines[i];
+    if (line === undefined) break;
+    const trimmed = line.trim();
 
     if (FENCE.test(trimmed)) {
       insideFence = !insideFence;
@@ -123,11 +129,11 @@ export const parseCardsFromNotes = (notes: string): ParsedCard[] => {
       continue;
     }
 
-    const idMatch = openMatch[1].match(ID_ATTR);
+    const idMatch = (openMatch[1] ?? "").match(ID_ATTR);
     const body = lines.slice(i + 1, close);
     const clean = (raw: string) => stripBlankLineSentinel(raw).trim();
     cards.push({
-      id: idMatch ? idMatch[1] : null,
+      id: idMatch ? (idMatch[1] ?? null) : null,
       front: clean(extractSideRaw(body, "front")),
       back: clean(extractSideRaw(body, "back")),
     });
@@ -151,7 +157,9 @@ export const normalizeCardIds = (
   let insideFence = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const line = lines[i];
+    if (line === undefined) break;
+    const trimmed = line.trim();
     if (FENCE.test(trimmed)) {
       insideFence = !insideFence;
       continue;
@@ -161,14 +169,14 @@ export const normalizeCardIds = (
     const openMatch = trimmed.match(CARD_OPEN);
     if (!openMatch) continue;
 
-    const idMatch = openMatch[1].match(ID_ATTR);
-    const currentId = idMatch ? idMatch[1] : null;
+    const idMatch = (openMatch[1] ?? "").match(ID_ATTR);
+    const currentId = idMatch ? (idMatch[1] ?? null) : null;
     const needsNew = currentId === null || seen.has(currentId);
     const finalId = needsNew ? newCardId() : currentId;
     seen.add(finalId);
 
     if (needsNew) {
-      lines[i] = lines[i].replace(/<card\b[^>]*>/i, `<card id="${finalId}">`);
+      lines[i] = line.replace(/<card\b[^>]*>/i, `<card id="${finalId}">`);
       changed = true;
     }
   }

@@ -1,5 +1,3 @@
-"use client";
-
 import { InputRule } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -111,7 +109,8 @@ const blockMathRule = (md: MarkdownIt) => {
     "paragraph",
     "blockMath",
     (state, startLine, endLine, silent) => {
-      const open = state.bMarks[startLine] + state.tShift[startLine];
+      const open =
+        (state.bMarks[startLine] ?? 0) + (state.tShift[startLine] ?? 0);
       const openText = state.src.slice(open, state.eMarks[startLine]);
       if (!openText.startsWith("$$")) return false;
 
@@ -144,7 +143,8 @@ const blockMathRule = (md: MarkdownIt) => {
       let closed = false;
       while (nextLine + 1 < endLine) {
         nextLine += 1;
-        const lineStart = state.bMarks[nextLine] + state.tShift[nextLine];
+        const lineStart =
+          (state.bMarks[nextLine] ?? 0) + (state.tShift[nextLine] ?? 0);
         const lineText = state.src
           .slice(lineStart, state.eMarks[nextLine])
           .trimEnd();
@@ -218,7 +218,7 @@ export const InlineMath = BaseInlineMath.configure({ katexOptions }).extend({
         // hugging the delimiters — same currency-vs-math rule as the parser.
         find: /(?<!\$)\$([^\s$](?:[^$\n]*[^\s$])?)\$$/,
         handler: ({ state, range, match }) => {
-          const latex = match[1].trim();
+          const latex = (match[1] ?? "").trim();
           if (latex === "") return null;
           state.tr.replaceWith(range.from, range.to, type.create({ latex }));
         },
@@ -277,7 +277,7 @@ export const BlockMath = BaseBlockMath.configure({ katexOptions }).extend({
       new InputRule({
         find: /^\$\$([^$\n]+)\$\$$/,
         handler: ({ state, range, match }) => {
-          const latex = match[1].trim();
+          const latex = (match[1] ?? "").trim();
           if (latex === "") return null;
           const { tr } = state;
           const $from = state.doc.resolve(range.from);

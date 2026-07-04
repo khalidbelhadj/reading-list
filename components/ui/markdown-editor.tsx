@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import {
   useEditor,
@@ -95,7 +93,6 @@ const ImageLightbox = ({
         >
           {src && (
             // next/image needs known dimensions; previewed images are user-pasted with arbitrary sizes.
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={alt}
@@ -286,7 +283,7 @@ const TaskListMarkdownShortcut = Extension.create({
       new InputRule({
         find: /^\s*\[([ xX]?)\]\s$/,
         handler: ({ range, match, chain }) => {
-          const checked = match[1].toLowerCase() === "x";
+          const checked = (match[1] ?? "").toLowerCase() === "x";
           chain()
             .deleteRange(range)
             .liftListItem("listItem")

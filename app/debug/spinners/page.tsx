@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 import {
   IconBookmark,
   IconBookmarkFilled,
@@ -334,6 +331,8 @@ const SpinnersPlayground = () => {
     setTimeout(() => setLoading(false), 2000);
   }, []);
 
+  if (!selected) return null;
+
   return (
     <div className="min-h-dvh px-5 py-10">
       <style dangerouslySetInnerHTML={{ __html: spinnerStyles }} />
@@ -390,9 +389,6 @@ const SpinnersPlayground = () => {
 };
 
 const SpinnersPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <SpinnersPlayground />;
 };
 

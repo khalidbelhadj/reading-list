@@ -1,5 +1,3 @@
-"use client";
-
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
@@ -12,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 
 // Mounted once near the app root. Subscribes to the per-user Realtime topic
 // that database triggers broadcast on whenever reading-list data changes (see
-// drizzle/0011_items_sync_broadcast.sql) and invalidates the affected React
+// the items_sync_notify trigger in db/setup.sql) and invalidates the affected React
 // Query caches, so changes made on another device (or via the MCP server)
 // show up here without a reload.
 export const ItemsSyncWatcher = () => {

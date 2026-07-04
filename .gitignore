@@ -1,8 +1,11 @@
 # dependencies
 node_modules/
 
-# next.js
-.next/
+# vite / tanstack start
+dist/
+.tanstack/
+.nitro/
+.output/
 out/
 
 # electron

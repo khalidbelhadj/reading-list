@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 

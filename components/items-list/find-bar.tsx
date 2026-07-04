@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import { IconChevronDown, IconChevronUp, IconX } from "@tabler/icons-react";
 

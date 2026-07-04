@@ -26,11 +26,15 @@ export const createItems = async (
   if (inputs.length === 0) return [];
 
   const now = new Date().toISOString();
-  const ids = inputs.map((input) => input.id ?? crypto.randomUUID());
+  const withIds = inputs.map((input) => ({
+    input,
+    id: input.id ?? crypto.randomUUID(),
+  }));
+  const ids = withIds.map((entry) => entry.id);
 
   await tx.insert(items).values(
-    inputs.map((input, idx) => ({
-      id: ids[idx],
+    withIds.map(({ input, id }) => ({
+      id,
       userId,
       title: input.title,
       url: normalizeUrl(input.url) ?? input.url,
@@ -44,15 +48,15 @@ export const createItems = async (
 
   // Group items by identical tag sets so we ensure each unique set once
   const byTagSet = new Map<string, { itemIds: string[]; tagNames: string[] }>();
-  for (let idx = 0; idx < inputs.length; idx++) {
-    const tagNames = inputs[idx].tagNames ?? [];
+  for (const { input, id } of withIds) {
+    const tagNames = input.tagNames ?? [];
     if (tagNames.length === 0) continue;
     const key = JSON.stringify(Array.from(new Set(tagNames)).sort());
     const bucket = byTagSet.get(key);
     if (bucket) {
-      bucket.itemIds.push(ids[idx]);
+      bucket.itemIds.push(id);
     } else {
-      byTagSet.set(key, { itemIds: [ids[idx]], tagNames });
+      byTagSet.set(key, { itemIds: [id], tagNames });
     }
   }
   for (const { itemIds, tagNames } of byTagSet.values()) {

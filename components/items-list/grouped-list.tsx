@@ -17,32 +17,14 @@ import {
 } from "@/components/ui/context-menu";
 
 import { type ItemGroup } from "./use-filters";
-import { type Density } from "./utils";
 import { VirtualItemGroup } from "./virtual-item-group";
 
 type GroupedListProps = {
   groups: ItemGroup[];
   items: Item[];
-  typingTitles: Record<string, string>;
-  suppressHover: boolean;
-  density?: Density;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleRead: (id: string, read: boolean) => void;
-  onTogglePin: (id: string, starred: boolean) => void;
 };
 
-export const GroupedList = ({
-  groups,
-  items,
-  typingTitles,
-  suppressHover,
-  density = "compact",
-  onSelect,
-  onDelete,
-  onToggleRead,
-  onTogglePin,
-}: GroupedListProps) => {
+export const GroupedList = ({ groups, items }: GroupedListProps) => {
   const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set());
   const [closedDateKeys, setClosedDateKeys] = React.useState<Set<string>>(
     () => new Set(),
@@ -187,13 +169,6 @@ export const GroupedList = ({
                 header={headerNode}
                 open={isTagGroup ? isOpen : !closedDateKeys.has(group.key)}
                 items={group.items}
-                typingTitles={typingTitles}
-                suppressHover={suppressHover}
-                density={density}
-                onSelect={onSelect}
-                onDelete={onDelete}
-                onToggleRead={onToggleRead}
-                onTogglePin={onTogglePin}
               />
             </div>
           );

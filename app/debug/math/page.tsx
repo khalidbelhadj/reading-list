@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
@@ -13,7 +10,7 @@ $$
 \\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}
 $$
 
-Type \`$$\` on a blank line to make a new one.`;
+Type \`$$\` then Enter on a blank line to make a new one.`;
 
 const MathPlayground = () => {
   const [value, setValue] = React.useState(SEED);
@@ -25,13 +22,16 @@ const MathPlayground = () => {
           <h1 className="font-content text-xl">Math live preview</h1>
           <p className="text-sm text-muted-foreground">
             Block math (`$$…$$`) opens an editable, syntax-highlighted LaTeX
-            source with a live preview beneath. The panel below shows the stored
+            source with a live preview beneath. Inline math (`$…$`) edits in a
+            popover — select it or Tab into it. The panel below shows the stored
             markdown so you can check the round-trip.
           </p>
         </div>
+
         <div className="rounded-lg bg-card p-4">
           <MarkdownEditor value={value} onChange={setValue} placeholder="…" />
         </div>
+
         <pre className="overflow-auto rounded-lg bg-card p-4 text-xs whitespace-pre-wrap">
           {value}
         </pre>
@@ -41,7 +41,6 @@ const MathPlayground = () => {
 };
 
 const MathPage = () => {
-  if (process.env.NODE_ENV !== "development") notFound();
   return <MathPlayground />;
 };
 

@@ -266,6 +266,7 @@ export const useKeyboardNavigation = ({
         e.preventDefault();
         if (ids.length === 0) return;
         const nextId = isJumpStart ? ids[0] : ids[ids.length - 1];
+        if (!nextId) return;
         setCursor(nextId);
         setSuppressHover(true);
         scrollToId(nextId);
@@ -329,6 +330,7 @@ export const useKeyboardNavigation = ({
             : isDown
               ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
               : ids[Math.max(cursorIdx - 1, 0)];
+        if (!nextId) return;
         setCursor(nextId);
         setSuppressHover(true);
         scrollToId(nextId);

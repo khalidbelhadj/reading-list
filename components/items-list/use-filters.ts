@@ -14,10 +14,7 @@ const parseActiveTagsMap = (raw: string): Record<string, string[]> => {
 
 export type GroupBy = "none" | "tag" | "day";
 export type SortBy =
-  | "created-desc"
-  | "created-asc"
-  | "updated-desc"
-  | "updated-asc";
+  "created-desc" | "created-asc" | "updated-desc" | "updated-asc";
 
 const sortComparator = (sortBy: SortBy) => {
   switch (sortBy) {
