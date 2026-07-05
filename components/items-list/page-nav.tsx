@@ -22,7 +22,13 @@ import { SettingsMenu } from "./settings-menu";
 const isRouteActive = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
-export const PageNav = ({ hasTags }: { hasTags: boolean }) => {
+export const PageNav = ({
+  hasTags,
+  compact = false,
+}: {
+  hasTags: boolean;
+  compact?: boolean;
+}) => {
   const pathname = useLocation({ select: (location) => location.pathname });
   const from = useNavFrom();
   const animate = from !== null;
@@ -31,6 +37,7 @@ export const PageNav = ({ hasTags }: { hasTags: boolean }) => {
     active: isRouteActive(pathname, href),
     wasActive: from !== null && isRouteActive(from, href),
     animate,
+    compact,
     onNavigate: () => markNavFrom(pathname),
   });
 
@@ -59,11 +66,14 @@ export const PageNav = ({ hasTags }: { hasTags: boolean }) => {
               <button
                 type="button"
                 aria-label="Quick settings"
-                // Experiment: linger on hover-out. The 1s transition-delay only
-                // applies when collapsing back to the resting state; hovering
-                // (and opening the menu) zeroes it so the chevron still appears
-                // instantly.
-                className="relative z-0 -ml-3 flex h-6 w-3 items-center justify-end overflow-hidden rounded-r-full bg-accent pr-1.5 text-muted-foreground transition-all delay-[1000ms] duration-200 group-hover/quick:w-8 group-hover/quick:delay-0 hover:text-foreground aria-expanded:w-8 aria-expanded:text-foreground aria-expanded:delay-0"
+                // Chevron slides out on hover / while the menu is open, and
+                // collapses immediately on hover-out. No transition-delay: a
+                // collapse delay holds the width at whatever partial value a
+                // rapid hover-out lands on, which reads as the animation pausing
+                // half-way. Scope the transition to width/color — transition-all
+                // would also animate layout changes on navigation, which freezes
+                // the width mid-collapse when the route (and this row) re-renders.
+                className="relative z-0 -ml-3 flex h-6 w-3 items-center justify-end overflow-hidden rounded-r-full bg-accent pr-1.5 text-muted-foreground transition-[width,color] duration-200 group-hover/quick:w-8 hover:text-foreground aria-expanded:w-8 aria-expanded:text-foreground"
               >
                 <IconChevronDown className="size-3.5 shrink-0" />
               </button>
@@ -93,6 +103,7 @@ const NavLink = ({
   active,
   wasActive,
   animate,
+  compact,
   onNavigate,
   className,
   children,
@@ -102,10 +113,14 @@ const NavLink = ({
   active: boolean;
   wasActive: boolean;
   animate: boolean;
+  compact: boolean;
   onNavigate: () => void;
   className?: string;
   children: React.ReactNode;
 }) => {
+  // When compact, the active tab collapses to icon-only (keeping its active
+  // background) so the label doesn't crowd out the toolbar's right-side buttons.
+  const showLabel = active && !compact;
   const link = (
     <Link
       to={href}
@@ -117,18 +132,21 @@ const NavLink = ({
       )}
     >
       {children}
-      <NavLabel show={active} wasActive={wasActive} animate={animate}>
+      <NavLabel show={showLabel} wasActive={wasActive} animate={animate}>
         {label}
       </NavLabel>
     </Link>
   );
 
-  // Tooltip only while collapsed — the expanded pill already shows its label.
-  if (active) return link;
+  // Always keep the Tooltip wrapper mounted so toggling the label (compact
+  // collapse, or activating a tab) doesn't remount the Link — that would reset
+  // the NavLabel motion and snap the width instead of animating it. The tooltip
+  // content is only rendered while the label is hidden; the expanded pill
+  // already shows its label.
   return (
     <Tooltip>
       <TooltipTrigger render={link} />
-      <TooltipContent>{label}</TooltipContent>
+      {!showLabel && <TooltipContent>{label}</TooltipContent>}
     </Tooltip>
   );
 };
