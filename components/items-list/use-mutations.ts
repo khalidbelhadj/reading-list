@@ -12,8 +12,12 @@ export const useItemsMutations = ({
   showRead: boolean;
   setCursor: (id: string | null) => void;
 }) => {
-  const { toggleReadMutation, togglePinMutation, deleteMutation } =
-    useItemMutations();
+  const {
+    toggleReadMutation,
+    togglePinMutation,
+    toggleHiddenFromReviewMutation,
+    deleteMutation,
+  } = useItemMutations();
 
   const handleToggleRead = React.useCallback(
     (itemId: string, read: boolean) => {
@@ -44,9 +48,17 @@ export const useItemsMutations = ({
     [togglePinMutation],
   );
 
+  const handleToggleHiddenFromReview = React.useCallback(
+    (itemId: string, hiddenFromReview: boolean) => {
+      toggleHiddenFromReviewMutation.mutate({ itemId, hiddenFromReview });
+    },
+    [toggleHiddenFromReviewMutation],
+  );
+
   return {
     handleToggleRead,
     handleDeleteSingle,
     handleTogglePin,
+    handleToggleHiddenFromReview,
   };
 };

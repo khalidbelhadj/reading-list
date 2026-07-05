@@ -33,7 +33,13 @@ export const SuggestedSection = ({
   onToggleOpen,
   onHide,
 }: SuggestedSectionProps) => {
-  const { onSelect, onDelete, onToggleRead, onTogglePin } = useItemActions();
+  const {
+    onSelect,
+    onDelete,
+    onToggleRead,
+    onTogglePin,
+    onToggleHiddenFromReview,
+  } = useItemActions();
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   // Edge fades hint at off-screen cards: left fades in once scrolled away from
   // the start, right fades out as you reach the end.
@@ -101,6 +107,9 @@ export const SuggestedSection = ({
                   item={item}
                   onTogglePin={() => onTogglePin(item.id, !item.starred)}
                   onToggleRead={() => onToggleRead(item.id, !item.read)}
+                  onToggleHiddenFromReview={() =>
+                    onToggleHiddenFromReview(item.id, !item.hiddenFromReview)
+                  }
                   onDelete={() => onDelete(item.id)}
                 >
                   <ItemContextMenuTrigger

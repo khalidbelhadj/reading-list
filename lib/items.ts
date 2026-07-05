@@ -73,6 +73,7 @@ export type UpdateItemFields = {
   starred?: boolean;
   notes?: string;
   read?: boolean;
+  hiddenFromReview?: boolean;
   tagNames?: string[];
 };
 
@@ -97,6 +98,9 @@ export const updateItem = async (
     ...(fields.starred !== undefined && { starred: fields.starred }),
     ...(fields.notes !== undefined && { notes: fields.notes }),
     ...(fields.read !== undefined && { read: fields.read }),
+    ...(fields.hiddenFromReview !== undefined && {
+      hiddenFromReview: fields.hiddenFromReview,
+    }),
   };
 
   await tx

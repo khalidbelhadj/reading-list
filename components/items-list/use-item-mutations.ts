@@ -69,6 +69,32 @@ export const useItemMutations = () => {
     onSettled: invalidate,
   });
 
+  const toggleHiddenFromReviewMutation = useMutation({
+    mutationFn: ({
+      itemId,
+      hiddenFromReview,
+    }: {
+      itemId: string;
+      hiddenFromReview: boolean;
+    }) => updateItem(itemId, { hiddenFromReview }),
+    onMutate: async ({ itemId, hiddenFromReview }) => {
+      await queryClient.cancelQueries({ queryKey: ["items"] });
+      const previous = queryClient.getQueryData<Item[]>(["items"]);
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        (old ?? []).map((item) =>
+          item.id === itemId ? { ...item, hiddenFromReview } : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["items"], context.previous);
+      }
+    },
+    onSettled: invalidate,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (itemId: string) => deleteItem(itemId),
     onMutate: async (itemId) => {
@@ -137,6 +163,7 @@ export const useItemMutations = () => {
   return {
     toggleReadMutation,
     togglePinMutation,
+    toggleHiddenFromReviewMutation,
     deleteMutation,
     updateMutation,
   };

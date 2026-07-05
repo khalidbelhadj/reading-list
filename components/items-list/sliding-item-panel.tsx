@@ -783,6 +783,7 @@ export const PanelInner = ({
   const {
     toggleReadMutation,
     togglePinMutation,
+    toggleHiddenFromReviewMutation,
     deleteMutation,
     updateMutation,
   } = useItemMutations();
@@ -815,6 +816,14 @@ export const PanelInner = ({
     if (!item) return;
     toggleReadMutation.mutate({ itemId: item.id, read: !item.read });
   }, [item, toggleReadMutation]);
+
+  const handleToggleHiddenFromReview = React.useCallback(() => {
+    if (!item) return;
+    toggleHiddenFromReviewMutation.mutate({
+      itemId: item.id,
+      hiddenFromReview: !item.hiddenFromReview,
+    });
+  }, [item, toggleHiddenFromReviewMutation]);
 
   const handleDelete = React.useCallback(() => {
     if (!item) return;
@@ -887,6 +896,20 @@ export const PanelInner = ({
           </>
         )}
         <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
+        {item?.hiddenFromReview && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Badge variant="secondary" className="mr-0.5">
+                  Hidden from review
+                </Badge>
+              }
+            />
+            <TooltipContent>
+              This item&apos;s flashcards are excluded from your review queue
+            </TooltipContent>
+          </Tooltip>
+        )}
         {item?.read && (
           <Badge variant="secondary" className="mr-0.5">
             Read
@@ -897,6 +920,7 @@ export const PanelInner = ({
             item={item}
             onTogglePin={handleTogglePin}
             onToggleRead={handleToggleRead}
+            onToggleHiddenFromReview={handleToggleHiddenFromReview}
             onDelete={() => setDeleteOpen(true)}
           >
             <Tooltip>

@@ -17,7 +17,13 @@ import { useItemActions, useItemRowState } from "./item-row-context";
 
 export const ItemRow = ({ item }: { item: Item }) => {
   const density = useSettings().settings.density;
-  const { onSelect, onDelete, onToggleRead, onTogglePin } = useItemActions();
+  const {
+    onSelect,
+    onDelete,
+    onToggleRead,
+    onTogglePin,
+    onToggleHiddenFromReview,
+  } = useItemActions();
   const { suppressHover, typingTitles } = useItemRowState();
 
   const isCursor = useIsCursor(item.id);
@@ -61,6 +67,10 @@ export const ItemRow = ({ item }: { item: Item }) => {
     () => onToggleRead(item.id, !item.read),
     [onToggleRead, item.id, item.read],
   );
+  const handleToggleHiddenFromReview = React.useCallback(
+    () => onToggleHiddenFromReview(item.id, !item.hiddenFromReview),
+    [onToggleHiddenFromReview, item.id, item.hiddenFromReview],
+  );
   const handleDelete = React.useCallback(
     () => onDelete(item.id),
     [onDelete, item.id],
@@ -84,6 +94,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
       item={rowItem}
       onTogglePin={handleTogglePin}
       onToggleRead={handleToggleRead}
+      onToggleHiddenFromReview={handleToggleHiddenFromReview}
       onDelete={handleDelete}
       onOpenChange={handleContextMenuOpenChange}
       bulkContent={
@@ -132,6 +143,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
             onMenuOpenChange={setMenuOpen}
             onTogglePin={handleTogglePin}
             onToggleRead={handleToggleRead}
+            onToggleHiddenFromReview={handleToggleHiddenFromReview}
             onDelete={handleDelete}
           />
         ) : (
@@ -145,6 +157,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
             onMenuOpenChange={setMenuOpen}
             onTogglePin={handleTogglePin}
             onToggleRead={handleToggleRead}
+            onToggleHiddenFromReview={handleToggleHiddenFromReview}
             onDelete={handleDelete}
           />
         )}

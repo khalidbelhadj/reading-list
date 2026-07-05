@@ -17,6 +17,7 @@ export const CozyRowContent = ({
   onMenuOpenChange,
   onTogglePin,
   onToggleRead,
+  onToggleHiddenFromReview,
   onDelete,
 }: {
   item: Item;
@@ -27,6 +28,7 @@ export const CozyRowContent = ({
   onMenuOpenChange: (open: boolean) => void;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
+  onToggleHiddenFromReview?: () => void;
   onDelete?: () => void;
 }) => {
   const isRead = item.read;
@@ -82,6 +84,7 @@ export const CozyRowContent = ({
         onOpenChange={onMenuOpenChange}
         onTogglePin={onTogglePin}
         onToggleRead={onToggleRead}
+        onToggleHiddenFromReview={onToggleHiddenFromReview}
         onDelete={onDelete}
       >
         <div

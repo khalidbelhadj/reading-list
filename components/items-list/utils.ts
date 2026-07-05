@@ -65,6 +65,7 @@ export function makeOptimisticItem(
     notes: null,
     read: false,
     readAt: null,
+    hiddenFromReview: false,
     createdAt: now,
     updatedAt: now,
     tags: (fields.tagNames ?? []).map((name, i) => ({

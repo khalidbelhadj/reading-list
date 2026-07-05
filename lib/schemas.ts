@@ -70,6 +70,7 @@ export const updateItemSchema = z.object({
     starred: z.boolean().optional(),
     notes: notesSchema.optional(),
     read: z.boolean().optional(),
+    hiddenFromReview: z.boolean().optional(),
     tagNames: tagNamesSchema.optional(),
   }),
 });

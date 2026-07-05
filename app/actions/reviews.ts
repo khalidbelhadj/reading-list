@@ -7,7 +7,7 @@ import {
   cardReviews,
   reviewEvents,
 } from "@/db/schema";
-import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction, ActionError } from "@/lib/safe-action";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
@@ -68,6 +68,14 @@ const selectQueueCard = {
   itemFaviconUrl: items.faviconUrl,
 };
 
+// Excludes cards whose item is hidden from review. Requires the `items` table
+// to be joined (left join is fine). Orphan cards (null item) are always kept —
+// hiding is an item-level opt-out, and a card with no item can't be hidden.
+const notHiddenFromReview = or(
+  isNull(items.id),
+  eq(items.hiddenFromReview, false),
+);
+
 export const getDueCards = safeAction(async function getDueCards(
   limit?: number,
 ): Promise<FlashcardWithItem[]> {
@@ -86,7 +94,13 @@ export const getDueCards = safeAction(async function getDueCards(
             items,
             and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
           )
-          .where(and(eq(flashcards.userId, userId), lte(flashcards.due, now)))
+          .where(
+            and(
+              eq(flashcards.userId, userId),
+              lte(flashcards.due, now),
+              notHiddenFromReview,
+            ),
+          )
           .orderBy(asc(flashcards.due))
           .limit(n),
       "getDueCards",
@@ -112,7 +126,11 @@ export const getNewCards = safeAction(async function getNewCards(
             and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
           )
           .where(
-            and(eq(flashcards.userId, userId), eq(flashcards.state, "new")),
+            and(
+              eq(flashcards.userId, userId),
+              eq(flashcards.state, "new"),
+              notHiddenFromReview,
+            ),
           )
           .orderBy(asc(flashcards.createdAt))
           .limit(n),
@@ -150,7 +168,7 @@ export const getAllCardsForCram = safeAction(
           items,
           and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
         )
-        .where(eq(flashcards.userId, userId))
+        .where(and(eq(flashcards.userId, userId), notHiddenFromReview))
         .orderBy(asc(flashcards.createdAt)),
     );
   },
@@ -223,6 +241,12 @@ export const startReviewSession = safeAction(
         ? eq(flashcards.itemId, args.scope.itemId)
         : undefined;
 
+      // Items marked "hidden from review" are excluded from the global queues
+      // (due / new / cram) only. An explicit item-scoped session still surfaces
+      // their cards — hiding just stops them appearing on their own. Orphan
+      // cards (no linked item, null join) are always kept.
+      const hiddenFilter = args.scope?.itemId ? undefined : notHiddenFromReview;
+
       // Sessions target every matching card — no cap. The final
       // shuffleWithSiblingSpacing decides presentation order.
       if (args.mode === "due") {
@@ -238,6 +262,7 @@ export const startReviewSession = safeAction(
               eq(flashcards.userId, userId),
               lte(flashcards.due, now),
               scopeFilter,
+              hiddenFilter,
             ),
           )
           .orderBy(asc(flashcards.due));
@@ -254,6 +279,7 @@ export const startReviewSession = safeAction(
               eq(flashcards.userId, userId),
               eq(flashcards.state, "new"),
               scopeFilter,
+              hiddenFilter,
             ),
           )
           .orderBy(asc(flashcards.createdAt));
@@ -282,7 +308,7 @@ export const startReviewSession = safeAction(
             items,
             and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
           )
-          .where(and(eq(flashcards.userId, userId), scopeFilter))
+          .where(and(eq(flashcards.userId, userId), scopeFilter, hiddenFilter))
           .orderBy(asc(flashcards.createdAt));
       }
 
@@ -778,7 +804,11 @@ export const getReviewStatus = safeAction(
                 totalItems: sql<number>`count(distinct ${flashcards.itemId})::int`,
               })
               .from(flashcards)
-              .where(eq(flashcards.userId, userId)),
+              .leftJoin(
+                items,
+                and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
+              )
+              .where(and(eq(flashcards.userId, userId), notHiddenFromReview)),
             tx
               .select({ reviewedAt: cardReviews.reviewedAt })
               .from(cardReviews)
