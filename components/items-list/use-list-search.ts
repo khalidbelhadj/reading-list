@@ -6,6 +6,7 @@ import { type Item } from "@/lib/types";
 import { useDebounced } from "@/lib/use-debounced";
 
 import { type SearchBarHandle } from "./search-bar";
+import { extractItemIds, isIdSearch } from "./utils";
 
 const SEARCH_QUERY_KEY = ["items", "search"] as const;
 
@@ -38,6 +39,9 @@ export const useListSearch = (items: Item[] | undefined) => {
   const trimmedQuery = searchQuery.trim();
   const debouncedQuery = useDebounced(trimmedQuery, 200);
   const isRegex = /^\/.*\/$/.test(trimmedQuery);
+  // Pasting an id (or list of ids) is resolved entirely by the local pass, so
+  // the trigram server query is skipped — no wasted fetch, no "loading more".
+  const isIdQuery = isIdSearch(trimmedQuery);
 
   // Synchronous local pass — runs on every keystroke against already-cached data
   // so the list narrows the instant the user types. Skipped for regex
@@ -46,6 +50,15 @@ export const useListSearch = (items: Item[] | undefined) => {
   const localOrder = React.useMemo(() => {
     if (isRegex || trimmedQuery.length === 0) return null;
     if (!items) return [];
+
+    // ID lookup: pull every UUID out of the query and return those items in the
+    // order they were pasted. Exact match against the cache.
+    const idTokens = extractItemIds(trimmedQuery);
+    if (idTokens.length > 0) {
+      const ids = new Set(items.map((item) => item.id));
+      return idTokens.filter((id) => ids.has(id));
+    }
+
     const needle = trimmedQuery.toLowerCase();
     const matches: string[] = [];
     for (const item of items) {
@@ -66,7 +79,7 @@ export const useListSearch = (items: Item[] | undefined) => {
   const { data, isFetching } = useQuery({
     queryKey: [...SEARCH_QUERY_KEY, debouncedQuery],
     queryFn: () => searchItems(debouncedQuery),
-    enabled: debouncedQuery.length > 0,
+    enabled: debouncedQuery.length > 0 && !isIdSearch(debouncedQuery),
     staleTime: Infinity,
   });
 
@@ -90,6 +103,7 @@ export const useListSearch = (items: Item[] | undefined) => {
   // item edit invalidating the query) doesn't re-flash the skeletons.
   const searchBackendPending =
     trimmedQuery.length > 0 &&
+    !isIdQuery &&
     !(debouncedQuery === trimmedQuery && data !== undefined);
 
   // Merge local + server ids into the display order. Server data is fresh as long
