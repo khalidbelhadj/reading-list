@@ -138,6 +138,21 @@ export const startReviewSessionSchema = z.object({
     .optional(),
 });
 
+// Telemetry events the client queues locally and flushes with the next
+// rateCard / endReviewSession call instead of sending one action per event.
+export const batchedReviewEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("card_shown"),
+    flashcardId: idSchema,
+    data: z.null(),
+  }),
+  z.object({
+    type: z.literal("answer_revealed"),
+    flashcardId: idSchema,
+    data: z.object({ timeToRevealMs: z.number().int().min(0) }),
+  }),
+]);
+
 export const rateCardSchema = z.object({
   sessionId: idSchema,
   flashcardId: idSchema,
@@ -150,6 +165,7 @@ export const rateCardSchema = z.object({
     .min(0, "Duration must be non-negative")
     .max(600000, "Duration must be at most 10 minutes"),
   timeToRevealMs: z.number().int().min(0).max(600000).nullable(),
+  events: z.array(batchedReviewEventSchema).max(50).optional(),
 });
 
 export const skipCardSchema = z.object({
@@ -166,6 +182,7 @@ export const skipCardSchema = z.object({
 export const endReviewSessionSchema = z.object({
   sessionId: idSchema,
   reason: z.enum(["completed", "user_ended"]),
+  events: z.array(batchedReviewEventSchema).max(50).optional(),
 });
 
 export const logSessionEventSchema = z.object({

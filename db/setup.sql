@@ -245,9 +245,16 @@ BEGIN
 
   -- Best-effort: a failed broadcast must never fail the write itself, but
   -- leave a trace in the Postgres logs so failures are diagnosable.
+  -- 'origin' carries the writing client's sync id (set by withUser() from the
+  -- sync-origin cookie) so that client can ignore its own echo; empty/absent
+  -- for writes with no browser origin (MCP, scripts) — those invalidate
+  -- every client, as before.
   BEGIN
     PERFORM realtime.send(
-      jsonb_build_object('table', TG_TABLE_NAME),
+      jsonb_build_object(
+        'table', TG_TABLE_NAME,
+        'origin', COALESCE(current_setting('app.sync_origin', true), '')
+      ),
       'data-changed', -- must match ITEMS_SYNC_EVENT in lib/items-sync.ts
       'items-sync:' || sync_user_id::text,
       true -- private channel
