@@ -23,10 +23,17 @@ export const parseOpenItemMessage = (data: unknown): string | null => {
 const absoluteUrl = (path: string) =>
   new URL(path, window.location.origin).toString();
 
-// Open an item in this window's side panel, mirroring PanelLayout's URL
+// True when this window is a dedicated single-item window (opened via
+// openItemInNewWindow with ?window=1). Such windows render only the item and
+// have no side panel, so item-open requests must route back to the opener.
+export const isItemWindow = () =>
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("window") != null;
+
+// Show the item in this window's side panel, mirroring PanelLayout's URL
 // contract: it owns the ?item= param and listens for popstate. Outside the
 // home route there's no PanelLayout, so fall back to a full navigation.
-export const openItemInPanel = (itemId: string) => {
+const openItemHere = (itemId: string) => {
   if (window.location.pathname !== "/") {
     window.location.assign(`/?item=${encodeURIComponent(itemId)}`);
     return;
@@ -38,12 +45,24 @@ export const openItemInPanel = (itemId: string) => {
   window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
-// Open the item expanded in its own window (Electron) / tab (web). Named per
-// item so re-opening the same item reuses its window instead of stacking
-// duplicates.
+// Public entry point for "open this item in the panel". A dedicated item
+// window has no panel, so it hands the request off to the window that opened
+// it (the central window) instead of trying to open a panel that isn't there.
+export const openItemInPanel = (itemId: string) => {
+  if (isItemWindow()) {
+    openItemInOriginWindow(itemId);
+    return;
+  }
+  openItemHere(itemId);
+};
+
+// Open the item in its own window (Electron) / tab (web), showing only that
+// item edge-to-edge with no list or panel chrome (?window=1 — read by
+// PanelLayout). Named per item so re-opening the same item reuses its window
+// instead of stacking duplicates.
 export const openItemInNewWindow = (itemId: string) => {
   const win = window.open(
-    absoluteUrl(`/?item=${encodeURIComponent(itemId)}&expanded=1`),
+    absoluteUrl(`/?item=${encodeURIComponent(itemId)}&window=1`),
     `item-${itemId}`,
   );
   win?.focus();
@@ -87,5 +106,12 @@ export const openItemInOriginWindow = (itemId: string) => {
     } catch {}
     return;
   }
-  openItemInPanel(itemId);
+  // No opener to hand off to. A dedicated item window has no panel, so adopt
+  // the item by navigating this window into the central layout; anywhere else
+  // (e.g. a review window at /review/...), open it here.
+  if (isItemWindow()) {
+    window.location.assign(`/?item=${encodeURIComponent(itemId)}`);
+    return;
+  }
+  openItemHere(itemId);
 };
