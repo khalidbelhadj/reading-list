@@ -819,9 +819,20 @@ export const PanelInner = ({
   const handleDelete = React.useCallback(() => {
     if (!item) return;
     setDeleteOpen(false);
+    if (variant === "window") {
+      // A dedicated item window closes itself on delete (onClose === window.close).
+      // Closing *before* the mutation settles tears the window down mid-flight:
+      // the server delete may be aborted and, worse, its invalidation broadcast
+      // to sibling windows never fires (see LocalSyncWatcher's coalescing timer),
+      // so the main window keeps showing the deleted item. Keep the window alive
+      // until the delete has persisted and its invalidations are queued, then
+      // close — pagehide flushes the pending broadcast on the way out.
+      deleteMutation.mutate(item.id, { onSettled: () => onClose() });
+      return;
+    }
     onClose();
     deleteMutation.mutate(item.id);
-  }, [item, deleteMutation, onClose]);
+  }, [item, deleteMutation, onClose, variant]);
 
   const isExpanded = phase === "full" || phase === "fullw";
 

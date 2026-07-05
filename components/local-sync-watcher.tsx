@@ -38,11 +38,22 @@ export const LocalSyncWatcher = () => {
     const pendingKeys = new Set<string>();
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
-      flushTimer = null;
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      if (pendingKeys.size === 0) return;
       const keys = Array.from(pendingKeys);
       pendingKeys.clear();
       channel.postMessage(localSyncMessage(keys));
     };
+
+    // A window can close (item windows self-close on delete) before its
+    // coalescing timer fires, which would drop the invalidation and leave
+    // sibling windows stale. pagehide fires while the window is still
+    // scriptable, so flush any pending keys synchronously on the way out.
+    const onPageHide = () => flush();
+    window.addEventListener("pagehide", onPageHide);
 
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (applyingRemote) return;
@@ -72,6 +83,7 @@ export const LocalSyncWatcher = () => {
 
     return () => {
       unsubscribe();
+      window.removeEventListener("pagehide", onPageHide);
       if (flushTimer) clearTimeout(flushTimer);
       channel.close();
     };
