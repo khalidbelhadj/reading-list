@@ -147,9 +147,10 @@ export const SearchBar = React.forwardRef<
           onCursorNav?.("prev");
           return;
         }
-        // ⌘/Ctrl+Enter hands the query to agentic search instead of opening the
-        // focused row. Plain Enter keeps opening the result.
-        if (e.key === "Enter" && isModKey(e) && !e.altKey) {
+        // ⌥/Alt+Enter hands the query to agentic search. (⌘+Enter is taken by
+        // open-expanded, ⌘⇧+Enter by open-in-browser; Alt+Enter is the only free
+        // Enter combo here.) Plain Enter still opens the focused result.
+        if (e.key === "Enter" && e.altKey) {
           const trimmed = query.trim();
           if (trimmed.length === 0) return;
           e.preventDefault();
