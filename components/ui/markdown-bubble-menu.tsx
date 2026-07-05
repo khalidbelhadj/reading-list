@@ -15,6 +15,16 @@ import {
   IconPencil,
   IconExternalLink,
   IconX,
+  IconChevronDown,
+  IconPilcrow,
+  IconH1,
+  IconH2,
+  IconH3,
+  IconBlockquote,
+  IconList,
+  IconListNumbers,
+  IconListCheck,
+  IconSourceCode,
   type IconProps,
 } from "@tabler/icons-react";
 
@@ -68,6 +78,14 @@ type MarkAction = {
   run: () => void;
 };
 
+type BlockAction = {
+  key: string;
+  label: string;
+  Icon: React.ComponentType<IconProps>;
+  active: boolean;
+  run: () => void;
+};
+
 // Prepend a protocol when the user types a bare host so the saved href is a
 // valid absolute URL. Leaves mailto:, anchors and already-qualified URLs alone.
 const normalizeHref = (raw: string) => {
@@ -80,7 +98,9 @@ const normalizeHref = (raw: string) => {
 export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [linkValue, setLinkValue] = React.useState("");
+  const [blockMenuOpen, setBlockMenuOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const blockMenuRef = React.useRef<HTMLDivElement>(null);
 
   const editorState = useEditorState({
     editor,
@@ -92,20 +112,52 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
       code: editor.isActive("code"),
       link: editor.isActive("link"),
       href: (editor.getAttributes("link").href as string | undefined) ?? "",
+      paragraph: editor.isActive("paragraph"),
+      heading1: editor.isActive("heading", { level: 1 }),
+      heading2: editor.isActive("heading", { level: 2 }),
+      heading3: editor.isActive("heading", { level: 3 }),
+      blockquote: editor.isActive("blockquote"),
+      bulletList: editor.isActive("bulletList"),
+      orderedList: editor.isActive("orderedList"),
+      taskList: editor.isActive("taskList"),
+      codeBlock: editor.isActive("codeBlock"),
       from: editor.state.selection.from,
       to: editor.state.selection.to,
     }),
   });
 
-  // Collapse the link editor whenever the selection moves, so it never lingers
-  // over a different range than the one it was opened for.
+  // Collapse the link editor and block-type menu whenever the selection moves,
+  // so neither lingers over a different range than the one it was opened for.
   React.useEffect(() => {
     setLinkOpen(false);
+    setBlockMenuOpen(false);
   }, [editorState.from, editorState.to]);
 
   React.useEffect(() => {
     if (linkOpen) inputRef.current?.focus();
   }, [linkOpen]);
+
+  // Close the block-type menu on Escape or a pointer press anywhere outside it
+  // (the trigger lives inside blockMenuRef, so its own clicks are ignored here
+  // and handled by the toggle). The menu renders inside the bubble rather than a
+  // focus-stealing popup, so the editor selection — and thus the bubble — stays
+  // put while it's open.
+  React.useEffect(() => {
+    if (!blockMenuOpen) return;
+    const onMouseDown = (event: MouseEvent) => {
+      if (blockMenuRef.current?.contains(event.target as Node)) return;
+      setBlockMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setBlockMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [blockMenuOpen]);
 
   const actions: MarkAction[] = [
     {
@@ -144,6 +196,80 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
       run: () => editor.chain().focus().toggleCode().run(),
     },
   ];
+
+  const textAction: BlockAction = {
+    key: "paragraph",
+    label: "Text",
+    Icon: IconPilcrow,
+    active: editorState.paragraph,
+    run: () => editor.chain().focus().setParagraph().run(),
+  };
+
+  const blockActions: BlockAction[] = [
+    textAction,
+    {
+      key: "heading1",
+      label: "Heading 1",
+      Icon: IconH1,
+      active: editorState.heading1,
+      run: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+    },
+    {
+      key: "heading2",
+      label: "Heading 2",
+      Icon: IconH2,
+      active: editorState.heading2,
+      run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+    },
+    {
+      key: "heading3",
+      label: "Heading 3",
+      Icon: IconH3,
+      active: editorState.heading3,
+      run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+    },
+    {
+      key: "blockquote",
+      label: "Quote",
+      Icon: IconBlockquote,
+      active: editorState.blockquote,
+      run: () => editor.chain().focus().toggleBlockquote().run(),
+    },
+    {
+      key: "bulletList",
+      label: "Bullet list",
+      Icon: IconList,
+      active: editorState.bulletList,
+      run: () => editor.chain().focus().toggleBulletList().run(),
+    },
+    {
+      key: "orderedList",
+      label: "Numbered list",
+      Icon: IconListNumbers,
+      active: editorState.orderedList,
+      run: () => editor.chain().focus().toggleOrderedList().run(),
+    },
+    {
+      key: "taskList",
+      label: "Checklist",
+      Icon: IconListCheck,
+      active: editorState.taskList,
+      run: () => editor.chain().focus().toggleTaskList().run(),
+    },
+    {
+      key: "codeBlock",
+      label: "Code block",
+      Icon: IconSourceCode,
+      active: editorState.codeBlock,
+      run: () => editor.chain().focus().toggleCodeBlock().run(),
+    },
+  ];
+  // A list item / blockquote wraps a paragraph, so "paragraph" reads as active
+  // inside them too. Prefer the more specific container and treat "Text" purely
+  // as the fallback when nothing more specific matches.
+  const activeBlock =
+    blockActions.find((block) => block.key !== "paragraph" && block.active) ??
+    textAction;
 
   const openLinkEditor = React.useCallback(() => {
     setLinkValue(editorState.href);
@@ -200,6 +326,11 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
       pluginKey="formatMenu"
       shouldShow={shouldShow}
       options={{ placement: "top", offset: 8 }}
+      // Marks the menu element as editor chrome. The plugin appends it inside
+      // the editor's parent, so clicks on it bubble up to ancestor click
+      // handlers (e.g. the notes area's click-to-focus in detail-panel.tsx)
+      // which must not treat them as clicks on the note itself.
+      data-markdown-menu=""
       className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5 text-popover-foreground shadow-sm"
     >
       {linkOpen ? (
@@ -237,6 +368,53 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
         </div>
       ) : (
         <>
+          <div ref={blockMenuRef} className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1 px-1.5"
+              aria-label="Block type"
+              aria-expanded={blockMenuOpen}
+              onMouseDown={preventBlur}
+              onClick={() => setBlockMenuOpen((open) => !open)}
+            >
+              <activeBlock.Icon />
+              {activeBlock.label}
+              <IconChevronDown className="size-3 text-muted-foreground" />
+            </Button>
+            {blockMenuOpen && (
+              <div className="absolute top-full left-0 z-50 mt-1 flex min-w-40 flex-col gap-px rounded-lg bg-popover p-1 text-popover-foreground shadow-sm ring-1 ring-foreground/10">
+                {blockActions.map(({ key, label, Icon, run }) => {
+                  const isActive = key === activeBlock.key;
+                  return (
+                    <Button
+                      key={key}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-6 justify-start gap-1.5 px-2 font-normal",
+                        isActive && "bg-accent text-accent-foreground",
+                      )}
+                      onMouseDown={preventBlur}
+                      onClick={() => {
+                        run();
+                        setBlockMenuOpen(false);
+                      }}
+                    >
+                      <Icon />
+                      {label}
+                      {isActive && (
+                        <IconCheck className="ml-auto size-3.5 text-muted-foreground" />
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="mx-0.5 h-4 w-px bg-border" />
           {actions.map(({ key, label, Icon, active, run }) => (
             <Button
               key={key}

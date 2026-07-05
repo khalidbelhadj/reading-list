@@ -3,6 +3,7 @@ import React from "react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { isModKey } from "@/lib/input-context";
+import { cn } from "@/lib/utils";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -24,6 +25,11 @@ export const SearchBar = React.forwardRef<
     onQueryChange: (query: string) => void;
     resultCount: number | null;
     isFetching: boolean;
+    // Hand the current query to agentic search — fired by the inline "Ask"
+    // button and the ⌘/Ctrl+Enter shortcut.
+    onAsk?: (query: string) => void;
+    // True while an Ask request is in flight; disables the inline button.
+    isAsking?: boolean;
     onCursorNav?: (direction: "next" | "prev") => void;
     onCursorJump?: (edge: "start" | "end") => void;
     onCursorOpen?: (modifier: { meta: boolean; shift: boolean }) => void;
@@ -36,6 +42,8 @@ export const SearchBar = React.forwardRef<
       onQueryChange,
       resultCount,
       isFetching,
+      onAsk,
+      isAsking = false,
       onCursorNav,
       onCursorJump,
       onCursorOpen,
@@ -139,13 +147,23 @@ export const SearchBar = React.forwardRef<
           onCursorNav?.("prev");
           return;
         }
+        // ⌥/Alt+Enter hands the query to agentic search. (⌘+Enter is taken by
+        // open-expanded, ⌘⇧+Enter by open-in-browser; Alt+Enter is the only free
+        // Enter combo here.) Plain Enter still opens the focused result.
+        if (e.key === "Enter" && e.altKey) {
+          const trimmed = query.trim();
+          if (trimmed.length === 0) return;
+          e.preventDefault();
+          onAsk?.(trimmed);
+          return;
+        }
         if (e.key === "Enter" && !e.altKey) {
           e.preventDefault();
           onCursorOpen?.({ meta: isModKey(e), shift: e.shiftKey });
           return;
         }
       },
-      [onCursorNav, onCursorJump, onCursorOpen],
+      [onCursorNav, onCursorJump, onCursorOpen, onAsk, query],
     );
 
     const handleBlur = React.useCallback(() => {
@@ -192,7 +210,12 @@ export const SearchBar = React.forwardRef<
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={placeholder}
-            className="h-8 w-full rounded-md bg-muted pr-8 pl-8 text-sm transition-colors outline-none placeholder:text-muted-foreground"
+            className={cn(
+              "h-8 w-full rounded-md bg-muted pl-8 text-sm transition-colors outline-none placeholder:text-muted-foreground",
+              // Reserve room for the inline cluster (count + close + Ask button)
+              // so typed text never slides underneath it.
+              query.trim().length > 0 ? "pr-28" : "pr-8",
+            )}
             tabIndex={isOpen ? 0 : -1}
           />
           {query.length > 0 && (
@@ -228,6 +251,16 @@ export const SearchBar = React.forwardRef<
                 />
                 <TooltipContent>Close search</TooltipContent>
               </Tooltip>
+              {onAsk && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  disabled={isAsking || query.trim().length === 0}
+                  onClick={() => onAsk(query.trim())}
+                >
+                  Ask
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -1,6 +1,12 @@
 // Server-only implementations — see ./index.ts for the RPC layer.
 import { withUser } from "@/db";
-import { items, flashcards, reviewSessions, cardReviews } from "@/db/schema";
+import {
+  items,
+  flashcards,
+  reviewSessions,
+  cardReviews,
+  reviewEvents,
+} from "@/db/schema";
 import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
 import { safeAction, ActionError } from "@/lib/safe-action";
@@ -480,112 +486,137 @@ export const getSessionSummary = safeAction(async function getSessionSummary(
   });
 }, "Could not load session summary. Please try again.");
 
+// Telemetry events (card_shown / answer_revealed) the client batches into the
+// next rateCard / endReviewSession call rather than sending one action each.
+export type BatchedReviewEvent = Extract<
+  ReviewEvent,
+  { type: "card_shown" | "answer_revealed" }
+>;
+
+const batchedEventsJson = (events: BatchedReviewEvent[] | undefined): string =>
+  JSON.stringify(
+    (events ?? []).map((e) => ({
+      flashcard_id: e.flashcardId,
+      type: e.type,
+      data: e.data,
+    })),
+  );
+
 export const rateCard = safeAction(async function rateCard(args: {
   sessionId: string;
   flashcardId: string;
   rating: Rating;
   durationMs: number;
   timeToRevealMs: number | null;
+  events?: BatchedReviewEvent[];
 }): Promise<void> {
   parseInput(rateCardSchema, args);
   const userId = await getCurrentUserId();
   const now = new Date().toISOString();
 
-  await withUser(userId, async (tx) => {
-    const [session] = await tx
-      .select({
-        id: reviewSessions.id,
-        affectsSchedule: reviewSessions.affectsSchedule,
-        endedAt: reviewSessions.endedAt,
-      })
-      .from(reviewSessions)
-      .where(
-        and(
-          eq(reviewSessions.id, args.sessionId),
-          eq(reviewSessions.userId, userId),
-        ),
-      );
-    if (!session) throw new ActionError("Review session not found");
-    if (session.endedAt) throw new ActionError("Review session already ended");
-
-    const [card] = await tx
-      .select()
-      .from(flashcards)
-      .where(
-        and(eq(flashcards.id, args.flashcardId), eq(flashcards.userId, userId)),
-      );
-    if (!card) throw new ActionError("Flashcard not found");
-
-    const next = schedule(
-      {
-        state: parseCardState(card.state),
-        interval: card.interval,
-        easeFactor: card.easeFactor,
-        reps: card.reps,
-        lapses: card.lapses,
-        due: card.due,
-      },
-      args.rating,
-      now,
-    );
-
-    await tx.insert(cardReviews).values({
-      id: crypto.randomUUID(),
-      userId,
-      sessionId: args.sessionId,
-      flashcardId: args.flashcardId,
-      rating: args.rating,
-      durationMs: args.durationMs,
-      timeToRevealMs: args.timeToRevealMs,
-      prevState: card.state,
-      prevInterval: card.interval,
-      prevEaseFactor: card.easeFactor,
-      prevReps: card.reps,
-      nextState: session.affectsSchedule ? next.state : card.state,
-      nextInterval: session.affectsSchedule ? next.interval : card.interval,
-      nextEaseFactor: session.affectsSchedule
-        ? next.easeFactor
-        : card.easeFactor,
-      nextDue: session.affectsSchedule ? next.due : card.due,
-      reviewedAt: now,
-    });
-
-    if (session.affectsSchedule) {
-      await tx
-        .update(flashcards)
-        .set({
-          state: next.state,
-          interval: next.interval,
-          easeFactor: next.easeFactor,
-          reps: next.reps,
-          lapses: next.lapses,
-          due: next.due,
-          lastReviewedAt: now,
-          updatedAt: now,
+  await withUser(
+    userId,
+    async (tx) => {
+      // One round trip for both reads: the card is cross-joined onto the
+      // session row (join condition doesn't reference the session), so a
+      // missing card comes back as null card columns rather than no row.
+      const [row] = await tx
+        .select({
+          affectsSchedule: reviewSessions.affectsSchedule,
+          endedAt: reviewSessions.endedAt,
+          cardId: flashcards.id,
+          cardState: flashcards.state,
+          cardInterval: flashcards.interval,
+          cardEaseFactor: flashcards.easeFactor,
+          cardReps: flashcards.reps,
+          cardLapses: flashcards.lapses,
+          cardDue: flashcards.due,
         })
-        .where(
+        .from(reviewSessions)
+        .leftJoin(
+          flashcards,
           and(
             eq(flashcards.id, args.flashcardId),
             eq(flashcards.userId, userId),
           ),
-        );
-    } else {
-      await tx
-        .update(flashcards)
-        .set({ lastReviewedAt: now })
+        )
         .where(
           and(
-            eq(flashcards.id, args.flashcardId),
-            eq(flashcards.userId, userId),
+            eq(reviewSessions.id, args.sessionId),
+            eq(reviewSessions.userId, userId),
           ),
         );
-    }
+      if (!row) throw new ActionError("Review session not found");
+      if (row.endedAt) throw new ActionError("Review session already ended");
+      if (
+        row.cardId === null ||
+        row.cardState === null ||
+        row.cardInterval === null ||
+        row.cardEaseFactor === null ||
+        row.cardReps === null ||
+        row.cardLapses === null ||
+        row.cardDue === null
+      ) {
+        throw new ActionError("Flashcard not found");
+      }
 
-    await tx
-      .update(reviewSessions)
-      .set({ cardsCompleted: sql`${reviewSessions.cardsCompleted} + 1` })
-      .where(eq(reviewSessions.id, args.sessionId));
-  });
+      const next = schedule(
+        {
+          state: parseCardState(row.cardState),
+          interval: row.cardInterval,
+          easeFactor: row.cardEaseFactor,
+          reps: row.cardReps,
+          lapses: row.cardLapses,
+          due: row.cardDue,
+        },
+        args.rating,
+        now,
+      );
+
+      const affects = row.affectsSchedule;
+      // Schedule-affecting sessions write the new SRS state; cram sessions
+      // only stamp lastReviewedAt (updatedAt intentionally untouched).
+      const cardSet = affects
+        ? sql`"state" = ${next.state}, "interval" = ${next.interval}, "ease_factor" = ${next.easeFactor}, "reps" = ${next.reps}, "lapses" = ${next.lapses}, "due" = ${next.due}, "last_reviewed_at" = ${now}, "updated_at" = ${now}`
+        : sql`"last_reviewed_at" = ${now}`;
+
+      // One round trip for all the writes (batched telemetry events included).
+      // Each statement in the CTE is still RLS-checked individually under the
+      // withUser context.
+      await tx.execute(sql`
+        WITH review_insert AS (
+          INSERT INTO card_reviews (
+            id, user_id, session_id, flashcard_id, rating, duration_ms,
+            time_to_reveal_ms, prev_state, prev_interval, prev_ease_factor,
+            prev_reps, next_state, next_interval, next_ease_factor, next_due,
+            reviewed_at
+          ) VALUES (
+            ${crypto.randomUUID()}, ${userId}, ${args.sessionId},
+            ${args.flashcardId}, ${args.rating}, ${args.durationMs},
+            ${args.timeToRevealMs}, ${row.cardState}, ${row.cardInterval},
+            ${row.cardEaseFactor}, ${row.cardReps},
+            ${affects ? next.state : row.cardState},
+            ${affects ? next.interval : row.cardInterval},
+            ${affects ? next.easeFactor : row.cardEaseFactor},
+            ${affects ? next.due : row.cardDue}, ${now}
+          )
+        ),
+        card_update AS (
+          UPDATE flashcards SET ${cardSet}
+          WHERE "id" = ${args.flashcardId} AND "user_id" = ${userId}
+        ),
+        events_insert AS (
+          INSERT INTO review_events (user_id, session_id, flashcard_id, type, data, created_at)
+          SELECT ${userId}, ${args.sessionId}, e.flashcard_id, e.type, e.data, ${now}::timestamptz
+          FROM jsonb_to_recordset(${batchedEventsJson(args.events)}::jsonb)
+            AS e(flashcard_id text, type text, data jsonb)
+        )
+        UPDATE review_sessions SET "cards_completed" = "cards_completed" + 1
+        WHERE "id" = ${args.sessionId} AND "user_id" = ${userId}
+      `);
+    },
+    "rateCard",
+  );
 }, "Could not rate card. Please try again.");
 
 export const logSessionEvent = safeAction(async function logSessionEvent(
@@ -616,40 +647,65 @@ export const endReviewSession = safeAction(
   async function endReviewSession(args: {
     sessionId: string;
     reason: "completed" | "user_ended";
+    events?: BatchedReviewEvent[];
   }): Promise<void> {
     parseInput(endReviewSessionSchema, args);
     const userId = await getCurrentUserId();
     const now = new Date().toISOString();
 
-    await withUser(userId, async (tx) => {
-      const [session] = await tx
-        .select({ endedAt: reviewSessions.endedAt })
-        .from(reviewSessions)
-        .where(
-          and(
-            eq(reviewSessions.id, args.sessionId),
-            eq(reviewSessions.userId, userId),
-          ),
-        );
-      if (!session) throw new ActionError("Review session not found");
-      if (session.endedAt) return;
+    // Single transaction: stamp endedAt (no-op if already ended) and log the
+    // session_ended event. The UPDATE's RETURNING doubles as the existence
+    // check on the fast path; the extra SELECT only runs when nothing was
+    // updated, to distinguish "already ended" from "not found".
+    await withUser(
+      userId,
+      async (tx) => {
+        const [updated] = await tx
+          .update(reviewSessions)
+          .set({ endedAt: now })
+          .where(
+            and(
+              eq(reviewSessions.id, args.sessionId),
+              eq(reviewSessions.userId, userId),
+              sql`${reviewSessions.endedAt} IS NULL`,
+            ),
+          )
+          .returning({ id: reviewSessions.id });
 
-      await tx
-        .update(reviewSessions)
-        .set({ endedAt: now })
-        .where(
-          and(
-            eq(reviewSessions.id, args.sessionId),
-            eq(reviewSessions.userId, userId),
-          ),
-        );
-    });
+        if (!updated) {
+          const [session] = await tx
+            .select({ id: reviewSessions.id })
+            .from(reviewSessions)
+            .where(
+              and(
+                eq(reviewSessions.id, args.sessionId),
+                eq(reviewSessions.userId, userId),
+              ),
+            );
+          if (!session) throw new ActionError("Review session not found");
+        }
 
-    await logReviewEvent(userId, args.sessionId, {
-      type: "session_ended",
-      flashcardId: null,
-      data: { reason: args.reason },
-    });
+        await tx.insert(reviewEvents).values([
+          ...(args.events ?? []).map((e) => ({
+            userId,
+            sessionId: args.sessionId,
+            flashcardId: e.flashcardId,
+            type: e.type,
+            data: e.data,
+            createdAt: now,
+          })),
+          {
+            userId,
+            sessionId: args.sessionId,
+            flashcardId: null,
+            type: "session_ended",
+            data: { reason: args.reason },
+            createdAt: now,
+          },
+        ]);
+      },
+      "endReviewSession",
+    );
   },
   "Could not end review session. Please try again.",
 );

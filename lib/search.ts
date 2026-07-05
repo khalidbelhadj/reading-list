@@ -36,9 +36,23 @@ const parseRows = <T>(schema: z.ZodType<T>, rows: unknown): T[] => {
 
 export type SearchMode = "fuzzy" | "regex";
 
+export type SearchSort = "newest" | "oldest" | "title";
+
+// Optional post-match filters / ordering, applied in SQL (so sort + limit are
+// correct against the full match set, not a capped slice). Currently honored by
+// regex search only — that's the path the MCP/Ask `search_items` tools use.
+export type SearchFilters = {
+  tag?: string;
+  read?: boolean;
+  starred?: boolean;
+  sort?: SearchSort;
+  limit?: number;
+};
+
 export type SearchOptions = {
   caseSensitive?: boolean;
   mode?: SearchMode;
+  filters?: SearchFilters;
 };
 
 export type SearchResult = {
@@ -79,7 +93,7 @@ export const searchItems = async (
   await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
 
   if (mode === "regex") {
-    return regexSearch(tx, userId, pattern, caseSensitive);
+    return regexSearch(tx, userId, pattern, caseSensitive, options?.filters);
   }
   return fuzzySearch(tx, userId, pattern);
 };
@@ -89,8 +103,33 @@ const regexSearch = async (
   userId: string,
   pattern: string,
   caseSensitive: boolean,
+  filters?: SearchFilters,
 ): Promise<SearchResult[]> => {
   const op = sql.raw(caseSensitive ? "~" : "~*");
+
+  // Optional filters folded into the match CTE so they run before ORDER/LIMIT.
+  const readClause =
+    filters?.read !== undefined ? sql` AND i.read = ${filters.read}` : sql``;
+  const starredClause =
+    filters?.starred !== undefined
+      ? sql` AND i.starred = ${filters.starred}`
+      : sql``;
+  const tagClause = filters?.tag
+    ? sql` AND EXISTS (
+        SELECT 1 FROM items_tags it
+        JOIN tags t ON t.id = it.tag_id
+        WHERE it.item_id = i.id AND lower(t.name) = lower(${filters.tag})
+      )`
+    : sql``;
+
+  const orderBy =
+    filters?.sort === "oldest"
+      ? sql`m.created_at ASC`
+      : filters?.sort === "title"
+        ? sql`m.title ASC`
+        : sql`m.created_at DESC`;
+
+  const limit = Math.max(1, Math.min(100, filters?.limit ?? 100));
 
   const rows = await tx.execute(sql`
     WITH matched AS (
@@ -100,7 +139,7 @@ const regexSearch = async (
         (i.url   ${op} ${pattern})               AS m_url,
         (COALESCE(i.notes, '') ${op} ${pattern}) AS m_notes
       FROM items i
-      WHERE i.user_id = ${userId}
+      WHERE i.user_id = ${userId}${readClause}${starredClause}${tagClause}
     )
     SELECT
       m.id, m.title, m.url, m.notes, m.starred, m.read,
@@ -108,8 +147,8 @@ const regexSearch = async (
       m.m_title, m.m_url, m.m_notes
     FROM matched m
     WHERE m.m_title OR m.m_url OR m.m_notes
-    ORDER BY m.created_at DESC
-    LIMIT 100
+    ORDER BY ${orderBy}
+    LIMIT ${limit}
   `);
 
   return parseRows(searchRowSchema, rows).map(toResult);

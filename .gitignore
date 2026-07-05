@@ -54,3 +54,6 @@ analysis/code/
 
 # Built Chrome extension bundle (run extension/build.sh to regenerate)
 reading-list-extension.zip
+
+# Local-only profiling notes (kept out of the repo)
+notes/performance-profile-2026-07-02.md

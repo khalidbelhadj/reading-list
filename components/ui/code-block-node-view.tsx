@@ -7,6 +7,7 @@ import {
 } from "@tiptap/react";
 import { IconCheck, IconChevronDown, IconCopy } from "@tabler/icons-react";
 
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,9 @@ const CodeBlockToolbar = ({
   );
   const [open, setOpen] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [anchorHovered, setAnchorHovered] = React.useState(false);
+  const [toolbarHovered, setToolbarHovered] = React.useState(false);
+  const toolbarRef = React.useRef<HTMLDivElement>(null);
 
   const handleCopy = React.useCallback(() => {
     navigator.clipboard.writeText(code).then(
@@ -67,6 +71,27 @@ const CodeBlockToolbar = ({
     const timeout = setTimeout(() => setCopied(false), 1500);
     return () => clearTimeout(timeout);
   }, [copied]);
+
+  // The toolbar overlays the block's top-right corner but is a separate fixed
+  // element in <body>, so hovering it leaves the anchor — track both and treat
+  // either as "hovering the code block".
+  React.useEffect(() => {
+    const toolbarEl = toolbarRef.current;
+    const enterAnchor = () => setAnchorHovered(true);
+    const leaveAnchor = () => setAnchorHovered(false);
+    const enterToolbar = () => setToolbarHovered(true);
+    const leaveToolbar = () => setToolbarHovered(false);
+    anchor.addEventListener("mouseenter", enterAnchor);
+    anchor.addEventListener("mouseleave", leaveAnchor);
+    toolbarEl?.addEventListener("mouseenter", enterToolbar);
+    toolbarEl?.addEventListener("mouseleave", leaveToolbar);
+    return () => {
+      anchor.removeEventListener("mouseenter", enterAnchor);
+      anchor.removeEventListener("mouseleave", leaveAnchor);
+      toolbarEl?.removeEventListener("mouseenter", enterToolbar);
+      toolbarEl?.removeEventListener("mouseleave", leaveToolbar);
+    };
+  }, [anchor]);
 
   // Track the anchor's viewport position with an rAF loop. The toolbar is
   // position:fixed in <body> (see the comment above), so it has to follow the
@@ -96,10 +121,18 @@ const CodeBlockToolbar = ({
 
   if (!rect) return null;
 
+  // Keep the toolbar interactable while its own popups are up: the language
+  // menu outlives the hover, and the "Copied" tooltip should finish showing.
+  const visible = anchorHovered || toolbarHovered || open || copied;
+
   return createPortal(
     <div
+      ref={toolbarRef}
       data-code-block-toolbar
-      className="flex items-center gap-0.5"
+      className={cn(
+        "flex items-center gap-0.5 transition-opacity",
+        !visible && "pointer-events-none opacity-0",
+      )}
       style={{
         position: "fixed",
         top: rect.top + 6,

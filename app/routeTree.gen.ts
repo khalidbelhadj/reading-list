@@ -26,6 +26,7 @@ import { Route as DebugReviewSummaryPreviewRouteImport } from './routes/debug.re
 import { Route as DebugReviewSessionPreviewRouteImport } from './routes/debug.review-session-preview'
 import { Route as DebugReviewDialogsRouteImport } from './routes/debug.review-dialogs'
 import { Route as DebugReviewCountAnimationsRouteImport } from './routes/debug.review-count-animations'
+import { Route as DebugMathRouteImport } from './routes/debug.math'
 import { Route as DebugKbdRouteImport } from './routes/debug.kbd'
 import { Route as DebugEmptyStatesRouteImport } from './routes/debug.empty-states'
 import { Route as DebugDesignSystemRouteImport } from './routes/debug.design-system'
@@ -33,6 +34,7 @@ import { Route as DebugCodeBlockRouteImport } from './routes/debug.code-block'
 import { Route as AuthReturnToAppRouteImport } from './routes/auth.return-to-app'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
+import { Route as ApiAskRouteImport } from './routes/api.ask'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
 import { Route as ApiStorageSplatRouteImport } from './routes/api.storage.$'
 import { Route as ApiExtensionItemsRouteImport } from './routes/api.extension.items'
@@ -125,6 +127,11 @@ const DebugReviewCountAnimationsRoute =
     path: '/debug/review-count-animations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DebugMathRoute = DebugMathRouteImport.update({
+  id: '/debug/math',
+  path: '/debug/math',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DebugKbdRoute = DebugKbdRouteImport.update({
   id: '/debug/kbd',
   path: '/debug/kbd',
@@ -160,6 +167,11 @@ const ApiMcpRoute = ApiMcpRouteImport.update({
   path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAskRoute = ApiAskRouteImport.update({
+  id: '/api/ask',
+  path: '/api/ask',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotwellKnownOauthProtectedResourceRoute =
   DotwellKnownOauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -185,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -192,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -214,6 +228,7 @@ export interface FileRoutesByTo {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -221,6 +236,7 @@ export interface FileRoutesByTo {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -244,6 +260,7 @@ export interface FileRoutesById {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -251,6 +268,7 @@ export interface FileRoutesById {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -275,6 +293,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -282,6 +301,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -304,6 +324,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -311,6 +332,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -333,6 +355,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -340,6 +363,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -363,6 +387,7 @@ export interface RootRouteChildren {
   VersionRoute: typeof VersionRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
+  ApiAskRoute: typeof ApiAskRoute
   ApiMcpRoute: typeof ApiMcpRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthReturnToAppRoute: typeof AuthReturnToAppRoute
@@ -370,6 +395,7 @@ export interface RootRouteChildren {
   DebugDesignSystemRoute: typeof DebugDesignSystemRoute
   DebugEmptyStatesRoute: typeof DebugEmptyStatesRoute
   DebugKbdRoute: typeof DebugKbdRoute
+  DebugMathRoute: typeof DebugMathRoute
   DebugReviewCountAnimationsRoute: typeof DebugReviewCountAnimationsRoute
   DebugReviewDialogsRoute: typeof DebugReviewDialogsRoute
   DebugReviewSessionPreviewRoute: typeof DebugReviewSessionPreviewRoute
@@ -506,6 +532,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DebugReviewCountAnimationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/debug/math': {
+      id: '/debug/math'
+      path: '/debug/math'
+      fullPath: '/debug/math'
+      preLoaderRoute: typeof DebugMathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/debug/kbd': {
       id: '/debug/kbd'
       path: '/debug/kbd'
@@ -555,6 +588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ask': {
+      id: '/api/ask'
+      path: '/api/ask'
+      fullPath: '/api/ask'
+      preLoaderRoute: typeof ApiAskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -588,6 +628,7 @@ const rootRouteChildren: RootRouteChildren = {
   VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
+  ApiAskRoute: ApiAskRoute,
   ApiMcpRoute: ApiMcpRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthReturnToAppRoute: AuthReturnToAppRoute,
@@ -595,6 +636,7 @@ const rootRouteChildren: RootRouteChildren = {
   DebugDesignSystemRoute: DebugDesignSystemRoute,
   DebugEmptyStatesRoute: DebugEmptyStatesRoute,
   DebugKbdRoute: DebugKbdRoute,
+  DebugMathRoute: DebugMathRoute,
   DebugReviewCountAnimationsRoute: DebugReviewCountAnimationsRoute,
   DebugReviewDialogsRoute: DebugReviewDialogsRoute,
   DebugReviewSessionPreviewRoute: DebugReviewSessionPreviewRoute,

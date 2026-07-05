@@ -204,6 +204,18 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
       }
     }
 
+    // Dev bypass: with an explicit mock user there is no real Supabase session,
+    // so let same-origin API calls through (mirrors the page-route bypass
+    // below). The routes themselves resolve the mock user via getCurrentUserId.
+    if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
+      const result = await next();
+      applyHeaders(result.response, {
+        ...SECURITY_HEADERS,
+        ...corsHeaders(request, isMcp),
+      });
+      return result;
+    }
+
     // Fall back to Supabase cookie session
     const { user, setCookies } = await getSessionFromRequest(request);
     if (!user) {

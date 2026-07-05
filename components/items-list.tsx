@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 import { toast } from "sonner";
 
@@ -10,11 +10,12 @@ import { cn } from "@/lib/utils";
 import { DeleteItemDialog } from "./items-list/delete-item-dialog";
 import { makeOptimisticItem } from "./items-list/utils";
 
-import { fetchPageTitle } from "@/app/actions";
+import { fetchPageTitle, updateItem } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { useSettings } from "@/lib/use-settings";
+import { AskResults } from "./items-list/ask-results";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
@@ -39,6 +40,7 @@ import { useCreateItem } from "./items-list/use-create-item";
 import { useItemsFilters } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
+import { useAsk } from "./items-list/use-ask";
 import { useListSearch } from "./items-list/use-list-search";
 import { useSuggestions } from "./items-list/use-suggestions";
 import { useItemsMutations } from "./items-list/use-mutations";
@@ -86,6 +88,32 @@ export const ItemsList = ({
     searchBackendPending,
     handleSearchOpen,
   } = useListSearch(items);
+
+  // Agentic "Ask" search — LLM tool-calling over the reading list.
+  const {
+    askActive,
+    isAsking,
+    error: askError,
+    steps: askSteps,
+    summary: askSummary,
+    resultIds: askResultIds,
+    hasPresented: askHasPresented,
+    runAsk,
+    clearAsk,
+  } = useAsk();
+
+  // An Ask result is a snapshot of one query — like a normal search result, it
+  // should vanish as soon as the query changes (typing) or the bar closes.
+  // Routed through a ref so ordinary typing only clears when a result is showing.
+  const askActiveRef = React.useRef(askActive);
+  askActiveRef.current = askActive;
+  const handleQueryChange = React.useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (askActiveRef.current) clearAsk();
+    },
+    [setSearchQuery, clearAsk],
+  );
 
   // Per-row typewriter title animation (used after pasting a URL).
   const { typingTitles, animateTypingTitle } = useTypingTitles();
@@ -275,7 +303,37 @@ export const ItemsList = ({
     createAnyway: handleDuplicateCreateAnyway,
   } = useCreateItem();
 
-  const [isFetchingPasteTitle, setIsFetchingPasteTitle] = React.useState(false);
+  // Background retitle for pasted URLs: the item is created instantly with a
+  // hostname fallback title, then this fetches the real page title (external
+  // HTTP, up to ~5s) and applies it — unless the user already renamed the
+  // item in the meantime.
+  const retitleMutation = useMutation({
+    mutationFn: async (args: {
+      newId: string;
+      url: string;
+      fallback: string;
+    }): Promise<{ newId: string; title: string } | null> => {
+      const fetched = await fetchPageTitle(args.url);
+      const title = fetched?.trim();
+      if (!title || title === args.fallback) return null;
+      const current = queryClient
+        .getQueryData<Item[]>(["items"])
+        ?.find((it) => it.id === args.newId);
+      if (current && current.title !== args.fallback) return null;
+      await updateItem(args.newId, { title });
+      return { newId: args.newId, title };
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      queryClient.setQueryData<Item[]>(["items"], (old) =>
+        old?.map((it) =>
+          it.id === result.newId ? { ...it, title: result.title } : it,
+        ),
+      );
+      void animateTypingTitle(result.newId, result.title);
+      invalidate();
+    },
+  });
 
   const handleOpenNew = React.useCallback(() => {
     requestCreate(
@@ -301,14 +359,10 @@ export const ItemsList = ({
   }, [requestCreate, queryClient, invalidate, handleOpenItem]);
 
   const requestPasteCreate = React.useCallback(
-    async (url: string, tagNames: string[]) => {
-      setIsFetchingPasteTitle(true);
-      let fetched: string | null = null;
-      try {
-        fetched = await fetchPageTitle(url);
-      } finally {
-        setIsFetchingPasteTitle(false);
-      }
+    (url: string, tagNames: string[]) => {
+      // Create immediately with the hostname fallback title — waiting on the
+      // external page-title fetch here used to block creation for up to 5s.
+      // retitleMutation swaps in the real title when it arrives.
       const fallback = (() => {
         try {
           return new URL(url).hostname.replace(/^www\./, "");
@@ -316,9 +370,8 @@ export const ItemsList = ({
           return url;
         }
       })();
-      const title = fetched?.trim() || fallback;
       requestCreate(
-        { title, url, tagNames },
+        { title: fallback, url, tagNames },
         {
           onCreated: (newId) => {
             // Optimistically insert so the row appears immediately; the
@@ -327,24 +380,22 @@ export const ItemsList = ({
               if (!old) return old;
               if (old.some((it) => it.id === newId)) return old;
               return [
-                makeOptimisticItem(newId, old, { title, url, tagNames }),
+                makeOptimisticItem(newId, old, {
+                  title: fallback,
+                  url,
+                  tagNames,
+                }),
                 ...old,
               ];
             });
             invalidate();
-            void animateTypingTitle(newId, title);
+            retitleMutation.mutate({ newId, url, fallback });
           },
           onOpenExisting: handleOpenItem,
         },
       );
     },
-    [
-      requestCreate,
-      handleOpenItem,
-      invalidate,
-      animateTypingTitle,
-      queryClient,
-    ],
+    [requestCreate, handleOpenItem, invalidate, retitleMutation, queryClient],
   );
 
   const handlePasteUrl = React.useCallback(async () => {
@@ -574,16 +625,18 @@ export const ItemsList = ({
                 hasTags={allTags.length > 0}
                 onAdd={handleOpenNew}
                 onPasteUrl={handlePasteUrl}
-                isCreating={isCreating || isFetchingPasteTitle}
+                isCreating={isCreating}
               />
             </div>
 
             <SearchBar
               ref={searchBarRef}
               query={searchQuery}
-              onQueryChange={setSearchQuery}
+              onQueryChange={handleQueryChange}
               resultCount={searchResultCount}
               isFetching={searchFetching}
+              onAsk={runAsk}
+              isAsking={isAsking}
               onCursorNav={navigateCursor}
               onCursorJump={jumpCursor}
               onCursorOpen={({ meta, shift }) => {
@@ -647,31 +700,45 @@ export const ItemsList = ({
                           : undefined
                       }
                     >
-                      {emptyNode}
-
-                      <SuggestedSection
-                        items={suggestedItems}
-                        open={suggestedOpen}
-                        onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                        onHide={() => setSetting("showSuggestions", false)}
-                      />
-
-                      <PinnedSection
-                        items={pinnedItems}
-                        open={pinnedOpen}
-                        onToggleOpen={() => setPinnedOpen((p) => !p)}
-                      />
-
-                      {useGroupedLayout ? (
-                        <GroupedList groups={groups} items={items ?? []} />
+                      {askActive ? (
+                        <AskResults
+                          summary={askSummary}
+                          steps={askSteps}
+                          resultIds={askResultIds}
+                          isAsking={isAsking}
+                          hasPresented={askHasPresented}
+                          error={askError}
+                          items={items ?? []}
+                        />
                       ) : (
                         <>
-                          <VirtualItemList items={unpinnedItems} />
-                          {/* Backend (trigram) pass still running: append loading
-                          rows under the instant keyword hits so the search reads
-                          as "more coming," not finished. */}
-                          {searchActive && searchBackendPending && (
-                            <ItemsSkeleton density={density} />
+                          {emptyNode}
+
+                          <SuggestedSection
+                            items={suggestedItems}
+                            open={suggestedOpen}
+                            onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                            onHide={() => setSetting("showSuggestions", false)}
+                          />
+
+                          <PinnedSection
+                            items={pinnedItems}
+                            open={pinnedOpen}
+                            onToggleOpen={() => setPinnedOpen((p) => !p)}
+                          />
+
+                          {useGroupedLayout ? (
+                            <GroupedList groups={groups} items={items ?? []} />
+                          ) : (
+                            <>
+                              <VirtualItemList items={unpinnedItems} />
+                              {/* Backend (trigram) pass still running: append
+                              loading rows under the instant keyword hits so the
+                              search reads as "more coming," not finished. */}
+                              {searchActive && searchBackendPending && (
+                                <ItemsSkeleton density={density} />
+                              )}
+                            </>
                           )}
                         </>
                       )}

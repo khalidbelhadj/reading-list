@@ -14,6 +14,7 @@ import type * as tagsImpl from "./tags";
 // serialize across the wire, so mutation error toasts behave as before.
 
 export type {
+  BatchedReviewEvent,
   FlashcardWithItem,
   ItemReviewStatus,
   ReviewMode,
