@@ -723,6 +723,18 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 .markdown-editor .ProseMirror img:active {
   cursor: grabbing;
 }
+/* Item-link chip favicons are inline glyphs, not content images — undo the
+   block/border/margin treatment above. */
+.markdown-editor .ProseMirror img.item-link-favicon {
+  display: inline;
+  width: 0.875rem;
+  height: 0.875rem;
+  max-height: none;
+  border: none;
+  border-radius: 0.125rem;
+  margin: 0 0.25rem 0 0;
+  vertical-align: -2px;
+}
 .markdown-editor.fill {
   display: flex;
   flex-direction: column;
@@ -830,6 +842,12 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   back
   > p.is-empty:only-child::before {
   content: "";
+}
+/* Ghost completion for @ item links — same faint tone as the placeholder. */
+.markdown-editor .ProseMirror .item-link-ghost {
+  color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  pointer-events: none;
+  white-space: pre-wrap;
 }
 .markdown-editor .ProseMirror a {
   text-decoration: underline;
