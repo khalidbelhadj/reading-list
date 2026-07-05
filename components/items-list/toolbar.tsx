@@ -94,9 +94,25 @@ export const Toolbar = ({
         ? (reviewStatus?.newItemCount ?? 0)
         : (reviewStatus?.dueItemCount ?? 0);
 
+  // Below this row width the right-side buttons start getting clipped, so the
+  // active nav tab collapses to icon-only to reclaim space. The row width is
+  // set by the panel (not its content), so collapsing the label can't feed
+  // back into the measurement — no oscillation.
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = React.useState(false);
+  React.useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setCompact(entry.contentRect.width < 480);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="relative flex items-center pt-1">
-      <PageNav hasTags={hasTags} />
+    <div ref={rootRef} className="relative flex items-center pt-1">
+      <PageNav hasTags={hasTags} compact={compact} />
 
       <div className="flex-1" />
 
