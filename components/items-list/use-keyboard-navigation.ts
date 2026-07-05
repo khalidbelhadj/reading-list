@@ -231,6 +231,29 @@ export const useKeyboardNavigation = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [cursorRef, onRequestDelete]);
 
+  // Tab — move focus into the selected item's notes editor. Shift+Tab is
+  // swallowed so it does nothing (rather than walking native focus). Gated on
+  // isTypingContext so Tab keeps its native behavior once the caret is already
+  // inside the notes/title fields.
+  React.useEffect(() => {
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTypingContext(e) || isOverlayOpen()) return;
+      if (e.shiftKey) {
+        e.preventDefault();
+        return;
+      }
+      const editor = document.querySelector<HTMLElement>(
+        "[data-detail-panel] .ProseMirror",
+      );
+      if (!editor) return;
+      e.preventDefault();
+      editor.focus();
+    };
+    document.addEventListener("keydown", handleTab);
+    return () => document.removeEventListener("keydown", handleTab);
+  }, []);
+
   // Ctrl+N/P navigation
   React.useEffect(() => {
     const handleNav = (e: KeyboardEvent) => {
@@ -245,7 +268,7 @@ export const useKeyboardNavigation = ({
       const currentCursor = cursorRef.current;
       const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
 
-      // Ctrl+N/P, ArrowDown/Up, j/k, Tab/Shift+Tab — navigation
+      // Ctrl+N/P, ArrowDown/Up, j/k — navigation
       const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
 
       // When focus rests on a button/link (e.g. a delete dialog just restored
@@ -327,8 +350,7 @@ export const useKeyboardNavigation = ({
           !e.metaKey &&
           !e.altKey &&
           !e.shiftKey) ||
-        (e.code === "KeyJ" && noMods && !e.shiftKey) ||
-        (e.key === "Tab" && noMods && !e.shiftKey);
+        (e.code === "KeyJ" && noMods && !e.shiftKey);
       const isUp =
         (e.code === "KeyP" &&
           e.ctrlKey &&
@@ -340,8 +362,7 @@ export const useKeyboardNavigation = ({
           !e.metaKey &&
           !e.altKey &&
           !e.shiftKey) ||
-        (e.code === "KeyK" && noMods && !e.shiftKey) ||
-        (e.key === "Tab" && noMods && e.shiftKey);
+        (e.code === "KeyK" && noMods && !e.shiftKey);
       if (isDown || isUp) {
         e.preventDefault();
         if (ids.length === 0) return;

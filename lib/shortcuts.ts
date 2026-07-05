@@ -65,6 +65,7 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
     {
       title: "Selected item",
       shortcuts: [
+        { label: "Focus notes", combos: [["Tab"]] },
         { label: "Mark read / unread", combos: [[mod, shift, "M"]] },
         { label: "Pin / unpin", combos: [[mod, shift, "P"]] },
         { label: "Chat with Claude", combos: [[mod, shift, "J"]] },
