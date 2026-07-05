@@ -1,6 +1,7 @@
 import { IconChevronRight } from "@tabler/icons-react";
 import React from "react";
 
+import { NonIdealState } from "@/components/ui/non-ideal-state";
 import { SquareSpinner } from "@/components/ui/square-spinner";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -211,6 +212,21 @@ export const AskResults = ({
     return () => observer.disconnect();
   }, [isAsking]);
 
+  // A failed request replaces the whole feed with the shared centered non-ideal
+  // state (title + faint description), matching the empty state.
+  if (error) {
+    return (
+      <NonIdealState
+        tone="error"
+        align="center"
+        size="sm"
+        className="py-6"
+        title="Something went wrong"
+        description={error.message || "The search couldn't be completed."}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {/* Append-only activity feed: the agent's narration and tool calls stream
@@ -247,12 +263,6 @@ export const AskResults = ({
           {summary !== null && (
             <p className="text-sm whitespace-pre-wrap text-foreground">
               {summary}
-            </p>
-          )}
-
-          {error && (
-            <p className="text-sm whitespace-pre-wrap text-destructive">
-              {error.message || "Something went wrong with the search."}
             </p>
           )}
         </div>
