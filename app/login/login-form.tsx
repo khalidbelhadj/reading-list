@@ -1,8 +1,13 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
 import Image from "@/components/ui/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+
+const IS_LOCAL_BACKEND = /localhost|127\.0\.0\.1/.test(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+);
 
 export const LoginForm = ({
   error,
@@ -13,6 +18,30 @@ export const LoginForm = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [electronError, setElectronError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+
+  const handleEmailLogin = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault();
+      setIsEmailLoading(true);
+      setEmailError(null);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setIsEmailLoading(false);
+        setEmailError(error.message);
+        return;
+      }
+      window.location.href = redirectTo ?? "/";
+    },
+    [email, password, redirectTo],
+  );
 
   const handleGoogleLogin = useCallback(async () => {
     setIsLoading(true);
@@ -93,11 +122,12 @@ export const LoginForm = ({
           flashcards.
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2">
         <Button
           variant="outline"
           onClick={handleGoogleLogin}
           disabled={isLoading}
+          className="w-full"
         >
           {isLoading ? (
             <Spinner className="size-3.5" />
@@ -119,6 +149,53 @@ export const LoginForm = ({
           </Button>
         )}
       </div>
+      {IS_LOCAL_BACKEND && (
+        <>
+          <div className="flex w-full items-center gap-4 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            <span>or log in with email</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <form
+            onSubmit={handleEmailLogin}
+            className="flex w-full flex-col gap-2"
+          >
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Email (required)
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                required
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Password
+              <Input
+                type="password"
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                required
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={isEmailLoading || !email || !password}
+              className="w-full"
+            >
+              {isEmailLoading ? <Spinner className="size-3.5" /> : "Continue"}
+            </Button>
+            {emailError && (
+              <p className="text-xs text-destructive">{emailError}</p>
+            )}
+          </form>
+        </>
+      )}
       {(error || electronError) && (
         <p className="text-xs text-destructive">
           {electronError ?? "Authentication failed."}

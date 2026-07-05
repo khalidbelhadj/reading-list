@@ -302,4 +302,18 @@ CREATE POLICY "items_sync_receive_own" ON "realtime"."messages"
     AND realtime.topic() = 'items-sync:' || (SELECT auth.uid()::text)
   );
 
+-- ── note-images storage bucket ──────────────────────────────────────────────
+-- Private bucket for pasted note images. Objects are namespaced by owner id
+-- ("<user_id>/<uuid>.<ext>"); server code issues signed upload/read URLs. The
+-- owner policy scopes every operation to the caller's own top-level folder.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('note-images', 'note-images', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "note_images_owner_all" ON storage.objects;
+CREATE POLICY "note_images_owner_all" ON storage.objects
+  FOR ALL TO authenticated
+  USING (bucket_id = 'note-images' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text))
+  WITH CHECK (bucket_id = 'note-images' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
 COMMIT;

@@ -19,6 +19,10 @@ const LoginPage = () => {
   const { error, redirect: redirectTo } = Route.useSearch();
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
+      <div
+        aria-hidden
+        className="electron-top-bar-inset fixed inset-x-0 top-0 h-12"
+      />
       <LoginForm error={!!error} redirectTo={redirectTo} />
     </div>
   );

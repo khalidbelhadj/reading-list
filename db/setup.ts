@@ -16,7 +16,10 @@ if (!url) {
   process.exit(1);
 }
 
-const sql = postgres(url, { prepare: false });
+// max: 1 so the explicit BEGIN/COMMIT in db/setup.sql is allowed (postgres.js
+// otherwise rejects transactions on a pooled connection); onnotice swallows the
+// harmless "already exists, skipping" notices from the idempotent guards.
+const sql = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
 
 try {
   await sql.file("db/setup.sql");
