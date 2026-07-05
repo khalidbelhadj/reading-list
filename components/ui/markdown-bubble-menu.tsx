@@ -326,6 +326,11 @@ export const MarkdownBubbleMenu = ({ editor }: { editor: Editor }) => {
       pluginKey="formatMenu"
       shouldShow={shouldShow}
       options={{ placement: "top", offset: 8 }}
+      // Marks the menu element as editor chrome. The plugin appends it inside
+      // the editor's parent, so clicks on it bubble up to ancestor click
+      // handlers (e.g. the notes area's click-to-focus in detail-panel.tsx)
+      // which must not treat them as clicks on the note itself.
+      data-markdown-menu=""
       className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5 text-popover-foreground shadow-sm"
     >
       {linkOpen ? (
