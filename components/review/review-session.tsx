@@ -163,7 +163,9 @@ const ReviewSessionInner = ({
   preview?: boolean;
 }) => {
   const queryClient = useQueryClient();
-  const logEvent = useEventLogger(preview ? null : sessionId);
+  const { log: logEvent, drain: drainEvents } = useEventLogger(
+    preview ? null : sessionId,
+  );
 
   const { data } = useQuery({
     queryKey: ["review-session", sessionId],
@@ -270,7 +272,9 @@ const ReviewSessionInner = ({
 
   const endMutation = useMutation({
     mutationFn: (reason: "completed" | "user_ended") =>
-      preview ? Promise.resolve() : endReviewSession({ sessionId, reason }),
+      preview
+        ? Promise.resolve()
+        : endReviewSession({ sessionId, reason, events: drainEvents() }),
     onSuccess: () => {
       if (preview) return;
       queryClient.invalidateQueries({
@@ -292,7 +296,10 @@ const ReviewSessionInner = ({
       rating: Rating;
       durationMs: number;
       timeToRevealMs: number | null;
-    }) => (preview ? Promise.resolve() : rateCard({ sessionId, ...args })),
+    }) =>
+      preview
+        ? Promise.resolve()
+        : rateCard({ sessionId, ...args, events: drainEvents() }),
     onSuccess: () => {
       if (preview) return;
       queryClient.invalidateQueries({
