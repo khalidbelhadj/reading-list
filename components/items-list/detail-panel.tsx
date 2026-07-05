@@ -288,6 +288,11 @@ export const DetailPanel = ({
             // area, which would otherwise yank the caret to the end of the note.
             if (!event.currentTarget.contains(target)) return;
             if (target.closest(".ProseMirror")) return;
+            // The formatting bubble menu is appended next to the editor, so
+            // it IS physically inside the notes area. Yanking the caret on a
+            // toolbar click would empty the selection and close the bubble
+            // (and any menu inside it) the moment it opens.
+            if (target.closest("[data-markdown-menu]")) return;
             const editorEl =
               event.currentTarget.querySelector<HTMLElement>(".ProseMirror");
             if (!editorEl) return;
