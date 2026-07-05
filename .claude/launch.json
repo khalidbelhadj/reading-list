@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "local",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "electron:local"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "prod",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "electron:prod"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

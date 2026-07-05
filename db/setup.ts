@@ -17,8 +17,10 @@ if (!url) {
 }
 
 // max: 1 — setup.sql contains its own BEGIN/COMMIT, which postgres.js only
-// allows on a single-connection client (UNSAFE_TRANSACTION otherwise).
-const sql = postgres(url, { prepare: false, max: 1 });
+// allows on a single-connection client (UNSAFE_TRANSACTION otherwise). onnotice
+// swallows the harmless "already exists, skipping" notices from the idempotent
+// guards.
+const sql = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
 
 try {
   await sql.file("db/setup.sql");

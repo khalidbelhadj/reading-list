@@ -108,6 +108,10 @@ export const NonIdealState = ({
 
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
+      <div
+        aria-hidden
+        className="electron-top-bar-inset fixed inset-x-0 top-0 h-12"
+      />
       {block}
     </div>
   );

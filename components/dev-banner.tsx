@@ -42,6 +42,30 @@ const ROUTES: { href: string; title: string }[] = [
 
 const COLLAPSED_KEY = "dev-banner-collapsed";
 
+// Which Supabase the running build points at — inlined at build time by Vite's
+// `define` (see vite.config.mts). Colours the whole banner so you can tell at a
+// glance: green = local (safe), red = prod (real data). Subtle fills use
+// `currentColor` so they track the foreground across light/dark automatically;
+// only the bar surface + switch track carry explicit per-mode colours.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const IS_LOCAL_BACKEND = /localhost|127\.0\.0\.1/.test(SUPABASE_URL);
+
+const BACKEND = IS_LOCAL_BACKEND
+  ? {
+      label: "LOCAL",
+      bar: "bg-blue-500 text-blue-950 ring-blue-600/30 dark:bg-blue-700 dark:text-blue-50 dark:ring-blue-500/30",
+      barHover: "hover:bg-blue-200 dark:hover:bg-blue-700",
+      badge: "bg-blue-950 text-blue-50 dark:bg-blue-50 dark:text-blue-950",
+      switchOn: "data-checked:bg-blue-700 dark:data-checked:bg-blue-500",
+    }
+  : {
+      label: "PROD",
+      bar: "bg-amber-400 text-amber-950 ring-amber-700/30 dark:bg-amber-700 dark:text-amber-50 dark:ring-amber-600/40",
+      barHover: "hover:bg-amber-300 dark:hover:bg-amber-800",
+      badge: "bg-amber-950 text-amber-50 dark:bg-amber-50 dark:text-amber-950",
+      switchOn: "data-checked:bg-amber-700 dark:data-checked:bg-amber-500",
+    };
+
 const DevBannerInner = () => {
   const router = useRouter();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -137,10 +161,15 @@ const DevBannerInner = () => {
         variant="ghost"
         onClick={toggleCollapsed}
         aria-label="Show dev banner"
-        className="fixed bottom-0 left-0 z-[9999] h-5 gap-1.5 rounded-none rounded-tr-sm bg-amber-400 px-2.5 font-mono text-[10px] leading-none font-semibold text-amber-950 shadow-[0_-1px_8px_rgba(0,0,0,0.12)] hover:bg-amber-300 hover:text-amber-950"
+        title={`Supabase: ${SUPABASE_URL}`}
+        className={cn(
+          "fixed bottom-0 left-0 z-[9999] h-5 gap-1.5 rounded-none rounded-tr-sm px-2.5 font-mono text-[10px] leading-none font-semibold shadow-[0_-1px_8px_rgba(0,0,0,0.12)]",
+          BACKEND.bar,
+          BACKEND.barHover,
+        )}
       >
-        <span className="rounded-xs bg-amber-950 px-1 py-px text-amber-50">
-          DEV
+        <span className={cn("rounded-xs px-1 py-px", BACKEND.badge)}>
+          {BACKEND.label}
         </span>
         <IconChevronRight className="size-2.5" />
       </Button>
@@ -148,10 +177,18 @@ const DevBannerInner = () => {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[9999] flex h-5 items-center gap-2.5 bg-amber-400 px-2.5 font-mono text-[10px] leading-none text-amber-950 shadow-[0_-1px_8px_rgba(0,0,0,0.12)] ring-1 ring-amber-500/40">
+    <div
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-[9999] flex h-5 items-center gap-2.5 px-2.5 font-mono text-[10px] leading-none shadow-[0_-1px_8px_rgba(0,0,0,0.12)] ring-1",
+        BACKEND.bar,
+      )}
+    >
       <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap">
-        <span className="rounded-xs bg-amber-950 px-1 py-px text-amber-50">
-          DEV
+        <span
+          className={cn("rounded-xs px-1 py-px", BACKEND.badge)}
+          title={`Supabase: ${SUPABASE_URL}`}
+        >
+          {BACKEND.label}
         </span>
         <span>{isElectron ? "Electron" : "Browser"}</span>
       </span>
@@ -171,7 +208,7 @@ const DevBannerInner = () => {
           size="sm"
           checked={devtoolsEnabled}
           onCheckedChange={setDevtoolsEnabled}
-          className="data-checked:bg-amber-950"
+          className={BACKEND.switchOn}
         />
       </label>
 
@@ -205,7 +242,7 @@ const DevBannerInner = () => {
             ))}
           </ul>
         )}
-        <div className="flex items-center gap-1.5 rounded bg-amber-950/10 px-1.5 py-0.5 ring-1 ring-amber-950/20 focus-within:ring-amber-950/50">
+        <div className="flex items-center gap-1.5 rounded bg-current/10 px-1.5 py-0.5 ring-1 ring-current/20 focus-within:ring-current/50">
           <IconSearch className="size-2.5 shrink-0 opacity-70" />
           <input
             ref={inputRef}
@@ -219,7 +256,7 @@ const DevBannerInner = () => {
             placeholder="Go to route…"
             spellCheck={false}
             autoComplete="off"
-            className="w-full bg-transparent text-[10px] leading-none text-amber-950 outline-none placeholder:text-amber-950/50"
+            className="w-full bg-transparent text-[10px] leading-none text-current outline-none placeholder:text-current/50"
           />
           <IconCornerDownLeft className="size-2.5 shrink-0 opacity-50" />
         </div>
@@ -230,7 +267,7 @@ const DevBannerInner = () => {
         size="icon-xs"
         onClick={toggleCollapsed}
         aria-label="Hide dev banner"
-        className="size-4 shrink-0 text-amber-950 hover:bg-amber-950/10 hover:text-amber-950"
+        className="size-4 shrink-0 text-current hover:bg-current/10 hover:text-current"
       >
         <IconX className="size-3" />
       </Button>

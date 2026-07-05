@@ -19,6 +19,9 @@ release/
 .env
 .env.local
 .env.*.local
+# Supabase connection profiles (hold real secrets; swapped via bun run env:*)
+.env.hosted
+.env.localdev
 
 # debug
 npm-debug.log*
@@ -34,6 +37,7 @@ db/*.db-journal
 # claude
 .claude/*
 !.claude/skills/
+!.claude/launch.json
 
 # agents
 .agents/
