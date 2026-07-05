@@ -68,10 +68,12 @@ export const useSettings = () => {
       return fromServer;
     },
     initialData: readCache,
-    // initialData gives us a synchronous value (no loading state). Refetch
-    // on mount anyway so server-side values (potentially newer from another
-    // device) replace the localStorage cache.
-    refetchOnMount: "always",
+    // initialData gives us a synchronous value (no loading state). Server
+    // values arrive via the SSR prefetch in app/[[...slug]]/page.tsx on every
+    // full page load, so no per-mount refetch is needed — "always" here made
+    // every navigation re-run getSettings (~140ms + a DB transaction each).
+    // Trade-off: settings changed on another device mid-session apply on the
+    // next page load rather than the next navigation.
     staleTime: Infinity,
   });
 

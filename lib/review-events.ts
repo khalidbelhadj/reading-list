@@ -1,6 +1,5 @@
-import { and, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { withUser } from "@/db";
-import { reviewEvents, reviewSessions } from "@/db/schema";
 
 export type ReviewEvent =
   | { type: "card_shown"; flashcardId: string; data: null }
@@ -39,27 +38,26 @@ export const logReviewEvent = async (
   event: ReviewEvent,
 ): Promise<void> => {
   const now = new Date().toISOString();
-  await withUser(userId, async (tx) => {
-    const [session] = await tx
-      .select({ id: reviewSessions.id })
-      .from(reviewSessions)
-      .where(
-        and(
-          eq(reviewSessions.id, sessionId),
-          eq(reviewSessions.userId, userId),
-        ),
-      );
-    if (!session) throw new Error("Review session not found");
-
-    await tx.insert(reviewEvents).values({
-      userId,
-      sessionId,
-      flashcardId: event.flashcardId,
-      type: event.type,
-      data: event.data,
-      createdAt: now,
-    });
-  });
+  await withUser(
+    userId,
+    async (tx) => {
+      // Single INSERT gated on session ownership — the WHERE EXISTS replaces
+      // the old pre-SELECT round trip. RETURNING tells us whether the gate
+      // passed so "session not found" still surfaces as an error.
+      const inserted = await tx.execute(sql`
+        INSERT INTO review_events (user_id, session_id, flashcard_id, type, data, created_at)
+        SELECT ${userId}, ${sessionId}, ${event.flashcardId}::text,
+               ${event.type}, ${JSON.stringify(event.data)}::jsonb, ${now}::timestamptz
+        WHERE EXISTS (
+          SELECT 1 FROM review_sessions
+          WHERE id = ${sessionId} AND user_id = ${userId}
+        )
+        RETURNING id
+      `);
+      if (inserted.length === 0) throw new Error("Review session not found");
+    },
+    "logReviewEvent",
+  );
 };
 
 type Row = {

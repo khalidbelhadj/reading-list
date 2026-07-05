@@ -41,6 +41,7 @@ export {
 } from "./reviews";
 
 export type {
+  BatchedReviewEvent,
   FlashcardWithItem,
   ItemReviewStatus,
   ReviewMode,

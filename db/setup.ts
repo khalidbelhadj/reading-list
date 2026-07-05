@@ -16,7 +16,9 @@ if (!url) {
   process.exit(1);
 }
 
-const sql = postgres(url, { prepare: false });
+// max: 1 — setup.sql contains its own BEGIN/COMMIT, which postgres.js only
+// allows on a single-connection client (UNSAFE_TRANSACTION otherwise).
+const sql = postgres(url, { prepare: false, max: 1 });
 
 try {
   await sql.file("db/setup.sql");

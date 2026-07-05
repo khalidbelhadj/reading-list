@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { perfLog } from "@/lib/perf";
 
@@ -9,6 +10,11 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// Set by middleware.ts after it verified the caller (and stripped any
+// client-sent value), so actions/handlers can skip a second auth.getUser()
+// HTTP round trip. Must match VERIFIED_USER_HEADER in middleware.ts.
+const VERIFIED_USER_HEADER = "x-verified-user-id";
+
 const getMockUserId = (): string | null => {
   if (process.env.NODE_ENV !== "development") return null;
   return process.env.MOCK_USER_ID ?? null;
@@ -16,12 +22,25 @@ const getMockUserId = (): string | null => {
 
 export const getCurrentUserId = async (): Promise<string> => {
   const start = performance.now();
+  try {
+    const verified = (await headers()).get(VERIFIED_USER_HEADER);
+    if (verified) {
+      perfLog("getCurrentUserId", performance.now() - start, {
+        source: "header",
+      });
+      return verified;
+    }
+  } catch {
+    // Outside a request context — fall through to the Supabase lookup.
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   perfLog("getCurrentUserId", performance.now() - start, {
     hasUser: !!user,
+    source: "getUser",
   });
   if (user) return user.id;
 
@@ -34,6 +53,12 @@ export const getCurrentUserId = async (): Promise<string> => {
 export const getCurrentUserIdFromRequest = async (
   request: Request,
 ): Promise<string> => {
+  // Middleware guards every /api/* route and stamps the verified id after
+  // checking the Bearer token / cookie session — trust it and skip the
+  // duplicate getUser() call.
+  const verified = request.headers.get(VERIFIED_USER_HEADER);
+  if (verified) return verified;
+
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);

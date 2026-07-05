@@ -5,6 +5,7 @@ import React from "react";
 
 import {
   ITEMS_SYNC_EVENT,
+  getSyncOriginId,
   itemsSyncChannelName,
   queryKeysForTable,
 } from "@/lib/items-sync";
@@ -20,6 +21,8 @@ export const ItemsSyncWatcher = () => {
 
   React.useEffect(() => {
     const supabase = createClient();
+    // Also (re)plants the sync-origin cookie the server reads in withUser().
+    const originId = getSyncOriginId();
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let subscribedUserId: string | null = null;
     let cancelled = false;
@@ -64,9 +67,12 @@ export const ItemsSyncWatcher = () => {
       channel = supabase
         .channel(itemsSyncChannelName(userId), { config: { private: true } })
         .on("broadcast", { event: ITEMS_SYNC_EVENT }, (message) => {
-          const table = (message.payload as { table?: string } | undefined)
-            ?.table;
-          const keys = queryKeysForTable(table ?? "");
+          const payload = message.payload as
+            { table?: string; origin?: string } | undefined;
+          // Our own write echoing back — the local mutation already
+          // invalidated the affected caches; skip the redundant refetch pass.
+          if (payload?.origin && payload.origin === originId) return;
+          const keys = queryKeysForTable(payload?.table ?? "");
           if (keys.length === 0) return;
           keys.forEach((key) => pendingKeys.add(key));
           if (!flushTimer) flushTimer = setTimeout(flush, 250);

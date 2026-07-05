@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { updateSession } from "@/lib/supabase/middleware";
+import { perfLog } from "@/lib/perf";
 import "@/lib/env";
 
 // Per-request CSP nonce. Next.js streams its RSC payload via inline
@@ -41,8 +42,19 @@ const buildCsp = (nonce: string): string => {
   return directives.join("; ");
 };
 
+// Request header carrying the middleware-verified user id downstream, so
+// server actions / route handlers don't repeat the auth.getUser() HTTP call.
+// Must match VERIFIED_USER_HEADER in lib/auth.ts.
+const VERIFIED_USER_HEADER = "x-verified-user-id";
+
 export async function middleware(request: NextRequest) {
+  const start = performance.now();
   const { pathname } = request.nextUrl;
+  const logDone = (branch: string) =>
+    perfLog(`middleware:${branch}`, performance.now() - start, {
+      path: pathname,
+      method: request.method,
+    });
 
   // CORS for API routes
   if (pathname.startsWith("/api/")) {
@@ -54,6 +66,13 @@ export async function middleware(request: NextRequest) {
         headers: corsHeaders(request, isMcp),
       });
     }
+
+    // Downstream request headers. The verified-user-id header lets route
+    // handlers and server actions skip a second auth.getUser() round trip —
+    // it is only trustworthy because it's stripped from every incoming
+    // request here and set exclusively after middleware verified the caller.
+    const apiHeaders = new Headers(request.headers);
+    apiHeaders.delete(VERIFIED_USER_HEADER);
 
     // Check for Supabase OAuth Bearer token (MCP clients, extensions)
     const authHeader = request.headers.get("authorization");
@@ -73,19 +92,27 @@ export async function middleware(request: NextRequest) {
         data: { user },
       } = await supabase.auth.getUser(token);
       if (user) {
-        const response = NextResponse.next();
+        apiHeaders.set(VERIFIED_USER_HEADER, user.id);
+        const response = NextResponse.next({
+          request: { headers: apiHeaders },
+        });
         for (const [key, value] of Object.entries(
           corsHeaders(request, isMcp),
         )) {
           response.headers.set(key, value);
         }
+        logDone("api-bearer");
         return response;
       }
     }
 
-    // Fall back to Supabase cookie session
-    const response = NextResponse.next();
-    const { user } = await updateSession(request, response);
+    // Fall back to Supabase cookie session. updateSession writes refreshed
+    // auth cookies onto the response it's given, but the verified-id header
+    // has to be on the request *before* NextResponse.next() — so auth runs
+    // against a temp response and any refreshed cookies are copied over.
+    const temp = NextResponse.next();
+    const { user } = await updateSession(request, temp);
+    logDone("api-cookie");
     if (!user) {
       const headers = corsHeaders(request, isMcp);
       headers["WWW-Authenticate"] =
@@ -96,6 +123,11 @@ export async function middleware(request: NextRequest) {
       );
     }
 
+    apiHeaders.set(VERIFIED_USER_HEADER, user.id);
+    const response = NextResponse.next({ request: { headers: apiHeaders } });
+    for (const cookie of temp.cookies.getAll()) {
+      response.cookies.set(cookie);
+    }
     for (const [key, value] of Object.entries(corsHeaders(request, isMcp))) {
       response.headers.set(key, value);
     }
@@ -105,6 +137,8 @@ export async function middleware(request: NextRequest) {
   // HTML routes from here on — apply per-request CSP nonce.
   // Forward x-nonce on the *request* so Next.js can pick it up during SSR.
   const requestHeaders = new Headers(request.headers);
+  // Never let a client-supplied verified-user-id through (see API branch).
+  requestHeaders.delete(VERIFIED_USER_HEADER);
   const nonce = crypto.randomUUID().replace(/-/g, "");
   requestHeaders.set("x-nonce", nonce);
 
@@ -138,16 +172,27 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Allow bypass in development with explicit mock user
+  // Allow bypass in development with explicit mock user. Stamping the header
+  // here keeps dev on the same fast path server actions use in production.
   if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
+    requestHeaders.set(VERIFIED_USER_HEADER, process.env.MOCK_USER_ID);
+    logDone("dev-bypass");
     return passThrough();
   }
 
-  // Check session for web routes, redirect to login if unauthenticated
-  const response = passThrough();
-  const { user } = await updateSession(request, response);
+  // Check session for web routes, redirect to login if unauthenticated.
+  // Same temp-response dance as the API branch: the verified-id header must
+  // be on requestHeaders before passThrough() builds the response.
+  const temp = NextResponse.next();
+  const { user } = await updateSession(request, temp);
+  logDone("page-auth");
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+  requestHeaders.set(VERIFIED_USER_HEADER, user.id);
+  const response = passThrough();
+  for (const cookie of temp.cookies.getAll()) {
+    response.cookies.set(cookie);
   }
   return response;
 }
