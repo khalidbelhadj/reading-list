@@ -16,11 +16,22 @@ import React from "react";
  * `density` is deliberately NOT here: it lives in global settings, so leaves
  * read it straight from `useSettings` rather than have the list re-broadcast it.
  */
+export type SelectModifiers = { meta: boolean; shift: boolean };
+
+export type BulkActions = {
+  markRead: (itemIds: string[], read: boolean) => void;
+  setPinned: (itemIds: string[], starred: boolean) => void;
+  requestDelete: (itemIds: string[]) => void;
+};
+
 export type ItemActions = {
-  onSelect: (id: string) => void;
+  // `modifiers` carries the click's cmd/shift state for multi-select; command
+  // sources without a pointer event (suggested cards) omit it — plain select.
+  onSelect: (id: string, modifiers?: SelectModifiers) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
   onTogglePin: (id: string, starred: boolean) => void;
+  bulk: BulkActions;
 };
 
 type ItemRowState = {

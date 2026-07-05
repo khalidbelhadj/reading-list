@@ -76,15 +76,20 @@ const trafficLightInset = (zoom: number) =>
 // Single source of truth for zoom. Applies the factor to the page, repositions
 // the traffic lights to track the scaled content, and tells the renderer so its
 // CSS can widen the toolbar's left clearance (gap = clearance / zoom).
-const setZoom = (next: number) => {
-  if (!mainWindow) return;
-  zoomFactor = clampZoom(next);
-  mainWindow.webContents.setZoomFactor(zoomFactor);
+// Zoom is a single app-wide factor applied to every window (main and any
+// secondary item/review windows), so the whole app scales together.
+const applyZoomToWindow = (win: BrowserWindow) => {
+  win.webContents.setZoomFactor(zoomFactor);
   if (process.platform === "darwin") {
     const inset = trafficLightInset(zoomFactor);
-    mainWindow.setWindowButtonPosition({ x: inset, y: inset });
+    win.setWindowButtonPosition({ x: inset, y: inset });
   }
-  mainWindow.webContents.send("zoom", zoomFactor);
+  win.webContents.send("zoom", zoomFactor);
+};
+
+const setZoom = (next: number) => {
+  zoomFactor = clampZoom(next);
+  BrowserWindow.getAllWindows().forEach(applyZoomToWindow);
 };
 
 // Approximations of --background tokens from app/globals.css. Used as the
@@ -105,6 +110,91 @@ const sendDeepLink = (url: string) => {
   }
 };
 
+const sharedWebPreferences = () => ({
+  preload: path.join(__dirname, "preload.js"),
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true,
+});
+
+// Per-webContents wiring shared by the main window and any secondary windows
+// the renderer opens (item windows, review windows). Registered globally via
+// app.on("web-contents-created") so child windows get the exact same
+// navigation guards, zoom handling, and dev title stamp as the main window.
+const attachWindowBehavior = (contents: Electron.WebContents) => {
+  // window.open() — app-origin URLs become real child windows (keeping their
+  // window.opener link back to the parent, which the renderer uses to hand
+  // items back to the originating window); everything else goes to the
+  // system browser.
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isAppNavigation(url)) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 1000,
+          height: 760,
+          minWidth: 400,
+          minHeight: 400,
+          titleBarStyle: "hiddenInset",
+          trafficLightPosition: {
+            x: trafficLightInset(zoomFactor),
+            y: trafficLightInset(zoomFactor),
+          },
+          backgroundColor: themeBg(),
+          icon: iconPath("icon.png"),
+          webPreferences: sharedWebPreferences(),
+        },
+      };
+    }
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  // Block any in-renderer navigation that leaves the app's own origin and push
+  // it to the system browser. Covers Google OAuth, third-party links the user
+  // might click, and any redirect chain that tries to escape.
+  contents.on("will-navigate", (event, url) => {
+    if (!isAppNavigation(url)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
+  // Same guard for full document redirects (e.g. server-side 302s).
+  contents.on("will-redirect", (event, url) => {
+    if (!isAppNavigation(url)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
+  // Re-assert zoom after every (re)load: setZoomFactor resets to 1 on
+  // navigation, and the freshly mounted renderer needs the current factor to
+  // size its toolbar clearance.
+  contents.on("did-finish-load", () => {
+    const win = BrowserWindow.fromWebContents(contents);
+    if (win) applyZoomToWindow(win);
+  });
+
+  // Ctrl/Cmd + mouse-wheel zoom. We own the zoom factor, so step it ourselves
+  // and let setZoom reposition the buttons and notify the renderers.
+  contents.on("zoom-changed", (_event, direction) => {
+    setZoom(zoomFactor * (direction === "in" ? ZOOM_RATIO : 1 / ZOOM_RATIO));
+  });
+
+  // In dev, stamp the port into the window title so multiple instances are
+  // tellable apart in the dock / window switcher. The page sets its own
+  // <title>, so re-append on every page-title-updated.
+  if (!app.isPackaged) {
+    contents.on("page-title-updated", (event, title) => {
+      event.preventDefault();
+      BrowserWindow.fromWebContents(contents)?.setTitle(
+        `${title} — :${devPort}`,
+      );
+    });
+  }
+};
+
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -118,37 +208,7 @@ const createWindow = () => {
     },
     backgroundColor: themeBg(),
     icon: iconPath("icon.png"),
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-
-  // window.open() — only allow app URLs as actual new windows (we don't create
-  // any), everything else goes to the system browser.
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isAppNavigation(url)) shell.openExternal(url);
-    return { action: "deny" };
-  });
-
-  // Block any in-renderer navigation that leaves the app's own origin and push
-  // it to the system browser. Covers Google OAuth, third-party links the user
-  // might click, and any redirect chain that tries to escape.
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!isAppNavigation(url)) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
-  });
-
-  // Same guard for full document redirects (e.g. server-side 302s).
-  mainWindow.webContents.on("will-redirect", (event, url) => {
-    if (!isAppNavigation(url)) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
+    webPreferences: sharedWebPreferences(),
   });
 
   mainWindow.webContents.on("did-finish-load", () => {
@@ -156,38 +216,12 @@ const createWindow = () => {
       mainWindow.webContents.send("deep-link", pendingDeepLink);
       pendingDeepLink = null;
     }
-    // Re-assert zoom after every (re)load: setZoomFactor resets to 1 on
-    // navigation, and the freshly mounted renderer needs the current factor to
-    // size its toolbar clearance.
-    setZoom(zoomFactor);
   });
-
-  // Ctrl/Cmd + mouse-wheel zoom. We own the zoom factor, so step it ourselves
-  // and let setZoom reposition the buttons and notify the renderer.
-  mainWindow.webContents.on("zoom-changed", (_event, direction) => {
-    setZoom(zoomFactor * (direction === "in" ? ZOOM_RATIO : 1 / ZOOM_RATIO));
-  });
-
-  // In dev, stamp the port into the window title so multiple instances are
-  // tellable apart in the dock / window switcher. The page sets its own
-  // <title>, so re-append on every page-title-updated.
-  if (!app.isPackaged) {
-    mainWindow.webContents.on("page-title-updated", (event, title) => {
-      event.preventDefault();
-      mainWindow?.setTitle(`${title} — :${devPort}`);
-    });
-  }
 
   const url = app.isPackaged ? PROD_URL : DEV_URL;
   mainWindow.loadURL(url);
 
-  const onThemeUpdate = () => {
-    mainWindow?.setBackgroundColor(themeBg());
-  };
-  nativeTheme.on("updated", onThemeUpdate);
-
   mainWindow.on("closed", () => {
-    nativeTheme.off("updated", onThemeUpdate);
     mainWindow = null;
   });
 };
@@ -238,9 +272,24 @@ if (!gotLock) {
     sendDeepLink(url);
   });
 
+  // Guards + zoom + dev title for every window, including child windows the
+  // renderer opens via window.open (which never pass through createWindow).
+  app.on("web-contents-created", (_event, contents) => {
+    attachWindowBehavior(contents);
+  });
+
   ipcMain.handle("open-external", (_event, url: string) =>
     shell.openExternal(url),
   );
+
+  // Raise the calling window. Used when a secondary window hands an item back
+  // to the window that opened it — the renderer can't focus a window itself.
+  ipcMain.handle("focus-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
 
   // Renderer reads the current zoom on mount so its toolbar clearance is
   // correct even if it remounts (HMR) after the last "zoom" broadcast.
@@ -249,14 +298,13 @@ if (!gotLock) {
   // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
   // "change" listener when the macOS appearance flips while the app is
   // running. nativeTheme.on("updated", ...) is the authoritative signal —
-  // forward it to the renderer so the theme follows the OS live.
+  // forward it to every renderer so the theme follows the OS live, and keep
+  // each window's background color in sync so resizes don't flash.
   ipcMain.handle("native-theme-current", () => nativeTheme.shouldUseDarkColors);
   nativeTheme.on("updated", () => {
-    if (mainWindow) {
-      mainWindow.webContents.send(
-        "native-theme",
-        nativeTheme.shouldUseDarkColors,
-      );
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.setBackgroundColor(themeBg());
+      win.webContents.send("native-theme", nativeTheme.shouldUseDarkColors);
     }
   });
 

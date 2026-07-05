@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("readingList", {
   platform: "electron" as const,
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
+  focusWindow: () => ipcRenderer.invoke("focus-window"),
   onDeepLink: (cb: (url: string) => void) => {
     const listener = (_event: unknown, url: string) => cb(url);
     ipcRenderer.on("deep-link", listener);

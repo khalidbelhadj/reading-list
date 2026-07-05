@@ -1,4 +1,5 @@
 import {
+  IconAppWindow,
   IconArrowsMaximize,
   IconArrowsSort,
   IconBulb,
@@ -131,6 +132,7 @@ export const SettingsMenu = ({
     showRead,
     showSuggestions,
     tagsOpen,
+    reviewsInNewWindow,
   } = settings;
   const email = user?.email ?? null;
   const userId = user?.id ?? null;
@@ -258,6 +260,11 @@ export const SettingsMenu = ({
 
   const handleFullWidthChange = React.useCallback(
     (checked: boolean) => setSetting("fullWidth", checked),
+    [setSetting],
+  );
+
+  const handleReviewsInNewWindowChange = React.useCallback(
+    (checked: boolean) => setSetting("reviewsInNewWindow", checked),
     [setSetting],
   );
 
@@ -395,6 +402,13 @@ export const SettingsMenu = ({
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuSwitchItem
+          checked={reviewsInNewWindow}
+          onCheckedChange={handleReviewsInNewWindowChange}
+        >
+          <IconAppWindow />
+          Reviews in new window
+        </DropdownMenuSwitchItem>
         {mounted && isElectron && (
           <DropdownMenuSwitchItem
             checked={fullWidth}

@@ -11,6 +11,7 @@ export const settingsSchema = z.object({
   showRead: z.boolean().catch(false),
   showSuggestions: z.boolean().catch(true),
   tagsOpen: z.boolean().catch(false),
+  reviewsInNewWindow: z.boolean().catch(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showRead: false,
   showSuggestions: true,
   tagsOpen: false,
+  reviewsInNewWindow: true,
 };
 
 export const parseSettings = (raw: unknown): Settings => {

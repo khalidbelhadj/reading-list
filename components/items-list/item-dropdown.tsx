@@ -1,5 +1,6 @@
 import {
   IconAppWindow,
+  IconArrowUpRight,
   IconBolt,
   IconCalendarDue,
   IconCards,
@@ -37,6 +38,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { openItemInNewWindow } from "@/lib/app-windows";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
@@ -231,6 +233,10 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     window.open(item.url, "_blank", "noopener,noreferrer");
   }, [item.url]);
 
+  const handleOpenInNewWindow = React.useCallback(() => {
+    openItemInNewWindow(item.id);
+  }, [item.id]);
+
   // Hand the item off to the desktop app via its readinglist:// protocol; the
   // OS launches/focuses the app and DeepLinkItemWatcher selects the item.
   const handleOpenInApp = React.useCallback(() => {
@@ -254,6 +260,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     handleCopyTitle,
     handleCopyNotes,
     handleOpenInNewTab,
+    handleOpenInNewWindow,
     handleOpenInApp,
     handleChatWithClaude,
     canOpenUrl,
@@ -273,6 +280,7 @@ const ItemMenuItems = ({
   hasNotes,
   lastCopied,
   handleOpenInNewTab,
+  handleOpenInNewWindow,
   handleOpenInApp,
   handleChatWithClaude,
   handleCopyId,
@@ -290,6 +298,10 @@ const ItemMenuItems = ({
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
       )}
+      <DropdownMenuItem onClick={handleOpenInNewWindow}>
+        <IconArrowUpRight />
+        {isElectron ? "Open in new window" : "Open in new tab"}
+      </DropdownMenuItem>
       {!isElectron && (
         <DropdownMenuItem onClick={handleOpenInApp}>
           <IconAppWindow />
@@ -511,6 +523,7 @@ export const ItemContextMenu = ({
   onToggleRead,
   onDelete,
   onOpenChange,
+  bulkContent,
   children,
 }: {
   item: Item;
@@ -518,11 +531,15 @@ export const ItemContextMenu = ({
   onToggleRead?: () => void;
   onDelete?: () => void;
   onOpenChange?: (open: boolean) => void;
+  // When set, the menu shows these bulk-selection actions instead of the
+  // single-item ones (ItemRow passes them while the row is part of a
+  // multi-selection). Also skips the per-item review-count fetch.
+  bulkContent?: React.ReactNode;
   children: React.ReactNode;
 }) => {
   const [open, setOpenState] = React.useState(false);
   const actions = useItemMenuActions({ item });
-  const review = useItemReview({ item, menuOpen: open });
+  const review = useItemReview({ item, menuOpen: open && !bulkContent });
 
   const setOpen = React.useCallback(
     (next: boolean) => {
@@ -547,17 +564,19 @@ export const ItemContextMenu = ({
       <ContextMenuRoot open={open} onOpenChange={setOpen}>
         {children}
         <ContextMenuContent>
-          <ItemMenuItems
-            item={item}
-            review={review}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onDelete={onDelete}
-            {...actions}
-          />
+          {bulkContent ?? (
+            <ItemMenuItems
+              item={item}
+              review={review}
+              onTogglePin={onTogglePin}
+              onToggleRead={onToggleRead}
+              onDelete={onDelete}
+              {...actions}
+            />
+          )}
         </ContextMenuContent>
       </ContextMenuRoot>
-      <ItemReviewDialog review={review} />
+      {!bulkContent && <ItemReviewDialog review={review} />}
     </>
   );
 };
