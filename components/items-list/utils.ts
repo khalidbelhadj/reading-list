@@ -2,6 +2,31 @@ import { type Item } from "@/lib/types";
 
 export type Density = "compact" | "cozy";
 
+// Item ids are UUIDs, which never occur in a title/url/notes — so a query
+// containing one or more is unambiguously an "id lookup" (paste an id or a list
+// of ids). Keying off this shape keeps it out of the way of normal searches.
+const ITEM_ID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+export const isIdSearch = (query: string): boolean =>
+  query.match(ITEM_ID_RE) !== null;
+
+// Every UUID in the query, lowercased, in order of appearance (deduped).
+export const extractItemIds = (query: string): string[] => {
+  const matches = query.match(ITEM_ID_RE);
+  if (!matches) return [];
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const match of matches) {
+    const id = match.toLowerCase();
+    if (!seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
+};
+
 export type EditFields = {
   title: string;
   url: string;

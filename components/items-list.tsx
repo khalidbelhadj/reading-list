@@ -15,6 +15,7 @@ import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { useSettings } from "@/lib/use-settings";
+import { AskResults } from "./items-list/ask-results";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
@@ -39,6 +40,7 @@ import { useCreateItem } from "./items-list/use-create-item";
 import { useItemsFilters } from "./items-list/use-filters";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
+import { useAsk } from "./items-list/use-ask";
 import { useListSearch } from "./items-list/use-list-search";
 import { useSuggestions } from "./items-list/use-suggestions";
 import { useItemsMutations } from "./items-list/use-mutations";
@@ -86,6 +88,32 @@ export const ItemsList = ({
     searchBackendPending,
     handleSearchOpen,
   } = useListSearch(items);
+
+  // Agentic "Ask" search — LLM tool-calling over the reading list.
+  const {
+    askActive,
+    isAsking,
+    error: askError,
+    steps: askSteps,
+    summary: askSummary,
+    resultIds: askResultIds,
+    hasPresented: askHasPresented,
+    runAsk,
+    clearAsk,
+  } = useAsk();
+
+  // An Ask result is a snapshot of one query — like a normal search result, it
+  // should vanish as soon as the query changes (typing) or the bar closes.
+  // Routed through a ref so ordinary typing only clears when a result is showing.
+  const askActiveRef = React.useRef(askActive);
+  askActiveRef.current = askActive;
+  const handleQueryChange = React.useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (askActiveRef.current) clearAsk();
+    },
+    [setSearchQuery, clearAsk],
+  );
 
   // Per-row typewriter title animation (used after pasting a URL).
   const { typingTitles, animateTypingTitle } = useTypingTitles();
@@ -581,9 +609,11 @@ export const ItemsList = ({
             <SearchBar
               ref={searchBarRef}
               query={searchQuery}
-              onQueryChange={setSearchQuery}
+              onQueryChange={handleQueryChange}
               resultCount={searchResultCount}
               isFetching={searchFetching}
+              onAsk={runAsk}
+              isAsking={isAsking}
               onCursorNav={navigateCursor}
               onCursorJump={jumpCursor}
               onCursorOpen={({ meta, shift }) => {
@@ -647,31 +677,45 @@ export const ItemsList = ({
                           : undefined
                       }
                     >
-                      {emptyNode}
-
-                      <SuggestedSection
-                        items={suggestedItems}
-                        open={suggestedOpen}
-                        onToggleOpen={() => setSuggestedOpen((p) => !p)}
-                        onHide={() => setSetting("showSuggestions", false)}
-                      />
-
-                      <PinnedSection
-                        items={pinnedItems}
-                        open={pinnedOpen}
-                        onToggleOpen={() => setPinnedOpen((p) => !p)}
-                      />
-
-                      {useGroupedLayout ? (
-                        <GroupedList groups={groups} items={items ?? []} />
+                      {askActive ? (
+                        <AskResults
+                          summary={askSummary}
+                          steps={askSteps}
+                          resultIds={askResultIds}
+                          isAsking={isAsking}
+                          hasPresented={askHasPresented}
+                          error={askError}
+                          items={items ?? []}
+                        />
                       ) : (
                         <>
-                          <VirtualItemList items={unpinnedItems} />
-                          {/* Backend (trigram) pass still running: append loading
-                          rows under the instant keyword hits so the search reads
-                          as "more coming," not finished. */}
-                          {searchActive && searchBackendPending && (
-                            <ItemsSkeleton density={density} />
+                          {emptyNode}
+
+                          <SuggestedSection
+                            items={suggestedItems}
+                            open={suggestedOpen}
+                            onToggleOpen={() => setSuggestedOpen((p) => !p)}
+                            onHide={() => setSetting("showSuggestions", false)}
+                          />
+
+                          <PinnedSection
+                            items={pinnedItems}
+                            open={pinnedOpen}
+                            onToggleOpen={() => setPinnedOpen((p) => !p)}
+                          />
+
+                          {useGroupedLayout ? (
+                            <GroupedList groups={groups} items={items ?? []} />
+                          ) : (
+                            <>
+                              <VirtualItemList items={unpinnedItems} />
+                              {/* Backend (trigram) pass still running: append
+                              loading rows under the instant keyword hits so the
+                              search reads as "more coming," not finished. */}
+                              {searchActive && searchBackendPending && (
+                                <ItemsSkeleton density={density} />
+                              )}
+                            </>
                           )}
                         </>
                       )}

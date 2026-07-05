@@ -6,14 +6,12 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { withUser } from "@/db";
-import { items, tags, itemsTags, flashcards } from "@/db/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { items, tags, flashcards } from "@/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import { getCurrentUserIdFromRequest, UnauthorizedError } from "@/lib/auth";
 import { ActionError } from "@/lib/safe-action";
-import {
-  searchItems as searchItemsQuery,
-  searchFlashcards,
-} from "@/lib/search";
+import { searchFlashcards } from "@/lib/search";
+import { searchItemsWithTags } from "./search";
 import {
   createItems as createItemsLib,
   updateItemWithCardSync,
@@ -35,7 +33,6 @@ import {
 import {
   toMcpItem,
   toMcpFlashcard,
-  toMcpSearchItem,
   type GetItemsResponse,
   type GetItemResponse,
   type SearchItemsResponse,
@@ -284,37 +281,9 @@ async function handleTool(name: string, args: unknown, userId: string) {
         const caseSensitive = parsed.caseSensitive ?? false;
 
         try {
-          const results = await withUser(userId, async (tx) => {
-            const searchResults = await searchItemsQuery(
-              tx,
-              userId,
-              parsed.pattern,
-              {
-                caseSensitive,
-                mode: "regex",
-              },
-            );
-
-            if (searchResults.length === 0) return [];
-
-            const itemIds = searchResults.map((r) => r.id);
-            const tagRows = await tx
-              .select({ itemId: itemsTags.itemId, name: tags.name })
-              .from(itemsTags)
-              .innerJoin(tags, eq(tags.id, itemsTags.tagId))
-              .where(inArray(itemsTags.itemId, itemIds));
-
-            const tagsByItem = new Map<string, string[]>();
-            for (const row of tagRows) {
-              const existing = tagsByItem.get(row.itemId) ?? [];
-              existing.push(row.name);
-              tagsByItem.set(row.itemId, existing);
-            }
-
-            return searchResults.map((r) =>
-              toMcpSearchItem(r, tagsByItem.get(r.id) ?? [], r.matchedIn),
-            );
-          });
+          const results = await withUser(userId, (tx) =>
+            searchItemsWithTags(tx, userId, parsed.pattern, { caseSensitive }),
+          );
 
           return jsonText<SearchItemsResponse>({
             pattern: parsed.pattern,

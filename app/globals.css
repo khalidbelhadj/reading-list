@@ -1,4 +1,6 @@
 @import "@fontsource-variable/dm-sans";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -8,6 +10,9 @@
 @theme {
   --font-sans: "DM Sans Variable", sans-serif;
   --font-content: "DM Sans Variable", sans-serif;
+  /* DM Mono — the monospace companion to DM Sans (same foundry). Drives the
+     `font-mono` utility. */
+  --font-mono: "DM Mono", ui-monospace, monospace;
   --default-transition-duration: 50ms;
 }
 
@@ -449,14 +454,14 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   background: var(--muted);
   padding: 0.05rem 0.3rem;
   border-radius: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono);
   font-size: 0.92em;
 }
 .markdown-editor .ProseMirror pre {
   background: var(--muted);
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   overflow-x: auto;
 }
@@ -816,6 +821,68 @@ back.card-side {
     transparent
   );
   mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
+}
+
+/* Streaming reveal: a soft gradient boundary at the bottom of the live "Ask"
+   feed. Its position (--ask-mask-stop, the opaque/​fade edge in px) is driven
+   from JS to the current content height and eased there with a long, smooth
+   transition — so the boundary glides down as content streams instead of
+   jumping per token, and once content settles it parks *below* the last line
+   (the +3rem fade falls into empty space) so nothing stays obscured. */
+@property --ask-mask-stop {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.ask-stream-mask {
+  --ask-mask-stop: 0px;
+  transition: --ask-mask-stop 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 var(--ask-mask-stop),
+    transparent calc(var(--ask-mask-stop) + 3rem)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 var(--ask-mask-stop),
+    transparent calc(var(--ask-mask-stop) + 3rem)
+  );
+}
+
+/* One-shot downward reveal — a gradient boundary wipes an element into view from
+   top to bottom on mount (used for the final results block, which appears all at
+   once rather than streaming through the boundary above). Ends right as the
+   reveal completes so it eases to a stop instead of finishing early. */
+@keyframes reveal-down {
+  from {
+    -webkit-mask-size: 100% 0%;
+    mask-size: 100% 0%;
+  }
+  to {
+    -webkit-mask-size: 100% 185%;
+    mask-size: 100% 185%;
+  }
+}
+.reveal-down {
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: reveal-down 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Square-corners spinner — staggered pulse of four dots (see SquareSpinner). */
+@keyframes spinner-dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Slow view transitions for debugging — uncomment to enable. */

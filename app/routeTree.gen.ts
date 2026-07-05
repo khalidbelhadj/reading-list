@@ -33,6 +33,7 @@ import { Route as DebugCodeBlockRouteImport } from './routes/debug.code-block'
 import { Route as AuthReturnToAppRouteImport } from './routes/auth.return-to-app'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
+import { Route as ApiAskRouteImport } from './routes/api.ask'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
 import { Route as ApiStorageSplatRouteImport } from './routes/api.storage.$'
 import { Route as ApiExtensionItemsRouteImport } from './routes/api.extension.items'
@@ -160,6 +161,11 @@ const ApiMcpRoute = ApiMcpRouteImport.update({
   path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAskRoute = ApiAskRouteImport.update({
+  id: '/api/ask',
+  path: '/api/ask',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotwellKnownOauthProtectedResourceRoute =
   DotwellKnownOauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/ask'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -363,6 +375,7 @@ export interface RootRouteChildren {
   VersionRoute: typeof VersionRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
+  ApiAskRoute: typeof ApiAskRoute
   ApiMcpRoute: typeof ApiMcpRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthReturnToAppRoute: typeof AuthReturnToAppRoute
@@ -555,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ask': {
+      id: '/api/ask'
+      path: '/api/ask'
+      fullPath: '/api/ask'
+      preLoaderRoute: typeof ApiAskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
+  ApiAskRoute: ApiAskRoute,
   ApiMcpRoute: ApiMcpRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthReturnToAppRoute: AuthReturnToAppRoute,
