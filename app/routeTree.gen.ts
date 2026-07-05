@@ -26,6 +26,7 @@ import { Route as DebugReviewSummaryPreviewRouteImport } from './routes/debug.re
 import { Route as DebugReviewSessionPreviewRouteImport } from './routes/debug.review-session-preview'
 import { Route as DebugReviewDialogsRouteImport } from './routes/debug.review-dialogs'
 import { Route as DebugReviewCountAnimationsRouteImport } from './routes/debug.review-count-animations'
+import { Route as DebugMathRouteImport } from './routes/debug.math'
 import { Route as DebugKbdRouteImport } from './routes/debug.kbd'
 import { Route as DebugEmptyStatesRouteImport } from './routes/debug.empty-states'
 import { Route as DebugDesignSystemRouteImport } from './routes/debug.design-system'
@@ -125,6 +126,11 @@ const DebugReviewCountAnimationsRoute =
     path: '/debug/review-count-animations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DebugMathRoute = DebugMathRouteImport.update({
+  id: '/debug/math',
+  path: '/debug/math',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DebugKbdRoute = DebugKbdRouteImport.update({
   id: '/debug/kbd',
   path: '/debug/kbd',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
   '/debug/kbd': typeof DebugKbdRoute
+  '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
   '/debug/review-dialogs': typeof DebugReviewDialogsRoute
   '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -340,6 +351,7 @@ export interface FileRouteTypes {
     | '/debug/design-system'
     | '/debug/empty-states'
     | '/debug/kbd'
+    | '/debug/math'
     | '/debug/review-count-animations'
     | '/debug/review-dialogs'
     | '/debug/review-session-preview'
@@ -370,6 +382,7 @@ export interface RootRouteChildren {
   DebugDesignSystemRoute: typeof DebugDesignSystemRoute
   DebugEmptyStatesRoute: typeof DebugEmptyStatesRoute
   DebugKbdRoute: typeof DebugKbdRoute
+  DebugMathRoute: typeof DebugMathRoute
   DebugReviewCountAnimationsRoute: typeof DebugReviewCountAnimationsRoute
   DebugReviewDialogsRoute: typeof DebugReviewDialogsRoute
   DebugReviewSessionPreviewRoute: typeof DebugReviewSessionPreviewRoute
@@ -506,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DebugReviewCountAnimationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/debug/math': {
+      id: '/debug/math'
+      path: '/debug/math'
+      fullPath: '/debug/math'
+      preLoaderRoute: typeof DebugMathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/debug/kbd': {
       id: '/debug/kbd'
       path: '/debug/kbd'
@@ -595,6 +615,7 @@ const rootRouteChildren: RootRouteChildren = {
   DebugDesignSystemRoute: DebugDesignSystemRoute,
   DebugEmptyStatesRoute: DebugEmptyStatesRoute,
   DebugKbdRoute: DebugKbdRoute,
+  DebugMathRoute: DebugMathRoute,
   DebugReviewCountAnimationsRoute: DebugReviewCountAnimationsRoute,
   DebugReviewDialogsRoute: DebugReviewDialogsRoute,
   DebugReviewSessionPreviewRoute: DebugReviewSessionPreviewRoute,
