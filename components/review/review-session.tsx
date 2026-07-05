@@ -38,6 +38,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getFaviconSrc } from "@/components/items-list/utils";
+import { openItemInOriginWindow } from "@/lib/app-windows";
+import { useIsSecondaryWindow } from "@/lib/use-is-secondary-window";
 import { schedule, parseCardState, type Rating } from "@/lib/srs";
 import { intervalShort, duration } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,43 @@ const RATINGS: Array<{ value: Rating; label: string; key: string }> = [
   { value: "good", label: "Good", key: "3" },
   { value: "easy", label: "Easy", key: "4" },
 ];
+
+// Reviews usually run in their own window (see use-start-review.ts). When
+// that's the case the way back to the list is closing this window — the list
+// window is still sitting behind it. Standalone (direct URL, blocked popup),
+// fall back to a normal home link.
+const BackToListButton = () => {
+  const isSecondaryWindow = useIsSecondaryWindow();
+
+  const handleClose = React.useCallback(() => {
+    const opener = window.opener as Window | null;
+    if (opener && !opener.closed) {
+      try {
+        opener.focus();
+      } catch {}
+    }
+    window.close();
+  }, []);
+
+  if (isSecondaryWindow) {
+    return (
+      <Button variant="ghost" size="lg" className="w-fit" onClick={handleClose}>
+        Close window
+      </Button>
+    );
+  }
+  return (
+    <Button
+      variant="ghost"
+      size="lg"
+      className="w-fit"
+      nativeButton={false}
+      render={<Link to="/" />}
+    >
+      Back to list
+    </Button>
+  );
+};
 
 const useCompletionConfetti = () => {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -127,17 +166,7 @@ export const ReviewSession = ({
         size="sm"
         title="Review session not found"
         description="It may have ended, or the link is no longer valid."
-        actions={
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-fit"
-            nativeButton={false}
-            render={<Link to="/" />}
-          >
-            Back to list
-          </Button>
-        }
+        actions={<BackToListButton />}
       />
     );
   }
@@ -195,13 +224,6 @@ const ReviewSessionInner = ({
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [revealed, setRevealed] = React.useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = React.useState(false);
-  // `copiedItemId` drives the tooltip label; `itemIdCopyOpen` force-opens the
-  // tooltip after a copy. They reset on a stagger so the label stays "Copied
-  // ID" through the close animation instead of flashing back to "Copy item ID".
-  const [copiedItemId, setCopiedItemId] = React.useState(false);
-  const [itemIdCopyOpen, setItemIdCopyOpen] = React.useState(false);
-  const [itemIdTooltipOpen, setItemIdTooltipOpen] = React.useState(false);
-  const copyTimersRef = React.useRef<ReturnType<typeof setTimeout>[]>([]);
   // Preview-only: ending early has no server `endedAt` to read back, so we
   // track it locally; ratings accumulate here to build the summary.
   const [previewEnded, setPreviewEnded] = React.useState(false);
@@ -223,25 +245,11 @@ const ReviewSessionInner = ({
   const sessionEnded = Boolean(session.endedAt);
   const currentCard: ReviewSessionCard | undefined = cards[currentIndex];
 
-  const handleCopyItemId = React.useCallback((itemId: string) => {
-    navigator.clipboard.writeText(itemId).then(
-      () => {
-        copyTimersRef.current.forEach(clearTimeout);
-        setCopiedItemId(true);
-        setItemIdCopyOpen(true);
-        copyTimersRef.current = [
-          // Start closing the tooltip...
-          setTimeout(() => setItemIdCopyOpen(false), 1300),
-          // ...then clear the label once the close animation has finished, so
-          // it never flashes back to "Copy item ID" mid-fade.
-          setTimeout(() => setCopiedItemId(false), 1500),
-        ];
-      },
-      () => {},
-    );
+  // Hand the item back to the window that opened this review (or open it
+  // here when the review is running standalone).
+  const handleShowItem = React.useCallback((targetItemId: string) => {
+    openItemInOriginWindow(targetItemId);
   }, []);
-
-  React.useEffect(() => () => copyTimersRef.current.forEach(clearTimeout), []);
 
   React.useEffect(() => {
     if (sessionEnded || !currentCard) return;
@@ -510,17 +518,7 @@ const ReviewSessionInner = ({
         size="sm"
         title="No cards available"
         description="This review session doesn't have any cards to show."
-        actions={
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-fit"
-            nativeButton={false}
-            render={<Link to="/" />}
-          >
-            Back to list
-          </Button>
-        }
+        actions={<BackToListButton />}
       />
     );
   }
@@ -628,25 +626,20 @@ const ReviewSessionInner = ({
           <div className="flex flex-col gap-6">
             {(currentCard.itemTitle || itemDomain) &&
               (itemId ? (
-                <Tooltip
-                  open={itemIdTooltipOpen || itemIdCopyOpen}
-                  onOpenChange={setItemIdTooltipOpen}
-                >
+                <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="ghost"
                         size="xs"
                         className="-mx-1.5 h-auto w-fit gap-2 px-1.5 py-1 text-xs font-normal text-muted-foreground"
-                        onClick={() => handleCopyItemId(itemId)}
+                        onClick={() => handleShowItem(itemId)}
                       >
                         {metaContent}
                       </Button>
                     }
                   />
-                  <TooltipContent>
-                    {copiedItemId ? "Copied ID" : "Copy item ID"}
-                  </TooltipContent>
+                  <TooltipContent>Show in list</TooltipContent>
                 </Tooltip>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -863,14 +856,7 @@ export const SessionSummaryView = ({
         )}
 
         <div className="mx-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="lg"
-            nativeButton={false}
-            render={<Link to="/" />}
-          >
-            Back to list
-          </Button>
+          <BackToListButton />
         </div>
       </div>
     </div>

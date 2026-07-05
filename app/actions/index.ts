@@ -94,6 +94,14 @@ const bulkMarkReadFn = createServerFn({ method: "POST" })
 export const bulkMarkRead: typeof itemsImpl.bulkMarkRead = (...args) =>
   bulkMarkReadFn({ data: args });
 
+const bulkSetPinnedFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof itemsImpl.bulkSetPinned>) => args)
+  .handler(({ data }) =>
+    import("./items").then((m) => m.bulkSetPinned(...data)),
+  );
+export const bulkSetPinned: typeof itemsImpl.bulkSetPinned = (...args) =>
+  bulkSetPinnedFn({ data: args });
+
 const generateItemPreviewFn = createServerFn({ method: "POST" })
   .validator((args: Parameters<typeof itemsImpl.generateItemPreview>) => args)
   .handler(({ data }) =>

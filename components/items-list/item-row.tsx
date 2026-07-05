@@ -4,11 +4,13 @@ import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
 
+import { BulkMenuItems } from "./bulk-menu-items";
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
 import { resolveRowItem } from "./utils";
 import { ItemRowContent } from "./item-row-content";
 import { CozyRowContent } from "./cozy-row-content";
 import { useIsCursor, useIsOpenItem } from "./cursor-store";
+import { getSelectedIds, useIsSelected } from "./selection-store";
 import { useItemActions, useItemRowState } from "./item-row-context";
 
 export const ItemRow = ({ item }: { item: Item }) => {
@@ -18,8 +20,14 @@ export const ItemRow = ({ item }: { item: Item }) => {
 
   const isCursor = useIsCursor(item.id);
   const isOpen = useIsOpenItem(item.id);
+  const isSelected = useIsSelected(item.id);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
+  // Snapshot of the multi-selection taken when the context menu opens: while
+  // this row is one of several selected rows, the menu shows bulk actions
+  // over exactly these ids. Kept through close so the content doesn't swap
+  // mid-exit-animation; null means the normal single-item menu.
+  const [bulkMenuIds, setBulkMenuIds] = React.useState<string[] | null>(null);
 
   // Overlay the in-progress typewriter title (post-paste) onto the row for
   // display, without touching the cached item.
@@ -28,8 +36,12 @@ export const ItemRow = ({ item }: { item: Item }) => {
   const isTyping = typingTitle !== undefined;
   const isRead = item.read;
 
-  const handleSelect = React.useCallback(
-    () => onSelect(item.id),
+  const handleClick = React.useCallback(
+    (e: React.MouseEvent) =>
+      onSelect(item.id, {
+        meta: e.metaKey || e.ctrlKey,
+        shift: e.shiftKey,
+      }),
     [onSelect, item.id],
   );
   const handleTogglePin = React.useCallback(
@@ -45,13 +57,29 @@ export const ItemRow = ({ item }: { item: Item }) => {
     [onDelete, item.id],
   );
 
+  const handleContextMenuOpenChange = React.useCallback(
+    (open: boolean) => {
+      setContextMenuOpen(open);
+      if (open) {
+        const selected = getSelectedIds();
+        setBulkMenuIds(
+          selected.size > 1 && selected.has(item.id) ? [...selected] : null,
+        );
+      }
+    },
+    [item.id],
+  );
+
   return (
     <ItemContextMenu
       item={rowItem}
       onTogglePin={handleTogglePin}
       onToggleRead={handleToggleRead}
       onDelete={handleDelete}
-      onOpenChange={setContextMenuOpen}
+      onOpenChange={handleContextMenuOpenChange}
+      bulkContent={
+        bulkMenuIds ? <BulkMenuItems itemIds={bulkMenuIds} /> : undefined
+      }
     >
       <ItemContextMenuTrigger
         render={
@@ -62,17 +90,25 @@ export const ItemRow = ({ item }: { item: Item }) => {
               density === "cozy"
                 ? "items-stretch gap-3 p-2"
                 : "items-center gap-2 p-1",
+              // Open wins; multi-selected rows share the hover/cursor tint,
+              // which also keeps the right-edge occluders in the row content
+              // (page background + muted/50 stack) an exact match.
               isOpen && "bg-muted",
-              !isOpen && isCursor && "bg-muted/50",
-              !isOpen && !isCursor && !suppressHover && "hover:bg-muted/50",
+              !isOpen && (isSelected || isCursor) && "bg-muted/50",
               !isOpen &&
+                !isSelected &&
+                !isCursor &&
+                !suppressHover &&
+                "hover:bg-muted/50",
+              !isOpen &&
+                !isSelected &&
                 !isCursor &&
                 (menuOpen || contextMenuOpen) &&
                 "bg-muted/50",
               isRead && "opacity-50",
             )}
             data-menu-open={menuOpen || contextMenuOpen || undefined}
-            onClick={handleSelect}
+            onClick={handleClick}
           />
         }
       >

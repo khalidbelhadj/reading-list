@@ -51,6 +51,14 @@ export const getShortcutGroups = (): ShortcutGroup[] => {
         { label: "Open item", combos: [[enter]] },
         { label: "Open expanded", combos: [[mod, enter]] },
         { label: "Open URL in new tab", combos: [[mod, shift, enter]] },
+        {
+          label: "Extend selection",
+          combos: [
+            [shift, "↓"],
+            [shift, "↑"],
+          ],
+        },
+        { label: "Select all items", combos: [[mod, "A"]] },
         { label: "Clear selection", combos: [["Esc"]] },
       ],
     },

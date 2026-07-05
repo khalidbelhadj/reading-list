@@ -37,6 +37,7 @@ import {
   bulkDeleteItemsSchema,
   bulkTagSchema,
   bulkMarkReadSchema,
+  bulkSetPinnedSchema,
 } from "@/lib/schemas";
 import { time } from "@/lib/perf";
 
@@ -381,6 +382,23 @@ export const bulkMarkRead = safeAction(async function bulkMarkRead(
     await tx
       .update(items)
       .set({ read, readAt: read ? now : null, updatedAt: now })
+      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
+  });
+}, "Could not update items. Please try again.");
+
+export const bulkSetPinned = safeAction(async function bulkSetPinned(
+  itemIds: string[],
+  starred: boolean,
+) {
+  parseInput(bulkSetPinnedSchema, { itemIds, starred });
+  if (itemIds.length === 0) return;
+
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+  await withUser(userId, async (tx) => {
+    await tx
+      .update(items)
+      .set({ starred, updatedAt: now })
       .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
   });
 }, "Could not update items. Please try again.");

@@ -12,6 +12,7 @@ import { IconFileFilled } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
+import { openItemInPanel } from "@/lib/app-windows";
 import { getFaviconSrc } from "@/components/items-list/utils";
 
 // Inline atom node linking to another reading-list item (inserted by typing
@@ -23,21 +24,6 @@ import { getFaviconSrc } from "@/components/items-list/utils";
 // from the ["items"] cache so renames show through.
 
 export const ITEM_LINK_SCHEME = "readinglist://item/";
-
-// Open an item in the side panel, mirroring deep-link-item-watcher.tsx:
-// PanelLayout owns the ?item= URL param and listens for popstate. Outside the
-// home route there's no PanelLayout, so fall back to a full navigation.
-const openItemInPanel = (itemId: string) => {
-  if (window.location.pathname !== "/") {
-    window.location.assign(`/?item=${encodeURIComponent(itemId)}`);
-    return;
-  }
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("item") === itemId) return;
-  params.set("item", itemId);
-  window.history.pushState(null, "", `?${params.toString()}`);
-  window.dispatchEvent(new PopStateEvent("popstate"));
-};
 
 const ItemLinkView = ({ node, selected }: NodeViewProps) => {
   const itemId = String(node.attrs.itemId);

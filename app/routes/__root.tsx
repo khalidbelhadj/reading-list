@@ -14,6 +14,8 @@ import { DeepLinkItemWatcher } from "@/components/deep-link-item-watcher";
 import { DevBanner } from "@/components/dev-banner";
 import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
+import { LocalSyncWatcher } from "@/components/local-sync-watcher";
+import { WindowMessageWatcher } from "@/components/window-message-watcher";
 import { NotFound } from "@/components/not-found";
 import { RouteError } from "@/components/route-error";
 import { Toaster } from "@/components/ui/sonner";
@@ -59,8 +61,10 @@ const RootComponent = () => {
     <>
       <AuthWatcher />
       <DeepLinkItemWatcher />
+      <WindowMessageWatcher />
       <ElectronZoomWatcher />
       <ItemsSyncWatcher />
+      <LocalSyncWatcher />
       <TooltipProvider delay={TOOLTIP_DELAY_MS}>
         <Outlet />
       </TooltipProvider>

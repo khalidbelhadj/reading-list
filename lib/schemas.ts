@@ -97,6 +97,13 @@ export const bulkMarkReadSchema = z.object({
   read: z.boolean(),
 });
 
+export const bulkSetPinnedSchema = z.object({
+  itemIds: z
+    .array(idSchema)
+    .max(100, "Cannot update more than 100 items at once"),
+  starred: z.boolean(),
+});
+
 export const renameTagSchema = z.object({
   tagId: z.number().int(),
   newName: tagNameSchema,

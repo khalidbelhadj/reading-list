@@ -15,14 +15,23 @@ import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { useSettings } from "@/lib/use-settings";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { AskResults } from "./items-list/ask-results";
+import { BulkDeleteDialog } from "./items-list/bulk-delete-dialog";
 import { setCursorId } from "./items-list/cursor-store";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
 import {
   ItemRowProvider,
   type ItemActions,
+  type SelectModifiers,
 } from "./items-list/item-row-context";
+import {
+  clearSelection,
+  getSelectedIds,
+  pruneSelection,
+  useHasSelection,
+} from "./items-list/selection-store";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
 import { PinnedSection } from "./items-list/pinned-section";
 import { SearchBar } from "./items-list/search-bar";
@@ -36,8 +45,10 @@ import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
 import { VirtualItemList } from "./items-list/virtual-item-list";
 import { VirtualScrollProvider } from "./items-list/virtual-scroll-context";
+import { useBulkMutations } from "./items-list/use-bulk-mutations";
 import { useCreateItem } from "./items-list/use-create-item";
 import { useItemsFilters } from "./items-list/use-filters";
+import { useSelection } from "./items-list/use-selection";
 import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
 import { useAsk } from "./items-list/use-ask";
@@ -69,6 +80,10 @@ export const ItemsList = ({
   const density = settings.density;
   const [itemToDelete, setItemToDelete] = React.useState<Item | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  // Snapshot of the ids the bulk delete confirm is targeting; null = closed.
+  const [bulkDeleteIds, setBulkDeleteIds] = React.useState<string[] | null>(
+    null,
+  );
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [suggestedOpen, setSuggestedOpen] = React.useState(true);
@@ -152,17 +167,6 @@ export const ItemsList = ({
 
   const handleOpenItem = onOpenItem;
 
-  // Clicking a row opens it *and* moves the list cursor onto it, so the
-  // keyboard "hovered" highlight follows the click — pressing Ctrl+N/P next
-  // continues from the clicked item, matching Enter-to-open behavior.
-  const handleSelectItem = React.useCallback(
-    (id: string) => {
-      setCursor(id);
-      handleOpenItem(id);
-    },
-    [setCursor, handleOpenItem],
-  );
-
   // Hooks
   const {
     tabItems,
@@ -218,6 +222,53 @@ export const ItemsList = ({
     (id: string) => navRegistry.scrollToId(id),
     [navRegistry],
   );
+
+  // Multi-select gestures (shift-click ranges, cmd-click toggles, shift+arrow
+  // extension, select-all) over the same visual order keyboard nav uses.
+  const { applyRowClick, extendSelection, selectAll } = useSelection({
+    getOrderedIds,
+    scrollToId,
+    cursorRef,
+    setCursor,
+  });
+
+  // Clicking a row moves the list cursor onto it; a plain click also opens
+  // it, while cmd/shift clicks only change the selection.
+  const handleSelectItem = React.useCallback(
+    (id: string, modifiers?: SelectModifiers) => {
+      const shouldOpen = applyRowClick(
+        id,
+        modifiers ?? { meta: false, shift: false },
+      );
+      if (!shouldOpen) return;
+      setCursor(id);
+      handleOpenItem(id);
+    },
+    [applyRowClick, setCursor, handleOpenItem],
+  );
+
+  // Drop selected rows that are no longer visible — deleted (here or in
+  // another window), filtered out by search/tags/read-visibility, or hidden
+  // inside the collapsed pinned section — so bulk actions can never touch
+  // rows the user can't see. Reads the registry so collapse state counts.
+  React.useEffect(() => {
+    pruneSelection(new Set(getOrderedIds()));
+  }, [filteredItems, pinnedOpen, getOrderedIds]);
+
+  // The selection is a dismiss-stack layer (lib/dismiss-stack.ts), active
+  // whenever something is selected, so Escape clears it in LIFO order relative
+  // to the panel/search — a selection made *after* opening the panel is cleared
+  // first, and one made *before* loses to the panel by recency. Because the
+  // layer intercepts Escape while a selection exists, the fallback below only
+  // ever runs to clear the cursor.
+  const hasSelection = useHasSelection();
+  useDismissLayer({ active: hasSelection, onDismiss: clearSelection });
+
+  // Escape's fall-through default once the selection layer (above) and every
+  // other dismissible surface are gone: clear the list cursor.
+  const handleEscapeFallback = React.useCallback(() => {
+    setCursor(null);
+  }, [setCursor]);
 
   // Cursor navigation driven from inside the search input — arrows / Ctrl+N/P
   // move the cursor without unfocusing, so Enter opens the highlighted item.
@@ -292,6 +343,92 @@ export const ItemsList = ({
     handleDeleteSingle(itemToDelete.id);
     setDeleteOpen(false);
   }, [itemToDelete, handleDeleteSingle]);
+
+  // Bulk actions over the current selection. Mutations are optimistic (see
+  // use-bulk-mutations); before rows vanish (delete, mark-read while read
+  // items are hidden) the cursor hops to the nearest surviving row, and the
+  // prune effect above drops the vanished ids from the selection.
+  const { bulkReadMutation, bulkPinMutation, bulkDeleteMutation } =
+    useBulkMutations();
+
+  const moveCursorOffIds = React.useCallback(
+    (removedIds: string[]) => {
+      const cursor = cursorRef.current;
+      if (!cursor || !removedIds.includes(cursor)) return;
+      const ordered = getOrderedIds();
+      const removed = new Set(removedIds);
+      const cursorIndex = ordered.indexOf(cursor);
+      let next: string | null = null;
+      for (let i = cursorIndex + 1; i < ordered.length; i++) {
+        const id = ordered[i];
+        if (id && !removed.has(id)) {
+          next = id;
+          break;
+        }
+      }
+      if (!next) {
+        for (let i = cursorIndex - 1; i >= 0; i--) {
+          const id = ordered[i];
+          if (id && !removed.has(id)) {
+            next = id;
+            break;
+          }
+        }
+      }
+      setCursor(next);
+    },
+    [getOrderedIds, setCursor],
+  );
+
+  const handleBulkMarkRead = React.useCallback(
+    (itemIds: string[], read: boolean) => {
+      if (read && !showRead) moveCursorOffIds(itemIds);
+      bulkReadMutation.mutate({ itemIds, read });
+    },
+    [showRead, moveCursorOffIds, bulkReadMutation],
+  );
+
+  const handleBulkSetPinned = React.useCallback(
+    (itemIds: string[], starred: boolean) => {
+      bulkPinMutation.mutate({ itemIds, starred });
+    },
+    [bulkPinMutation],
+  );
+
+  const requestBulkDelete = React.useCallback((itemIds: string[]) => {
+    if (itemIds.length === 0) return;
+    setBulkDeleteIds(itemIds);
+  }, []);
+
+  const confirmBulkDelete = React.useCallback(() => {
+    if (!bulkDeleteIds) return;
+    moveCursorOffIds(bulkDeleteIds);
+    clearSelection();
+    bulkDeleteMutation.mutate(bulkDeleteIds);
+    setBulkDeleteIds(null);
+  }, [bulkDeleteIds, moveCursorOffIds, bulkDeleteMutation]);
+
+  const handleBulkDeleteOpenChange = React.useCallback((open: boolean) => {
+    if (!open) setBulkDeleteIds(null);
+  }, []);
+
+  const bulkDeleteTargets = React.useMemo(
+    () =>
+      bulkDeleteIds
+        ? (items ?? []).filter((item) => bulkDeleteIds.includes(item.id))
+        : [],
+    [bulkDeleteIds, items],
+  );
+
+  // ⌘⌫ / ⌘⇧M / ⌘⇧P act on the whole selection when the cursor row is part of
+  // a multi-selection; otherwise they keep their single-item behavior.
+  const selectionForCursor = React.useCallback((): string[] | null => {
+    const cursor = cursorRef.current;
+    const selected = getSelectedIds();
+    return cursor && selected.size > 1 && selected.has(cursor)
+      ? [...selected]
+      : null;
+  }, []);
 
   // Create
   const {
@@ -434,18 +571,36 @@ export const ItemsList = ({
   const handleToggleReadCursor = React.useCallback(() => {
     const id = cursorRef.current;
     if (!id) return;
+    const selection = selectionForCursor();
+    if (selection) {
+      const selected = new Set(selection);
+      const anyUnread = (items ?? []).some(
+        (i) => selected.has(i.id) && !i.read,
+      );
+      handleBulkMarkRead(selection, anyUnread);
+      return;
+    }
     const item = items?.find((i) => i.id === id);
     if (!item) return;
     handleToggleRead(id, !item.read);
-  }, [items, handleToggleRead]);
+  }, [items, handleToggleRead, selectionForCursor, handleBulkMarkRead]);
 
   const handleTogglePinCursor = React.useCallback(() => {
     const id = cursorRef.current;
     if (!id) return;
+    const selection = selectionForCursor();
+    if (selection) {
+      const selected = new Set(selection);
+      const allPinned = (items ?? [])
+        .filter((i) => selected.has(i.id))
+        .every((i) => i.starred);
+      handleBulkSetPinned(selection, !allPinned);
+      return;
+    }
     const item = items?.find((i) => i.id === id);
     if (!item) return;
     handleTogglePin(id, !item.starred);
-  }, [items, handleTogglePin]);
+  }, [items, handleTogglePin, selectionForCursor, handleBulkSetPinned]);
 
   const handleChatCursor = React.useCallback(() => {
     const id = cursorRef.current;
@@ -476,8 +631,14 @@ export const ItemsList = ({
     setCursor,
     onRequestDelete: React.useCallback(() => {
       const cursor = cursorRef.current;
-      if (cursor) requestDeleteItem(cursor);
-    }, [requestDeleteItem]),
+      if (!cursor) return;
+      const selection = selectionForCursor();
+      if (selection) requestBulkDelete(selection);
+      else requestDeleteItem(cursor);
+    }, [requestDeleteItem, selectionForCursor, requestBulkDelete]),
+    onExtendSelection: extendSelection,
+    onSelectAll: selectAll,
+    onEscapeFallback: handleEscapeFallback,
     activeTags,
     onOpenItem: handleOpenItem,
     onOpenItemExpanded,
@@ -606,8 +767,21 @@ export const ItemsList = ({
       onDelete: requestDeleteItem,
       onToggleRead: handleToggleRead,
       onTogglePin: handleTogglePin,
+      bulk: {
+        markRead: handleBulkMarkRead,
+        setPinned: handleBulkSetPinned,
+        requestDelete: requestBulkDelete,
+      },
     }),
-    [handleSelectItem, requestDeleteItem, handleToggleRead, handleTogglePin],
+    [
+      handleSelectItem,
+      requestDeleteItem,
+      handleToggleRead,
+      handleTogglePin,
+      handleBulkMarkRead,
+      handleBulkSetPinned,
+      requestBulkDelete,
+    ],
   );
 
   return (
@@ -761,6 +935,13 @@ export const ItemsList = ({
             deleting={false}
             onOpenChange={setDeleteOpen}
             onConfirm={confirmDelete}
+          />
+
+          <BulkDeleteDialog
+            items={bulkDeleteTargets}
+            open={bulkDeleteIds !== null}
+            onOpenChange={handleBulkDeleteOpenChange}
+            onConfirm={confirmBulkDelete}
           />
 
           <DuplicateDialog

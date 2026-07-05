@@ -20,6 +20,9 @@ export const useKeyboardNavigation = ({
   cursorRef,
   setCursor,
   onRequestDelete,
+  onExtendSelection,
+  onSelectAll,
+  onEscapeFallback,
   activeTags,
   onOpenItem,
   onOpenItemExpanded,
@@ -44,6 +47,14 @@ export const useKeyboardNavigation = ({
   cursorRef: React.RefObject<string | null>;
   setCursor: (id: string | null) => void;
   onRequestDelete?: () => void;
+  // Multi-select: Shift+↑/↓ extends the selection from its anchor, ⌘A selects
+  // every visible row. See use-selection.ts for the range semantics.
+  onExtendSelection: (direction: "next" | "prev") => void;
+  onSelectAll: () => void;
+  // Escape's fall-through default (dismiss-stack rule 5). The selection is its
+  // own dismiss layer now, so by the time the stack is empty this only clears
+  // the list cursor.
+  onEscapeFallback: () => void;
   activeTags: Set<string>;
   onOpenItem: (id: string) => void;
   onOpenItemExpanded: (id: string) => void;
@@ -91,10 +102,14 @@ export const useKeyboardNavigation = ({
   }, [onPasteCreate, activeTags]);
 
   // Escape's fall-through default (lib/dismiss-stack.ts rule 5): when nothing
-  // dismissible is open — no overlay, no panel, no search — Escape clears the
-  // list cursor. Every other Escape behavior is owned by a dismiss layer, so we
-  // no longer hand-check panel/overlay state here.
-  React.useEffect(() => setDismissFallback(() => setCursor(null)), [setCursor]);
+  // dismissible is open — no overlay, no panel, no search, no selection — Escape
+  // clears the list cursor. Every other Escape behavior (including clearing the
+  // selection) is owned by a dismiss layer, so we no longer hand-check
+  // panel/overlay state here.
+  React.useEffect(
+    () => setDismissFallback(onEscapeFallback),
+    [onEscapeFallback],
+  );
 
   // Global keyboard shortcuts
   React.useEffect(() => {
@@ -273,6 +288,34 @@ export const useKeyboardNavigation = ({
         return;
       }
 
+      // Shift+↑/↓ — extend the multi-selection one row at a time.
+      const isExtendDown =
+        e.key === "ArrowDown" &&
+        e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey;
+      const isExtendUp =
+        e.key === "ArrowUp" &&
+        e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey;
+      if (isExtendDown || isExtendUp) {
+        e.preventDefault();
+        onExtendSelection(isExtendDown ? "next" : "prev");
+        setSuppressHover(true);
+        return;
+      }
+
+      // ⌘A — select every visible row.
+      if (e.code === "KeyA" && isModKey(e) && !e.shiftKey && !e.altKey) {
+        if (isOverlayOpen()) return;
+        e.preventDefault();
+        onSelectAll();
+        return;
+      }
+
       const isDown =
         (e.code === "KeyN" &&
           e.ctrlKey &&
@@ -390,6 +433,8 @@ export const useKeyboardNavigation = ({
     setCursor,
     onOpenItem,
     onOpenItemExpanded,
+    onExtendSelection,
+    onSelectAll,
   ]);
 
   return {

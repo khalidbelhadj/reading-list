@@ -66,6 +66,7 @@ import { isOverlayOpen } from "@/lib/input-context";
 //   lib/use-dismiss-layer.ts      — React binding (rule 1)
 //   sliding-item-panel.tsx        — panel layer + notes blur-first (capture)
 //   search-bar.tsx                — search-bar layer + input blur-first
+//   items-list.tsx                — selection layer (active while rows selected)
 //   use-keyboard-navigation.ts    — registers the cursor-clear fallback
 //   tag-rename-input / find-bar / tag-input — local, self-consuming Escape
 // ===========================================================================
