@@ -5,7 +5,11 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ItemList } from "./item-list";
-import { scrollIntoViewWithMargin, useNavSection } from "./list-nav-registry";
+import {
+  scrollIntoViewWithMargin,
+  scrollToCenter,
+  useNavSection,
+} from "./list-nav-registry";
 import { useVirtualScrollRef } from "./virtual-scroll-context";
 
 type PinnedSectionProps = {
@@ -37,12 +41,14 @@ export const PinnedSection = ({
     getElement: () => sectionRef.current,
     getIds: () =>
       openRef.current ? itemsRef.current.map((item) => item.id) : [],
-    scrollToId: (id) => {
+    scrollToId: (id, opts) => {
       if (!openRef.current || !itemsRef.current.some((item) => item.id === id))
         return false;
       const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
-      if (el && scrollRef?.current)
-        scrollIntoViewWithMargin(scrollRef.current, el);
+      if (el && scrollRef?.current) {
+        if (opts?.center) scrollToCenter(scrollRef.current, el);
+        else scrollIntoViewWithMargin(scrollRef.current, el);
+      }
       return true;
     },
   });

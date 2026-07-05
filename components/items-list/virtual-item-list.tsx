@@ -59,13 +59,20 @@ export const VirtualItemList = ({
   useNavSection({
     getElement: () => sectionRef.current,
     getIds: () => itemsRef.current.map((item) => item.id),
-    scrollToId: (id) => {
+    scrollToId: (id, opts) => {
       const index = itemsRef.current.findIndex((item) => item.id === id);
       if (index === -1) return false;
-      // Mounted (visible or in overscan) — nudge the container with lookahead
-      // margin. Otherwise drive the virtualizer to bring the row back.
+      // Centering always drives the virtualizer (align: center works whether or
+      // not the row is currently mounted). Otherwise: mounted rows get the
+      // lighter lookahead-margin nudge; off-screen rows go through the
+      // virtualizer to be brought back into view.
       const el = document.querySelector<HTMLElement>(`[data-item-id="${id}"]`);
-      if (el && scrollRef?.current) {
+      if (opts?.center) {
+        virtualizerRef.current?.scrollToIndex(index, {
+          align: "center",
+          behavior: "smooth",
+        });
+      } else if (el && scrollRef?.current) {
         scrollIntoViewWithMargin(scrollRef.current, el);
       } else {
         virtualizerRef.current?.scrollToIndex(index, { align: "center" });

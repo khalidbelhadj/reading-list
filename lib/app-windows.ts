@@ -64,6 +64,10 @@ export const openItemInNewWindow = (itemId: string) => {
   const win = window.open(
     absoluteUrl(`/?item=${encodeURIComponent(itemId)}&window=1`),
     `item-${itemId}`,
+    // Narrow, tall — framing the item's reading column. In Electron the main
+    // process sizes the window (setWindowOpenHandler); these features size the
+    // popup on the web.
+    "width=600,height=820",
   );
   win?.focus();
 };
