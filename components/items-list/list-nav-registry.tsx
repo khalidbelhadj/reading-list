@@ -6,6 +6,11 @@ import React from "react";
  * cursor owner can walk every row top-to-bottom without knowing which sections
  * exist — that decoupling is what lets item groups be placed anywhere.
  */
+// `center` places the row in the middle of the viewport (used when revealing an
+// item from elsewhere); the default keeps the lighter lookahead-margin nudge
+// that keyboard navigation uses.
+export type ScrollToIdOptions = { center?: boolean };
+
 export type NavSection = {
   // The section's container element, used to order sections by vertical
   // position (so the order follows the actual on-screen layout).
@@ -16,14 +21,14 @@ export type NavSection = {
   getIds: () => string[];
   // Scroll `id` into view. Returns true if this section owns `id` (and handled
   // it), false otherwise, so the registry can try the next section.
-  scrollToId: (id: string) => boolean;
+  scrollToId: (id: string, opts?: ScrollToIdOptions) => boolean;
 };
 
 export type NavRegistry = {
   register: (key: string, section: NavSection) => void;
   unregister: (key: string) => void;
   getOrderedIds: () => string[];
-  scrollToId: (id: string) => void;
+  scrollToId: (id: string, opts?: ScrollToIdOptions) => void;
 };
 
 const NavRegistryContext = React.createContext<NavRegistry | null>(null);
@@ -57,9 +62,9 @@ const createNavRegistry = (): NavRegistry => {
     },
     getOrderedIds: () =>
       orderedSections().flatMap((section) => section.getIds()),
-    scrollToId: (id) => {
+    scrollToId: (id, opts) => {
       for (const section of orderedSections()) {
-        if (section.scrollToId(id)) return;
+        if (section.scrollToId(id, opts)) return;
       }
     },
   };
@@ -100,7 +105,7 @@ export const useNavSection = (section: NavSection) => {
     registry.register(key, {
       getElement: () => sectionRef.current.getElement(),
       getIds: () => sectionRef.current.getIds(),
-      scrollToId: (id) => sectionRef.current.scrollToId(id),
+      scrollToId: (id, opts) => sectionRef.current.scrollToId(id, opts),
     });
     return () => registry.unregister(key);
   }, [registry, key]);
@@ -123,4 +128,17 @@ export const scrollIntoViewWithMargin = (
   } else if (rect.bottom + margin > containerRect.bottom) {
     container.scrollBy({ top: rect.bottom - containerRect.bottom + margin });
   }
+};
+
+/**
+ * Scrolls `el` to the vertical center of `container` (clamped to the scroll
+ * range). Used when revealing an item from elsewhere so it lands in the middle
+ * of the list rather than hugging an edge.
+ */
+export const scrollToCenter = (container: HTMLElement, el: HTMLElement) => {
+  const rect = el.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const delta =
+    rect.top - containerRect.top - (containerRect.height - rect.height) / 2;
+  container.scrollBy({ top: delta, behavior: "smooth" });
 };

@@ -5,9 +5,26 @@ import { type Item } from "@/lib/types";
 import { fetchItems } from "@/lib/queries";
 import { ItemsList } from "@/components/items-list";
 import { SlidingItemPanel } from "@/components/items-list/sliding-item-panel";
+import { ItemWindow } from "@/components/items-list/item-window";
 import { setOpenItemId as setOpenItemIdStore } from "@/components/items-list/cursor-store";
 
+// The home route renders either the central layout (list + sliding panel) or,
+// when opened as a dedicated single-item window (?window=1 via
+// openItemInNewWindow), just that item edge-to-edge. Decided once at mount from
+// the URL so the two trees never swap for the lifetime of the window.
 export const PanelLayout = () => {
+  const [itemWindowId] = React.useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("window") == null) return null;
+    return params.get("item");
+  });
+
+  if (itemWindowId) return <ItemWindow itemId={itemWindowId} />;
+  return <MainPanelLayout />;
+};
+
+const MainPanelLayout = () => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,

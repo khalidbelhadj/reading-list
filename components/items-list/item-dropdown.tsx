@@ -9,6 +9,7 @@ import {
   IconExternalLink,
   IconEye,
   IconEyeOff,
+  IconLayoutList,
   IconPin,
   IconPinnedOff,
   IconSparkles,
@@ -38,7 +39,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { openItemInNewWindow } from "@/lib/app-windows";
+import {
+  isItemWindow,
+  openItemInNewWindow,
+  openItemInOriginWindow,
+} from "@/lib/app-windows";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
@@ -237,6 +242,13 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     openItemInNewWindow(item.id);
   }, [item.id]);
 
+  // Only in a dedicated item window: hand the item back to the central window's
+  // list + panel (and raise it). Constant for the window's lifetime.
+  const [inItemWindow] = React.useState(isItemWindow);
+  const handleOpenInList = React.useCallback(() => {
+    openItemInOriginWindow(item.id);
+  }, [item.id]);
+
   // Hand the item off to the desktop app via its readinglist:// protocol; the
   // OS launches/focuses the app and DeepLinkItemWatcher selects the item.
   const handleOpenInApp = React.useCallback(() => {
@@ -263,6 +275,8 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     handleOpenInNewWindow,
     handleOpenInApp,
     handleChatWithClaude,
+    inItemWindow,
+    handleOpenInList,
     canOpenUrl,
     hasNotes,
   };
@@ -283,6 +297,8 @@ const ItemMenuItems = ({
   handleOpenInNewWindow,
   handleOpenInApp,
   handleChatWithClaude,
+  inItemWindow,
+  handleOpenInList,
   handleCopyId,
   handleCopyTitle,
   handleCopyNotes,
@@ -298,10 +314,17 @@ const ItemMenuItems = ({
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
       )}
-      <DropdownMenuItem onClick={handleOpenInNewWindow}>
-        <IconArrowUpRight />
-        {isElectron ? "Open in new window" : "Open in new tab"}
-      </DropdownMenuItem>
+      {inItemWindow ? (
+        <DropdownMenuItem onClick={handleOpenInList}>
+          <IconLayoutList />
+          Open in list
+        </DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onClick={handleOpenInNewWindow}>
+          <IconArrowUpRight />
+          {isElectron ? "Open in new window" : "Open in new tab"}
+        </DropdownMenuItem>
+      )}
       {!isElectron && (
         <DropdownMenuItem onClick={handleOpenInApp}>
           <IconAppWindow />

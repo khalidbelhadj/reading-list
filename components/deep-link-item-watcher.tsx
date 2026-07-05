@@ -1,6 +1,7 @@
 import React from "react";
 
 import { openItemInPanel } from "@/lib/app-windows";
+import { dispatchRevealItem } from "@/lib/reveal-events";
 
 // Mounted once near the app root (no-op outside the desktop app). The Electron
 // app registers the readinglist:// protocol and forwards incoming links to the
@@ -22,6 +23,7 @@ export const DeepLinkItemWatcher = () => {
       const id = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
       if (!id) return;
       openItemInPanel(id);
+      dispatchRevealItem(id);
     });
   }, []);
 

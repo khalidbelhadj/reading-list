@@ -14,13 +14,13 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
+import { useIsElectron } from "@/lib/use-is-electron";
 
 import { useItemActions } from "./item-row-context";
 
@@ -32,6 +32,7 @@ import { useItemActions } from "./item-row-context";
 // open-URLs are pure client-side and live here.
 export const BulkMenuItems = ({ itemIds }: { itemIds: string[] }) => {
   const { bulk } = useItemActions();
+  const isElectron = useIsElectron();
 
   const { data: allItems } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -47,6 +48,12 @@ export const BulkMenuItems = ({ itemIds }: { itemIds: string[] }) => {
     () => selectedItems.filter((item) => !!item.url && URL.canParse(item.url)),
     [selectedItems],
   );
+
+  // The web can only open one URL programmatically — the browser blocks all
+  // but the first popup — so hide the batch "Open URLs" there unless it's a
+  // single URL. Electron routes each to the system browser, so any count works.
+  const canOpenUrls =
+    urlItems.length > 0 && (isElectron || urlItems.length === 1);
 
   const anyUnread = selectedItems.some((item) => !item.read);
   const allPinned =
@@ -80,7 +87,7 @@ export const BulkMenuItems = ({ itemIds }: { itemIds: string[] }) => {
           {itemIds.length} selected
         </DropdownMenuLabel>
       </DropdownMenuGroup>
-      {urlItems.length > 0 && (
+      {canOpenUrls && (
         <DropdownMenuItem onClick={handleOpenUrls}>
           <IconExternalLink />
           Open URLs
@@ -116,7 +123,6 @@ export const BulkMenuItems = ({ itemIds }: { itemIds: string[] }) => {
           </DropdownMenuItem>
         </DropdownMenuSubContent>
       </DropdownMenuSub>
-      <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
         onClick={() => bulk.requestDelete(itemIds)}

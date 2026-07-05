@@ -14,6 +14,7 @@ import { fetchPageTitle, updateItem } from "@/app/actions";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import { fetchItems } from "@/lib/queries";
 import { openChatWithClaude } from "@/lib/chat-with-claude";
+import { subscribeRevealItem } from "@/lib/reveal-events";
 import { useSettings } from "@/lib/use-settings";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { AskResults } from "./items-list/ask-results";
@@ -39,6 +40,7 @@ import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
 import { SuggestedSection } from "./items-list/suggested-section";
 import {
   NavRegistryProvider,
+  type ScrollToIdOptions,
   useNavRegistry,
 } from "./items-list/list-nav-registry";
 import { TagFilters } from "./items-list/tag-filters";
@@ -219,9 +221,23 @@ export const ItemsList = ({
     [navRegistry],
   );
   const scrollToId = React.useCallback(
-    (id: string) => navRegistry.scrollToId(id),
+    (id: string, opts?: ScrollToIdOptions) => navRegistry.scrollToId(id, opts),
     [navRegistry],
   );
+
+  // Reveal-item requests (cross-window "Open in list", OS deep links): move the
+  // cursor onto the item and center it in the list. Deferred to the next frame
+  // so a just-opened item has mounted / the virtualizer knows its index. No-op
+  // if the item isn't in the current view (filtered out) — the registry simply
+  // doesn't find it.
+  React.useEffect(() => {
+    return subscribeRevealItem((id) => {
+      requestAnimationFrame(() => {
+        setCursor(id);
+        scrollToId(id, { center: true });
+      });
+    });
+  }, [scrollToId, setCursor]);
 
   // Multi-select gestures (shift-click ranges, cmd-click toggles, shift+arrow
   // extension, select-all) over the same visual order keyboard nav uses.

@@ -5,7 +5,9 @@ import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
 
 import { BulkMenuItems } from "./bulk-menu-items";
+import { DragToWindowGhost } from "./drag-to-window-ghost";
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
+import { useDragToWindow } from "./use-drag-to-window";
 import { resolveRowItem } from "./utils";
 import { ItemRowContent } from "./item-row-content";
 import { CozyRowContent } from "./cozy-row-content";
@@ -36,13 +38,20 @@ export const ItemRow = ({ item }: { item: Item }) => {
   const isTyping = typingTitle !== undefined;
   const isRead = item.read;
 
+  // EXPERIMENT: drag a row past the window edge to pop it into its own window.
+  const { onPointerDown, drag, wasDragged } = useDragToWindow(item);
+
   const handleClick = React.useCallback(
-    (e: React.MouseEvent) =>
+    (e: React.MouseEvent) => {
+      // A drag-release fires a trailing click — swallow it so tearing off
+      // doesn't also select the row.
+      if (wasDragged()) return;
       onSelect(item.id, {
         meta: e.metaKey || e.ctrlKey,
         shift: e.shiftKey,
-      }),
-    [onSelect, item.id],
+      });
+    },
+    [onSelect, item.id, wasDragged],
   );
   const handleTogglePin = React.useCallback(
     () => onTogglePin(item.id, !item.starred),
@@ -108,6 +117,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
               isRead && "opacity-50",
             )}
             data-menu-open={menuOpen || contextMenuOpen || undefined}
+            onPointerDown={onPointerDown}
             onClick={handleClick}
           />
         }
@@ -139,6 +149,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
           />
         )}
       </ItemContextMenuTrigger>
+      <DragToWindowGhost item={rowItem} drag={drag} />
     </ItemContextMenu>
   );
 };

@@ -128,11 +128,17 @@ const attachWindowBehavior = (contents: Electron.WebContents) => {
   // system browser.
   contents.setWindowOpenHandler(({ url }) => {
     if (isAppNavigation(url)) {
+      // Dedicated single-item windows (?window=1) open narrow, framing the
+      // item's reading column rather than the full list-width app.
+      let isItemWindow = false;
+      try {
+        isItemWindow = new URL(url).searchParams.get("window") != null;
+      } catch {}
       return {
         action: "allow",
         overrideBrowserWindowOptions: {
-          width: 1000,
-          height: 760,
+          width: isItemWindow ? 600 : 1000,
+          height: isItemWindow ? 820 : 760,
           minWidth: 400,
           minHeight: 400,
           titleBarStyle: "hiddenInset",

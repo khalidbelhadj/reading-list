@@ -639,18 +639,23 @@ export const SlidingItemPanel = ({
   );
 };
 
-const PanelInner = ({
+export const PanelInner = ({
   itemId,
   onClose,
   phase,
   onExpand,
   onRestore,
+  // "panel" is the sliding side panel; "window" is a dedicated single-item
+  // window (ItemWindow) that drops the close/collapse affordances — the window
+  // *is* the item, so there's nothing to close or restore to.
+  variant = "panel",
 }: {
   itemId: string;
   onClose: () => void;
   phase: Phase;
-  onExpand: () => void;
-  onRestore: () => void;
+  onExpand?: () => void;
+  onRestore?: () => void;
+  variant?: "panel" | "window";
 }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -841,40 +846,46 @@ const PanelInner = ({
           (phase === "fullw" || phase === "full") && "panel-toolbar",
         )}
       >
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground"
-                onClick={onClose}
-              />
-            }
-          >
-            <IconX />
-          </TooltipTrigger>
-          <TooltipContent>Close</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground"
-                onClick={isExpanded ? onRestore : onExpand}
-              />
-            }
-          >
-            {isExpanded ? (
-              <IconArrowsDiagonalMinimize2 />
-            ) : (
-              <IconArrowsDiagonal />
-            )}
-          </TooltipTrigger>
-          <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
-        </Tooltip>
+        {variant === "panel" && (
+          <>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    onClick={onClose}
+                  />
+                }
+              >
+                <IconX />
+              </TooltipTrigger>
+              <TooltipContent>Close</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    onClick={isExpanded ? onRestore : onExpand}
+                  />
+                }
+              >
+                {isExpanded ? (
+                  <IconArrowsDiagonalMinimize2 />
+                ) : (
+                  <IconArrowsDiagonal />
+                )}
+              </TooltipTrigger>
+              <TooltipContent>
+                {isExpanded ? "Restore" : "Expand"}
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
         <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
         {item?.read && (
           <Badge variant="secondary" className="mr-0.5">

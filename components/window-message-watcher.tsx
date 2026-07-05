@@ -1,6 +1,7 @@
 import React from "react";
 
 import { openItemInPanel, parseOpenItemMessage } from "@/lib/app-windows";
+import { dispatchRevealItem } from "@/lib/reveal-events";
 
 // Mounted once near the app root. Secondary windows (review windows, item
 // windows) route "show this item" requests back to the window that opened
@@ -14,6 +15,7 @@ export const WindowMessageWatcher = () => {
       const itemId = parseOpenItemMessage(event.data);
       if (!itemId) return;
       openItemInPanel(itemId);
+      dispatchRevealItem(itemId);
       window.readingList?.focusWindow();
     };
     window.addEventListener("message", onMessage);
