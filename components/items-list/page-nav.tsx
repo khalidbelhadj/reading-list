@@ -1,5 +1,3 @@
-"use client";
-
 import { IconCards, IconChevronDown, IconSettings } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 

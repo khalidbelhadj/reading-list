@@ -1,5 +1,3 @@
-import "server-only";
-
 import { createRequire } from "node:module";
 
 import { createCanvas } from "@napi-rs/canvas";

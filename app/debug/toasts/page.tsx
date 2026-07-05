@@ -1,7 +1,3 @@
-"use client";
-
-import React from "react";
-import { notFound } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -168,9 +164,6 @@ const ToastsPlayground = () => {
 };
 
 const ToastsPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <ToastsPlayground />;
 };
 

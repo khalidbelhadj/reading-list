@@ -1,5 +1,4 @@
-"use server";
-
+// Server-only implementations — see ./index.ts for the RPC layer.
 import { withUser } from "@/db";
 import {
   items,

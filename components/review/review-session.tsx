@@ -1,8 +1,6 @@
-"use client";
-
 import React from "react";
 import { Link } from "@tanstack/react-router";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconFileFilled, IconInfoCircle } from "@tabler/icons-react";
 import confetti from "canvas-confetti";

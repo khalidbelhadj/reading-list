@@ -24,3 +24,7 @@ analysis/
 # Docs & large data files (opt into markdown formatting later if desired)
 *.md
 bookmarks.html
+dist/
+.tanstack/
+.nitro/
+app/routeTree.gen.ts

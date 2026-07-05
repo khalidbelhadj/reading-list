@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 
 // Mounted once near the app root (no-op outside the desktop app). The Electron

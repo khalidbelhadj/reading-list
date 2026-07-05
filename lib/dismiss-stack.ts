@@ -1,5 +1,3 @@
-"use client";
-
 import { isOverlayOpen } from "@/lib/input-context";
 
 // ===========================================================================

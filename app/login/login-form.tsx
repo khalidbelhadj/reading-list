@@ -1,9 +1,7 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import { useCallback, useEffect, useState } from "react";
 
 export const LoginForm = ({

@@ -1,6 +1,8 @@
-"use client";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
+
 import { submitOAuthDecision } from "./actions";
 
 const scopeDescriptions: Record<string, string> = {
@@ -21,6 +23,27 @@ export const ConsentForm = ({
   redirectUri: string;
   scopes?: string[];
 }) => {
+  const decisionMutation = useMutation({
+    mutationFn: (decision: "approve" | "deny") =>
+      submitOAuthDecision({ decision, authorizationId }),
+    onSuccess: ({ redirectUrl }) => {
+      // The redirect target is the MCP client's callback — a full page
+      // navigation out of the app.
+      window.location.assign(redirectUrl);
+    },
+  });
+
+  const handleDeny = useCallback(
+    () => decisionMutation.mutate("deny"),
+    [decisionMutation],
+  );
+  const handleApprove = useCallback(
+    () => decisionMutation.mutate("approve"),
+    [decisionMutation],
+  );
+
+  const busy = decisionMutation.isPending || decisionMutation.isSuccess;
+
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
       <h1 className="text-lg font-medium">Authorize {clientName}</h1>
@@ -52,26 +75,19 @@ export const ConsentForm = ({
         )}
       </div>
 
-      <form action={submitOAuthDecision} className="flex gap-2">
-        <input type="hidden" name="authorization_id" value={authorizationId} />
+      <div className="flex gap-2">
         <Button
-          type="submit"
-          name="decision"
-          value="deny"
           variant="outline"
           className="flex-1"
+          disabled={busy}
+          onClick={handleDeny}
         >
           Deny
         </Button>
-        <Button
-          type="submit"
-          name="decision"
-          value="approve"
-          className="flex-1"
-        >
+        <Button className="flex-1" disabled={busy} onClick={handleApprove}>
           Approve
         </Button>
-      </form>
+      </div>
     </div>
   );
 };

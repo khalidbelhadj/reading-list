@@ -1,5 +1,5 @@
 import { IconDots, IconFileFilled } from "@tabler/icons-react";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import React from "react";
 
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

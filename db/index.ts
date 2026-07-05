@@ -34,14 +34,15 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // forwarded into the transaction as `app.sync_origin` so the items_sync_notify
 // trigger can stamp broadcasts with it and the sender can skip its own echo.
 // Read from the request cookie via a dynamic import so this module stays
-// importable outside a Next request context (seed/setup scripts, MCP route
-// without the cookie) — any failure just means "no origin", which disables
-// suppression for that write.
+// importable outside a TanStack Start request context (seed/setup scripts,
+// MCP requests without the cookie) — any failure just means "no origin",
+// which disables suppression for that write.
 const SYNC_ORIGIN_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const getSyncOrigin = async (): Promise<string> => {
   try {
-    const { cookies } = await import("next/headers");
-    const value = (await cookies()).get("sync-origin")?.value ?? "";
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const cookieHeader = getRequestHeader("cookie") ?? "";
+    const value = /(?:^|;\s*)sync-origin=([^;]*)/.exec(cookieHeader)?.[1] ?? "";
     return SYNC_ORIGIN_PATTERN.test(value) ? value : "";
   } catch {
     return "";

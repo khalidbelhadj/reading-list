@@ -1,5 +1,3 @@
-"use client";
-
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
@@ -8,9 +6,10 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import Image from "next/image";
+import Image from "@/components/ui/image";
 import React from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LoadingFade } from "@/components/ui/loading-fade";
@@ -877,6 +876,11 @@ const PanelInner = ({
           <TooltipContent>{isExpanded ? "Restore" : "Expand"}</TooltipContent>
         </Tooltip>
         <div ref={headerSlotRef} className="ml-1 h-5 flex-1" />
+        {item?.read && (
+          <Badge variant="secondary" className="mr-0.5">
+            Read
+          </Badge>
+        )}
         {item ? (
           <ItemDropdown
             item={item}

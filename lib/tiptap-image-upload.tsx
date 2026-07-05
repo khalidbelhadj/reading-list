@@ -134,7 +134,6 @@ const ImageUploadNodeView = ({
       ) : (
         <>
           {/* Browser-native <img> is intentional: src is a user-uploaded blob or signed URL of unknown dimensions. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef}
             src={displayedSrc}
@@ -147,7 +146,6 @@ const ImageUploadNodeView = ({
             onLoad={handleLoad}
           />
           {overlaySrc && (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={overlaySrc}
               alt=""

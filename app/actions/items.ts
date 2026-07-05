@@ -1,5 +1,7 @@
-"use server";
-
+// Server-only implementations. Client code never imports this module — it
+// goes through the createServerFn RPC layer in ./index.ts, whose handlers
+// dynamically import this file so none of it reaches the client bundle.
+// Server routes (e.g. the extension API) may call these directly.
 import { withUser } from "@/db";
 import { items } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";

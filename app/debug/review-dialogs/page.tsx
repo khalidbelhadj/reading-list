@@ -1,7 +1,4 @@
-"use client";
-
 import React from "react";
-import { notFound } from "next/navigation";
 import { IconMinus, IconPlus, IconClock, IconCards } from "@tabler/icons-react";
 
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
@@ -480,9 +477,6 @@ const ReviewDialogsPlayground = () => {
 };
 
 const ReviewDialogsPage = () => {
-  if (process.env.NODE_ENV !== "development") {
-    notFound();
-  }
   return <ReviewDialogsPlayground />;
 };
 
