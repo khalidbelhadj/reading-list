@@ -28,6 +28,7 @@ export const items = pgTable(
     notes: text("notes"),
     read: boolean("read").notNull().default(false),
     readAt: timestamp("read_at", { withTimezone: true, mode: "string" }),
+    hiddenFromReview: boolean("hidden_from_review").notNull().default(false),
     createdAt: timestamp("created_at", {
       withTimezone: true,
       mode: "string",

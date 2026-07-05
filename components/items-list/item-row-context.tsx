@@ -31,6 +31,7 @@ export type ItemActions = {
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
   onTogglePin: (id: string, starred: boolean) => void;
+  onToggleHiddenFromReview: (id: string, hiddenFromReview: boolean) => void;
   bulk: BulkActions;
 };
 

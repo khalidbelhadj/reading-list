@@ -5,6 +5,7 @@ import {
   IconCalendarDue,
   IconCards,
   IconCheck,
+  IconCircleOff,
   IconCopy,
   IconExternalLink,
   IconEye,
@@ -119,6 +120,7 @@ type ItemMenuActionsProps = {
   item: Item;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
+  onToggleHiddenFromReview?: () => void;
   onDelete?: () => void;
 };
 
@@ -304,10 +306,12 @@ const ItemMenuItems = ({
   handleCopyNotes,
   onTogglePin,
   onToggleRead,
+  onToggleHiddenFromReview,
   onDelete,
 }: ItemMenuActionsProps &
   ReturnType<typeof useItemMenuActions> & { review: ItemReviewState }) => {
   const isRead = item.read;
+  const isHiddenFromReview = item.hiddenFromReview;
 
   return (
     <>
@@ -441,6 +445,12 @@ const ItemMenuItems = ({
           {isRead ? "Mark as unread" : "Mark as read"}
         </DropdownMenuItem>
       )}
+      {onToggleHiddenFromReview && (
+        <DropdownMenuItem onClick={onToggleHiddenFromReview}>
+          {isHiddenFromReview ? <IconCards /> : <IconCircleOff />}
+          {isHiddenFromReview ? "Show in review" : "Hide from review"}
+        </DropdownMenuItem>
+      )}
       {onDelete && (
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <IconTrash />
@@ -474,6 +484,7 @@ export const ItemDropdown = ({
   onOpenChange,
   onTogglePin,
   onToggleRead,
+  onToggleHiddenFromReview,
   onDelete,
   children,
 }: {
@@ -482,6 +493,7 @@ export const ItemDropdown = ({
   onOpenChange?: (open: boolean) => void;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
+  onToggleHiddenFromReview?: () => void;
   onDelete?: () => void;
   children: React.ReactNode;
 }) => {
@@ -530,6 +542,7 @@ export const ItemDropdown = ({
             review={review}
             onTogglePin={onTogglePin}
             onToggleRead={onToggleRead}
+            onToggleHiddenFromReview={onToggleHiddenFromReview}
             onDelete={onDelete}
             {...actions}
           />
@@ -544,6 +557,7 @@ export const ItemContextMenu = ({
   item,
   onTogglePin,
   onToggleRead,
+  onToggleHiddenFromReview,
   onDelete,
   onOpenChange,
   bulkContent,
@@ -552,6 +566,7 @@ export const ItemContextMenu = ({
   item: Item;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
+  onToggleHiddenFromReview?: () => void;
   onDelete?: () => void;
   onOpenChange?: (open: boolean) => void;
   // When set, the menu shows these bulk-selection actions instead of the
@@ -593,6 +608,7 @@ export const ItemContextMenu = ({
               review={review}
               onTogglePin={onTogglePin}
               onToggleRead={onToggleRead}
+              onToggleHiddenFromReview={onToggleHiddenFromReview}
               onDelete={onDelete}
               {...actions}
             />

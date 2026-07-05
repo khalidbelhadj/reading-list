@@ -19,6 +19,7 @@ export const ItemRowContent = ({
   onMenuOpenChange,
   onTogglePin,
   onToggleRead,
+  onToggleHiddenFromReview,
   onDelete,
 }: {
   item: Item;
@@ -30,6 +31,7 @@ export const ItemRowContent = ({
   onMenuOpenChange: (open: boolean) => void;
   onTogglePin?: () => void;
   onToggleRead?: () => void;
+  onToggleHiddenFromReview?: () => void;
   onDelete?: () => void;
 }) => {
   const isRead = item.read;
@@ -67,6 +69,7 @@ export const ItemRowContent = ({
         onOpenChange={onMenuOpenChange}
         onTogglePin={onTogglePin}
         onToggleRead={onToggleRead}
+        onToggleHiddenFromReview={onToggleHiddenFromReview}
         onDelete={onDelete}
       >
         <div

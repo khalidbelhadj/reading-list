@@ -240,6 +240,7 @@ export const updateItem = safeAction(async function updateItem(
     starred?: boolean;
     notes?: string;
     read?: boolean;
+    hiddenFromReview?: boolean;
     tagNames?: string[];
   },
 ) {

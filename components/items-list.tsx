@@ -72,6 +72,8 @@ export const ItemsList = ({
     data: items,
     isLoading,
     isError: itemsError,
+    isFetching: itemsFetching,
+    refetch: refetchItems,
   } = useQuery<Item[]>({
     queryKey: ["items"],
     queryFn: fetchItems,
@@ -187,12 +189,16 @@ export const ItemsList = ({
     groups,
   } = useItemsFilters(items, searchOrder);
 
-  const { handleToggleRead, handleDeleteSingle, handleTogglePin } =
-    useItemsMutations({
-      filteredItems,
-      showRead,
-      setCursor,
-    });
+  const {
+    handleToggleRead,
+    handleDeleteSingle,
+    handleTogglePin,
+    handleToggleHiddenFromReview,
+  } = useItemsMutations({
+    filteredItems,
+    showRead,
+    setCursor,
+  });
 
   // Derived layout flags — computed here (rather than just before render)
   // because the keyboard-nav order depends on them.
@@ -764,6 +770,10 @@ export const ItemsList = ({
   // list body — error and content are mutually exclusive, never shown together
   // (React Query keeps stale `data` on a failed refetch, so we must not fall
   // through to rendering the cached list underneath the error).
+  const handleRetryItems = React.useCallback(() => {
+    refetchItems();
+  }, [refetchItems]);
+
   const errorNode = (
     <NonIdealState
       align="center"
@@ -772,6 +782,16 @@ export const ItemsList = ({
       className="py-6"
       title="Failed to load items"
       description="Check your connection and try again."
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRetryItems}
+          disabled={itemsFetching}
+        >
+          {itemsFetching ? "Retrying…" : "Retry"}
+        </Button>
+      }
     />
   );
 
@@ -783,6 +803,7 @@ export const ItemsList = ({
       onDelete: requestDeleteItem,
       onToggleRead: handleToggleRead,
       onTogglePin: handleTogglePin,
+      onToggleHiddenFromReview: handleToggleHiddenFromReview,
       bulk: {
         markRead: handleBulkMarkRead,
         setPinned: handleBulkSetPinned,
@@ -794,6 +815,7 @@ export const ItemsList = ({
       requestDeleteItem,
       handleToggleRead,
       handleTogglePin,
+      handleToggleHiddenFromReview,
       handleBulkMarkRead,
       handleBulkSetPinned,
       requestBulkDelete,
