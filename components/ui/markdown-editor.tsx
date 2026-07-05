@@ -29,6 +29,9 @@ import {
   MarkdownLinkMenu,
 } from "@/components/ui/markdown-bubble-menu";
 import { CodeBlockNodeView } from "@/components/ui/code-block-node-view";
+import { ItemLink } from "@/components/ui/item-link";
+import { ItemLinkSuggestion } from "@/components/ui/item-link-suggestion";
+import { ItemLinkMenu } from "@/components/ui/item-link-menu";
 import { lowlight } from "@/lib/lowlight";
 import { BLANK_LINE_SENTINEL, stripBlankLineSentinel } from "@/lib/markdown";
 
@@ -328,6 +331,9 @@ export const MarkdownEditor = ({
     (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
       if (target.tagName !== "IMG") return;
+      // Item-link favicons are chrome, not content images — clicking them
+      // navigates to the item instead of opening the lightbox.
+      if (target.closest("[data-item-link]")) return;
       const img = target as HTMLImageElement;
       if (img.dataset.uploading === "true") return;
       if (!img.src) return;
@@ -387,6 +393,8 @@ export const MarkdownEditor = ({
       CardBack,
       InlineMath,
       BlockMath,
+      ItemLink,
+      ItemLinkSuggestion,
       ImageUpload.configure({
         upload: async (file) => {
           // Two-step direct upload: ask the server for a signed URL, then PUT
@@ -466,6 +474,7 @@ export const MarkdownEditor = ({
         <>
           <MarkdownBubbleMenu editor={editor} />
           <MarkdownLinkMenu editor={editor} />
+          <ItemLinkMenu editor={editor} />
         </>
       )}
       <ImageLightbox
