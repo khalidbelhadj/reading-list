@@ -1,3 +1,4 @@
+import Image from "@/components/ui/image";
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
@@ -6,7 +7,6 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import Image from "@/components/ui/image";
 import React from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -313,6 +313,9 @@ export const SlidingItemPanel = ({
     const onKeyCapture = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || isOverlayOpen()) return;
       const ae = document.activeElement as HTMLElement | null;
+      // The find bar owns its own Escape (it closes the bar via the dismiss
+      // stack), so don't treat its focused input as a blur-first panel field.
+      if (ae?.closest("[data-find-bar]")) return;
       const isEditable =
         ae &&
         (ae.tagName === "INPUT" ||
@@ -973,7 +976,12 @@ export const PanelInner = ({
 
       <FindBar find={find} />
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full max-w-175 flex-col px-3 pt-1 pb-12">
+        <div
+          className={cn(
+            "mx-auto flex min-h-full w-full max-w-175 flex-col px-3 pt-1 pb-12",
+            variant == "window" && "px-4 pt-2",
+          )}
+        >
           <LoadingFade
             loading={!item}
             skeleton={<DetailPanelSkeleton />}

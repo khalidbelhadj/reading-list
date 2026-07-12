@@ -121,6 +121,11 @@ const ImageUploadNodeView = ({
     <NodeViewWrapper
       as="span"
       className="image-upload-wrap"
+      // Marks the whole image as ProseMirror's drag handle. Without this,
+      // tiptap's NodeView.onDragStart bails and never sets up the node MOVE,
+      // so the browser's native image-drag (a copy) takes over. With it, a
+      // drag becomes a NodeSelection move — the image is relocated, not copied.
+      data-drag-handle=""
       data-uploading={uploading ? "true" : undefined}
       data-errored={showError ? "true" : undefined}
       data-loading={showSkeleton ? "true" : undefined}
@@ -134,6 +139,9 @@ const ImageUploadNodeView = ({
       ) : (
         <>
           {/* Browser-native <img> is intentional: src is a user-uploaded blob or signed URL of unknown dimensions. */}
+          {/* draggable={false} disables the browser's native image-drag so a
+              drag inside the editor is handled by ProseMirror as a node MOVE
+              rather than dropping a copy of the image. */}
           <img
             ref={imgRef}
             src={displayedSrc}
@@ -141,6 +149,7 @@ const ImageUploadNodeView = ({
             title={title}
             loading="lazy"
             decoding="async"
+            draggable={false}
             data-uploading={uploading ? "true" : undefined}
             onError={handleError}
             onLoad={handleLoad}
@@ -151,6 +160,7 @@ const ImageUploadNodeView = ({
               alt=""
               aria-hidden
               decoding="async"
+              draggable={false}
               className="image-upload-overlay"
               data-visible={overlayLoaded ? "true" : undefined}
               onLoad={handleOverlayLoad}

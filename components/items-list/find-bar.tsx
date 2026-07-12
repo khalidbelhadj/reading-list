@@ -3,11 +3,23 @@ import { IconChevronDown, IconChevronUp, IconX } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
 import { isModKey } from "@/lib/input-context";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { Button } from "@/components/ui/button";
 import type { PanelFind } from "./use-panel-find";
 
 export const FindBar = ({ find }: { find: PanelFind }) => {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Escape closes the find bar via the shared dismiss stack. The bar opens on
+  // top of the item panel, so it's the newest layer and Escape pops it first —
+  // closing the search before the panel. `contains` promotes the layer back to
+  // the top when any find-bar control is re-focused (see lib/dismiss-stack.ts).
+  useDismissLayer({
+    active: find.isOpen,
+    onDismiss: find.close,
+    contains: (node) => containerRef.current?.contains(node) ?? false,
+  });
 
   // Focus and select-all on open or re-open.
   React.useEffect(() => {
@@ -66,6 +78,7 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
 
   return (
     <div
+      ref={containerRef}
       data-find-bar
       className="absolute top-10 right-3 z-30 flex items-center gap-1 rounded-md border border-border bg-surface/95 p-1 shadow-md backdrop-blur-sm [&>button+button]:-ml-1"
     >
@@ -79,7 +92,7 @@ export const FindBar = ({ find }: { find: PanelFind }) => {
       />
       <span
         className={cn(
-          "px-1 text-xs tabular-nums select-none",
+          "w-12 px-1 text-right text-xs tabular-nums select-none",
           hasQuery && !hasMatches
             ? "text-destructive"
             : "text-muted-foreground",
