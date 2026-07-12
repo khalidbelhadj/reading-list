@@ -14,6 +14,7 @@ import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin } from "@tiptap/pm/state";
+import { canJoin } from "@tiptap/pm/transform";
 import { Markdown } from "tiptap-markdown";
 import { toast } from "sonner";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -270,6 +271,88 @@ const CleanClipboardMarkdown = Extension.create({
   },
 });
 
+// ProseMirror never merges two lists of the same type that end up adjacent —
+// e.g. after splitting a list and deleting the paragraph between the halves.
+// They stay as two `<ul>`/`<ol>` nodes instead of one continuous list. This
+// appendTransaction joins any run of adjacent same-type lists (bullet, ordered,
+// or task) back into a single list, so "break a list then join it" yields one
+// list.
+const LIST_TYPE_NAMES = new Set(["bulletList", "orderedList", "taskList"]);
+
+const JoinAdjacentLists = Extension.create({
+  name: "joinAdjacentLists",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        appendTransaction: (transactions, _oldState, newState) => {
+          // Only heal lists in response to real user edits. Programmatic
+          // content loads use setContent({ emitUpdate: false }), which tags its
+          // transaction `preventUpdate`; merging there would silently rewrite a
+          // note's markdown (tight lists → loose) just from opening it.
+          if (transactions.some((tr) => tr.getMeta("preventUpdate"))) {
+            return null;
+          }
+          if (!transactions.some((tr) => tr.docChanged)) return null;
+
+          // Collect each spot where a list is immediately followed by a
+          // same-type list, at every depth (nested lists included). `boundary`
+          // is the join position; `start`/`attrs` describe the first list so we
+          // can restore its attributes (e.g. a bullet list's `tight` flag) onto
+          // the merged node afterwards.
+          const joins: {
+            boundary: number;
+            start: number;
+            attrs: Record<string, unknown>;
+          }[] = [];
+          const scan = (node: ProseMirrorNode, contentStart: number) => {
+            const children: { child: ProseMirrorNode; start: number }[] = [];
+            node.forEach((child, offset) => {
+              children.push({ child, start: contentStart + offset });
+            });
+            for (let i = 0; i < children.length - 1; i++) {
+              const current = children[i];
+              const next = children[i + 1];
+              if (!current || !next) continue;
+              if (
+                LIST_TYPE_NAMES.has(current.child.type.name) &&
+                current.child.type === next.child.type
+              ) {
+                joins.push({
+                  boundary: current.start + current.child.nodeSize,
+                  start: current.start,
+                  attrs: current.child.attrs,
+                });
+              }
+            }
+            for (const { child, start } of children) {
+              if (!child.isLeaf) scan(child, start + 1);
+            }
+          };
+          scan(newState.doc, 0);
+          if (joins.length === 0) return null;
+
+          // Join from the last boundary backwards so each join's positions stay
+          // valid as earlier joins shrink the document.
+          joins.sort((a, b) => a.boundary - b.boundary);
+          const tr = newState.tr;
+          let joined = false;
+          for (let i = joins.length - 1; i >= 0; i--) {
+            const entry = joins[i];
+            if (!entry || !canJoin(tr.doc, entry.boundary)) continue;
+            tr.join(entry.boundary);
+            // Keep the first list's attributes on the merged node — join can
+            // otherwise reset flags like `tight`, turning a tight list loose.
+            const merged = tr.doc.nodeAt(entry.start);
+            if (merged) tr.setNodeMarkup(entry.start, undefined, entry.attrs);
+            joined = true;
+          }
+          return joined ? tr : null;
+        },
+      }),
+    ];
+  },
+});
+
 // TipTap's built-in task-list rule only fires on a bare "[ ] " at the start of
 // a line. People type the GFM form "- [ ] " out of habit, but the "- " triggers
 // the bullet-list rule first, leaving the caret inside a bullet where the
@@ -387,6 +470,7 @@ export const MarkdownEditor = ({
       TaskList,
       TaskItem.configure({ nested: true }),
       TaskListMarkdownShortcut,
+      JoinAdjacentLists,
       DeleteEmptyFirstBlock,
       Card,
       CardFront,
