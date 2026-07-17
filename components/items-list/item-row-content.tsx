@@ -1,5 +1,4 @@
-import { IconDots, IconFileFilled } from "@tabler/icons-react";
-import Image from "@/components/ui/image";
+import { IconDots } from "@tabler/icons-react";
 import React from "react";
 
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -7,7 +6,7 @@ import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ItemDropdown } from "./item-dropdown";
-import { getFaviconSrc } from "./utils";
+import { Favicon } from "./favicon";
 
 export const ItemRowContent = ({
   item,
@@ -39,18 +38,7 @@ export const ItemRowContent = ({
   return (
     <>
       <div className="relative size-4 shrink-0">
-        {getFaviconSrc(item) ? (
-          <Image
-            src={getFaviconSrc(item)!}
-            alt=""
-            width={16}
-            height={16}
-            className="size-4 rounded-[3px]"
-            unoptimized
-          />
-        ) : (
-          <IconFileFilled className="size-4 text-muted-foreground" />
-        )}
+        <Favicon item={item} className="size-4" />
       </div>
       <span
         data-item-title
