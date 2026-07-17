@@ -1,12 +1,11 @@
-import { IconArrowUpRight, IconFileFilled } from "@tabler/icons-react";
+import { IconArrowUpRight } from "@tabler/icons-react";
 import { createPortal } from "react-dom";
 
-import Image from "@/components/ui/image";
 import { type Item } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { Favicon } from "./favicon";
 import { type DragToWindowState } from "./use-drag-to-window";
-import { getFaviconSrc } from "./utils";
 
 // EXPERIMENT: floating chip that follows the cursor during a tear-off drag.
 // Offset from the pointer, and once outside the viewport it brightens + shows
@@ -20,8 +19,6 @@ export const DragToWindowGhost = ({
 }) => {
   if (drag === null || typeof document === "undefined") return null;
 
-  const faviconSrc = getFaviconSrc(item);
-
   return createPortal(
     <div
       className={cn(
@@ -33,18 +30,7 @@ export const DragToWindowGhost = ({
       style={{ left: drag.x + 14, top: drag.y + 10 }}
     >
       <span className="flex size-4 shrink-0 items-center justify-center">
-        {faviconSrc ? (
-          <Image
-            src={faviconSrc}
-            alt=""
-            width={16}
-            height={16}
-            className="size-full rounded object-contain"
-            unoptimized
-          />
-        ) : (
-          <IconFileFilled className="size-full text-muted-foreground" />
-        )}
+        <Favicon item={item} className="size-full" />
       </span>
       <span className="truncate font-content font-medium">
         {item.title || "Untitled"}

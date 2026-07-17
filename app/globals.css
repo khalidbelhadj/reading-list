@@ -734,6 +734,11 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   border-radius: 0.125rem;
   margin: 0 0.25rem 0 0;
   vertical-align: -2px;
+  /* Faint tile so transparent/edge-to-edge favicons read consistently —
+     mirrors the `Favicon` component used elsewhere. */
+  padding: 1px;
+  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
+  object-fit: contain;
 }
 .markdown-editor.fill {
   display: flex;

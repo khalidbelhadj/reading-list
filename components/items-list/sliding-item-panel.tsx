@@ -1,9 +1,7 @@
-import Image from "@/components/ui/image";
 import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
   IconDots,
-  IconFileFilled,
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -28,11 +26,12 @@ import { cn } from "@/lib/utils";
 import { DeleteItemDialog } from "./delete-item-dialog";
 import { DetailPanel } from "./detail-panel";
 import { DetailPanelSkeleton } from "./detail-panel-skeleton";
+import { Favicon } from "./favicon";
 import { FindBar } from "./find-bar";
 import { ItemDropdown } from "./item-dropdown";
 import { useItemMutations } from "./use-item-mutations";
 import { usePanelFind } from "./use-panel-find";
-import { getFaviconSrc, type EditFields } from "./utils";
+import { type EditFields } from "./utils";
 
 // Open phase machine. "closed" represents both "never opened" and "after
 // slide-off"; while closed, the visual layer keeps the dimensions of the
@@ -684,10 +683,6 @@ export const PanelInner = ({
   const morphRef = React.useRef<HTMLDivElement | null>(null);
   const headerSlotRef = React.useRef<HTMLDivElement | null>(null);
 
-  const faviconSrc = item
-    ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })
-    : null;
-
   // The scroll container persists across items, so opening a *different* item
   // would otherwise inherit the previous one's scroll offset — and a stuck
   // top fade. Reset both to the top when the item id changes. Keyed on id (not
@@ -1010,18 +1005,11 @@ export const PanelInner = ({
             className="flex shrink-0 items-center justify-center"
             style={{ width: 24, height: 24 }}
           >
-            {faviconSrc ? (
-              <Image
-                src={faviconSrc}
-                alt=""
-                width={24}
-                height={24}
-                className="h-full w-full rounded object-contain"
-                unoptimized
-              />
-            ) : (
-              <IconFileFilled className="h-full w-full text-muted-foreground" />
-            )}
+            <Favicon
+              item={{ faviconUrl: item.faviconUrl, url: item.url }}
+              size={24}
+              className="h-full w-full"
+            />
           </div>
           <span className="truncate font-content font-semibold">
             {item.title || "Untitled"}
