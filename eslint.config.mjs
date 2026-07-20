@@ -133,6 +133,16 @@ const config = [
               allowTypeImports: true,
               message: "Server-only module. Import the RPC wrapper instead.",
             },
+            {
+              // The action *impls* under app/actions/* don't end in .server.ts,
+              // so the barrel is the only safe entry — importing a subpath
+              // (e.g. @/app/actions/items) would pull db code into the client
+              // bundle with no other lint error.
+              group: ["@/app/actions/*", "@/lib/queries/*"],
+              allowTypeImports: true,
+              message:
+                "Import from the @/app/actions or @/lib/queries barrel, not the impl module.",
+            },
           ],
         },
       ],

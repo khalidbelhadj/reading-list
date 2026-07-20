@@ -45,19 +45,46 @@ export async function servePdf(request: Request): Promise<Response> {
   if (!upstream.ok || !upstream.body) {
     return new Response("Upstream fetch failed", { status: 502 });
   }
-  const declared = Number(upstream.headers.get("content-length") ?? 0);
-  if (declared > MAX_PDF_BYTES) {
+
+  // Don't serve an HTML interstitial (login wall, "file removed" page) at a
+  // .pdf URL as though it were a PDF.
+  const upstreamType = upstream.headers.get("content-type") ?? "";
+  if (upstreamType && !upstreamType.toLowerCase().includes("pdf")) {
+    await upstream.body.cancel();
+    return new Response("Upstream is not a PDF", { status: 415 });
+  }
+
+  const declaredLength = Number(upstream.headers.get("content-length"));
+  const declared = Number.isFinite(declaredLength) ? declaredLength : null;
+  if (declared !== null && declared > MAX_PDF_BYTES) {
     await upstream.body.cancel();
     return new Response("PDF too large", { status: 413 });
   }
 
-  return new Response(upstream.body, {
+  // The declared length is advisory (absent on chunked responses, and a
+  // hostile origin can lie), so enforce the cap on the bytes as they flow:
+  // count each chunk and abort the stream once it exceeds the limit.
+  let streamed = 0;
+  const capped = upstream.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        streamed += chunk.byteLength;
+        if (streamed > MAX_PDF_BYTES) {
+          controller.error(new Error("PDF exceeded size cap"));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+
+  return new Response(capped, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": "inline",
       "Cache-Control": "private, max-age=3600",
-      ...(declared ? { "Content-Length": String(declared) } : {}),
+      ...(declared !== null ? { "Content-Length": String(declared) } : {}),
     },
   });
 }

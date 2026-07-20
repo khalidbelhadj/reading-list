@@ -226,9 +226,9 @@ export const ReadingPanel = ({
       {/* Visual panel — fixed so its slide/resize never reflows the list. */}
       <div
         ref={panelRef}
-        // Above the item panel (z-30): expanding grows this panel leftward
-        // over a stationary item panel rather than pushing it aside. They
-        // never overlap while restored, so a constant z-index is enough.
+        // This panel is z-[35], above the item panel's z-30: expanding grows
+        // it leftward over the stationary item panel rather than pushing it
+        // aside. They never overlap while restored, so a constant z is enough.
         className="pointer-events-auto fixed z-[35] flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
         style={{
           top: SLIDE_OFFSET,

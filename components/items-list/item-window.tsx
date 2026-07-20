@@ -23,6 +23,7 @@ export const ItemWindow = ({ itemId }: { itemId: string }) => {
     queryKey: ["items"],
     queryFn: fetchItems,
   });
+  const { settings, setSetting } = useSettings();
 
   const [reading, setReading] = React.useState(false);
   const [readerExpanded, setReaderExpanded] = React.useState(false);
@@ -33,22 +34,21 @@ export const ItemWindow = ({ itemId }: { itemId: string }) => {
     window.close();
   }, []);
 
-  // Only ever this window's own item — the menu that dispatches lives inside
-  // this very panel, so there is no other id it could carry.
-  React.useEffect(() => subscribeReadItem(() => setReading(true)), []);
-
   const handleCloseReading = React.useCallback(() => {
     setReading(false);
     setReaderExpanded(false);
   }, []);
 
-  const { settings, setSetting } = useSettings();
   const handlePanelWidthChange = React.useCallback(
     (panelWidth: number) => {
       setSetting("readingPanel", (prev) => ({ ...prev, panelWidth }));
     },
     [setSetting],
   );
+
+  // Only ever this window's own item — the menu that dispatches lives inside
+  // this very panel, so there is no other id it could carry.
+  React.useEffect(() => subscribeReadItem(() => setReading(true)), []);
 
   const readingItem = reading
     ? (items?.find((i) => i.id === itemId) ?? null)

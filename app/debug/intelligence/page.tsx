@@ -119,9 +119,16 @@ const DebugIntelligencePage = () => {
   const { data: overview, isLoading } = useQuery({
     queryKey: ["intelligence"],
     queryFn: getIntelligenceOverview,
-    // Keep polling only while the queue still has work in flight.
+    // Keep polling only while the queue has work that can still change state.
+    // A `stuck` row is pending but terminal (out of attempts), so it is
+    // excluded — otherwise the page would poll forever with nothing to observe.
     refetchInterval: (query) =>
-      query.state.data?.rows.some((row) => row.status === "pending")
+      query.state.data?.rows.some(
+        (row) =>
+          row.queueState === "queued" ||
+          row.queueState === "running" ||
+          row.queueState === "retry-wait",
+      )
         ? 3000
         : false,
   });
@@ -136,6 +143,8 @@ const DebugIntelligencePage = () => {
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tuning, setTuning] = React.useState<SearchTuning>(DEFAULT_TUNING);
+  // Hides non-matching columns from the table — see columnVisibility below.
+  const [columnQuery, setColumnQuery] = React.useState("");
 
   const { data: hits, isFetching: searching } = useQuery({
     queryKey: ["semantic-search", searchQuery, tuning.maxChunks],
@@ -164,7 +173,6 @@ const DebugIntelligencePage = () => {
   // Searching columns hides the ones that don't match, rather than scrolling
   // to them — with 16 columns, narrowing to "error" or "embed" is the fast
   // way to see just that slice. The checkbox column never hides.
-  const [columnQuery, setColumnQuery] = React.useState("");
   const isSearching = searchQuery.length > 0;
   const columnVisibility = React.useMemo(() => {
     const visibility: Record<string, boolean> = {};
@@ -240,13 +248,15 @@ const DebugIntelligencePage = () => {
   );
 
   // getRowId is the item id, so selection keys are item ids directly.
-  const selectedIds = React.useMemo(
-    () =>
-      Object.entries(rowSelection)
-        .filter(([, isSelected]) => isSelected)
-        .map(([itemId]) => itemId),
-    [rowSelection],
-  );
+  // Intersected with the currently visible rows: rowSelection persists across
+  // filter/search changes, so without this a "select all → search" sequence
+  // would fan a bulk action out over items no longer on screen.
+  const selectedIds = React.useMemo(() => {
+    const visible = new Set(rows.map((row) => row.itemId));
+    return Object.entries(rowSelection)
+      .filter(([itemId, isSelected]) => isSelected && visible.has(itemId))
+      .map(([itemId]) => itemId);
+  }, [rowSelection, rows]);
 
   const invalidate = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["intelligence"] });
@@ -334,20 +344,22 @@ const DebugIntelligencePage = () => {
     }
   }
 
-  // Live queue depth, straight off the same rows the table renders.
+  // Global queue depth — over the full overview, NOT the search-narrowed
+  // `rows`, so a search matching a couple of items can't make the whole
+  // queue look nearly empty.
   const queueCounts = React.useMemo(() => {
     let running = 0;
     let queued = 0;
     let retryWait = 0;
     let stuck = 0;
-    for (const row of rows) {
+    for (const row of overview?.rows ?? []) {
       if (row.queueState === "running") running++;
       else if (row.queueState === "queued") queued++;
       else if (row.queueState === "retry-wait") retryWait++;
       else if (row.queueState === "stuck") stuck++;
     }
     return { running, queued, retryWait, stuck };
-  }, [rows]);
+  }, [overview]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -416,7 +428,9 @@ const DebugIntelligencePage = () => {
             </div>
           ) : rows.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">
-              No content rows yet — hit “Backfill all items”.
+              {isSearching
+                ? "No items match this search."
+                : "No content rows yet — hit “Backfill all items”."}
             </p>
           ) : (
             <table

@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { defaultCsvFilename, downloadItemsCsv } from "@/lib/csv-export";
 
 export const ExportCsvDialog = ({
@@ -68,15 +69,15 @@ export const ExportCsvDialog = ({
         <DialogHeader>
           <DialogTitle>Export as CSV</DialogTitle>
         </DialogHeader>
-        <div className="flex h-8 items-center rounded-md bg-card px-2 ring-1 ring-foreground/10 focus-within:ring-foreground/25">
-          <input
+        <div className="relative">
+          <Input
             autoFocus
             value={exportFilename}
             onChange={handleExportFilenameChange}
             onKeyDown={handleExportKeyDown}
-            className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+            className="pr-9"
           />
-          <span className="pl-1 text-xs text-muted-foreground/60 select-none">
+          <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground/60 select-none">
             .csv
           </span>
         </div>

@@ -110,11 +110,12 @@ export const HeaderCell = ({
             {flexRender(column.columnDef.header, header.getContext())}
           </span>
         )}
-        {sorted && (
-          <span className="shrink-0 text-muted-foreground">
-            {sorted === "asc" ? "↑" : "↓"}
-          </span>
-        )}
+        {sorted &&
+          (sorted === "asc" ? (
+            <IconSortAscending className="size-3 shrink-0 text-muted-foreground" />
+          ) : (
+            <IconSortDescending className="size-3 shrink-0 text-muted-foreground" />
+          ))}
         {pinned && !isFixed && (
           <IconPinned className="size-3 shrink-0 text-muted-foreground" />
         )}

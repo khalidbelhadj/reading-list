@@ -3,8 +3,8 @@ import type * as React from "react";
 export {};
 
 // Minimal structural types for the Electron <webview> tag used by the in-app
-// viewer (components/viewer/web-embed.tsx). The app renderer doesn't depend
-// on electron's own types — only these members are used.
+// viewer (components/viewer/webview-engine.tsx). The app renderer doesn't
+// depend on electron's own types — only these members are used.
 declare global {
   interface WebviewRect {
     x: number;

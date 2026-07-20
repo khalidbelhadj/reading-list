@@ -19,5 +19,5 @@
     "electron/**/*.ts",
     "types/**/*.ts"
   ],
-  "ignore": ["app/routeTree.gen.ts", "extension/**", ".agents/**", ".claude/**"]
+  "ignore": ["app/routeTree.gen.ts"]
 }

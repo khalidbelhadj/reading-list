@@ -184,7 +184,10 @@ export const getItemContent = safeAction(async function getItemContent(
         wordCount: itemContent.wordCount,
         error: itemContent.error,
         embeddingError: itemContent.embeddingError,
-        embeddingModel: itemContent.embeddingModel,
+        // Same truth source as getIntelligenceOverview — the vector column
+        // itself, not embeddingModel — so one fact has one definition.
+        // Computed in SQL to avoid pulling the 1536-float vector over the wire.
+        hasEmbedding: sql<boolean>`${itemContent.embedding} IS NOT NULL`,
         fetchedAt: itemContent.fetchedAt,
       })
       .from(itemContent)
@@ -193,8 +196,7 @@ export const getItemContent = safeAction(async function getItemContent(
       )
       .limit(1);
     if (!row) return null;
-    const { embeddingModel, ...rest } = row;
-    return { ...rest, hasEmbedding: embeddingModel !== null };
+    return row;
   });
 }, "Could not load item content.");
 

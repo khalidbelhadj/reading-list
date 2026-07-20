@@ -122,9 +122,6 @@ const sharedWebPreferences = () => ({
   // <webview>. Hardened per-attach in attachWindowBehavior's
   // will-attach-webview handler.
   webviewTag: true,
-  // Chromium's built-in PDF viewer, for live webview pages that navigate to
-  // raw PDF URLs. (The app's own PDF pane renders via pdf.js, not this.)
-  plugins: true,
 });
 
 // Viewer <webview> guests host third-party pages: window.open and any
@@ -152,6 +149,11 @@ const attachWindowBehavior = (contents: Electron.WebContents) => {
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
+    // Chromium's built-in PDF viewer (PDFium), for live guest pages that
+    // navigate to a raw PDF URL. A guest doesn't inherit the embedder's
+    // webPreferences, so it has to be set here rather than on the host window.
+    // (The app's own PDF pane renders via pdf.js, not this.)
+    webPreferences.plugins = true;
   });
 
   // window.open() — app-origin URLs become real child windows (keeping their

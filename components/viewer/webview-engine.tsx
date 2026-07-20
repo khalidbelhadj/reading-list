@@ -85,7 +85,11 @@ export const WebviewEngine = ({
       submitLiveContent({ itemId, ...capture }),
     onSuccess: (result) => {
       if (!result.ok) return;
-      void queryClient.invalidateQueries({ queryKey: ["item-content"] });
+      // Only this item's content changed; the intelligence overview is a
+      // single aggregate query, so that one is invalidated whole.
+      void queryClient.invalidateQueries({
+        queryKey: ["item-content", itemId],
+      });
       void queryClient.invalidateQueries({ queryKey: ["intelligence"] });
     },
   });

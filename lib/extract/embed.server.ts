@@ -28,7 +28,7 @@ const google = createGoogleGenerativeAI({});
 
 const normalize = (vector: number[]): number[] => {
   let sumOfSquares = 0;
-  for (const v of vector) sumOfSquares += v * v;
+  for (const value of vector) sumOfSquares += value * value;
   const norm = Math.sqrt(sumOfSquares);
   if (norm === 0) return vector;
   return vector.map((v) => v / norm);

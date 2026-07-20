@@ -329,13 +329,16 @@ export const applyExtraction = async (args: {
   }
 };
 
+// Returns whether an embedding was actually written — false when the markdown
+// yields no chunks, so callers that heal "missing embedding" rows don't count
+// a no-op as success and re-select the same row every pass.
 const embedItemContent = async (
   itemId: string,
   userId: string,
   extraction: Extraction,
-): Promise<void> => {
+): Promise<boolean> => {
   const chunks = chunkMarkdown(extraction.markdown);
-  if (chunks.length === 0) return;
+  if (chunks.length === 0) return false;
 
   // Prefix each chunk with the title at embed time (not in the stored text)
   // so every vector carries the document's identity.
@@ -370,6 +373,7 @@ const embedItemContent = async (
       })
       .where(eq(itemContent.itemId, itemId));
   });
+  return true;
 };
 
 // Rows whose extraction succeeded but whose embedding didn't (typically a
@@ -415,10 +419,11 @@ export const reembedFromStored = async (itemId: string): Promise<boolean> => {
     .where(and(eq(itemContent.itemId, itemId), eq(itemContent.status, "ok")))
     .limit(1);
   if (!row?.markdown) return false;
-  await embedItemContent(itemId, row.userId, {
+  // Propagate the real outcome: markdown that chunks to nothing writes no
+  // embedding, so this must report false or reembedMissing counts it healed.
+  return embedItemContent(itemId, row.userId, {
     extractor: (row.extractor ?? "web") as Extraction["extractor"],
     title: row.title,
     markdown: row.markdown,
   });
-  return true;
 };

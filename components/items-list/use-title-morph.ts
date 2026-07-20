@@ -140,7 +140,10 @@ export const useTitleMorph = ({
       headerSlotRef,
       onScrolled: setScrolled,
     });
-  }, [scrollRef, morphRef, headerSlotRef, item]);
+    // Keyed on id, not the item object: attachTitleMorph reads the title from
+    // the DOM, so re-attaching its listeners only matters when the item's
+    // identity changes — not on every optimistic save of the current one.
+  }, [scrollRef, morphRef, headerSlotRef, item?.id]);
 
   return scrolled;
 };
