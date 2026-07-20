@@ -31,9 +31,10 @@ const supportsHighlights = () =>
   !!(CSS as CSSWithHighlights).highlights &&
   typeof Highlight !== "undefined";
 
-// Inject ::highlight() rules at runtime — Next 15's Lightning CSS pipeline
-// rejects ::highlight() at parse time, so we can't ship the rules through
-// globals.css.
+// Inject ::highlight() rules at runtime rather than shipping them through
+// globals.css: Lightning CSS (used by CSS build pipelines this app has run
+// under) rejects ::highlight() at parse time, and runtime injection sidesteps
+// the build tooling entirely.
 const HIGHLIGHT_STYLE_ID = "panel-find-highlight-style";
 const ensureHighlightStyles = () => {
   if (typeof document === "undefined") return;

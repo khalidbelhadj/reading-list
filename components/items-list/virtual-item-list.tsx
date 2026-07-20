@@ -6,9 +6,9 @@ import { useSettings } from "@/lib/use-settings";
 
 import { ItemRow } from "./item-row";
 import { scrollIntoViewWithMargin, useNavSection } from "./list-nav-registry";
-import { useVirtualScrollRef } from "./virtual-scroll-context";
-import { VirtualList } from "./virtual-list";
 import { type Density } from "./utils";
+import { VirtualList } from "./virtual-list";
+import { useVirtualScrollRef } from "./virtual-scroll-context";
 
 // Fixed row pitch per density (row box + the 1px inter-row gap). Rows are a
 // uniform height within a density, so the virtualizer uses these directly

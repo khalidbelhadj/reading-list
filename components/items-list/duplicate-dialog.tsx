@@ -1,4 +1,3 @@
-import Image from "@/components/ui/image";
 import { IconFileFilled } from "@tabler/icons-react";
 
 import {
@@ -11,7 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import Image from "@/components/ui/image";
 import { type DuplicateItem } from "@/lib/url";
+
 import { getFaviconSrc } from "./utils";
 
 export const DuplicateDialog = ({

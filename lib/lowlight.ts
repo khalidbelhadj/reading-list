@@ -1,23 +1,22 @@
-import { createLowlight } from "lowlight";
-
+import bash from "highlight.js/lib/languages/bash";
 import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
-import rust from "highlight.js/lib/languages/rust";
-import ocaml from "highlight.js/lib/languages/ocaml";
-import javascript from "highlight.js/lib/languages/javascript";
-import typescript from "highlight.js/lib/languages/typescript";
-import python from "highlight.js/lib/languages/python";
-import go from "highlight.js/lib/languages/go";
-import bash from "highlight.js/lib/languages/bash";
-import json from "highlight.js/lib/languages/json";
-import xml from "highlight.js/lib/languages/xml";
 import css from "highlight.js/lib/languages/css";
-import sql from "highlight.js/lib/languages/sql";
+import go from "highlight.js/lib/languages/go";
 import java from "highlight.js/lib/languages/java";
+import javascript from "highlight.js/lib/languages/javascript";
+import json from "highlight.js/lib/languages/json";
 import markdown from "highlight.js/lib/languages/markdown";
+import ocaml from "highlight.js/lib/languages/ocaml";
+import python from "highlight.js/lib/languages/python";
+import rust from "highlight.js/lib/languages/rust";
+import sql from "highlight.js/lib/languages/sql";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
-import zig from "highlightjs-zig";
 import odin from "highlightjs-odin";
+import zig from "highlightjs-zig";
+import { createLowlight } from "lowlight";
 
 export const lowlight = createLowlight();
 

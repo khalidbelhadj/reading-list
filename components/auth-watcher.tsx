@@ -3,8 +3,8 @@ import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
 import {
-  SIGNOUT_BROADCAST_EVENT,
   logoutChannelName,
+  SIGNOUT_BROADCAST_EVENT,
 } from "@/lib/auth-broadcast";
 import { createClient } from "@/lib/supabase/client";
 

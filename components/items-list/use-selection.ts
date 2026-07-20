@@ -1,5 +1,6 @@
 import React from "react";
 
+import { stepId } from "./cursor-nav";
 import {
   clearSelection,
   getSelectedIds,
@@ -75,15 +76,9 @@ export const useSelection = ({
       const ids = getOrderedIds();
       if (ids.length === 0) return;
       const current = cursorRef.current;
-      const currentIndex = current ? ids.indexOf(current) : -1;
-      const nextId =
-        currentIndex === -1
-          ? direction === "next"
-            ? ids[0]
-            : ids[ids.length - 1]
-          : direction === "next"
-            ? ids[Math.min(currentIndex + 1, ids.length - 1)]
-            : ids[Math.max(currentIndex - 1, 0)];
+      // No hover adoption here (unlike cursor nav): shift+arrows always range
+      // from the keyboard cursor / anchor, never from the mouse position.
+      const nextId = stepId(ids, current, direction);
       if (!nextId) return;
       const storedAnchor = getSelectionAnchor();
       const anchor =

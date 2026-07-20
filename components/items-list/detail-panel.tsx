@@ -1,18 +1,17 @@
 import { IconExternalLink, IconFileFilled } from "@tabler/icons-react";
-import Image from "@/components/ui/image";
 import React from "react";
 
+import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Button } from "@/components/ui/button";
+import Image from "@/components/ui/image";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isModKey, isOverlayOpen, isTypingContext } from "@/lib/input-context";
 import { type Item } from "@/lib/types";
 
-import { isModKey, isOverlayOpen, isTypingContext } from "@/lib/input-context";
-
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { PlainEditable } from "./plain-editable";
 import { TagInput } from "./tag-input";
 import { useAutofill } from "./use-autofill";

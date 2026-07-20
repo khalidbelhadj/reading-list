@@ -21,7 +21,21 @@ If asked to run the dev server, run it in the background and read its output to 
 ## Code Conventions
 
 - Use `useQuery`/`useMutation` from React Query for all server interactions — never bare `await` on server actions in components
-- Use shadcn `Button` for all buttons, never raw `<button>`. Raw `<input>` and `<textarea>` are fine for unstyled inline form fields.
+- **Always prefer the shared component over a hand-rolled one.** Check
+  `components/ui/` first and use what's there — `Button`, `Input`, `Checkbox`,
+  `Badge`, `Tooltip`, `DropdownMenu`, `Spinner`, `NonIdealState`, etc. Never
+  hand-roll a styled `<button>`, `<input>`, or a chip/pill built from
+  `rounded px-1.5 text-xs`: that's `Button`, `Input`, and `Badge`. If a shared
+  component is close but not exact, extend it (a variant, a `className`)
+  rather than writing a parallel one. This applies to debug pages too — they
+  are where drift starts.
+- If nothing in `components/ui/` fits, add it with
+  `bun x shadcn@latest add <component>` before writing your own. Only build
+  from scratch when shadcn has no equivalent (e.g. raw `<table>` markup —
+  there is no shared Table yet).
+- Raw `<input>`/`<textarea>` are acceptable *only* for genuinely unstyled
+  inline fields (an in-place title edit that must inherit its surroundings),
+  never for a standalone form control that should look like the rest of the app.
 - Export components and hooks as `const X = () =>`, not `function X()`
 - Use `useCallback` for functions passed as props
 - Component ordering: data/queries → UI state → refs → helpers → hooks → mutations/callbacks → effects → derived state → render
@@ -38,6 +52,15 @@ If asked to run the dev server, run it in the background and read its output to 
 - Icons: @tabler/icons-react
 - Theme: oklch color space with light/dark mode variables in `app/globals.css`
 - shadcn config in `components.json` (style: base-mira, icon library: tabler)
+- **Electron traffic lights:** any surface that reaches the top-left of the
+  window — a full page, a full-width panel, an expanded reader — must reserve
+  clearance for the macOS window buttons. Add `electron-top-bar-inset
+  panel-toolbar` to its top bar: that pair resolves to
+  `padding-left: var(--traffic-clearance)` under `html.electron` and is a
+  no-op on web (see `app/globals.css`). `electron-top-bar-inset` also makes
+  the bar a window drag region, which is what you want for a top bar.
+  Check this whenever you build a new page or a layer that can cover the
+  window's top-left corner.
 
 ## Colors
 
@@ -58,7 +81,7 @@ Single-page reading list app with an MCP server for AI integrations.
 - `app/routes/` — file-based routes; `app/routeTree.gen.ts` is generated (do not edit). `__root.tsx` is the document shell (theme bootstrap script, watchers, Toaster, dev banner).
 - `app/start.ts` — Start instance: `defaultSsr: false` (route components render client-only; the root route uses `ssr: "data-only"` for the settings prefetch), CSRF middleware, and the request guard.
 - `app/server.ts` — custom server entry; imports `lib/env` so the MOCK_USER_ID guard trips at startup.
-- **Server functions:** implementations live in plain server-only modules (`app/actions/*.ts`, `lib/queries.server.ts`, `app/actions-storage.server.ts`); the RPC layer (`app/actions/index.ts`, `lib/queries.ts`, `app/actions-storage.ts`) wraps each in `createServerFn` whose handler dynamically imports the impl — that keeps db/pdf code out of the client bundle while preserving call signatures. Add new actions in both places, following the existing pattern.
+- **Server functions:** implementations live in plain server-only modules (`app/actions/*.ts`, `lib/queries.server.ts`, `app/actions-storage.server.ts`); the RPC layer (`app/actions/index.ts`, `lib/queries.ts`, `app/actions-storage.ts`) wraps each in `createServerFn` whose handler dynamically imports the impl — that keeps db/pdf code out of the client bundle while preserving call signatures. `app/actions/index.ts` is GENERATED — never edit it by hand. New action: implement it in the impl module, add a manifest entry in `scripts/gen-rpc.ts`, then `bun run gen:rpc` (`bun run check` fails on drift).
 - **Server routes:** raw HTTP endpoints are route files with `server.handlers` (e.g. `app/routes/api.mcp.ts`); their implementations sit next to the old paths (`app/api/mcp/server.ts`, `app/api/extension/items.server.ts`, `app/api/storage/server.ts`, `app/auth/callback.server.ts`).
 
 ### Data Flow
@@ -71,22 +94,23 @@ Single-page reading list app with an MCP server for AI integrations.
 
 ### Database
 
-- Schema in `db/schema.ts`: four tables — `items`, `tags`, `items_tags` (many-to-many), `flashcards` (linked to items)
+- Schema in `db/schema.ts`: ten tables — `items`, `tags`, `items_tags` (many-to-many), `flashcards` (linked to items), review tracking (`review_sessions`, `card_reviews`, `review_events`), extracted content + embeddings (`item_content`, `item_chunks`), and `user_settings`
 - Items have a `position` integer for ordering
 - Flashcards have `front`/`back` text, linked to items via `itemId` (nullable FK)
 - Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`
 - Config in `drizzle.config.ts` (dialect: postgresql)
-- MCP search uses the `pg_trgm` extension + trigram similarity in `lib/trigram.ts`
+- MCP search uses regex/ILIKE matching in `lib/search.server.ts`
 
 ### UI Components
 
-- `components/ui/` — shadcn-style wrappers around @base-ui/react primitives, styled with CVA + Tailwind
+- `components/ui/` — shadcn-style wrappers around @base-ui/react primitives, styled with CVA + Tailwind. Presentation-only (lint-enforced: no app data or editor imports).
+- `components/editor/` — the tiptap markdown editor and its internals (bubble menu, link popover, node views); extensions live in `lib/tiptap/`
 - `components/items-list.tsx` — Main client component: tabs, tag filters, drag-and-drop (@dnd-kit)
 - `components/items-list/detail-panel.tsx` — Fixed right-side panel showing item edit form + flashcards when an item is selected
 - `components/items-list/use-keyboard-navigation.ts` — Keyboard navigation (Ctrl+N/P, Enter, Escape, Cmd+V paste, etc.)
 - `components/items-list/tag-input.tsx` — Inline tag input with badges
 - `components/items-list/use-filters.ts` — Client-side filtering by read state and tags
-- `components/items-list/use-mutations.ts` — React Query mutation wrappers for item CRUD
+- `components/items-list/use-item-mutations.ts` — React Query mutation wrappers for item CRUD
 
 ### Fonts
 
@@ -119,3 +143,10 @@ Supabase Auth with Google OAuth. All authentication flows through Supabase — n
 
 - Hydration mismatch on tag filter button: the button is always rendered with `disabled={allTags.length === 0}` to avoid SSR/client DOM mismatch. Do not conditionally render toolbar buttons based on client-only state.
 - Auto-save in the detail panel uses refs (`lastSavedRef`, `liveRef`, `onSaveRef`) to avoid stale closures: `lastSavedRef` is the dirty-tracking baseline (updated after every save *and* every adopted server change), `liveRef` mirrors the latest field values for the unmount flush, `onSaveRef` holds the latest save callback. The panel remounts per item (`key={item.id}` in `sliding-item-panel.tsx`), so switching items reseeds the fields via `useState` initializers — the single adopt effect only reconciles cross-device changes to the *currently open* item, per field (untouched fields refresh; in-progress edits win and flush on the next save). When modifying save logic, pass explicit IDs rather than relying on closure-captured values.
+
+## Structural rules
+
+- Server-only modules end in `.server.ts`; client code (components/, app/routes/, app/*.tsx) imports only `@/app/actions` and `@/lib/queries` — lint-enforced via `no-restricted-imports`.
+- Size budgets (lint-enforced): 500 lines per file, 250 per function, complexity 25. Split the file, don't raise the limit; never grow the grandfather list in `eslint.config.mjs`.
+- Imports are auto-sorted (`simple-import-sort`) — run `bun x eslint . --fix`, don't hand-order them.
+- Cross-tree commands go through `lib/panel-events.ts`; subtree state via context; everything else props.

@@ -1,22 +1,22 @@
 // Server-only implementations — see ./index.ts for the RPC layer.
-import { withUser } from "@/db";
-import { flashcards, items } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
-import { getCurrentUserId } from "@/lib/auth";
-import { safeAction, ActionError } from "@/lib/safe-action";
+
+import { flashcards, items } from "@/db/schema";
+import { flashcardItemJoin, withCurrentUser } from "@/lib/db-helpers.server";
 import {
   createFlashcards as createFlashcardsLib,
-  updateFlashcards as updateFlashcardsLib,
   deleteFlashcards as deleteFlashcardsLib,
-} from "@/lib/flashcards";
-import {
-  parseInput,
-  getFlashcardsSchema,
-  createFlashcardSchema,
-  updateFlashcardSchema,
-  deleteFlashcardSchema,
-} from "@/lib/schemas";
+  updateFlashcards as updateFlashcardsLib,
+} from "@/lib/flashcards.server";
 import { time } from "@/lib/perf";
+import { ActionError, safeAction } from "@/lib/safe-action";
+import {
+  createFlashcardSchema,
+  deleteFlashcardSchema,
+  getFlashcardsSchema,
+  parseInput,
+  updateFlashcardSchema,
+} from "@/lib/schemas";
 
 export const getFlashcards = safeAction(async function getFlashcards(
   itemId: string,
@@ -25,10 +25,8 @@ export const getFlashcards = safeAction(async function getFlashcards(
     "action:getFlashcards",
     async () => {
       parseInput(getFlashcardsSchema, { itemId });
-      const userId = await getCurrentUserId();
-      return withUser(
-        userId,
-        (tx) =>
+      return withCurrentUser(
+        (tx, userId) =>
           tx
             .select()
             .from(flashcards)
@@ -45,10 +43,8 @@ export const getFlashcards = safeAction(async function getFlashcards(
 
 export const getAllFlashcards = safeAction(async function getAllFlashcards() {
   return time("action:getAllFlashcards", async () => {
-    const userId = await getCurrentUserId();
-    return withUser(
-      userId,
-      (tx) =>
+    return withCurrentUser(
+      (tx, userId) =>
         tx
           .select({
             id: flashcards.id,
@@ -64,10 +60,7 @@ export const getAllFlashcards = safeAction(async function getAllFlashcards() {
             updatedAt: flashcards.updatedAt,
           })
           .from(flashcards)
-          .leftJoin(
-            items,
-            and(eq(flashcards.itemId, items.id), eq(items.userId, userId)),
-          )
+          .leftJoin(items, flashcardItemJoin(userId))
           .where(eq(flashcards.userId, userId))
           .orderBy(desc(flashcards.createdAt)),
       "getAllFlashcards",
@@ -81,8 +74,7 @@ export const createFlashcard = safeAction(async function createFlashcard(
   back: string,
 ) {
   parseInput(createFlashcardSchema, { itemId, front, back });
-  const userId = await getCurrentUserId();
-  return withUser(userId, async (tx) => {
+  return withCurrentUser(async (tx, userId) => {
     const result = await createFlashcardsLib(tx, userId, [
       { itemId, front, back },
     ]);
@@ -96,8 +88,7 @@ export const updateFlashcard = safeAction(async function updateFlashcard(
   fields: { front?: string; back?: string },
 ) {
   parseInput(updateFlashcardSchema, { id, fields });
-  const userId = await getCurrentUserId();
-  await withUser(userId, (tx) =>
+  await withCurrentUser((tx, userId) =>
     updateFlashcardsLib(tx, userId, [{ id, ...fields }]),
   );
 }, "Could not update flashcard. Please try again.");
@@ -106,6 +97,5 @@ export const deleteFlashcard = safeAction(async function deleteFlashcard(
   id: string,
 ) {
   parseInput(deleteFlashcardSchema, { id });
-  const userId = await getCurrentUserId();
-  await withUser(userId, (tx) => deleteFlashcardsLib(tx, userId, [id]));
+  await withCurrentUser((tx, userId) => deleteFlashcardsLib(tx, userId, [id]));
 }, "Could not delete flashcard. Please try again.");

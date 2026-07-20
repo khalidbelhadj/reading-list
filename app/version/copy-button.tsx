@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 

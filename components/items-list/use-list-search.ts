@@ -1,5 +1,5 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import React from "react";
 
 import { searchItems } from "@/app/actions";
 import { type Item } from "@/lib/types";
@@ -9,6 +9,11 @@ import { type SearchBarHandle } from "./search-bar";
 import { extractItemIds, isIdSearch } from "./utils";
 
 const SEARCH_QUERY_KEY = ["items", "search"] as const;
+
+// A query wrapped in slashes (`/…/`) is a regex search — resolved entirely by
+// the backend trigram pass, so the local keyword pass skips it. Shared with
+// SearchBar, which shows a "regex" affordance for such queries.
+export const isRegexQuery = (query: string) => /^\/.*\/$/.test(query.trim());
 
 /**
  * The reading-list search engine. Owns the query text and derives everything the
@@ -38,7 +43,7 @@ export const useListSearch = (items: Item[] | undefined) => {
 
   const trimmedQuery = searchQuery.trim();
   const debouncedQuery = useDebounced(trimmedQuery, 200);
-  const isRegex = /^\/.*\/$/.test(trimmedQuery);
+  const isRegex = isRegexQuery(trimmedQuery);
   // Pasting an id (or list of ids) is resolved entirely by the local pass, so
   // the trigram server query is skipped — no wasted fetch, no "loading more".
   const isIdQuery = isIdSearch(trimmedQuery);
@@ -166,7 +171,6 @@ export const useListSearch = (items: Item[] | undefined) => {
     searchBarRef,
     searchQuery,
     setSearchQuery,
-    isRegex,
     isFetching,
     resultCount,
     searchOrder,

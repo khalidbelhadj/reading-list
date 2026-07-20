@@ -18,8 +18,6 @@ const getListeners = (id: string): Set<() => void> => {
   return set;
 };
 
-export const getCursorId = (): string | null => currentId;
-
 export const setCursorId = (id: string | null): void => {
   const prev = currentId;
   if (prev === id) return;

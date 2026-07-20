@@ -1,8 +1,9 @@
-import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React from "react";
 
 import { deleteTag, renameTag } from "@/app/actions";
 import { type DbTag, type Item } from "@/lib/types";
+
 import { useInvalidateItems } from "./use-invalidate-items";
 
 export const useTagMutations = (items: Item[]) => {

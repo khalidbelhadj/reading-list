@@ -51,6 +51,11 @@ export const queryKeysForTable = (table: string): string[] => {
         "review-status",
         "item-review-status",
       ];
+    case "item_content":
+      // Reader view + intelligence debug page. (Worker writes on the owner
+      // connection may not broadcast — realtime.send is RLS-checked against
+      // the authenticated role — so these caches also refetch on focus.)
+      return ["item-content", "intelligence"];
     default:
       return [];
   }

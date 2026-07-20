@@ -1,5 +1,5 @@
+import { IconCards, IconClock, IconMinus, IconPlus } from "@tabler/icons-react";
 import React from "react";
-import { IconMinus, IconPlus, IconClock, IconCards } from "@tabler/icons-react";
 
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";

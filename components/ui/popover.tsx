@@ -1,8 +1,8 @@
-import * as React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+import type * as React from "react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const Popover = ({ ...props }: PopoverPrimitive.Root.Props) => {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
@@ -122,11 +122,11 @@ const PopoverClose = ({
 
 export {
   Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverFooter,
-  PopoverTitle,
-  PopoverDescription,
   PopoverClose,
+  PopoverContent,
+  PopoverDescription,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
 };

@@ -4,6 +4,7 @@ import React from "react";
 import { NonIdealState } from "@/components/ui/non-ideal-state";
 import { SquareSpinner } from "@/components/ui/square-spinner";
 import { type Item } from "@/lib/types";
+import { useElementSize } from "@/lib/use-element-size";
 import { cn } from "@/lib/utils";
 
 import { CollapsibleSection } from "./collapsible-section";
@@ -201,16 +202,16 @@ export const AskResults = ({
   // height. CSS eases it there, so the soft edge glides down as text streams and
   // settles below the last line when it stops — never parking over content.
   const streamRef = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
-    const el = streamRef.current;
-    if (!el || !isAsking) return;
-    const update = () =>
-      el.style.setProperty("--ask-mask-stop", `${el.scrollHeight}px`);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isAsking]);
+  useElementSize(
+    streamRef,
+    React.useCallback(() => {
+      const el = streamRef.current;
+      if (el) el.style.setProperty("--ask-mask-stop", `${el.scrollHeight}px`);
+    }, []),
+    // immediate: the mask boundary must be positioned before the observer's
+    // first async delivery, matching the old effect's up-front update() call.
+    { mode: "sync", enabled: isAsking, immediate: true },
+  );
 
   // A failed request replaces the whole feed with the shared centered non-ideal
   // state (title + faint description), matching the empty state.

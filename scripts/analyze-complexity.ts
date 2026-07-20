@@ -10,16 +10,17 @@
  *
  * Nothing here imports app code, so it is safe to run standalone.
  */
-import ts from "typescript";
 import {
-  readFileSync,
-  writeFileSync,
+  existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
-  existsSync,
+  writeFileSync,
 } from "node:fs";
-import { join, relative, dirname } from "node:path";
+import { dirname, join, relative } from "node:path";
+
+import ts from "typescript";
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ["app", "components", "lib", "db", "hooks"];

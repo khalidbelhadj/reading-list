@@ -1,7 +1,7 @@
 import React from "react";
 
-import { logSessionEvent, type BatchedReviewEvent } from "@/app/actions";
-import type { ReviewEvent } from "@/lib/review-events";
+import { type BatchedReviewEvent, logSessionEvent } from "@/app/actions";
+import type { ReviewEvent } from "@/lib/review-events.server";
 
 // Passing `null` disables logging entirely — used by the debug session preview
 // so simulated reviews never hit the server.

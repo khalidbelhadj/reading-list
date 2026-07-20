@@ -1,6 +1,6 @@
 // Pure, dependency-light parsing for inline `<card>` blocks. Shared by the
 // server-side notes→DB sync (lib/flashcard-sync.ts) and the client editor's
-// markdown-it rule (components/ui/markdown-card.ts), so it must NOT import the
+// markdown-it rule (components/editor/markdown-card.ts), so it must NOT import the
 // DB or any server-only module.
 //
 // The hard requirement is robustness against delimiter-looking text the user
@@ -13,9 +13,9 @@
 import { newCardId } from "@/lib/card-id";
 import { stripBlankLineSentinel } from "@/lib/markdown";
 
-export const FENCE = /^(`{3,}|~{3,})/;
-export const CARD_OPEN = /^<card\b([^>]*)>$/i;
-export const CARD_CLOSE = /^<\/card>$/i;
+const FENCE = /^(`{3,}|~{3,})/;
+const CARD_OPEN = /^<card\b([^>]*)>$/i;
+const CARD_CLOSE = /^<\/card>$/i;
 export const ID_ATTR = /\bid\s*=\s*"([^"]+)"/i;
 
 export type ParsedCard = {

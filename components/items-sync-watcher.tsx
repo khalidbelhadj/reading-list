@@ -2,8 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
 import {
-  ITEMS_SYNC_EVENT,
   getSyncOriginId,
+  ITEMS_SYNC_EVENT,
   itemsSyncChannelName,
   queryKeysForTable,
 } from "@/lib/items-sync";

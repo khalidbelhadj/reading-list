@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/routes/**/*.{ts,tsx}",
+    "app/server.ts",
+    "app/router.tsx",
+    "app/start.ts",
+    "electron/main.ts",
+    "electron/*preload*.ts",
+    "scripts/**/*.ts",
+    "app/actions/index.ts",
+    "lib/queries.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "db/**/*.ts",
+    "electron/**/*.ts",
+    "types/**/*.ts"
+  ],
+  "ignore": ["app/routeTree.gen.ts", "extension/**", ".agents/**", ".claude/**"]
+}

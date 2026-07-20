@@ -2,192 +2,62 @@
 // goes through the createServerFn RPC layer in ./index.ts, whose handlers
 // dynamically import this file so none of it reaches the client bundle.
 // Server routes (e.g. the extension API) may call these directly.
-import { withUser } from "@/db";
-import { items } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
-import { getCurrentUserId } from "@/lib/auth";
-import { safeAction } from "@/lib/safe-action";
-import { ensureTagsLinkedForItems } from "@/lib/tags";
+
+import { items } from "@/db/schema";
+import { withCurrentUser } from "@/lib/db-helpers.server";
 import {
   createItems as createItemsLib,
-  updateItemWithCardSync,
   deleteItems as deleteItemsLib,
-} from "@/lib/items";
+  updateItemWithCardSync,
+} from "@/lib/items.server";
+import { fetchPageTitleForUrl } from "@/lib/page-title.server";
+import { getPdfUrlForItem, renderPdfFirstPage } from "@/lib/pdf-preview.server";
+import { time } from "@/lib/perf";
+import { ActionError, safeAction } from "@/lib/safe-action";
 import {
-  searchItems as searchItemsQuery,
-  searchFlashcards as searchFlashcardsQuery,
-  type SearchResult,
-  type FlashcardSearchResult,
-} from "@/lib/search";
-import { safeFetch } from "@/lib/url.server";
-import { normalizeUrl, type DuplicateItem } from "@/lib/url";
-import {
-  extractPdfTitleOnly,
-  getPdfUrlForItem,
-  getPdfUrlForItemSync,
-  renderPdfFirstPage,
-} from "@/lib/pdf-preview";
-import {
-  parseInput,
+  bulkDeleteItemsSchema,
+  bulkMarkReadSchema,
+  bulkSetStarredSchema,
+  bulkTagSchema,
+  createItemSchema,
   deleteItemSchema,
   fetchPageTitleSchema,
-  createItemSchema,
+  parseInput,
+  setItemReadSchema,
   updateItemSchema,
-  toggleReadSchema,
-  bulkDeleteItemsSchema,
-  bulkTagSchema,
-  bulkMarkReadSchema,
-  bulkSetPinnedSchema,
 } from "@/lib/schemas";
-import { time } from "@/lib/perf";
+import {
+  searchItems as searchItemsQuery,
+  type SearchResult,
+} from "@/lib/search.server";
+import { ensureTagsLinkedForItems } from "@/lib/tags.server";
+import { type DuplicateItem, normalizeUrl } from "@/lib/url";
 
 export const searchItems = safeAction(async function searchItems(
   query: string,
 ): Promise<SearchResult[]> {
   return time(
     "action:searchItems",
-    async () => {
-      const userId = await getCurrentUserId();
-      return withUser(
-        userId,
-        (tx) => searchItemsQuery(tx, userId, query),
+    () =>
+      withCurrentUser(
+        (tx, userId) => searchItemsQuery(tx, userId, query),
         "searchItems",
-      );
-    },
+      ),
     { qlen: query.length },
   );
 }, "Could not search items. Please try again.");
 
-export const searchFlashcards = safeAction(async function searchFlashcards(
-  query: string,
-): Promise<FlashcardSearchResult[]> {
-  return time(
-    "action:searchFlashcards",
-    async () => {
-      const userId = await getCurrentUserId();
-      return withUser(
-        userId,
-        (tx) => searchFlashcardsQuery(tx, userId, query),
-        "searchFlashcards",
-      );
-    },
-    { qlen: query.length },
-  );
-}, "Could not search flashcards. Please try again.");
-
 export const deleteItem = safeAction(async function deleteItem(itemId: string) {
   parseInput(deleteItemSchema, { itemId });
-  const userId = await getCurrentUserId();
-  await withUser(userId, (tx) => deleteItemsLib(tx, userId, [itemId]));
+  await withCurrentUser((tx, userId) => deleteItemsLib(tx, userId, [itemId]));
 }, "Could not delete item. Please try again.");
-
-async function fetchOembedTitle(url: string): Promise<string | null> {
-  try {
-    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const title = typeof data.title === "string" ? data.title : null;
-    if (!title) return null;
-    const channel =
-      typeof data.author_name === "string" ? data.author_name.trim() : "";
-    return channel ? `${title} - ${channel}` : title;
-  } catch {
-    return null;
-  }
-}
-
-function decodeHtmlEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16)),
-    )
-    .trim()
-    .replace(/\s+/g, " ");
-}
 
 export const fetchPageTitle = safeAction(async function fetchPageTitle(
   url: string,
 ): Promise<string | null> {
   parseInput(fetchPageTitleSchema, { url });
-  try {
-    const parsed = new URL(url);
-    const isYouTube = /^(www\.)?(youtube\.com|youtu\.be)$/.test(
-      parsed.hostname,
-    );
-    if (isYouTube) {
-      const title = await fetchOembedTitle(url);
-      if (title) return title;
-    }
-
-    // PDF short-circuit: if the URL clearly points at a PDF (suffix or
-    // arxiv abs/pdf), extract title straight from the document. This
-    // beats HTML parsing because arxiv's <title> includes the paper id
-    // prefix, and direct PDFs have no HTML at all.
-    const pdfUrl = getPdfUrlForItemSync(url);
-    if (pdfUrl) {
-      const pdfTitle = await extractPdfTitleOnly(pdfUrl);
-      if (pdfTitle) return pdfTitle;
-      // Fall through to HTML parse on miss — some arxiv abs pages have
-      // useful <title> tags even when the PDF extraction fails.
-    }
-
-    const res = await safeFetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const MAX_BYTES = 512 * 1024;
-    const reader = res.body?.getReader();
-    if (!reader) return null;
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
-      if (received > MAX_BYTES) {
-        chunks.push(
-          value.subarray(0, value.byteLength - (received - MAX_BYTES)),
-        );
-        await reader.cancel();
-        break;
-      }
-      chunks.push(value);
-    }
-    const total = chunks.reduce((n, c) => n + c.byteLength, 0);
-    const merged = new Uint8Array(total);
-    let offset = 0;
-    for (const c of chunks) {
-      merged.set(c, offset);
-      offset += c.byteLength;
-    }
-    const text = new TextDecoder("utf-8", { fatal: false }).decode(merged);
-    const ogMatch =
-      text.match(
-        /<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i,
-      ) ||
-      text.match(
-        /<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["'][^>]*>/i,
-      );
-    const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const match = ogMatch || titleMatch;
-    if (!match || match[1] === undefined) return null;
-    return decodeHtmlEntities(match[1]);
-  } catch {
-    return null;
-  }
+  return fetchPageTitleForUrl(url);
 }, "Could not fetch page title. Please try again.");
 
 export type CreateItemResult =
@@ -203,8 +73,7 @@ export const createItem = safeAction(async function createItem(
   allowDuplicateUrl?: boolean,
 ): Promise<CreateItemResult> {
   parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id });
-  const userId = await getCurrentUserId();
-  return withUser(userId, async (tx) => {
+  return withCurrentUser(async (tx, userId) => {
     if (!allowDuplicateUrl) {
       const normalized = normalizeUrl(url);
       if (normalized) {
@@ -225,7 +94,7 @@ export const createItem = safeAction(async function createItem(
       { title, url, tagNames, faviconUrl, notes, id },
     ]);
     if (itemId === undefined) {
-      throw new Error("Failed to create item.");
+      throw new ActionError("Failed to create item.");
     }
     return { ok: true as const, itemId };
   });
@@ -245,20 +114,18 @@ export const updateItem = safeAction(async function updateItem(
   },
 ) {
   parseInput(updateItemSchema, { itemId, fields });
-  const userId = await getCurrentUserId();
-  await withUser(userId, (tx) =>
+  await withCurrentUser((tx, userId) =>
     updateItemWithCardSync(tx, userId, itemId, fields),
   );
 }, "Could not update item. Please try again.");
 
-export const toggleRead = safeAction(async function toggleRead(
+export const setItemRead = safeAction(async function setItemRead(
   itemId: string,
   read: boolean,
 ) {
-  parseInput(toggleReadSchema, { itemId, read });
-  const userId = await getCurrentUserId();
+  parseInput(setItemReadSchema, { itemId, read });
   const now = new Date().toISOString();
-  await withUser(userId, async (tx) => {
+  await withCurrentUser(async (tx, userId) => {
     await tx
       .update(items)
       .set({ read, readAt: read ? now : null, updatedAt: now })
@@ -271,8 +138,7 @@ export const bulkDeleteItems = safeAction(async function bulkDeleteItems(
 ) {
   parseInput(bulkDeleteItemsSchema, { itemIds });
   if (itemIds.length === 0) return;
-  const userId = await getCurrentUserId();
-  await withUser(userId, (tx) => deleteItemsLib(tx, userId, itemIds));
+  await withCurrentUser((tx, userId) => deleteItemsLib(tx, userId, itemIds));
 }, "Could not delete items. Please try again.");
 
 export const bulkTag = safeAction(async function bulkTag(
@@ -282,8 +148,7 @@ export const bulkTag = safeAction(async function bulkTag(
   parseInput(bulkTagSchema, { itemIds, tagNames });
   if (itemIds.length === 0 || tagNames.length === 0) return;
 
-  const userId = await getCurrentUserId();
-  await withUser(userId, async (tx) => {
+  await withCurrentUser(async (tx, userId) => {
     const owned = await tx
       .select({ id: items.id })
       .from(items)
@@ -295,16 +160,6 @@ export const bulkTag = safeAction(async function bulkTag(
   });
 }, "Could not tag items. Please try again.");
 
-// Generate (or refresh) the preview image for a single item. Returns the
-// resulting data URL, or null if the item's URL doesn't support previews.
-//
-// Three terminal states for the row's preview_image_url column:
-//   - data URL → has a preview, render it.
-//   - ""       → checked, not a PDF; don't probe again.
-//   - null     → not yet attempted, or render failed transiently — retry.
-//
-// Idempotent: callers can fire-and-forget; calling on a row that's already
-// been resolved returns the existing value without re-doing the work.
 // A title is "junk" if it's clearly a placeholder that the user would want
 // auto-corrected. Anything they've actually typed is left alone.
 const isJunkTitle = (title: string, url: string): boolean => {
@@ -317,10 +172,19 @@ const isJunkTitle = (title: string, url: string): boolean => {
   return false;
 };
 
+// Generate (or refresh) the preview image for a single item. Returns the
+// resulting data URL, or null if the item's URL doesn't support previews.
+//
+// Three terminal states for the row's preview_image_url column:
+//   - data URL → has a preview, render it.
+//   - ""       → checked, not a PDF; don't probe again.
+//   - null     → not yet attempted, or render failed transiently — retry.
+//
+// Idempotent: callers can fire-and-forget; calling on a row that's already
+// been resolved returns the existing value without re-doing the work.
 export const generateItemPreview = safeAction(
   async function generateItemPreview(itemId: string): Promise<string | null> {
-    const userId = await getCurrentUserId();
-    return withUser(userId, async (tx) => {
+    return withCurrentUser(async (tx, userId) => {
       const [item] = await tx
         .select({
           id: items.id,
@@ -377,9 +241,8 @@ export const bulkMarkRead = safeAction(async function bulkMarkRead(
   parseInput(bulkMarkReadSchema, { itemIds, read });
   if (itemIds.length === 0) return;
 
-  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  await withUser(userId, async (tx) => {
+  await withCurrentUser(async (tx, userId) => {
     await tx
       .update(items)
       .set({ read, readAt: read ? now : null, updatedAt: now })
@@ -387,16 +250,15 @@ export const bulkMarkRead = safeAction(async function bulkMarkRead(
   });
 }, "Could not update items. Please try again.");
 
-export const bulkSetPinned = safeAction(async function bulkSetPinned(
+export const bulkSetStarred = safeAction(async function bulkSetStarred(
   itemIds: string[],
   starred: boolean,
 ) {
-  parseInput(bulkSetPinnedSchema, { itemIds, starred });
+  parseInput(bulkSetStarredSchema, { itemIds, starred });
   if (itemIds.length === 0) return;
 
-  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  await withUser(userId, async (tx) => {
+  await withCurrentUser(async (tx, userId) => {
     await tx
       .update(items)
       .set({ starred, updatedAt: now })

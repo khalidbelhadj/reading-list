@@ -1,13 +1,13 @@
-import React from "react";
+import { IconPhotoOff } from "@tabler/icons-react";
 import Image, { type ImageOptions } from "@tiptap/extension-image";
 import { Plugin } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import {
+  type NodeViewProps,
   NodeViewWrapper,
   ReactNodeViewRenderer,
-  type NodeViewProps,
 } from "@tiptap/react";
-import { IconPhotoOff } from "@tabler/icons-react";
+import React from "react";
 
 import { Spinner } from "@/components/ui/spinner";
 

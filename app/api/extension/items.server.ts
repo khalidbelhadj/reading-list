@@ -1,9 +1,10 @@
+import { and, eq } from "drizzle-orm";
+
 import { createItem, fetchPageTitle } from "@/app/actions/items";
-import { UnauthorizedError, getCurrentUserId } from "@/lib/auth";
-import { ActionError } from "@/lib/safe-action";
 import { withUser } from "@/db";
 import { items } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { getCurrentUserId, UnauthorizedError } from "@/lib/auth";
+import { ActionError } from "@/lib/safe-action";
 import { normalizeUrl } from "@/lib/url";
 
 // Lookup endpoint for the Chrome extension popup: given a page url, return the

@@ -1,7 +1,7 @@
-import React from "react";
-import Image from "@/components/ui/image";
 import { IconFileFilled } from "@tabler/icons-react";
+import React from "react";
 
+import { getFaviconSrc } from "@/components/items-list/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,26 +12,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Spinner } from "@/components/ui/spinner";
-import { type Item } from "@/lib/types";
+import Image from "@/components/ui/image";
 import { isModKey } from "@/lib/input-context";
-import { getFaviconSrc } from "@/components/items-list/utils";
+import { type Item } from "@/lib/types";
 
-type DeleteItemDialogProps = {
-  item: Item | null;
+// One confirm dialog for both delete flows. Single mode (`item`) shows the
+// item's favicon/title preview and single-item copy; bulk mode (`items`)
+// counts the selection in the title and confirm button.
+type DeleteItemsDialogProps = {
   open: boolean;
-  deleting: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
-};
+} & ({ item: Item | null; items?: never } | { items: Item[]; item?: never });
 
-export const DeleteItemDialog = ({
+export const DeleteItemsDialog = ({
   item,
+  items,
   open,
-  deleting,
   onOpenChange,
   onConfirm,
-}: DeleteItemDialogProps) => {
+}: DeleteItemsDialogProps) => {
+  const single = items === undefined;
+  const targets = items ?? (item ? [item] : []);
+  const flashcardCount = targets.reduce(
+    (sum, target) => sum + target.flashcardCount,
+    0,
+  );
   const faviconSrc = item ? getFaviconSrc(item) : null;
 
   const handleOpenChange = React.useCallback(
@@ -43,12 +49,12 @@ export const DeleteItemDialog = ({
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && isModKey(e) && !deleting) {
+      if (e.key === "Enter" && isModKey(e)) {
         e.preventDefault();
         onConfirm();
       }
     },
-    [onConfirm, deleting],
+    [onConfirm],
   );
 
   const handleClick = React.useCallback(
@@ -63,24 +69,33 @@ export const DeleteItemDialog = ({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent onKeyDown={handleKeyDown}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete item</AlertDialogTitle>
+          <AlertDialogTitle>
+            {single
+              ? "Delete item"
+              : `Delete ${targets.length} ${targets.length === 1 ? "item" : "items"}`}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            {item && item.flashcardCount > 0 ? (
+            {flashcardCount > 0 ? (
               <>
                 This will also delete{" "}
-                <span className="font-medium">{item.flashcardCount}</span>{" "}
-                {item.flashcardCount === 1 ? "flashcard" : "flashcards"}. This
-                action cannot be undone.
+                <span className="font-medium">{flashcardCount}</span>{" "}
+                {flashcardCount === 1 ? "flashcard" : "flashcards"}. This action
+                cannot be undone.
               </>
-            ) : (
+            ) : single ? (
               <>
                 Are you sure you want to delete this item? This action cannot be
                 undone.
               </>
+            ) : (
+              <>
+                Are you sure you want to delete the selected items? This action
+                cannot be undone.
+              </>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {item && (
+        {single && item && (
           <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-card px-1 py-1 ring-1 ring-foreground/5">
             <div className="flex size-5 shrink-0 items-center justify-center">
               {faviconSrc ? (
@@ -103,13 +118,10 @@ export const DeleteItemDialog = ({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={deleting}
-            onClick={handleClick}
-          >
-            {deleting && <Spinner className="size-3.5" />}
-            Delete
+          <AlertDialogAction variant="destructive" onClick={handleClick}>
+            {single
+              ? "Delete"
+              : `Delete ${targets.length === 1 ? "item" : `${targets.length} items`}`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

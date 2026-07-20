@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { withUser } from "@/db";
 import { getCurrentUserId } from "@/lib/auth";
-import { searchFlashcards } from "@/lib/search";
+import { searchFlashcards } from "@/lib/search.server";
 
 import { searchItemsWithTags } from "../mcp/search";
 

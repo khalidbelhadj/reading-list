@@ -4,14 +4,14 @@
 jest.mock("@/db", () => ({ db: {} }));
 
 import {
-  parseCardsFromNotes,
-  normalizeCardIds,
   diffCards,
-  syncFlashcardsFromNotes,
-  MAX_CARD_FIELD_LENGTH,
   type ExistingCard,
+  MAX_CARD_FIELD_LENGTH,
+  normalizeCardIds,
+  parseCardsFromNotes,
   type ParsedCard,
-} from "@/lib/flashcard-sync";
+  syncFlashcardsFromNotes,
+} from "@/lib/flashcard-sync.server";
 
 // Build the exact markdown the editor serializes for a card: each tag on its
 // own line at column 0, front/back content in between.

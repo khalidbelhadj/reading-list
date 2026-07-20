@@ -6,15 +6,14 @@ import { TagRenameInput } from "@/components/items-list/tag-rename-input";
 import { useTagMutations } from "@/components/items-list/use-tag-mutations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type Item } from "@/lib/types";
-import { cn } from "@/lib/utils";
-
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { type Item } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 import { type ItemGroup } from "./use-filters";
 import { VirtualItemGroup } from "./virtual-item-group";

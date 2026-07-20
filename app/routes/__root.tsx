@@ -1,3 +1,9 @@
+// Side-effect import (not ?url): in dev Vite owns the stylesheet through the
+// module graph (the SSR-injected dev-styles link is removed after hydration,
+// so a bare <link> would go dead after the first client-side navigation); in
+// prod the build collects it into the route CSS assets automatically.
+import "../globals.css";
+
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -15,20 +21,15 @@ import { DevBanner } from "@/components/dev-banner";
 import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
 import { LocalSyncWatcher } from "@/components/local-sync-watcher";
-import { WindowMessageWatcher } from "@/components/window-message-watcher";
 import { NotFound } from "@/components/not-found";
 import { RouteError } from "@/components/route-error";
+import { SettingsEffects } from "@/components/settings-effects";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TOOLTIP_DELAY_MS } from "@/components/ui/tooltip-config";
+import { WindowMessageWatcher } from "@/components/window-message-watcher";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 import { useDevDevtools } from "@/lib/use-dev-devtools";
-
-// Side-effect import (not ?url): in dev Vite owns the stylesheet through the
-// module graph (the SSR-injected dev-styles link is removed after hydration,
-// so a bare <link> would go dead after the first client-side navigation); in
-// prod the build collects it into the route CSS assets automatically.
-import "../globals.css";
 
 const RootDocument = ({ children }: { children: React.ReactNode }) => (
   <html lang="en" suppressHydrationWarning>
@@ -65,6 +66,7 @@ const RootComponent = () => {
       <ElectronZoomWatcher />
       <ItemsSyncWatcher />
       <LocalSyncWatcher />
+      <SettingsEffects />
       <TooltipProvider delay={TOOLTIP_DELAY_MS}>
         <Outlet />
       </TooltipProvider>

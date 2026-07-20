@@ -25,3 +25,22 @@ export const subscribePanelCommand = (
   window.addEventListener(EVENT, listener);
   return () => window.removeEventListener(EVENT, listener);
 };
+
+// "Read in app" — opens the reading panel for an item. Dispatched from the
+// item menu (deep in the list tree), actuated by PanelLayout, which owns the
+// reading-panel state.
+const READ_EVENT = "rl:read-item";
+
+export const dispatchReadItem = (itemId: string): void => {
+  window.dispatchEvent(new CustomEvent<string>(READ_EVENT, { detail: itemId }));
+};
+
+export const subscribeReadItem = (
+  handler: (itemId: string) => void,
+): (() => void) => {
+  const listener = (event: Event) => {
+    handler((event as CustomEvent<string>).detail);
+  };
+  window.addEventListener(READ_EVENT, listener);
+  return () => window.removeEventListener(READ_EVENT, listener);
+};

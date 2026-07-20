@@ -1,6 +1,6 @@
 import React from "react";
 
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { MarkdownEditor } from "@/components/editor/markdown-editor";
 
 const SEED = `Inline $e^{i\\pi}+1=0$ stays inline.
 
