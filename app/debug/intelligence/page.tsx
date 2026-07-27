@@ -112,7 +112,7 @@ const TableBody = ({
                 : undefined
             }
             className={cn(
-              "px-2 py-1.5 align-middle",
+              "border-r border-border/60 px-2 py-1.5 align-middle",
               cell.column.getIsPinned() && "bg-inherit",
             )}
           >
@@ -167,6 +167,15 @@ const DebugIntelligencePage = () => {
   // The row open in the detail pane. Held as an id, not a row object, so the
   // pane follows the 3s poll instead of freezing the state it opened with.
   const [detailItemId, setDetailItemId] = React.useState<string | null>(null);
+  // Pane width lives here, not in the pane, so it survives the pane's
+  // per-item remount — resizing then clicking a different row keeps the size.
+  const [detailWidth, setDetailWidth] = React.useState(480);
+  // Clicking the row that's already open closes the pane (toggle).
+  const handleOpenDetail = React.useCallback(
+    (itemId: string) =>
+      setDetailItemId((current) => (current === itemId ? null : itemId)),
+    [],
+  );
 
   const { data: embeddingConfig } = useQuery({
     queryKey: ["embedding-settings"],
@@ -356,30 +365,39 @@ const DebugIntelligencePage = () => {
     () => [
       {
         label: reextract.isPending ? "Re-extracting…" : "Re-extract selected",
+        tooltip:
+          "Re-fetch and re-parse the page for the selected items, then re-embed them.",
         pending: reextract.isPending,
         bulk: true,
         run: runReextract,
       },
       {
         label: reembed.isPending ? "Re-embedding…" : "Re-embed selected",
+        tooltip:
+          "Recompute embeddings for the selected items from their already-extracted text.",
         pending: reembed.isPending,
         bulk: true,
         run: runReembed,
       },
       {
         label: backfill.isPending ? "Backfilling…" : "Backfill all items",
+        tooltip: "Queue every item that has no content row yet for extraction.",
         pending: backfill.isPending,
         bulk: false,
         run: runBackfill,
       },
       {
         label: drain.isPending ? "Draining…" : "Drain queue",
+        tooltip:
+          "Process a batch of pending items right now instead of waiting for the background worker.",
         pending: drain.isPending,
         bulk: false,
         run: runDrain,
       },
       {
         label: heal.isPending ? "Healing…" : "Heal missing embeddings",
+        tooltip:
+          "Find items that extracted fine but never got an embedding, and embed them.",
         pending: heal.isPending,
         bulk: false,
         run: runHeal,
@@ -468,25 +486,6 @@ const DebugIntelligencePage = () => {
             <Stat label="stuck" value={queueCounts.stuck} tone="destructive" />
           )}
         </span>
-        <ModelPicker
-          config={embeddingConfig}
-          activeModel={overview?.activeModel}
-          coverage={overview?.coverage ?? []}
-          pending={setEmbeddingModel.isPending}
-          onSelect={setEmbeddingModel.mutate}
-        />
-        <SearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          tuning={tuning}
-          onTuningChange={setTuning}
-          searching={searching}
-          results={
-            isSearching && !searching
-              ? { items: matches.size, chunks: hits?.length ?? 0 }
-              : null
-          }
-        />
         {backfill.data && (
           <Stat label="enqueued" value={backfill.data.enqueued} />
         )}
@@ -502,6 +501,28 @@ const DebugIntelligencePage = () => {
           </span>
         )}
         {heal.data && <Stat label="healed" value={heal.data.healed} />}
+        {/* Model picker + search sit together at the far right of the bar. */}
+        <div className="ml-auto flex items-center gap-2">
+          <ModelPicker
+            config={embeddingConfig}
+            activeModel={overview?.activeModel}
+            coverage={overview?.coverage ?? []}
+            pending={setEmbeddingModel.isPending}
+            onSelect={setEmbeddingModel.mutate}
+          />
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            tuning={tuning}
+            onTuningChange={setTuning}
+            searching={searching}
+            results={
+              isSearching && !searching
+                ? { items: matches.size, chunks: hits?.length ?? 0 }
+                : null
+            }
+          />
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -554,7 +575,7 @@ const DebugIntelligencePage = () => {
                 rows={visibleRows}
                 isResizing={isResizing}
                 detailItemId={detailItemId}
-                onOpenDetail={setDetailItemId}
+                onOpenDetail={handleOpenDetail}
               />
             </table>
           )}
@@ -562,12 +583,15 @@ const DebugIntelligencePage = () => {
 
         {detailRow && (
           <DetailPane
-            // Remount per item so the tabs and scroll position reset rather
-            // than carrying the previous document's state into the next one.
+            // Remount per item so the scroll position resets rather than
+            // carrying the previous document's state into the next one. Width
+            // lives on the page, so it survives the remount.
             key={detailRow.itemId}
             row={detailRow}
             activeModel={overview?.activeModel}
             onClose={closeDetail}
+            width={detailWidth}
+            onWidthChange={setDetailWidth}
           />
         )}
       </div>

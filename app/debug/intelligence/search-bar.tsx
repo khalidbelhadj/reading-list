@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 import { Stat } from "./stat";
 
@@ -83,8 +84,8 @@ export const SearchBar = ({
   // Null while there's no settled search to report on.
   results: { items: number; chunks: number } | null;
 }) => {
-  // Local draft so typing doesn't fire an embedding call per keystroke —
-  // the query commits on Enter (each search costs a provider round-trip).
+  // Local draft so typing doesn't fire an embedding call per keystroke — the
+  // query commits on Enter (each search costs a provider round-trip).
   const [draft, setDraft] = React.useState(query);
   React.useEffect(() => setDraft(query), [query]);
 
@@ -93,72 +94,101 @@ export const SearchBar = ({
     onQueryChange("");
   }, [onQueryChange]);
 
+  const handleChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const next = event.target.value;
+      setDraft(next);
+      // Emptying the field resets the results immediately, without needing a
+      // second Enter to un-search.
+      if (next === "") onQueryChange("");
+    },
+    [onQueryChange],
+  );
+
   return (
     <div className="flex items-center gap-1.5">
-      <Input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") onQueryChange(draft.trim());
-          if (event.key === "Escape") clear();
-        }}
-        placeholder="Semantic search — press Enter"
-        className="w-72"
-      />
-      {searching && <Spinner />}
-      {query && !searching && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={clear}
-          aria-label="Clear search"
-        >
-          <IconX />
-        </Button>
-      )}
-      <Popover>
-        <PopoverTrigger
-          render={
-            <Button variant="ghost" size="icon-sm" aria-label="Search tuning" />
-          }
-        >
-          <IconAdjustmentsHorizontal />
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-64">
-          <div className="flex flex-col gap-4">
-            <TuningSlider
-              label="Min similarity"
-              value={tuning.minSimilarity}
-              display={tuning.minSimilarity.toFixed(2)}
-              min={0}
-              max={1}
-              step={0.01}
-              onChange={(minSimilarity) =>
-                onTuningChange({ ...tuning, minSimilarity })
-              }
-            />
-            <TuningSlider
-              label="Chunks searched"
-              value={tuning.maxChunks}
-              display={String(tuning.maxChunks)}
-              min={1}
-              max={100}
-              step={1}
-              onChange={(maxChunks) => onTuningChange({ ...tuning, maxChunks })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Chunks are collapsed to one row per item, keeping each item&apos;s
-              best-scoring chunk.
-            </p>
-          </div>
-        </PopoverContent>
-      </Popover>
       {results && (
-        <span className="flex items-center gap-1.5">
+        <>
           <Stat label="items" value={results.items} />
           <Stat label="chunks" value={results.chunks} />
-        </span>
+        </>
       )}
+      <div className="group/search relative w-72">
+        <Input
+          value={draft}
+          onChange={handleChange}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onQueryChange(draft.trim());
+            if (event.key === "Escape") clear();
+          }}
+          placeholder="Semantic search, press Enter"
+          className="pr-12"
+        />
+        {/* Controls live inside the field, revealed on hover or focus (and kept
+            visible whenever a search is active, so clear is always reachable). */}
+        <div
+          className={cn(
+            "absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity",
+            "group-focus-within/search:opacity-100 group-hover/search:opacity-100",
+            (query || searching) && "opacity-100",
+          )}
+        >
+          {searching && <Spinner />}
+          {query && !searching && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={clear}
+              aria-label="Clear search"
+            >
+              <IconX />
+            </Button>
+          )}
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Search tuning"
+                />
+              }
+            >
+              <IconAdjustmentsHorizontal />
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64">
+              <div className="flex flex-col gap-4">
+                <TuningSlider
+                  label="Min similarity"
+                  value={tuning.minSimilarity}
+                  display={tuning.minSimilarity.toFixed(2)}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onChange={(minSimilarity) =>
+                    onTuningChange({ ...tuning, minSimilarity })
+                  }
+                />
+                <TuningSlider
+                  label="Chunks searched"
+                  value={tuning.maxChunks}
+                  display={String(tuning.maxChunks)}
+                  min={1}
+                  max={100}
+                  step={1}
+                  onChange={(maxChunks) =>
+                    onTuningChange({ ...tuning, maxChunks })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Chunks are collapsed to one row per item, keeping each
+                  item&apos;s best-scoring chunk.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
     </div>
   );
 };

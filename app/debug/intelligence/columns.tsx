@@ -5,6 +5,7 @@
 import { type ColumnDef } from "@tanstack/react-table";
 
 import { type ContentOverviewRow } from "@/app/actions";
+import { Favicon } from "@/components/items-list/favicon";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -109,7 +110,8 @@ export const intelligenceColumns: ColumnDef<IntelligenceRow>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
-    size: 40,
+    size: 32,
+    minSize: 32,
   },
   {
     accessorKey: "similarity",
@@ -146,9 +148,15 @@ export const intelligenceColumns: ColumnDef<IntelligenceRow>[] = [
     accessorKey: "itemTitle",
     header: "Title",
     size: 280,
-    cell: ({ getValue }) => (
-      <span className={truncate}>
-        <Nullable value={getValue<string>()} />
+    cell: ({ row, getValue }) => (
+      <span className="flex items-center gap-2">
+        <Favicon
+          item={{ url: row.original.url, faviconUrl: null }}
+          className="size-4 shrink-0"
+        />
+        <span className="min-w-0 flex-1 truncate">
+          <Nullable value={getValue<string>()} />
+        </span>
       </span>
     ),
   },

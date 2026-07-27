@@ -45,10 +45,16 @@ export const DEFAULT_SETTINGS: Settings = {
   readingPanel: readingPanelSchema.parse(undefined),
 };
 
-export const parseSettings = (raw: unknown): Settings => {
-  if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
-  return settingsSchema.parse(raw);
-};
+// Let zod own the whole decision: every field already `.catch`es to its
+// default, and the top-level `.catch` handles anything that isn't a usable
+// object at all — null, an array (which is typeof "object", the exact hole a
+// hand-rolled guard fell through), a legacy array-wrapped value, a string.
+// Malformed input degrades to defaults instead of throwing and taking the
+// whole action down.
+const totalSettingsSchema = settingsSchema.catch(DEFAULT_SETTINGS);
+
+export const parseSettings = (raw: unknown): Settings =>
+  totalSettingsSchema.parse(raw);
 
 export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

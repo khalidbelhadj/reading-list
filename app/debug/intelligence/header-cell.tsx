@@ -81,10 +81,14 @@ export const HeaderCell = ({
         if (sourceId && sourceId !== column.id) onReorder(sourceId, column.id);
       }}
       className={cn(
-        "group/header relative border-b border-border bg-background px-2 py-2 text-left align-middle font-medium",
-        // A shade of its own — lighter than the row text, darker than the
-        // muted body columns, so the header row reads as a distinct band.
-        "text-foreground/70",
+        // Opaque `bg-muted` (not translucent) so the sticky header stays a
+        // distinct band and rows scrolling under it don't bleed through. The
+        // right + bottom rules are inset box-shadows, not borders: a
+        // collapsed-table border on a sticky cell drops out while scrolling, a
+        // shadow doesn't. py-1 (against the row's py-1.5) matches row height.
+        // px-1 here + the inner control's px-1 sums to the body cell's px-2, so
+        // header content (the checkbox, labels) lines up with the column below.
+        "group/header relative bg-muted px-1 py-1 text-left align-middle font-medium text-foreground/70 shadow-[inset_-1px_-1px_0_0_var(--border)]",
         !isFixed && "cursor-grab active:cursor-grabbing",
         dropTarget && "border-l-2 border-l-primary",
         className,
