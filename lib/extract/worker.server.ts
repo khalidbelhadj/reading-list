@@ -379,7 +379,22 @@ const embedItemContent = async (
 // Rows whose extraction succeeded but whose embedding didn't (typically a
 // Gemini per-minute quota hit) — retried in small doses by the drain paths so
 // coverage converges without burning quota.
-export const reembedMissing = async (limit = 2): Promise<number> => {
+//
+// The candidate query is ordered by updated_at, so every outcome MUST touch
+// updated_at or the row stays at the head of the ordering and is re-selected
+// on every pass forever. That starves the rows behind it: a full batch of
+// permanently unembeddable rows makes this return 0, which reads to callers
+// as "queue empty" while real work is still waiting.
+export type ReembedResult = {
+  // Rows that now have an embedding they didn't have before.
+  healed: number;
+  // Rows looked at this pass. Zero means the queue really is empty; a caller
+  // that loops must key its stop condition on this rather than on `healed`,
+  // or a batch of unembeddable rows ends the loop with work still queued.
+  examined: number;
+};
+
+export const reembedMissing = async (limit = 2): Promise<ReembedResult> => {
   const rows = await db
     .select({ itemId: itemContent.itemId })
     .from(itemContent)
@@ -391,7 +406,20 @@ export const reembedMissing = async (limit = 2): Promise<number> => {
   let ok = 0;
   for (const row of rows) {
     try {
-      if (await reembedFromStored(row.itemId)) ok++;
+      if (await reembedFromStored(row.itemId)) {
+        ok++;
+      } else {
+        // No chunkable content — nothing to embed, ever, from this markdown.
+        // Record why and push the row to the back of the queue so the next
+        // pass moves on instead of re-picking it.
+        await db
+          .update(itemContent)
+          .set({
+            embeddingError: "No chunkable content to embed",
+            updatedAt: nowIso(),
+          })
+          .where(eq(itemContent.itemId, row.itemId));
+      }
     } catch (error) {
       await db
         .update(itemContent)
@@ -402,7 +430,7 @@ export const reembedMissing = async (limit = 2): Promise<number> => {
         .where(eq(itemContent.itemId, row.itemId));
     }
   }
-  return ok;
+  return { healed: ok, examined: rows.length };
 };
 
 // Re-embed an item from its stored markdown (e.g. after an embedding-model

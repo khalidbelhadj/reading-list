@@ -19,5 +19,21 @@
     "electron/**/*.ts",
     "types/**/*.ts"
   ],
-  "ignore": ["app/routeTree.gen.ts"]
+  "ignore": ["app/routeTree.gen.ts"],
+  "ignoreDependencies": [
+    "@fontsource-variable/dm-sans",
+    "@fontsource/dm-mono",
+    "tailwindcss",
+    "tw-animate-css",
+    "react-devtools",
+    "shadcn",
+    "supabase"
+  ],
+  "rules": {
+    "exports": "warn",
+    "types": "warn",
+    "enumMembers": "warn",
+    "duplicates": "warn",
+    "unresolved": "warn"
+  }
 }

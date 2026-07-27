@@ -47,13 +47,19 @@ export async function servePdf(request: Request): Promise<Response> {
   }
 
   // Don't serve an HTML interstitial (login wall, "file removed" page) at a
-  // .pdf URL as though it were a PDF.
+  // .pdf URL as though it were a PDF. A missing Content-Type is rejected too:
+  // this response is relabelled `application/pdf` on the way out, so anything
+  // we can't positively identify must not get that label.
   const upstreamType = upstream.headers.get("content-type") ?? "";
-  if (upstreamType && !upstreamType.toLowerCase().includes("pdf")) {
+  if (!upstreamType.toLowerCase().includes("pdf")) {
     await upstream.body.cancel();
     return new Response("Upstream is not a PDF", { status: 415 });
   }
 
+  // Advisory only — used to reject an oversized PDF before streaming a single
+  // byte. It is NOT forwarded: the cap below can truncate the stream, and a
+  // Content-Length that disagrees with the body is a protocol error rather
+  // than a clean failure.
   const declaredLength = Number(upstream.headers.get("content-length"));
   const declared = Number.isFinite(declaredLength) ? declaredLength : null;
   if (declared !== null && declared > MAX_PDF_BYTES) {
@@ -82,9 +88,11 @@ export async function servePdf(request: Request): Promise<Response> {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
+      // These bytes come from a third-party origin and are served from ours,
+      // so pin the browser to the declared type instead of letting it sniff.
+      "X-Content-Type-Options": "nosniff",
       "Content-Disposition": "inline",
       "Cache-Control": "private, max-age=3600",
-      ...(declared !== null ? { "Content-Length": String(declared) } : {}),
     },
   });
 }

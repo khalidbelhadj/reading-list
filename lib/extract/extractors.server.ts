@@ -142,8 +142,16 @@ const extractPdf = async (pdfUrl: string): Promise<Extraction> => {
 // arXiv: abstract + metadata from the API, full text from the PDF
 // ---------------------------------------------------------------------------
 
+// Numeric entities are code points, not UTF-16 units — fromCharCode would
+// mangle anything above U+FFFF (emoji, CJK extensions) into a lone surrogate.
+const fromCodePoint = (code: number): string =>
+  Number.isInteger(code) && code >= 0 && code <= 0x10ffff
+    ? String.fromCodePoint(code)
+    : "";
+
 // Shared HTML/XML entity decoder (also used by lib/page-title.server.ts).
 // `&amp;` is decoded last so double-encoded entities aren't over-decoded.
+// Decoding only — see collapseWhitespace for the separate normalization step.
 export const decodeHtmlEntities = (value: string): string =>
   value
     .replace(/&lt;/g, "<")
@@ -152,13 +160,20 @@ export const decodeHtmlEntities = (value: string): string =>
     .replace(/&#39;/g, "'")
     .replace(/&#039;/g, "'")
     .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16)),
+    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
+      fromCodePoint(parseInt(hex, 16)),
     )
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&amp;/g, "&");
+
+// Collapse runs of whitespace to single spaces and trim. Titles and abstracts
+// arrive with source line wrapping that carries no meaning; kept separate
+// from decodeHtmlEntities so callers opt in rather than inherit it.
+export const collapseWhitespace = (value: string): string =>
+  value.replace(/\s+/g, " ").trim();
+
+const decodeAndCollapse = (value: string): string =>
+  collapseWhitespace(decodeHtmlEntities(value));
 
 const extractArxiv = async (arxivId: string): Promise<Extraction> => {
   const res = await safeFetch(
@@ -170,14 +185,14 @@ const extractArxiv = async (arxivId: string): Promise<Extraction> => {
 
   const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1];
   if (!entry) throw new Error("arXiv API returned no entry");
-  const title = decodeHtmlEntities(
+  const title = decodeAndCollapse(
     entry.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "",
   );
-  const summary = decodeHtmlEntities(
+  const summary = decodeAndCollapse(
     entry.match(/<summary>([\s\S]*?)<\/summary>/)?.[1] ?? "",
   );
   const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
-    .map((m) => decodeHtmlEntities(m[1] ?? ""))
+    .map((match) => decodeAndCollapse(match[1] ?? ""))
     .filter(Boolean);
   const published =
     entry.match(/<published>([\s\S]*?)<\/published>/)?.[1]?.slice(0, 10) ?? "";
@@ -212,11 +227,15 @@ const extractArxiv = async (arxivId: string): Promise<Extraction> => {
 // YouTube: oEmbed metadata + description + transcript (best-effort)
 // ---------------------------------------------------------------------------
 
+// mm:ss, or h:mm:ss past the hour — these are meant to be pasted back as a
+// YouTube timestamp, and "75:30" isn't one.
 const formatTimestamp = (ms: number): string => {
   const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const mmss = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return hours > 0 ? `${hours}:${mmss}` : mmss;
 };
 
 // Group transcript segments into ~45s paragraphs, each prefixed with its

@@ -1,7 +1,10 @@
 // Page-title resolution engine behind the fetchPageTitle action: YouTube
 // oEmbed, PDF title extraction, then a capped HTML fetch parsed for
 // og:title / <title>.
-import { decodeHtmlEntities } from "@/lib/extract/extractors.server";
+import {
+  collapseWhitespace,
+  decodeHtmlEntities,
+} from "@/lib/extract/extractors.server";
 import { extractPdfTitleOnly } from "@/lib/pdf-preview.server";
 import { readCapped, safeFetch } from "@/lib/url.server";
 
@@ -12,9 +15,16 @@ const MAX_TITLE_HTML_BYTES = 512 * 1024;
 const fetchOembedTitle = async (url: string): Promise<string | null> => {
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(3000) });
+    // Fixed host, but every outbound fetch in this codebase goes through the
+    // SSRF guard so the rule has no exceptions to remember.
+    const res = await safeFetch(oembedUrl, {
+      signal: AbortSignal.timeout(3000),
+    });
     if (!res.ok) return null;
-    const data = await res.json();
+    const data = (await res.json()) as {
+      title?: string;
+      author_name?: string;
+    };
     const title = typeof data.title === "string" ? data.title : null;
     if (!title) return null;
     const channel =
@@ -74,7 +84,7 @@ export const fetchPageTitleForUrl = async (
     const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const match = ogMatch || titleMatch;
     if (!match || match[1] === undefined) return null;
-    return decodeHtmlEntities(match[1]);
+    return collapseWhitespace(decodeHtmlEntities(match[1]));
   } catch {
     return null;
   }

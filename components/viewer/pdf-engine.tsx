@@ -11,7 +11,7 @@ import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useDebouncedElementWidth } from "@/lib/use-debounced-resize";
+import { useDebouncedElementWidth } from "@/lib/use-element-size";
 import { describeSelection } from "@/lib/viewer/selection";
 import {
   createViewerEmitter,

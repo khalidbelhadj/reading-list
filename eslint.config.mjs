@@ -105,10 +105,13 @@ const config = [
   },
   {
     // Client-side code must go through the RPC layer — never touch the db or
-    // server-only modules directly.
+    // server-only modules directly. app/debug/** is in scope: the route file
+    // under app/routes/ is only a shell, and the page component it renders
+    // ships to the client exactly like anything under components/.
     files: [
       "components/**/*.{ts,tsx}",
       "app/routes/**/*.tsx",
+      "app/debug/**/*.{ts,tsx}",
       "app/*.{ts,tsx}",
     ],
     rules: {
@@ -159,7 +162,25 @@ const config = [
     },
   },
   {
-    // Grandfathered oversized files — shrink this list, never grow it.
+    // Grandfathered oversized files — shrink this list, never grow it. An
+    // entry that no longer needs its exemption comes straight out; leaving
+    // satisfied entries in turns the budget into decoration.
+    //
+    // Split per rule rather than blanket-disabling all three budgets: a file
+    // that is merely long shouldn't also get a free pass on complexity, and
+    // vice versa. Being over one budget is the common case.
+    files: [
+      "components/items-list.tsx",
+      "components/items-list/item-dropdown.tsx",
+      "components/items-list/sliding-item-panel.tsx",
+    ],
+    rules: {
+      "max-lines": "off",
+      "max-lines-per-function": "off",
+    },
+  },
+  {
+    // Grandfathered over-complexity — same rule: shrink, never grow.
     files: [
       "components/items-list.tsx",
       "components/items-list/item-dropdown.tsx",
@@ -169,8 +190,6 @@ const config = [
       "lib/url.server.ts",
     ],
     rules: {
-      "max-lines": "off",
-      "max-lines-per-function": "off",
       complexity: "off",
     },
   },
@@ -212,11 +231,15 @@ const config = [
   },
   {
     // Window-resize handling goes through the lib hooks (use-window-resize,
-    // use-element-size) so coalescing and cleanup are never hand-rolled, and
-    // URL state writes stay in their designated single writers.
+    // use-element-size) so coalescing and cleanup are never hand-rolled.
+    //
+    // Kept as its own block: sharing one `ignores` list with the URL-write
+    // rule below would silently exempt the designated URL writers from this
+    // rule too, and panel-layout is exactly where a hand-rolled resize
+    // listener would want to appear.
     files: ["components/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "lib/**/*.ts"],
     ignores: [
-      // The hooks themselves, plus deliberate exceptions:
+      // The hook itself.
       "lib/use-window-resize.ts",
       // Anchored-popover repositioning owns its own listener bundle.
       "lib/editor/use-anchored-popover.ts",
@@ -224,10 +247,6 @@ const config = [
       "components/items-list/use-title-morph.ts",
       // One cohesive dismissal effect (pointerdown/keydown/scroll/resize).
       "components/editor/card-node-view.tsx",
-      // Designated URL writers: applyView, ?q sync, window-open params.
-      "components/panel-layout.tsx",
-      "components/items-list/use-list-search.ts",
-      "lib/app-windows.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -238,6 +257,21 @@ const config = [
           message:
             "Use useWindowResize/useElementSize from lib/ instead of a raw resize listener.",
         },
+      ],
+    },
+  },
+  {
+    // URL state writes stay in their designated single writers.
+    files: ["components/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "lib/**/*.ts"],
+    ignores: [
+      // Designated URL writers: applyView, ?q sync, window-open params.
+      "components/panel-layout.tsx",
+      "components/items-list/use-list-search.ts",
+      "lib/app-windows.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
         {
           selector:
             "MemberExpression[property.name=/^(pushState|replaceState)$/]",

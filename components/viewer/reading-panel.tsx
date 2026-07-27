@@ -7,10 +7,9 @@
 // panel: they're the regular item panel (docked) or the floating card.
 import React from "react";
 
-import { EASE } from "@/components/items-list/sliding-item-panel";
 import { pushDismissLayer } from "@/lib/dismiss-stack";
+import { EASE, SLIDE_MS, SLIDE_OFFSET } from "@/lib/motion";
 import { type Item } from "@/lib/types";
-import { useDebouncedWindowResize } from "@/lib/use-debounced-resize";
 import { usePanelResize } from "@/lib/use-panel-resize";
 import { useSlideIn } from "@/lib/use-slide-in";
 import { useWindowResize } from "@/lib/use-window-resize";
@@ -19,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { ViewerHeader } from "./viewer-header";
 import { openExternally, ViewerStage } from "./viewer-stage";
 
-const SLIDE_OFFSET = 8;
 // The resize handle is a strip centered over the SLIDE_OFFSET gap between
 // this panel and whatever sits to its left — the gap IS the grab area.
 const HANDLE_WIDTH = 16;
@@ -28,7 +26,6 @@ const PANEL_MIN = 420;
 // is the fullw panel sized by `100vw - 16px - var(--reading-offset)`, so this
 // is effectively that panel's minimum width.
 const PANEL_KEEP_FREE = 320;
-const SLIDE_MS = 300;
 // Expand/restore animation for the panel's left/width edges.
 const EXPAND_MS = 280;
 
@@ -164,10 +161,11 @@ export const ReadingPanel = ({
     },
     [],
   );
-  useDebouncedWindowResize(
+  useWindowResize(
     React.useCallback(() => {
       setWidth(clampWidth(preferredWidthRef.current, window.innerWidth));
     }, []),
+    { mode: "debounce" },
   );
 
   const applyDragWidth = React.useCallback(

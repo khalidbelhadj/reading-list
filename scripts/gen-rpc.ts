@@ -149,6 +149,9 @@ const manifest: Section[] = [
 
 // --- emission ---
 
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const outputPath = join(repoRoot, "app", "actions", "index.ts");
+
 const implAlias = (module: string): string => {
   const base = module.replace("./", "");
   const camel = base.replace(/-([a-z])/g, (_, letter: string) =>
@@ -237,9 +240,6 @@ const generate = async (): Promise<string> => {
 };
 
 // --- main ---
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outputPath = join(repoRoot, "app", "actions", "index.ts");
 
 const main = async () => {
   const generated = await generate();

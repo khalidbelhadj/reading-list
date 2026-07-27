@@ -17,6 +17,7 @@ import {
   extractFromHtml,
   UnsupportedContentError,
 } from "@/lib/extract/extractors.server";
+import { tuneAnnScan } from "@/lib/extract/vector-search.server";
 import {
   applyExtraction,
   drainAll,
@@ -244,14 +245,22 @@ export const processQueueBatch = safeAction(
 // Loops reembedMissing in small batches until it stops finding work or the
 // per-call cap is hit, so a single button click can clear a larger backlog.
 // Runs cross-user on the owner connection (deliberate; see processQueueBatch).
+const HEAL_BATCH = 5;
+const HEAL_MAX_EXAMINED = 50;
 export const retryMissingEmbeddings = safeAction(
   async function retryMissingEmbeddings(): Promise<{ healed: number }> {
     await requireAuth();
     let healed = 0;
-    while (healed < 25) {
-      const count = await reembedMissing(5);
-      if (count === 0) break;
-      healed += count;
+    let examined = 0;
+    // Stop on an empty queue (`examined === 0`), not on an unproductive pass —
+    // a batch of rows that can never embed heals nothing but is still
+    // progress, and reembedMissing has moved them to the back of the queue.
+    // The examined cap bounds the work one click can do.
+    while (healed < 25 && examined < HEAL_MAX_EXAMINED) {
+      const pass = await reembedMissing(HEAL_BATCH);
+      if (pass.examined === 0) break;
+      healed += pass.healed;
+      examined += pass.examined;
     }
     return { healed };
   },
@@ -322,6 +331,10 @@ export const semanticSearch = safeAction(async function semanticSearch(
   await requireAuth();
   const vector = toVectorLiteral(await embedQuery(parsed.query));
   return withCurrentUser(async (tx, userId) => {
+    // The user_id filter is a post-filter over the HNSW candidate set, so
+    // without this the query can silently return fewer hits than LIMIT once
+    // the table holds more than one user's chunks. See tuneAnnScan.
+    await tuneAnnScan(tx);
     const raw = await tx.execute(sql`
       SELECT c.item_id, i.title AS item_title, i.url, i.read,
         c.chunk_index, left(c.text, 400) AS snippet,

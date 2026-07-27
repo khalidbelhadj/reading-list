@@ -91,5 +91,16 @@ export const chunkMarkdown = (markdown: string): string[] => {
     }
   }
 
-  return merged.slice(0, MAX_CHUNKS_PER_ITEM);
+  if (merged.length > MAX_CHUNKS_PER_ITEM) {
+    // The tail goes unindexed — the item still embeds (mean vector over what
+    // we kept), so this is log-worthy rather than fatal. Say so instead of
+    // truncating silently: a document losing half its chunks looks identical
+    // to one that fit.
+    console.warn("[extract] chunk cap reached, tail unindexed", {
+      chunks: merged.length,
+      cap: MAX_CHUNKS_PER_ITEM,
+    });
+    return merged.slice(0, MAX_CHUNKS_PER_ITEM);
+  }
+  return merged;
 };

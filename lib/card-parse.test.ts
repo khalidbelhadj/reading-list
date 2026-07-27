@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { extractSideRaw, findCardClose } from "@/lib/card-parse";
 
 describe("findCardClose", () => {

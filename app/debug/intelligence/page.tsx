@@ -35,7 +35,7 @@ import {
   type IntelligenceRow,
   SEARCH_COLUMNS,
 } from "./columns";
-import { FilterSidebar } from "./filter-sidebar";
+import { FilterSidebar, type PipelineAction } from "./filter-sidebar";
 import { HeaderCell } from "./header-cell";
 import { DEFAULT_TUNING, SearchBar, type SearchTuning } from "./search-bar";
 
@@ -174,22 +174,33 @@ const DebugIntelligencePage = () => {
   // to them — with 16 columns, narrowing to "error" or "embed" is the fast
   // way to see just that slice. The checkbox column never hides.
   const isSearching = searchQuery.length > 0;
-  const columnVisibility = React.useMemo(() => {
+  const { columnVisibility, noColumnMatch } = React.useMemo(() => {
     const visibility: Record<string, boolean> = {};
     // The score columns are meaningless without a search behind them.
     if (!isSearching) {
       for (const columnId of SEARCH_COLUMNS) visibility[columnId] = false;
     }
     const query = columnQuery.trim().toLowerCase();
-    if (!query) return visibility;
+    if (!query) return { columnVisibility: visibility, noColumnMatch: false };
+
+    const narrowed = { ...visibility };
+    let anyMatch = false;
     for (const [columnId, title] of COLUMN_TITLES) {
       if (columnId === "select") continue;
-      if (visibility[columnId] === false) continue;
-      visibility[columnId] =
+      if (narrowed[columnId] === false) continue;
+      const matches =
         title.toLowerCase().includes(query) ||
         columnId.toLowerCase().includes(query);
+      narrowed[columnId] = matches;
+      if (matches) anyMatch = true;
     }
-    return visibility;
+    // A query matching nothing would hide every column and leave a table of
+    // bare checkboxes, which reads as a broken page rather than an empty
+    // result. Keep the unnarrowed set and say so in the header instead.
+    return {
+      columnVisibility: anyMatch ? narrowed : visibility,
+      noColumnMatch: !anyMatch,
+    };
   }, [columnQuery, isSearching]);
 
   // A search narrows the table to matching items, ranked by score; without
@@ -290,38 +301,64 @@ const DebugIntelligencePage = () => {
     onSuccess: invalidate,
   });
 
-  const actions = [
-    {
-      label: reextract.isPending ? "Re-extracting…" : "Re-extract selected",
-      pending: reextract.isPending,
-      bulk: true,
-      run: () => reextract.mutate(selectedIds),
-    },
-    {
-      label: reembed.isPending ? "Re-embedding…" : "Re-embed selected",
-      pending: reembed.isPending,
-      bulk: true,
-      run: () => reembed.mutate(selectedIds),
-    },
-    {
-      label: backfill.isPending ? "Backfilling…" : "Backfill all items",
-      pending: backfill.isPending,
-      bulk: false,
-      run: () => backfill.mutate(),
-    },
-    {
-      label: drain.isPending ? "Draining…" : "Drain queue",
-      pending: drain.isPending,
-      bulk: false,
-      run: () => drain.mutate(),
-    },
-    {
-      label: heal.isPending ? "Healing…" : "Heal missing embeddings",
-      pending: heal.isPending,
-      bulk: false,
-      run: () => heal.mutate(),
-    },
-  ];
+  const runReextract = React.useCallback(
+    () => reextract.mutate(selectedIds),
+    [reextract, selectedIds],
+  );
+  const runReembed = React.useCallback(
+    () => reembed.mutate(selectedIds),
+    [reembed, selectedIds],
+  );
+  const runBackfill = React.useCallback(() => backfill.mutate(), [backfill]);
+  const runDrain = React.useCallback(() => drain.mutate(), [drain]);
+  const runHeal = React.useCallback(() => heal.mutate(), [heal]);
+
+  const actions = React.useMemo<PipelineAction[]>(
+    () => [
+      {
+        label: reextract.isPending ? "Re-extracting…" : "Re-extract selected",
+        pending: reextract.isPending,
+        bulk: true,
+        run: runReextract,
+      },
+      {
+        label: reembed.isPending ? "Re-embedding…" : "Re-embed selected",
+        pending: reembed.isPending,
+        bulk: true,
+        run: runReembed,
+      },
+      {
+        label: backfill.isPending ? "Backfilling…" : "Backfill all items",
+        pending: backfill.isPending,
+        bulk: false,
+        run: runBackfill,
+      },
+      {
+        label: drain.isPending ? "Draining…" : "Drain queue",
+        pending: drain.isPending,
+        bulk: false,
+        run: runDrain,
+      },
+      {
+        label: heal.isPending ? "Healing…" : "Heal missing embeddings",
+        pending: heal.isPending,
+        bulk: false,
+        run: runHeal,
+      },
+    ],
+    [
+      reextract.isPending,
+      reembed.isPending,
+      backfill.isPending,
+      drain.isPending,
+      heal.isPending,
+      runReextract,
+      runReembed,
+      runBackfill,
+      runDrain,
+      runHeal,
+    ],
+  );
 
   const visibleRows = table.getRowModel().rows;
 
@@ -371,6 +408,9 @@ const DebugIntelligencePage = () => {
         <p className="text-xs text-muted-foreground">
           {visibleRows.length} of {rows.length} content rows ·{" "}
           {overview?.totalItems ?? "…"} items total
+          {noColumnMatch && (
+            <span className="text-destructive"> · no columns match</span>
+          )}
         </p>
         <p className="font-mono text-xs text-muted-foreground">
           queue: {queueCounts.running} running · {queueCounts.queued} queued ·{" "}

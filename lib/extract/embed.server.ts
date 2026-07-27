@@ -30,7 +30,10 @@ const normalize = (vector: number[]): number[] => {
   let sumOfSquares = 0;
   for (const value of vector) sumOfSquares += value * value;
   const norm = Math.sqrt(sumOfSquares);
-  if (norm === 0) return vector;
+  // A zero vector has no direction, so cosine distance against it is
+  // undefined — pgvector would return NaN and the row would rank arbitrarily.
+  // Refuse it here instead of storing a poisoned vector.
+  if (norm === 0) throw new Error("Embedding backend returned a zero vector");
   return vector.map((v) => v / norm);
 };
 
@@ -124,6 +127,14 @@ export const embedDocuments = async (texts: string[]): Promise<number[][]> => {
     PROVIDER === "ollama"
       ? await ollamaEmbed(texts.map(documentText))
       : await geminiEmbedDocuments(texts);
+  // Callers index this result positionally against their input (chunk N gets
+  // vector N), so a short response must fail here rather than surface as an
+  // undefined vector at the insert.
+  if (vectors.length !== texts.length) {
+    throw new Error(
+      `Embedding backend returned ${vectors.length} vectors for ${texts.length} inputs`,
+    );
+  }
   return vectors.map((vector) => normalize(padToDimensions(vector)));
 };
 

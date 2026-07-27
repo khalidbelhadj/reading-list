@@ -4,6 +4,7 @@
 import React from "react";
 
 import { isOverlayOpen } from "@/lib/input-context";
+import { EASE, SLIDE_OFFSET } from "@/lib/motion";
 import { subscribePanelCommand } from "@/lib/panel-events";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { usePanelResize } from "@/lib/use-panel-resize";
@@ -31,12 +32,10 @@ export type Phase = "closed" | OpenPhase;
 
 const WIDTH_MS = 280; // side ↔ fullw
 const OPEN_MS = 280; // closed ↔ side (slide in/out)
-export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-// Outer spacing is owned by PanelLayout (p-2). 8 here is the slide-off
-// distance — how far the panel must translate to clear the layout's outer
-// padding when it slides off-screen. Must match PanelLayout's padding so
-// the panel toolbar's buttons line up with the list toolbar's buttons.
-const SLIDE_OFFSET = 8;
+// SLIDE_OFFSET (lib/motion) is the slide-off distance — how far the panel
+// must translate to clear PanelLayout's outer padding (p-2) when it slides
+// off-screen. It must match that padding, so the panel toolbar's buttons line
+// up with the list toolbar's buttons.
 // The resize handle is a strip centered over the boundary between the panel
 // and the list — the SLIDE_OFFSET gap (side) or the top edge (bottom).
 const HANDLE_SIZE = 16;

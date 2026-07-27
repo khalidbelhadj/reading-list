@@ -62,13 +62,21 @@ const FacetGroup = ({
         {FACET_LABELS[columnId as (typeof FACET_COLUMNS)[number]] ?? columnId}
       </p>
       {values.map(({ value, count }) => (
-        <label
+        // Checkbox renders a <button role="checkbox">, which a native <label>
+        // does not forward clicks to — so the row itself has to handle the
+        // click, or only the 16px box would be hittable despite the whole row
+        // lighting up on hover.
+        <div
           key={value}
+          role="presentation"
+          onClick={() => toggle(value)}
           className="flex cursor-default items-center gap-2 rounded-md px-1 py-1 hover:bg-muted"
         >
           <Checkbox
             checked={selected.has(value)}
-            onCheckedChange={() => toggle(value)}
+            // The row's handler already toggles; without this the click on the
+            // box itself would bubble up and toggle a second time.
+            onCheckedChange={() => {}}
           />
           <span className="min-w-0 flex-1 truncate text-sm">{value}</span>
           <span className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -80,10 +88,19 @@ const FacetGroup = ({
               style={{ width: `${(count / max) * 100}%` }}
             />
           </span>
-        </label>
+        </div>
       ))}
     </div>
   );
+};
+
+// One button in the actions rail. `bulk` actions are disabled with no
+// selection; the rest always apply to the whole list.
+export type PipelineAction = {
+  label: string;
+  pending: boolean;
+  bulk: boolean;
+  run: () => void;
 };
 
 export const FilterSidebar = ({
@@ -95,18 +112,12 @@ export const FilterSidebar = ({
 }: {
   table: Table<IntelligenceRow>;
   selectedIds: string[];
+  // Rendered in order, below the facets.
+  actions: PipelineAction[];
   // Hides non-matching columns from the table. Lives in the page because the
   // table's columnVisibility is derived from it.
   columnQuery: string;
   onColumnQueryChange: (query: string) => void;
-  // Label → handler, rendered in order. `bulk` actions are disabled with no
-  // selection; the rest always apply to the whole list.
-  actions: {
-    label: string;
-    pending: boolean;
-    bulk: boolean;
-    run: () => void;
-  }[];
 }) => {
   const [collapsed, setCollapsed] = React.useState(false);
   const [width, setWidth] = React.useState(DEFAULT_WIDTH);
