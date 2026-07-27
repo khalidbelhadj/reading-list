@@ -1,10 +1,7 @@
-import { IconFileFilled } from "@tabler/icons-react";
-
-import Image from "@/components/ui/image";
 import { type Item } from "@/lib/types";
 
+import { Favicon } from "./favicon";
 import { RowMenu, RowTitle } from "./row-content-shared";
-import { getFaviconSrc } from "./utils";
 
 export const ItemRowContent = ({
   item,
@@ -35,18 +32,7 @@ export const ItemRowContent = ({
 }) => (
   <>
     <div className="relative size-4 shrink-0">
-      {getFaviconSrc(item) ? (
-        <Image
-          src={getFaviconSrc(item)!}
-          alt=""
-          width={16}
-          height={16}
-          className="size-4 rounded-[3px]"
-          unoptimized
-        />
-      ) : (
-        <IconFileFilled className="size-4 text-muted-foreground" />
-      )}
+      <Favicon item={item} className="size-4" />
     </div>
     <RowTitle item={item} isTyping={isTyping} className="flex-1" />
     <RowMenu

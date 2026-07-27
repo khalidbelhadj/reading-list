@@ -1,9 +1,8 @@
-import { IconExternalLink, IconFileFilled } from "@tabler/icons-react";
+import { IconExternalLink } from "@tabler/icons-react";
 import React from "react";
 
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Button } from "@/components/ui/button";
-import Image from "@/components/ui/image";
 import {
   Tooltip,
   TooltipContent,
@@ -12,10 +11,11 @@ import {
 import { isModKey, isOverlayOpen, isTypingContext } from "@/lib/input-context";
 import { type Item } from "@/lib/types";
 
+import { Favicon } from "./favicon";
 import { PlainEditable } from "./plain-editable";
 import { TagInput } from "./tag-input";
 import { useAutofill } from "./use-autofill";
-import { type EditFields, getFaviconSrc } from "./utils";
+import { type EditFields } from "./utils";
 
 // Order-independent key for dirty-tracking tag lists. Tags can change shape
 // from outside the panel (rename/delete via the filter bar) and the server
@@ -189,11 +189,6 @@ export const DetailPanel = ({
 
   const handleSetUrl = React.useCallback((next: string) => setUrl(next), []);
 
-  const faviconSrc = getFaviconSrc({
-    faviconUrl: item.faviconUrl ?? null,
-    url,
-  });
-
   return (
     <div data-detail-panel className="flex w-full flex-1 flex-col gap-2 pb-12">
       {/* Item form card */}
@@ -207,18 +202,11 @@ export const DetailPanel = ({
             // that line instead of top-aligning it 2.5px too high.
             className="pointer-events-none absolute top-0 left-0 inline-flex h-6.25 w-5 items-center justify-center overflow-hidden"
           >
-            {faviconSrc ? (
-              <Image
-                src={faviconSrc}
-                alt=""
-                width={24}
-                height={24}
-                className="size-5 rounded-sm"
-                unoptimized
-              />
-            ) : (
-              <IconFileFilled className="size-5 text-muted-foreground" />
-            )}
+            <Favicon
+              item={{ faviconUrl: item.faviconUrl ?? null, url }}
+              size={24}
+              className="size-5"
+            />
           </span>
           <PlainEditable
             ref={titleRef}

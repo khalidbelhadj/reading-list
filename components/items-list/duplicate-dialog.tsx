@@ -1,5 +1,3 @@
-import { IconFileFilled } from "@tabler/icons-react";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,10 +8,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Image from "@/components/ui/image";
 import { type DuplicateItem } from "@/lib/url";
 
-import { getFaviconSrc } from "./utils";
+import { Favicon } from "./favicon";
 
 export const DuplicateDialog = ({
   open,
@@ -28,8 +25,6 @@ export const DuplicateDialog = ({
   onOpenExisting: () => void;
   onCreateAnyway: () => void;
 }) => {
-  const faviconSrc = existing ? getFaviconSrc(existing) : null;
-
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -42,18 +37,7 @@ export const DuplicateDialog = ({
         {existing && (
           <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1.5 text-xs">
             <div className="flex size-4 shrink-0 items-center justify-center">
-              {faviconSrc ? (
-                <Image
-                  src={faviconSrc}
-                  alt=""
-                  width={16}
-                  height={16}
-                  className="rounded-sm"
-                  unoptimized
-                />
-              ) : (
-                <IconFileFilled className="size-3 text-muted-foreground" />
-              )}
+              <Favicon item={existing} className="size-4" />
             </div>
             <span className="truncate">{existing.title || existing.url}</span>
           </div>

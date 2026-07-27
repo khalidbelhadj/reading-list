@@ -1,4 +1,3 @@
-import { IconFileFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { type Editor } from "@tiptap/react";
 import React from "react";
@@ -10,7 +9,7 @@ import {
   type ItemLinkSuggestionState,
   setItemLinkKeyHandler,
 } from "@/components/editor/item-link-suggestion";
-import { getFaviconSrc } from "@/components/items-list/utils";
+import { Favicon } from "@/components/items-list/favicon";
 import { Button } from "@/components/ui/button";
 import { useAnchoredPopover } from "@/lib/editor/use-anchored-popover";
 import { fetchItems } from "@/lib/queries";
@@ -266,7 +265,6 @@ export const ItemLinkMenu = ({ editor }: { editor: Editor }) => {
           </div>
         ) : (
           filtered.map((item, index) => {
-            const faviconSrc = getFaviconSrc(item);
             const isSelected = index === clampedIndex;
             return (
               <Button
@@ -284,15 +282,7 @@ export const ItemLinkMenu = ({ editor }: { editor: Editor }) => {
                     "bg-muted text-foreground hover:bg-muted dark:bg-muted/50",
                 )}
               >
-                {faviconSrc ? (
-                  <img
-                    src={faviconSrc}
-                    alt=""
-                    className="size-3.5 shrink-0 rounded-xs"
-                  />
-                ) : (
-                  <IconFileFilled className="size-3.5 shrink-0 text-muted-foreground" />
-                )}
+                <Favicon item={item} size={14} className="size-3.5 shrink-0" />
                 <span className="truncate">
                   {item.title.trim() || "Untitled"}
                 </span>

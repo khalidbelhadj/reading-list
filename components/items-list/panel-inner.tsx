@@ -5,7 +5,6 @@ import {
   IconArrowsDiagonal,
   IconArrowsDiagonalMinimize2,
   IconDots,
-  IconFileFilled,
   IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +13,6 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import Image from "@/components/ui/image";
 import { LoadingFade } from "@/components/ui/loading-fade";
 import {
   Tooltip,
@@ -28,12 +26,13 @@ import { cn } from "@/lib/utils";
 import { DeleteItemsDialog } from "./delete-item-dialog";
 import { DetailPanel } from "./detail-panel";
 import { DetailPanelSkeleton } from "./detail-panel-skeleton";
+import { Favicon } from "./favicon";
 import { FindBar } from "./find-bar";
 import { ItemDropdown } from "./item-dropdown";
 import { useItemMutations } from "./use-item-mutations";
 import { usePanelFind } from "./use-panel-find";
 import { useTitleMorph } from "./use-title-morph";
-import { type EditFields, getFaviconSrc } from "./utils";
+import { type EditFields } from "./utils";
 
 // Chrome flavor for PanelInner. "side"/"fullw" mirror the sliding panel's
 // open phases; "window" is a dedicated single-item window (ItemWindow) that
@@ -45,11 +44,11 @@ export type PanelChrome = "side" | "fullw" | "window";
 // style writes from the hook; starts invisible.
 const TitleMorphOverlay = ({
   morphRef,
-  faviconSrc,
+  item,
   title,
 }: {
   morphRef: React.RefObject<HTMLDivElement | null>;
-  faviconSrc: string | null;
+  item: Pick<Item, "faviconUrl" | "url">;
   title: string;
 }) => (
   <div
@@ -62,18 +61,7 @@ const TitleMorphOverlay = ({
       className="flex shrink-0 items-center justify-center"
       style={{ width: 24, height: 24 }}
     >
-      {faviconSrc ? (
-        <Image
-          src={faviconSrc}
-          alt=""
-          width={24}
-          height={24}
-          className="h-full w-full rounded object-contain"
-          unoptimized
-        />
-      ) : (
-        <IconFileFilled className="h-full w-full text-muted-foreground" />
-      )}
+      <Favicon item={item} size={24} className="h-full w-full" />
     </div>
     <span className="truncate font-content font-semibold">
       {title || "Untitled"}
@@ -124,10 +112,6 @@ export const PanelInner = ({
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const morphRef = React.useRef<HTMLDivElement | null>(null);
   const headerSlotRef = React.useRef<HTMLDivElement | null>(null);
-
-  const faviconSrc = item
-    ? getFaviconSrc({ faviconUrl: item.faviconUrl, url: item.url })
-    : null;
 
   const scrolled = useTitleMorph({ scrollRef, morphRef, headerSlotRef, item });
 
@@ -348,11 +332,7 @@ export const PanelInner = ({
       </div>
 
       {item && (
-        <TitleMorphOverlay
-          morphRef={morphRef}
-          faviconSrc={faviconSrc}
-          title={item.title}
-        />
+        <TitleMorphOverlay morphRef={morphRef} item={item} title={item.title} />
       )}
 
       <DeleteItemsDialog
