@@ -6,6 +6,7 @@ import type * as intelligenceImpl from "./intelligence";
 import type * as itemsImpl from "./items";
 import type * as reviewSessionImpl from "./review-session";
 import type * as reviewStatsImpl from "./review-stats";
+import type * as semanticSearchImpl from "./semantic-search";
 import type * as settingsImpl from "./settings";
 import type * as tagsImpl from "./tags";
 
@@ -110,9 +111,9 @@ export const generateItemPreview: typeof itemsImpl.generateItemPreview = (
 export type {
   ContentOverviewRow,
   IntelligenceOverview,
+  ItemChunk,
   ItemContentDetail,
-  RelatedItem,
-  SemanticHit,
+  ModelCoverage,
 } from "./intelligence";
 
 const getIntelligenceOverviewFn = createServerFn({ method: "POST" }).handler(
@@ -129,6 +130,30 @@ const getItemContentFn = createServerFn({ method: "POST" })
 export const getItemContent: typeof intelligenceImpl.getItemContent = (
   ...args
 ) => getItemContentFn({ data: args });
+
+const getItemChunksFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof intelligenceImpl.getItemChunks>) => args)
+  .handler(({ data }) =>
+    import("./intelligence").then((m) => m.getItemChunks(...data)),
+  );
+export const getItemChunks: typeof intelligenceImpl.getItemChunks = (...args) =>
+  getItemChunksFn({ data: args });
+
+const getEmbeddingSettingsFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./intelligence").then((m) => m.getEmbeddingSettings()),
+);
+export const getEmbeddingSettings: typeof intelligenceImpl.getEmbeddingSettings =
+  () => getEmbeddingSettingsFn();
+
+const updateEmbeddingSettingsFn = createServerFn({ method: "POST" })
+  .validator(
+    (args: Parameters<typeof intelligenceImpl.updateEmbeddingSettings>) => args,
+  )
+  .handler(({ data }) =>
+    import("./intelligence").then((m) => m.updateEmbeddingSettings(...data)),
+  );
+export const updateEmbeddingSettings: typeof intelligenceImpl.updateEmbeddingSettings =
+  (...args) => updateEmbeddingSettingsFn({ data: args });
 
 const reextractItemFn = createServerFn({ method: "POST" })
   .validator((args: Parameters<typeof intelligenceImpl.reextractItem>) => args)
@@ -164,30 +189,6 @@ const backfillMyContentFn = createServerFn({ method: "POST" }).handler(() =>
 export const backfillMyContent: typeof intelligenceImpl.backfillMyContent =
   () => backfillMyContentFn();
 
-const semanticSearchFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Array<string | number | undefined>) =>
-      args as Parameters<typeof intelligenceImpl.semanticSearch>,
-  )
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.semanticSearch(...data)),
-  );
-export const semanticSearch: typeof intelligenceImpl.semanticSearch = (
-  ...args
-) => semanticSearchFn({ data: args });
-
-const getRelatedItemsFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Array<string | number | undefined>) =>
-      args as Parameters<typeof intelligenceImpl.getRelatedItems>,
-  )
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.getRelatedItems(...data)),
-  );
-export const getRelatedItems: typeof intelligenceImpl.getRelatedItems = (
-  ...args
-) => getRelatedItemsFn({ data: args });
-
 const submitLiveContentFn = createServerFn({ method: "POST" })
   .validator(
     (args: Parameters<typeof intelligenceImpl.submitLiveContent>) => args,
@@ -198,6 +199,34 @@ const submitLiveContentFn = createServerFn({ method: "POST" })
 export const submitLiveContent: typeof intelligenceImpl.submitLiveContent = (
   ...args
 ) => submitLiveContentFn({ data: args });
+
+// --- semantic search (vector queries over the embeddings) ---
+
+export type { RelatedItem, SemanticHit } from "./semantic-search";
+
+const semanticSearchFn = createServerFn({ method: "POST" })
+  .validator(
+    (args: Array<string | number | undefined>) =>
+      args as Parameters<typeof semanticSearchImpl.semanticSearch>,
+  )
+  .handler(({ data }) =>
+    import("./semantic-search").then((m) => m.semanticSearch(...data)),
+  );
+export const semanticSearch: typeof semanticSearchImpl.semanticSearch = (
+  ...args
+) => semanticSearchFn({ data: args });
+
+const getRelatedItemsFn = createServerFn({ method: "POST" })
+  .validator(
+    (args: Array<string | number | undefined>) =>
+      args as Parameters<typeof semanticSearchImpl.getRelatedItems>,
+  )
+  .handler(({ data }) =>
+    import("./semantic-search").then((m) => m.getRelatedItems(...data)),
+  );
+export const getRelatedItems: typeof semanticSearchImpl.getRelatedItems = (
+  ...args
+) => getRelatedItemsFn({ data: args });
 
 // --- tags ---
 

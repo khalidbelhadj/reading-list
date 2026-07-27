@@ -73,7 +73,31 @@ try {
       ON public.item_chunks (user_id)
   `;
 
-  console.log("✓ intelligence schema applied (item_content, item_chunks)");
+  // App-global settings (currently the active embedding model). No grants and
+  // no RLS: reached only through the owner connection, so `authenticated`
+  // having no access is the intended state, not an oversight.
+  await sql`
+    CREATE TABLE IF NOT EXISTS public.app_settings (
+      id         text PRIMARY KEY,
+      data       jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+
+  // A chunk's model decides which corpus it belongs to, and every search
+  // filters on it — index it alongside the owner so that filter isn't a scan.
+  await sql`
+    CREATE INDEX IF NOT EXISTS item_chunks_user_model_idx
+      ON public.item_chunks (user_id, model)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS item_content_model_idx
+      ON public.item_content (user_id, embedding_model)
+  `;
+
+  console.log(
+    "✓ intelligence schema applied (item_content, item_chunks, app_settings)",
+  );
 } catch (error) {
   console.error("✗ Failed to apply intelligence schema:", error);
   process.exitCode = 1;

@@ -20,12 +20,14 @@ import React from "react";
 
 import {
   backfillMyContent,
+  getEmbeddingSettings,
   getIntelligenceOverview,
   processQueueBatch,
   reembedItem,
   reextractItem,
   retryMissingEmbeddings,
   semanticSearch,
+  updateEmbeddingSettings,
 } from "@/app/actions";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,8 +38,10 @@ import {
   type IntelligenceRow,
   SEARCH_COLUMNS,
 } from "./columns";
+import { DetailPane } from "./detail-pane";
 import { FilterSidebar, type PipelineAction } from "./filter-sidebar";
 import { HeaderCell } from "./header-cell";
+import { ModelPicker } from "./model-picker";
 import { DEFAULT_TUNING, SearchBar, type SearchTuning } from "./search-bar";
 import { Stat } from "./stat";
 
@@ -76,8 +80,12 @@ const cellStyle = (
 
 const TableBody = ({
   rows,
+  detailItemId,
+  onOpenDetail,
 }: {
   rows: Row<IntelligenceRow>[];
+  detailItemId: string | null;
+  onOpenDetail: (itemId: string) => void;
   // Read only by the memo comparator below, not during render.
   isResizing: boolean;
 }) => (
@@ -86,14 +94,23 @@ const TableBody = ({
       <tr
         key={row.id}
         data-selected={row.getIsSelected() ? "" : undefined}
+        data-open={row.original.itemId === detailItemId ? "" : undefined}
+        // The row opens the detail pane, but the checkbox cell must not — it
+        // has its own meaning (bulk selection), so it stops the click below.
+        onClick={() => onOpenDetail(row.original.itemId)}
         // An explicit background (not transparent) so sticky pinned cells
         // inherit it and rows can't show through.
-        className="border-b border-border/50 bg-background hover:bg-muted/30 data-selected:bg-muted/50"
+        className="cursor-default border-b border-border/50 bg-background hover:bg-muted/30 data-open:bg-muted/60 data-selected:bg-muted/50"
       >
         {row.getVisibleCells().map((cell) => (
           <td
             key={cell.id}
             style={cellStyle(cell.column)}
+            onClick={
+              cell.column.id === "select"
+                ? (event) => event.stopPropagation()
+                : undefined
+            }
             className={cn(
               "px-2 py-1.5 align-middle",
               cell.column.getIsPinned() && "bg-inherit",
@@ -147,6 +164,14 @@ const DebugIntelligencePage = () => {
   const [tuning, setTuning] = React.useState<SearchTuning>(DEFAULT_TUNING);
   // Hides non-matching columns from the table — see columnVisibility below.
   const [columnQuery, setColumnQuery] = React.useState("");
+  // The row open in the detail pane. Held as an id, not a row object, so the
+  // pane follows the 3s poll instead of freezing the state it opened with.
+  const [detailItemId, setDetailItemId] = React.useState<string | null>(null);
+
+  const { data: embeddingConfig } = useQuery({
+    queryKey: ["embedding-settings"],
+    queryFn: getEmbeddingSettings,
+  });
 
   const { data: hits, isFetching: searching } = useQuery({
     queryKey: ["semantic-search", searchQuery, tuning.maxChunks],
@@ -311,6 +336,18 @@ const DebugIntelligencePage = () => {
     () => reembed.mutate(selectedIds),
     [reembed, selectedIds],
   );
+  // Switching the model changes what search returns immediately (it filters
+  // to the active model) while re-embedding happens in the background, so
+  // both the overview and any open search need to re-read.
+  const setEmbeddingModel = useMutation({
+    mutationFn: updateEmbeddingSettings,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["embedding-settings"] });
+      void queryClient.invalidateQueries({ queryKey: ["intelligence"] });
+      void queryClient.invalidateQueries({ queryKey: ["semantic-search"] });
+    },
+  });
+
   const runBackfill = React.useCallback(() => backfill.mutate(), [backfill]);
   const runDrain = React.useCallback(() => drain.mutate(), [drain]);
   const runHeal = React.useCallback(() => heal.mutate(), [heal]);
@@ -363,6 +400,15 @@ const DebugIntelligencePage = () => {
   );
 
   const visibleRows = table.getRowModel().rows;
+
+  // Resolved from the live rows rather than stored, so the open pane tracks
+  // the 3s poll. A row that leaves the set (deleted, or filtered out by a
+  // search) closes the pane rather than showing a stale document.
+  const detailRow = React.useMemo(
+    () => rows.find((row) => row.itemId === detailItemId) ?? null,
+    [rows, detailItemId],
+  );
+  const closeDetail = React.useCallback(() => setDetailItemId(null), []);
 
   const isResizing =
     table.getState().columnSizingInfo.isResizingColumn !== false;
@@ -422,6 +468,13 @@ const DebugIntelligencePage = () => {
             <Stat label="stuck" value={queueCounts.stuck} tone="destructive" />
           )}
         </span>
+        <ModelPicker
+          config={embeddingConfig}
+          activeModel={overview?.activeModel}
+          coverage={overview?.coverage ?? []}
+          pending={setEmbeddingModel.isPending}
+          onSelect={setEmbeddingModel.mutate}
+        />
         <SearchBar
           query={searchQuery}
           onQueryChange={setSearchQuery}
@@ -497,10 +550,26 @@ const DebugIntelligencePage = () => {
                   </tr>
                 ))}
               </thead>
-              <MemoTableBody rows={visibleRows} isResizing={isResizing} />
+              <MemoTableBody
+                rows={visibleRows}
+                isResizing={isResizing}
+                detailItemId={detailItemId}
+                onOpenDetail={setDetailItemId}
+              />
             </table>
           )}
         </div>
+
+        {detailRow && (
+          <DetailPane
+            // Remount per item so the tabs and scroll position reset rather
+            // than carrying the previous document's state into the next one.
+            key={detailRow.itemId}
+            row={detailRow}
+            activeModel={overview?.activeModel}
+            onClose={closeDetail}
+          />
+        )}
       </div>
     </div>
   );

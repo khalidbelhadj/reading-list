@@ -17,7 +17,8 @@ import { db, type Tx } from "@/db";
 import { itemChunks, itemContent, items } from "@/db/schema";
 
 import { chunkMarkdown } from "./chunk";
-import { EMBEDDING_MODEL, embedDocuments, meanVector } from "./embed.server";
+import { embedDocuments, meanVector } from "./embed.server";
+import { getActiveModelId } from "./embedding-config.server";
 import {
   countWords,
   extractForUrl,
@@ -309,7 +310,7 @@ export const applyExtraction = async (args: {
   const needsEmbedding =
     !unchanged ||
     !prior.hasEmbedding ||
-    prior.embeddingModel !== EMBEDDING_MODEL;
+    prior.embeddingModel !== (await getActiveModelId());
   if (needsEmbedding) {
     try {
       await embedItemContent(itemId, userId, extraction);
@@ -343,7 +344,11 @@ const embedItemContent = async (
   // Prefix each chunk with the title at embed time (not in the stored text)
   // so every vector carries the document's identity.
   const titlePrefix = extraction.title ? `${extraction.title}\n\n` : "";
-  const vectors = await embedDocuments(
+  // modelId comes back from the same call that produced the vectors — read
+  // separately, a config switch between the embed and the write would tag
+  // model A's vectors as model B's, which is exactly the mislabelling that
+  // makes a mixed corpus impossible to clean up afterwards.
+  const { vectors, modelId } = await embedDocuments(
     chunks.map((chunk) => `${titlePrefix}${chunk}`),
   );
   const itemVector = meanVector(vectors);
@@ -359,7 +364,7 @@ const embedItemContent = async (
         chunkIndex: index,
         text: chunk,
         embedding: vectors[index]!,
-        model: EMBEDDING_MODEL,
+        model: modelId,
         createdAt: now,
       })),
     );
@@ -367,7 +372,7 @@ const embedItemContent = async (
       .update(itemContent)
       .set({
         embedding: itemVector,
-        embeddingModel: EMBEDDING_MODEL,
+        embeddingModel: modelId,
         embeddingError: null,
         updatedAt: now,
       })
@@ -376,9 +381,10 @@ const embedItemContent = async (
   return true;
 };
 
-// Rows whose extraction succeeded but whose embedding didn't (typically a
-// Gemini per-minute quota hit) — retried in small doses by the drain paths so
-// coverage converges without burning quota.
+// Rows needing embedding work: extraction succeeded but the embedding didn't
+// (typically a per-minute quota hit), or the stored vector was produced by a
+// model that is no longer the active one. Retried in small doses by the drain
+// paths so coverage converges without burning quota.
 //
 // The candidate query is ordered by updated_at, so every outcome MUST touch
 // updated_at or the row stays at the head of the ordering and is re-selected
@@ -395,11 +401,21 @@ export type ReembedResult = {
 };
 
 export const reembedMissing = async (limit = 2): Promise<ReembedResult> => {
+  // Stale-model rows are work too, not just missing ones. Searches filter to
+  // the active model, so a row still carrying the previous model's vector is
+  // invisible to search until re-embedded — picking those up here is what
+  // makes a model switch migrate itself in the background instead of
+  // silently dropping half the corpus out of results.
+  const activeModel = await getActiveModelId();
   const rows = await db
     .select({ itemId: itemContent.itemId })
     .from(itemContent)
     .where(
-      and(eq(itemContent.status, "ok"), sql`${itemContent.embedding} IS NULL`),
+      and(
+        eq(itemContent.status, "ok"),
+        sql`(${itemContent.embedding} IS NULL
+          OR ${itemContent.embeddingModel} IS DISTINCT FROM ${activeModel})`,
+      ),
     )
     .orderBy(itemContent.updatedAt)
     .limit(limit);

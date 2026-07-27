@@ -44,8 +44,19 @@ CREATE INDEX IF NOT EXISTS flashcards_back_trgm_idx
 -- Approximate nearest-neighbor index for semantic search over chunks.
 -- (The item-level embedding on item_content is scanned exactly — corpus-scale
 -- rows don't need an ANN index there.)
+--
+-- The index covers `embedding` alone, so both the user_id and model filters
+-- are post-filters over its candidate set. lib/extract/vector-search.server.ts
+-- turns on pgvector's iterative scan so a filtered query still fills its LIMIT.
 CREATE INDEX IF NOT EXISTS item_chunks_embedding_hnsw_idx
   ON public.item_chunks USING hnsw (embedding vector_cosine_ops);
+
+-- Every search filters chunks to one model's corpus (vectors from different
+-- models are not comparable), so that predicate needs an index of its own.
+CREATE INDEX IF NOT EXISTS item_chunks_user_model_idx
+  ON public.item_chunks (user_id, model);
+CREATE INDEX IF NOT EXISTS item_content_model_idx
+  ON public.item_content (user_id, embedding_model);
 
 -- ---------------------------------------------------------------------------
 -- 3. Grants for the `authenticated` role used by withUser() (db/index.ts)
@@ -65,6 +76,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_events   TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings   TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_content    TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_chunks     TO authenticated;
+-- public.app_settings is deliberately absent: it holds app-global config (the
+-- active embedding model), is read and written only over the owner connection,
+-- and has no user_id to write an RLS policy against. No grant is the policy.
 
 GRANT USAGE, SELECT ON SEQUENCE public.tags_id_seq          TO authenticated;
 GRANT USAGE, SELECT ON SEQUENCE public.review_events_id_seq TO authenticated;

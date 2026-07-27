@@ -243,6 +243,20 @@ export const itemChunks = pgTable(
   ],
 );
 
+// App-global key/value settings — currently just the active embedding
+// selection (id = 'embedding'). Deliberately NOT user-scoped: the extraction
+// worker runs across all users on the owner connection, and one HNSW index
+// covers every row, so the embedding model has to be a single global fact.
+// No `authenticated` grant in db/setup.sql: it is reached only through the
+// owner connection, so there is no RLS policy to get wrong.
+export const appSettings = pgTable("app_settings", {
+  id: text("id").primaryKey(),
+  data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .notNull()
+    .default(sql`now()`),
+});
+
 export const userSettings = pgTable("user_settings", {
   userId: uuid("user_id").primaryKey(),
   data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),

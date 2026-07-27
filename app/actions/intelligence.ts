@@ -1,6 +1,7 @@
-// Server-only implementations for the intelligence layer (extracted content,
-// embeddings, semantic search). Client code goes through the createServerFn
-// RPC layer in ./index.ts, same as every other action module.
+// Server-only implementations for the intelligence layer: the extraction
+// pipeline's job state, per-item content, and the embedding-model selection.
+// Vector search lives in ./semantic-search.ts. Client code goes through the
+// createServerFn RPC layer in ./index.ts, same as every other action module.
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -13,15 +14,18 @@ import {
   withCurrentUser,
 } from "@/lib/db-helpers.server";
 import {
-  EMBEDDING_MODEL,
-  embedQuery,
-  toVectorLiteral,
-} from "@/lib/extract/embed.server";
+  type EmbeddingConfig,
+  embeddingConfigSchema,
+} from "@/lib/extract/embedding-config";
+import {
+  getActiveModelId,
+  getEmbeddingConfig,
+  setEmbeddingConfig,
+} from "@/lib/extract/embedding-config.server";
 import {
   extractFromHtml,
   UnsupportedContentError,
 } from "@/lib/extract/extractors.server";
-import { tuneAnnScan } from "@/lib/extract/vector-search.server";
 import {
   applyExtraction,
   drainAll,
@@ -38,8 +42,6 @@ import { ActionError, safeAction } from "@/lib/safe-action";
 import {
   itemContentIdSchema,
   parseInput,
-  relatedItemsSchema,
-  semanticSearchSchema,
   submitLiveContentSchema,
 } from "@/lib/schemas";
 import { normalizeUrl } from "@/lib/url";
@@ -98,9 +100,20 @@ export type ContentOverviewRow = {
 // "none" = not in the queue at all (status is already ok/failed/unsupported).
 export type QueueState = "none" | "queued" | "running" | "retry-wait" | "stuck";
 
+export type ModelCoverage = {
+  model: string;
+  items: number;
+};
+
 export type IntelligenceOverview = {
   totalItems: number;
   rows: ContentOverviewRow[];
+  // The model searches currently filter on. Everything not on it is excluded
+  // from results until it re-embeds, so the page has to be able to say so.
+  activeModel: string;
+  // One entry per distinct stored model, so a mixed corpus is visible as a
+  // fact rather than inferred from a column of badges.
+  coverage: ModelCoverage[];
 };
 
 // Mirrors the worker's claim predicate exactly (lib/extract/worker.server.ts):
@@ -121,11 +134,23 @@ const queueStateSql = sql`
 
 export const getIntelligenceOverview = safeAction(
   async function getIntelligenceOverview(): Promise<IntelligenceOverview> {
+    const activeModel = await getActiveModelId();
     return withCurrentUser(async (tx, userId) => {
       const [countRow] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(items)
         .where(eq(items.userId, userId));
+
+      const coverageRaw = await tx.execute(sql`
+        SELECT COALESCE(embedding_model, '(none)') AS model,
+          count(*)::int AS items
+        FROM item_content
+        WHERE user_id = ${userId} AND embedding IS NOT NULL
+        GROUP BY 1 ORDER BY 2 DESC
+      `);
+      const coverage = z
+        .array(z.object({ model: z.string(), items: z.number() }))
+        .parse(Array.from(coverageRaw));
 
       const raw = await tx.execute(sql`
         SELECT ic.item_id, i.title AS item_title, i.url, ic.status, ic.source,
@@ -135,7 +160,7 @@ export const getIntelligenceOverview = safeAction(
           -- Compared in SQL against the model this process is configured with,
           -- so the flag can't drift from what the worker would actually do.
           (ic.embedding IS NOT NULL AND ic.embedding_model IS DISTINCT FROM
-            ${EMBEDDING_MODEL}) AS stale_model,
+            ${activeModel}) AS stale_model,
           COALESCE(c.chunk_count, 0)::int AS chunk_count,
           ic.fetched_at::text AS fetched_at,
           ic.next_retry_at::text AS next_retry_at,
@@ -152,6 +177,8 @@ export const getIntelligenceOverview = safeAction(
       const rows = z.array(overviewRowSchema).parse(Array.from(raw));
       return {
         totalItems: countRow?.count ?? 0,
+        activeModel,
+        coverage,
         rows: rows.map((row) => ({
           itemId: row.item_id,
           itemTitle: row.item_title,
@@ -220,6 +247,77 @@ export const getItemContent = safeAction(async function getItemContent(
     return row;
   });
 }, "Could not load item content.");
+
+// Chunks as they were actually stored — the text that was embedded and the
+// model it went out under. This is the ground truth behind a search hit, so
+// the detail drawer reads it rather than reconstructing chunks client-side.
+const chunkRowSchema = z.object({
+  chunk_index: z.number(),
+  text: z.string(),
+  model: z.string(),
+});
+
+export type ItemChunk = {
+  chunkIndex: number;
+  text: string;
+  model: string;
+};
+
+export const getItemChunks = safeAction(async function getItemChunks(
+  itemId: string,
+): Promise<ItemChunk[]> {
+  parseInput(itemContentIdSchema, { itemId });
+  return withCurrentUser(async (tx, userId) => {
+    const raw = await tx.execute(sql`
+      SELECT chunk_index, text, model
+      FROM item_chunks
+      WHERE item_id = ${itemId} AND user_id = ${userId}
+      ORDER BY chunk_index
+    `);
+    return z
+      .array(chunkRowSchema)
+      .parse(Array.from(raw))
+      .map((row) => ({
+        chunkIndex: row.chunk_index,
+        text: row.text,
+        model: row.model,
+      }));
+  });
+}, "Could not load chunks for this item.");
+
+// ---------------------------------------------------------------------------
+// Embedding model selection (app-global — see embedding-config.server.ts)
+// ---------------------------------------------------------------------------
+
+export const getEmbeddingSettings = safeAction(
+  async function getEmbeddingSettings(): Promise<EmbeddingConfig> {
+    await requireAuth();
+    return getEmbeddingConfig();
+  },
+  "Could not load the embedding settings.",
+);
+
+// Switching the model does not invalidate anything by itself: existing rows
+// keep their vectors and their stored model id, searches start filtering to
+// the new model, and the drain paths re-embed the stale rows in the
+// background (reembedMissing). That ordering is deliberate — nothing is
+// deleted, so a switch is reversible until the re-embed completes.
+export const updateEmbeddingSettings = safeAction(
+  async function updateEmbeddingSettings(
+    next: EmbeddingConfig,
+  ): Promise<EmbeddingConfig> {
+    await requireAuth();
+    const parsed = parseInput(embeddingConfigSchema, next);
+    try {
+      return await setEmbeddingConfig(parsed);
+    } catch (error) {
+      throw new ActionError(
+        error instanceof Error ? error.message : "Invalid embedding model.",
+      );
+    }
+  },
+  "Could not update the embedding settings.",
+);
 
 // ---------------------------------------------------------------------------
 // Pipeline controls
@@ -316,121 +414,6 @@ export const reembedItem = safeAction(async function reembedItem(
   await withCurrentUser((tx, userId) => assertOwnedItem(tx, userId, itemId));
   return reembedFromStored(itemId);
 }, "Could not re-embed this item.");
-
-// ---------------------------------------------------------------------------
-// Semantic search + related items
-// ---------------------------------------------------------------------------
-
-const semanticHitSchema = z.object({
-  item_id: z.string(),
-  item_title: z.string(),
-  url: z.string(),
-  read: z.boolean(),
-  chunk_index: z.number(),
-  snippet: z.string(),
-  similarity: z.number(),
-});
-
-export type SemanticHit = {
-  itemId: string;
-  itemTitle: string;
-  url: string;
-  read: boolean;
-  chunkIndex: number;
-  snippet: string;
-  similarity: number;
-};
-
-export const semanticSearch = safeAction(async function semanticSearch(
-  query: string,
-  limit?: number,
-): Promise<SemanticHit[]> {
-  const parsed = parseInput(semanticSearchSchema, { query, limit });
-  // Authenticate before embedding — the provider call costs quota and must
-  // not be reachable unauthenticated.
-  await requireAuth();
-  const vector = toVectorLiteral(await embedQuery(parsed.query));
-  return withCurrentUser(async (tx, userId) => {
-    // The user_id filter is a post-filter over the HNSW candidate set, so
-    // without this the query can silently return fewer hits than LIMIT once
-    // the table holds more than one user's chunks. See tuneAnnScan.
-    await tuneAnnScan(tx);
-    const raw = await tx.execute(sql`
-      SELECT c.item_id, i.title AS item_title, i.url, i.read,
-        c.chunk_index, left(c.text, 400) AS snippet,
-        (1 - (c.embedding <=> ${vector}::vector))::float8 AS similarity
-      FROM item_chunks c
-      JOIN items i ON i.id = c.item_id
-      WHERE c.user_id = ${userId}
-      ORDER BY c.embedding <=> ${vector}::vector
-      LIMIT ${parsed.limit ?? 10}
-    `);
-    return z
-      .array(semanticHitSchema)
-      .parse(Array.from(raw))
-      .map((row) => ({
-        itemId: row.item_id,
-        itemTitle: row.item_title,
-        url: row.url,
-        read: row.read,
-        chunkIndex: row.chunk_index,
-        snippet: row.snippet,
-        similarity: row.similarity,
-      }));
-  });
-}, "Could not run semantic search.");
-
-const relatedItemSchema = z.object({
-  item_id: z.string(),
-  item_title: z.string(),
-  url: z.string(),
-  read: z.boolean(),
-  similarity: z.number(),
-});
-
-export type RelatedItem = {
-  itemId: string;
-  itemTitle: string;
-  url: string;
-  read: boolean;
-  similarity: number;
-};
-
-// Item-to-item nearest neighbors over the item-level vectors — the "read
-// next" primitive.
-export const getRelatedItems = safeAction(async function getRelatedItems(
-  itemId: string,
-  limit?: number,
-): Promise<RelatedItem[]> {
-  const parsed = parseInput(relatedItemsSchema, { itemId, limit });
-  return withCurrentUser(async (tx, userId) => {
-    const raw = await tx.execute(sql`
-      SELECT other.item_id, i.title AS item_title, i.url, i.read,
-        (1 - (other.embedding <=> me.embedding))::float8 AS similarity
-      FROM item_content me
-      JOIN item_content other
-        ON other.user_id = me.user_id
-        AND other.item_id <> me.item_id
-        AND other.embedding IS NOT NULL
-      JOIN items i ON i.id = other.item_id
-      WHERE me.item_id = ${parsed.itemId}
-        AND me.user_id = ${userId}
-        AND me.embedding IS NOT NULL
-      ORDER BY other.embedding <=> me.embedding
-      LIMIT ${parsed.limit ?? 6}
-    `);
-    return z
-      .array(relatedItemSchema)
-      .parse(Array.from(raw))
-      .map((row) => ({
-        itemId: row.item_id,
-        itemTitle: row.item_title,
-        url: row.url,
-        read: row.read,
-        similarity: row.similarity,
-      }));
-  });
-}, "Could not load related items.");
 
 // ---------------------------------------------------------------------------
 // Live capture (the in-app viewer's write path)
