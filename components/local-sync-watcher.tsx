@@ -7,7 +7,7 @@ import {
   localSyncMessage,
   parseLocalSyncMessage,
 } from "@/lib/local-sync";
-import { SETTINGS_STORAGE_KEY, parseSettings } from "@/lib/settings";
+import { parseSettings, SETTINGS_STORAGE_KEY } from "@/lib/settings";
 
 // Mounted once near the app root. Keeps sibling windows of the same browser
 // (tabs on the web, child windows in Electron) live-synced by mirroring

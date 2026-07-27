@@ -2,6 +2,7 @@ const pages = [
   { href: "/debug/code-block", title: "Code block language picker" },
   { href: "/debug/design-system", title: "Design system" },
   { href: "/debug/empty-states", title: "Empty & nonideal states" },
+  { href: "/debug/intelligence", title: "Intelligence layer" },
   { href: "/debug/kbd", title: "Kbd styles" },
   { href: "/debug/review-count-animations", title: "Review count animations" },
   { href: "/debug/review-dialogs", title: "Review dialogs" },

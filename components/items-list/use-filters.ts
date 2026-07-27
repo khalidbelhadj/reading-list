@@ -1,6 +1,6 @@
 import React from "react";
 
-import { type Item, type DbTag } from "@/lib/types";
+import { type DbTag, type Item } from "@/lib/types";
 import { useLocalStorage } from "@/lib/use-local-storage";
 import { useSettings } from "@/lib/use-settings";
 
@@ -146,7 +146,7 @@ const buildGroups = (
       .map(([key, value]) => ({
         key: `day:${key}`,
         label: value.label,
-        // items inherit tabItems' sortBy order already, no need to re-sort.
+        // items inherit sortedItems' sortBy order already, no need to re-sort.
         items: value.items,
       }));
   }
@@ -194,16 +194,10 @@ export const useItemsFilters = (
   const setShowRead = React.useCallback<
     React.Dispatch<React.SetStateAction<boolean>>
   >((next) => setSetting("showRead", next), [setSetting]);
-  const setGroupBy = React.useCallback<
-    React.Dispatch<React.SetStateAction<GroupBy>>
-  >((next) => setSetting("groupBy", next), [setSetting]);
-  const setSortBy = React.useCallback<
-    React.Dispatch<React.SetStateAction<SortBy>>
-  >((next) => setSetting("sortBy", next), [setSetting]);
 
   // Server hands us items in created-desc order; for any other sort, re-sort
   // client-side. Skip the work when the default matches the server order.
-  const tabItems = React.useMemo(() => {
+  const sortedItems = React.useMemo(() => {
     const base = items ?? [];
     if (sortBy === "created-desc") return base;
     return base.slice().sort(sortComparator(sortBy));
@@ -211,7 +205,7 @@ export const useItemsFilters = (
 
   const allTags = React.useMemo(() => {
     const tagMap = new Map<string, DbTag>();
-    for (const item of tabItems) {
+    for (const item of sortedItems) {
       for (const tag of item.tags) {
         tagMap.set(tag.name, tag);
       }
@@ -219,7 +213,7 @@ export const useItemsFilters = (
     return Array.from(tagMap.values()).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-  }, [tabItems]);
+  }, [sortedItems]);
 
   // Prune active tags that no longer exist in the current tab's items
   React.useEffect(() => {
@@ -234,18 +228,20 @@ export const useItemsFilters = (
     }
   }, [allTags, activeTags, setActiveTags]);
 
+  const matchesTagFilter = React.useCallback(
+    (item: Item) =>
+      activeTags.size === 0 || item.tags.some((t) => activeTags.has(t.name)),
+    [activeTags],
+  );
+
   // When a search is active, render in the order returned by the search (local
   // matches first, server-only matches after). Otherwise preserve the natural
   // creation-date order from the cache.
   const filteredItems = React.useMemo(() => {
-    const passesFilters = (item: Item) => {
-      if (!showRead && item.read) return false;
-      if (activeTags.size > 0 && !item.tags.some((t) => activeTags.has(t.name)))
-        return false;
-      return true;
-    };
+    const passesFilters = (item: Item) =>
+      (showRead || !item.read) && matchesTagFilter(item);
     if (searchOrder !== null) {
-      const byId = new Map(tabItems.map((i) => [i.id, i]));
+      const byId = new Map(sortedItems.map((i) => [i.id, i]));
       const out: Item[] = [];
       for (const id of searchOrder) {
         const item = byId.get(id);
@@ -253,8 +249,22 @@ export const useItemsFilters = (
       }
       return out;
     }
-    return tabItems.filter(passesFilters);
-  }, [tabItems, showRead, activeTags, searchOrder]);
+    return sortedItems.filter(passesFilters);
+  }, [sortedItems, showRead, matchesTagFilter, searchOrder]);
+
+  // Read items suppressed by the "hide read" toggle that would otherwise pass
+  // the current search + tag filters — drives the "N read items not shown"
+  // empty state in the list.
+  const hiddenReadCount = React.useMemo(() => {
+    if (showRead) return 0;
+    const searchSet = searchOrder !== null ? new Set(searchOrder) : null;
+    return sortedItems.filter(
+      (item) =>
+        item.read &&
+        (searchSet === null || searchSet.has(item.id)) &&
+        matchesTagFilter(item),
+    ).length;
+  }, [showRead, sortedItems, searchOrder, matchesTagFilter]);
 
   const toggleTag = React.useCallback(
     (tagName: string) => {
@@ -295,9 +305,10 @@ export const useItemsFilters = (
   );
 
   return {
-    tabItems,
+    sortedItems,
     allTags,
     filteredItems,
+    hiddenReadCount,
     pinnedItems,
     unpinnedItems,
     activeTags,
@@ -308,9 +319,7 @@ export const useItemsFilters = (
     showRead,
     setShowRead,
     groupBy,
-    setGroupBy,
     sortBy,
-    setSortBy,
     groups,
   };
 };

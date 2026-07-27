@@ -1,11 +1,11 @@
-import React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
+import React from "react";
 
-import { type DbTag, type Item } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { DeleteTagDialog } from "@/components/items-list/delete-tag-dialog";
 import { TagRenameInput } from "@/components/items-list/tag-rename-input";
 import { useTagMutations } from "@/components/items-list/use-tag-mutations";
+import { Badge } from "@/components/ui/badge";
+import { type DbTag, type Item } from "@/lib/types";
 
 const TagBadge = ({
   tag,

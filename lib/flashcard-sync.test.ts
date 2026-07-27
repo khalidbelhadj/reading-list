@@ -1,17 +1,19 @@
+import { describe, expect, it, mock } from "bun:test";
+
 // `@/db` creates a postgres client and runs the MOCK_USER_ID env guard at
 // import time. The sync logic under test never touches the real client (the DB
 // path is exercised with a fake tx below), so stub the module out.
-jest.mock("@/db", () => ({ db: {} }));
+void mock.module("@/db", () => ({ db: {} }));
 
 import {
-  parseCardsFromNotes,
-  normalizeCardIds,
   diffCards,
-  syncFlashcardsFromNotes,
-  MAX_CARD_FIELD_LENGTH,
   type ExistingCard,
+  MAX_CARD_FIELD_LENGTH,
+  normalizeCardIds,
+  parseCardsFromNotes,
   type ParsedCard,
-} from "@/lib/flashcard-sync";
+  syncFlashcardsFromNotes,
+} from "@/lib/flashcard-sync.server";
 
 // Build the exact markdown the editor serializes for a card: each tag on its
 // own line at column 0, front/back content in between.

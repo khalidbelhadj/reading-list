@@ -3,10 +3,12 @@ import React from "react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { isModKey } from "@/lib/input-context";
-import { cn } from "@/lib/utils";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
+import { cn } from "@/lib/utils";
+
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { isRegexQuery } from "./use-list-search";
 
 export type SearchBarHandle = {
   open: () => void;
@@ -54,7 +56,7 @@ export const SearchBar = React.forwardRef<
     const [isOpen, setIsOpen] = React.useState(() => query.length > 0);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
     const containerRef = React.useRef<HTMLDivElement | null>(null);
-    const isRegex = /^\/.*\/$/.test(query.trim());
+    const isRegex = isRegexQuery(query);
 
     React.useImperativeHandle(
       ref,

@@ -1,12 +1,13 @@
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import {
   IconArrowUp,
   IconCommand,
   IconCornerDownLeft,
   IconOption,
 } from "@tabler/icons-react";
+
+import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { cn } from "@/lib/utils";
 
 const Section = ({
   title,

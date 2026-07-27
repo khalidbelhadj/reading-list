@@ -2,7 +2,7 @@
 // collapses any run of blank lines into a single paragraph separator. To keep
 // intentional blank lines alive across the storage round-trip, the notes /
 // flashcard editor serializes each empty paragraph to a literal "&nbsp;" line
-// (see ParagraphWithBlankLines in components/ui/markdown-editor.tsx); markdown-it
+// (see ParagraphWithBlankLines in components/editor/markdown-editor.tsx); markdown-it
 // parses it back into a paragraph on load.
 //
 // That sentinel is an internal storage device. It renders invisibly inside the

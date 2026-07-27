@@ -1,15 +1,57 @@
 import React from "react";
 import { toast } from "sonner";
 
-import { type Item } from "@/lib/types";
-import { isTypingContext, isOverlayOpen, isModKey } from "@/lib/input-context";
-import { dispatchPanelCommand } from "@/lib/panel-events";
 import { setDismissFallback } from "@/lib/dismiss-stack";
+import { isOverlayOpen, isTypingContext } from "@/lib/input-context";
+import { dispatchPanelCommand } from "@/lib/panel-events";
+import {
+  matchesChord,
+  SHORTCUT_ENTRIES,
+  type ShortcutActionId,
+  type ShortcutGate,
+} from "@/lib/shortcuts";
+import { type Item } from "@/lib/types";
 
-// NOTE: This hook is the source of truth for the app's keyboard shortcuts.
-// Whenever you add, remove, or change a binding here, mirror it in the
-// `?` shortcuts dialog by updating `getShortcutGroups()` in `lib/shortcuts.ts`
-// — that list is presentational only and won't update itself.
+import { edgeId, hoveredNavId, stepId } from "./cursor-nav";
+
+// Keyboard shortcuts for the items list. The bindings themselves — chords,
+// gating regime, and the `?` dialog metadata — live declaratively in
+// SHORTCUT_ENTRIES (lib/shortcuts.ts); this hook supplies the action handlers
+// and runs the single keydown dispatcher over that table. Add or change a
+// binding in the table, add its handler here — the dialog derives from the
+// same table so it can't drift.
+
+type ActionHandlers = Record<ShortcutActionId, (e: KeyboardEvent) => void>;
+
+const gatePasses = (gate: ShortcutGate, e: KeyboardEvent): boolean => {
+  switch (gate) {
+    case "notTyping":
+      return !isTypingContext(e);
+    case "noOverlay":
+      return !isOverlayOpen();
+    case "notTypingNoOverlay":
+      return !isTypingContext(e) && !isOverlayOpen();
+  }
+};
+
+// When focus rests on a button/link (e.g. a delete dialog just restored focus
+// to its trigger, or the toolbar is focused), bindings marked
+// skipOnInteractive keep the key's native meaning.
+const isInteractiveTarget = (e: KeyboardEvent): boolean => {
+  const tag = (e.target as HTMLElement | null)?.tagName;
+  return tag === "BUTTON" || tag === "A";
+};
+
+const dispatchShortcut = (e: KeyboardEvent, handlers: ActionHandlers): void => {
+  for (const entry of SHORTCUT_ENTRIES) {
+    if (!entry.action) continue;
+    if (!entry.chords.some((chord) => matchesChord(e, chord))) continue;
+    if (!gatePasses(entry.gate, e)) continue;
+    if (entry.skipOnInteractive && isInteractiveTarget(e)) continue;
+    handlers[entry.action](e);
+    return;
+  }
+};
 
 export const useKeyboardNavigation = ({
   filteredItems,
@@ -111,352 +153,137 @@ export const useKeyboardNavigation = ({
     [onEscapeFallback],
   );
 
-  // Global keyboard shortcuts
-  React.useEffect(() => {
-    const handleGlobal = (e: KeyboardEvent) => {
-      if (isTypingContext(e)) return;
-      if (e.key === "a" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        onOpenNew();
+  // ↑/↓, Ctrl+N/P, j/k — move the cursor one row. Adoption policy: start from
+  // the mouse-hovered row when there's no cursor yet, or when the mouse is
+  // actively hovering (moved more recently than the last key press) — so
+  // navigation continues from wherever the pointer is rather than a stale
+  // keyboard cursor.
+  const moveCursor = React.useCallback(
+    (e: KeyboardEvent, direction: "next" | "prev") => {
+      e.preventDefault();
+      const ids = getOrderedIds();
+      if (ids.length === 0) return;
+      const current = cursorRef.current;
+      const hasCursor = current !== null && ids.includes(current);
+      if (!hasCursor || !suppressHoverRef.current) {
+        const hoveredId = hoveredNavId(ids);
+        if (hoveredId && hoveredId !== current) {
+          setCursor(hoveredId);
+          setSuppressHover(true);
+          scrollToId(hoveredId);
+          return;
+        }
       }
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        onSearchOpen();
-      }
-      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        onShowShortcuts();
-      }
-    };
-    document.addEventListener("keydown", handleGlobal);
-    return () => document.removeEventListener("keydown", handleGlobal);
-  }, [setCursor, onOpenNew, onSearchOpen, onShowShortcuts]);
+      const nextId = stepId(ids, current, direction);
+      if (!nextId) return;
+      setCursor(nextId);
+      setSuppressHover(true);
+      scrollToId(nextId);
+    },
+    [getOrderedIds, cursorRef, setCursor, scrollToId],
+  );
 
-  // Command shortcuts for search + panel view transitions. Unlike the shortcuts
-  // above, these are NOT gated on isTypingContext: Cmd+K should jump to search
-  // and Cmd+[ should collapse the panel even while the cursor is in the panel's
-  // title/notes editor.
-  //   Cmd/Ctrl+K — focus search; if an item is in full view, pop it back to
-  //                side view so the list (and search box) are visible.
-  //   Cmd/Ctrl+[ — expand the panel a step (side → fullw).
-  //   Cmd/Ctrl+] — collapse the panel a step (fullw → side → closed).
-  React.useEffect(() => {
-    const handleCommand = (e: KeyboardEvent) => {
-      if (!isModKey(e) || e.altKey || e.shiftKey) return;
-      if (isOverlayOpen()) return;
-      const key = e.key.toLowerCase();
-      if (key === "k") {
-        e.preventDefault();
-        dispatchPanelCommand("peek");
-        onSearchOpen();
-      } else if (e.key === "[") {
-        e.preventDefault();
-        dispatchPanelCommand("expand");
-      } else if (e.key === "]") {
-        e.preventDefault();
-        dispatchPanelCommand("collapse");
-      }
-    };
-    document.addEventListener("keydown", handleCommand);
-    return () => document.removeEventListener("keydown", handleCommand);
-  }, [onSearchOpen]);
+  // ⌘↑/⌘↓, ⌘⇧</> — jump to the first / last rendered row. Works on whatever's
+  // currently rendered, so it follows search results, filters, and grouping.
+  const jumpCursor = React.useCallback(
+    (e: KeyboardEvent, edge: "start" | "end") => {
+      e.preventDefault();
+      const nextId = edgeId(getOrderedIds(), edge);
+      if (!nextId) return;
+      setCursor(nextId);
+      setSuppressHover(true);
+      scrollToId(nextId);
+    },
+    [getOrderedIds, setCursor, scrollToId],
+  );
 
-  // Cmd/Ctrl+Shift command shortcuts. Like the handler above, these are NOT
-  // gated on isTypingContext so they fire from anywhere — including the
-  // detail-panel editor. The item-scoped ones act on the list cursor.
-  //   ⌘⇧M — mark the cursor item read / unread
-  //   ⌘⇧P — pin / unpin the cursor item
-  //   ⌘⇧J — chat with Claude about the cursor item
-  //   ⌘⇧V — toggle list density (cozy ↔ compact)
-  //   ⌘⇧L — toggle theme (light ↔ dark)
-  //   ⌘⇧F — toggle the tag filter
-  //   ⌘⇧H — show / hide read items
-  React.useEffect(() => {
-    const handleModShift = (e: KeyboardEvent) => {
-      if (!isModKey(e) || !e.shiftKey || e.altKey) return;
-      if (isOverlayOpen()) return;
-      switch (e.key.toLowerCase()) {
-        case "m":
-          e.preventDefault();
-          onToggleReadCursor();
-          break;
-        case "p":
-          e.preventDefault();
-          onTogglePinCursor();
-          break;
-        case "j":
-          e.preventDefault();
-          onChatCursor();
-          break;
-        case "v":
-          e.preventDefault();
-          onToggleDensity();
-          break;
-        case "l":
-          e.preventDefault();
-          onToggleTheme();
-          break;
-        case "f":
-          e.preventDefault();
-          setTagsOpen((v) => !v);
-          break;
-        case "h":
-          e.preventDefault();
-          setShowRead((v) => !v);
-          break;
-      }
-    };
-    document.addEventListener("keydown", handleModShift);
-    return () => document.removeEventListener("keydown", handleModShift);
-  }, [
-    onToggleReadCursor,
-    onTogglePinCursor,
-    onChatCursor,
-    onToggleDensity,
-    onToggleTheme,
-    setTagsOpen,
-    setShowRead,
-  ]);
-
-  // Cmd+Backspace to delete cursor item
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isTypingContext(e) || isOverlayOpen()) return;
-      if (e.key === "Backspace" && isModKey(e) && cursorRef.current !== null) {
-        e.preventDefault();
-        onRequestDelete?.();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [cursorRef, onRequestDelete]);
+  // Enter variants act on the cursor row; without a cursor they fall through
+  // to the key's native behavior (no preventDefault).
+  const withCursor = React.useCallback(
+    (e: KeyboardEvent, run: (cursorId: string) => void) => {
+      const cursorId = cursorRef.current;
+      if (cursorId === null) return;
+      e.preventDefault();
+      run(cursorId);
+    },
+    [cursorRef],
+  );
 
   // Tab — move focus into the selected item's notes editor. Shift+Tab is
-  // swallowed so it does nothing (rather than walking native focus). Gated on
-  // isTypingContext so Tab keeps its native behavior once the caret is already
-  // inside the notes/title fields.
-  React.useEffect(() => {
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab" || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (isTypingContext(e) || isOverlayOpen()) return;
-      if (e.shiftKey) {
-        e.preventDefault();
-        return;
-      }
-      const editor = document.querySelector<HTMLElement>(
-        "[data-detail-panel] .ProseMirror",
-      );
-      if (!editor) return;
+  // swallowed so it does nothing (rather than walking native focus).
+  const focusNotes = React.useCallback((e: KeyboardEvent) => {
+    if (e.shiftKey) {
       e.preventDefault();
-      editor.focus();
-    };
-    document.addEventListener("keydown", handleTab);
-    return () => document.removeEventListener("keydown", handleTab);
+      return;
+    }
+    const editor = document.querySelector<HTMLElement>(
+      "[data-detail-panel] .ProseMirror",
+    );
+    if (!editor) return;
+    e.preventDefault();
+    editor.focus();
   }, []);
 
-  // Ctrl+N/P navigation
-  React.useEffect(() => {
-    const handleNav = (e: KeyboardEvent) => {
-      if (isTypingContext(e)) return;
-      const elementTag = (e.target as HTMLElement)?.tagName;
-      const onInteractive = elementTag === "BUTTON" || elementTag === "A";
+  const simple = (run: () => void) => (e: KeyboardEvent) => {
+    e.preventDefault();
+    run();
+  };
 
-      // The cursor's visual order, reconstructed from data (grouped / pinned /
-      // collapsed sections diverge from filteredItems' raw order, and the flat
-      // list's off-screen rows aren't in the DOM to query).
-      const ids = getOrderedIds();
-      const currentCursor = cursorRef.current;
-      const cursorIdx = currentCursor ? ids.indexOf(currentCursor) : -1;
-
-      // Ctrl+N/P, ArrowDown/Up, j/k — navigation
-      const noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
-
-      // When focus rests on a button/link (e.g. a delete dialog just restored
-      // focus to its trigger, or the toolbar is focused), Tab/arrows/Enter keep
-      // their native meaning — but the unambiguous Ctrl+N/P and j/k shortcuts
-      // should still drive the list cursor so navigation survives a delete.
-      const isExplicitNav =
-        (e.ctrlKey &&
-          !e.metaKey &&
-          !e.altKey &&
-          !e.shiftKey &&
-          (e.code === "KeyN" || e.code === "KeyP")) ||
-        ((e.code === "KeyJ" || e.code === "KeyK") && noMods && !e.shiftKey);
-      if (onInteractive && !isExplicitNav) return;
-
-      // Jump to the first / last row in the list. ⌘↑ / ⌘⇧< → start,
-      // ⌘↓ / ⌘⇧> → end. Works on whatever's currently rendered, so it follows
-      // search results, filters, and grouping. (With Shift held, "," and "."
-      // arrive as "<" and ">" on most layouts; fall back to e.code too.)
-      const isJumpStart =
-        (e.key === "ArrowUp" && isModKey(e) && !e.shiftKey && !e.altKey) ||
-        ((e.key === "<" || e.code === "Comma") &&
-          isModKey(e) &&
-          e.shiftKey &&
-          !e.altKey);
-      const isJumpEnd =
-        (e.key === "ArrowDown" && isModKey(e) && !e.shiftKey && !e.altKey) ||
-        ((e.key === ">" || e.code === "Period") &&
-          isModKey(e) &&
-          e.shiftKey &&
-          !e.altKey);
-      if (isJumpStart || isJumpEnd) {
-        e.preventDefault();
-        if (ids.length === 0) return;
-        const nextId = isJumpStart ? ids[0] : ids[ids.length - 1];
-        if (!nextId) return;
-        setCursor(nextId);
-        setSuppressHover(true);
-        scrollToId(nextId);
-        return;
-      }
-
-      // Shift+↑/↓ — extend the multi-selection one row at a time.
-      const isExtendDown =
-        e.key === "ArrowDown" &&
-        e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey;
-      const isExtendUp =
-        e.key === "ArrowUp" &&
-        e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey;
-      if (isExtendDown || isExtendUp) {
-        e.preventDefault();
-        onExtendSelection(isExtendDown ? "next" : "prev");
-        setSuppressHover(true);
-        return;
-      }
-
-      // ⌘A — select every visible row.
-      if (e.code === "KeyA" && isModKey(e) && !e.shiftKey && !e.altKey) {
-        if (isOverlayOpen()) return;
-        e.preventDefault();
-        onSelectAll();
-        return;
-      }
-
-      const isDown =
-        (e.code === "KeyN" &&
-          e.ctrlKey &&
-          !e.metaKey &&
-          !e.altKey &&
-          !e.shiftKey) ||
-        (e.key === "ArrowDown" &&
-          !e.ctrlKey &&
-          !e.metaKey &&
-          !e.altKey &&
-          !e.shiftKey) ||
-        (e.code === "KeyJ" && noMods && !e.shiftKey);
-      const isUp =
-        (e.code === "KeyP" &&
-          e.ctrlKey &&
-          !e.metaKey &&
-          !e.altKey &&
-          !e.shiftKey) ||
-        (e.key === "ArrowUp" &&
-          !e.ctrlKey &&
-          !e.metaKey &&
-          !e.altKey &&
-          !e.shiftKey) ||
-        (e.code === "KeyK" && noMods && !e.shiftKey);
-      if (isDown || isUp) {
-        e.preventDefault();
-        if (ids.length === 0) return;
-        // Adopt the mouse-hovered row as the starting point when there's no
-        // cursor yet, or when the mouse is actively hovering (moved more
-        // recently than the last key press) — so navigation continues from
-        // wherever the pointer is rather than a stale keyboard cursor.
-        if (cursorIdx === -1 || !suppressHoverRef.current) {
-          const hovered = document.querySelector<HTMLElement>(
-            "[data-item-id]:hover",
-          );
-          const hoveredId = hovered?.dataset.itemId;
-          if (
-            hoveredId &&
-            ids.includes(hoveredId) &&
-            hoveredId !== currentCursor
-          ) {
-            setCursor(hoveredId);
-            setSuppressHover(true);
-            scrollToId(hoveredId);
-            return;
-          }
-        }
-        const nextId =
-          cursorIdx === -1
-            ? isDown
-              ? ids[0]
-              : ids[ids.length - 1]
-            : isDown
-              ? ids[Math.min(cursorIdx + 1, ids.length - 1)]
-              : ids[Math.max(cursorIdx - 1, 0)];
-        if (!nextId) return;
-        setCursor(nextId);
-        setSuppressHover(true);
-        scrollToId(nextId);
-        return;
-      }
-
-      // Enter to open item in side panel
-      if (
-        e.key === "Enter" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        currentCursor !== null
-      ) {
-        if (isOverlayOpen()) return;
-        e.preventDefault();
-        onOpenItem(currentCursor);
-        return;
-      }
-
-      // Cmd+Shift+Enter to open the item's URL in a new tab
-      if (
-        e.key === "Enter" &&
-        isModKey(e) &&
-        e.shiftKey &&
-        currentCursor !== null
-      ) {
-        if (isOverlayOpen()) return;
-        e.preventDefault();
-        const item = filteredItems.find((i) => i.id === currentCursor);
+  const handlers: ActionHandlers = {
+    showShortcuts: simple(onShowShortcuts),
+    openSearch: simple(onSearchOpen),
+    // ⌘K — focus search; if an item is in full view, pop it back to side view
+    // so the list (and search box) are visible.
+    focusSearch: simple(() => {
+      dispatchPanelCommand("peek");
+      onSearchOpen();
+    }),
+    openNew: simple(onOpenNew),
+    cursorDown: (e) => moveCursor(e, "next"),
+    cursorUp: (e) => moveCursor(e, "prev"),
+    jumpStart: (e) => jumpCursor(e, "start"),
+    jumpEnd: (e) => jumpCursor(e, "end"),
+    openItem: (e) => withCursor(e, onOpenItem),
+    openItemExpanded: (e) => withCursor(e, onOpenItemExpanded),
+    openItemUrl: (e) =>
+      withCursor(e, (cursorId) => {
+        const item = filteredItems.find((i) => i.id === cursorId);
         if (item?.url && URL.canParse(item.url))
           window.open(item.url, "_blank");
-        return;
-      }
+      }),
+    extendSelectionDown: simple(() => {
+      onExtendSelection("next");
+      setSuppressHover(true);
+    }),
+    extendSelectionUp: simple(() => {
+      onExtendSelection("prev");
+      setSuppressHover(true);
+    }),
+    selectAll: simple(onSelectAll),
+    focusNotes,
+    toggleReadCursor: simple(onToggleReadCursor),
+    togglePinCursor: simple(onTogglePinCursor),
+    chatCursor: simple(onChatCursor),
+    deleteCursor: (e) => withCursor(e, () => onRequestDelete?.()),
+    toggleTagFilter: simple(() => setTagsOpen((v) => !v)),
+    toggleShowRead: simple(() => setShowRead((v) => !v)),
+    toggleDensity: simple(onToggleDensity),
+    toggleTheme: simple(onToggleTheme),
+    panelExpand: simple(() => dispatchPanelCommand("expand")),
+    panelCollapse: simple(() => dispatchPanelCommand("collapse")),
+  };
 
-      // Cmd+Enter to open the item expanded
-      if (
-        e.key === "Enter" &&
-        isModKey(e) &&
-        !e.shiftKey &&
-        currentCursor !== null
-      ) {
-        if (isOverlayOpen()) return;
-        e.preventDefault();
-        onOpenItemExpanded(currentCursor);
-        return;
-      }
-    };
-    document.addEventListener("keydown", handleNav);
-    return () => document.removeEventListener("keydown", handleNav);
-  }, [
-    filteredItems,
-    getOrderedIds,
-    scrollToId,
-    setSuppressHover,
-    cursorRef,
-    setCursor,
-    onOpenItem,
-    onOpenItemExpanded,
-    onExtendSelection,
-    onSelectAll,
-  ]);
+  // Ref mirror so the single document listener binds once and always sees the
+  // latest handler closures.
+  const handlersRef = React.useRef(handlers);
+  handlersRef.current = handlers;
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) =>
+      dispatchShortcut(e, handlersRef.current);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return {
     suppressHover,

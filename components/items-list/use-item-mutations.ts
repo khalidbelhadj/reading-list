@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { deleteItem, toggleRead, updateItem } from "@/app/actions";
+import { deleteItem, setItemRead, updateItem } from "@/app/actions";
 import { type Item } from "@/lib/types";
+
 import {
   useInvalidateItemFlashcards,
   useInvalidateItems,
@@ -20,9 +21,9 @@ export const useItemMutations = () => {
   const invalidate = useInvalidateItems();
   const invalidateItemFlashcards = useInvalidateItemFlashcards();
 
-  const toggleReadMutation = useMutation({
+  const setItemReadMutation = useMutation({
     mutationFn: ({ itemId, read }: { itemId: string; read: boolean }) =>
-      toggleRead(itemId, read),
+      setItemRead(itemId, read),
     onMutate: async ({ itemId, read }) => {
       await queryClient.cancelQueries({ queryKey: ["items"] });
       const previous = queryClient.getQueryData<Item[]>(["items"]);
@@ -161,7 +162,7 @@ export const useItemMutations = () => {
   });
 
   return {
-    toggleReadMutation,
+    setItemReadMutation,
     togglePinMutation,
     toggleHiddenFromReviewMutation,
     deleteMutation,

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { MarkdownEditor } from "@/components/editor/markdown-editor";
 
 const SEED = `Click the language picker at the top-right of the code block below.
 

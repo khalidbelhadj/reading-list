@@ -35,6 +35,25 @@ const addDays = (iso: string, days: number) =>
 
 const clampEase = (ease: number) => Math.max(MIN_EASE, ease);
 
+// Graduation to "review" on good/easy is identical from the learning and
+// relearning states: fixed interval, reps + 1, ease untouched.
+const graduate = (
+  prev: SrsState,
+  rating: "good" | "easy",
+  now: string,
+): SrsState => {
+  const interval =
+    rating === "easy" ? EASY_INTERVAL_DAYS : GRADUATING_INTERVAL_DAYS;
+  return {
+    state: "review",
+    interval,
+    easeFactor: prev.easeFactor,
+    reps: prev.reps + 1,
+    lapses: prev.lapses,
+    due: addDays(now, interval),
+  };
+};
+
 export const schedule = (
   prev: SrsState,
   rating: Rating,
@@ -64,23 +83,8 @@ export const schedule = (
           due: addMinutes(now, HARD_LEARNING_STEP_MIN),
         };
       case "good":
-        return {
-          state: "review",
-          interval: GRADUATING_INTERVAL_DAYS,
-          easeFactor: prev.easeFactor,
-          reps: prev.reps + 1,
-          lapses: prev.lapses,
-          due: addDays(now, GRADUATING_INTERVAL_DAYS),
-        };
       case "easy":
-        return {
-          state: "review",
-          interval: EASY_INTERVAL_DAYS,
-          easeFactor: prev.easeFactor,
-          reps: prev.reps + 1,
-          lapses: prev.lapses,
-          due: addDays(now, EASY_INTERVAL_DAYS),
-        };
+        return graduate(prev, rating, now);
     }
   }
 
@@ -97,23 +101,8 @@ export const schedule = (
           due: addMinutes(now, RELEARN_STEP_MIN),
         };
       case "good":
-        return {
-          state: "review",
-          interval: GRADUATING_INTERVAL_DAYS,
-          easeFactor: prev.easeFactor,
-          reps: prev.reps + 1,
-          lapses: prev.lapses,
-          due: addDays(now, GRADUATING_INTERVAL_DAYS),
-        };
       case "easy":
-        return {
-          state: "review",
-          interval: EASY_INTERVAL_DAYS,
-          easeFactor: prev.easeFactor,
-          reps: prev.reps + 1,
-          lapses: prev.lapses,
-          due: addDays(now, EASY_INTERVAL_DAYS),
-        };
+        return graduate(prev, rating, now);
     }
   }
 

@@ -1,9 +1,10 @@
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
+import Image from "@/components/ui/image";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
-import Image from "@/components/ui/image";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 const IS_LOCAL_BACKEND = /localhost|127\.0\.0\.1/.test(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",

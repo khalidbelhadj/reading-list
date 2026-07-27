@@ -28,11 +28,13 @@ import { Route as DebugReviewDialogsRouteImport } from './routes/debug.review-di
 import { Route as DebugReviewCountAnimationsRouteImport } from './routes/debug.review-count-animations'
 import { Route as DebugMathRouteImport } from './routes/debug.math'
 import { Route as DebugKbdRouteImport } from './routes/debug.kbd'
+import { Route as DebugIntelligenceRouteImport } from './routes/debug.intelligence'
 import { Route as DebugEmptyStatesRouteImport } from './routes/debug.empty-states'
 import { Route as DebugDesignSystemRouteImport } from './routes/debug.design-system'
 import { Route as DebugCodeBlockRouteImport } from './routes/debug.code-block'
 import { Route as AuthReturnToAppRouteImport } from './routes/auth.return-to-app'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as ApiProxyPdfRouteImport } from './routes/api.proxy-pdf'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
 import { Route as ApiAskRouteImport } from './routes/api.ask'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
@@ -137,6 +139,11 @@ const DebugKbdRoute = DebugKbdRouteImport.update({
   path: '/debug/kbd',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DebugIntelligenceRoute = DebugIntelligenceRouteImport.update({
+  id: '/debug/intelligence',
+  path: '/debug/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DebugEmptyStatesRoute = DebugEmptyStatesRouteImport.update({
   id: '/debug/empty-states',
   path: '/debug/empty-states',
@@ -160,6 +167,11 @@ const AuthReturnToAppRoute = AuthReturnToAppRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProxyPdfRoute = ApiProxyPdfRouteImport.update({
+  id: '/api/proxy-pdf',
+  path: '/api/proxy-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMcpRoute = ApiMcpRouteImport.update({
@@ -199,11 +211,13 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
   '/debug/code-block': typeof DebugCodeBlockRoute
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
+  '/debug/intelligence': typeof DebugIntelligenceRoute
   '/debug/kbd': typeof DebugKbdRoute
   '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
@@ -230,11 +244,13 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
   '/debug/code-block': typeof DebugCodeBlockRoute
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
+  '/debug/intelligence': typeof DebugIntelligenceRoute
   '/debug/kbd': typeof DebugKbdRoute
   '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
@@ -262,11 +278,13 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
   '/debug/code-block': typeof DebugCodeBlockRoute
   '/debug/design-system': typeof DebugDesignSystemRoute
   '/debug/empty-states': typeof DebugEmptyStatesRoute
+  '/debug/intelligence': typeof DebugIntelligenceRoute
   '/debug/kbd': typeof DebugKbdRoute
   '/debug/math': typeof DebugMathRoute
   '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
@@ -295,11 +313,13 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
+    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
     | '/debug/code-block'
     | '/debug/design-system'
     | '/debug/empty-states'
+    | '/debug/intelligence'
     | '/debug/kbd'
     | '/debug/math'
     | '/debug/review-count-animations'
@@ -326,11 +346,13 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
+    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
     | '/debug/code-block'
     | '/debug/design-system'
     | '/debug/empty-states'
+    | '/debug/intelligence'
     | '/debug/kbd'
     | '/debug/math'
     | '/debug/review-count-animations'
@@ -357,11 +379,13 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
+    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
     | '/debug/code-block'
     | '/debug/design-system'
     | '/debug/empty-states'
+    | '/debug/intelligence'
     | '/debug/kbd'
     | '/debug/math'
     | '/debug/review-count-animations'
@@ -389,11 +413,13 @@ export interface RootRouteChildren {
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiAskRoute: typeof ApiAskRoute
   ApiMcpRoute: typeof ApiMcpRoute
+  ApiProxyPdfRoute: typeof ApiProxyPdfRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthReturnToAppRoute: typeof AuthReturnToAppRoute
   DebugCodeBlockRoute: typeof DebugCodeBlockRoute
   DebugDesignSystemRoute: typeof DebugDesignSystemRoute
   DebugEmptyStatesRoute: typeof DebugEmptyStatesRoute
+  DebugIntelligenceRoute: typeof DebugIntelligenceRoute
   DebugKbdRoute: typeof DebugKbdRoute
   DebugMathRoute: typeof DebugMathRoute
   DebugReviewCountAnimationsRoute: typeof DebugReviewCountAnimationsRoute
@@ -546,6 +572,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DebugKbdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/debug/intelligence': {
+      id: '/debug/intelligence'
+      path: '/debug/intelligence'
+      fullPath: '/debug/intelligence'
+      preLoaderRoute: typeof DebugIntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/debug/empty-states': {
       id: '/debug/empty-states'
       path: '/debug/empty-states'
@@ -579,6 +612,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/proxy-pdf': {
+      id: '/api/proxy-pdf'
+      path: '/api/proxy-pdf'
+      fullPath: '/api/proxy-pdf'
+      preLoaderRoute: typeof ApiProxyPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/mcp': {
@@ -630,11 +670,13 @@ const rootRouteChildren: RootRouteChildren = {
     DotwellKnownOauthProtectedResourceRoute,
   ApiAskRoute: ApiAskRoute,
   ApiMcpRoute: ApiMcpRoute,
+  ApiProxyPdfRoute: ApiProxyPdfRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthReturnToAppRoute: AuthReturnToAppRoute,
   DebugCodeBlockRoute: DebugCodeBlockRoute,
   DebugDesignSystemRoute: DebugDesignSystemRoute,
   DebugEmptyStatesRoute: DebugEmptyStatesRoute,
+  DebugIntelligenceRoute: DebugIntelligenceRoute,
   DebugKbdRoute: DebugKbdRoute,
   DebugMathRoute: DebugMathRoute,
   DebugReviewCountAnimationsRoute: DebugReviewCountAnimationsRoute,

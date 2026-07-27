@@ -1,21 +1,19 @@
 // Server-only implementations — see ./index.ts for the RPC layer.
 import { eq, sql } from "drizzle-orm";
 
-import { withUser } from "@/db";
 import { userSettings } from "@/db/schema";
-import { getCurrentUserId } from "@/lib/auth";
+import { withCurrentUser } from "@/lib/db-helpers.server";
 import { safeAction } from "@/lib/safe-action";
 import {
   parseSettings,
-  settingsPatchSchema,
   type Settings,
   type SettingsPatch,
+  settingsPatchSchema,
 } from "@/lib/settings";
 
 export const getSettings = safeAction(
   async function getSettings(): Promise<Settings> {
-    const userId = await getCurrentUserId();
-    return withUser(userId, async (tx) => {
+    return withCurrentUser(async (tx, userId) => {
       const [row] = await tx
         .select({ data: userSettings.data })
         .from(userSettings)
@@ -33,9 +31,8 @@ export const updateSettings = safeAction(async function updateSettings(
   const parsed = settingsPatchSchema.parse(patch);
   const keys = Object.keys(parsed);
   if (keys.length === 0) return;
-  const userId = await getCurrentUserId();
   const now = new Date().toISOString();
-  await withUser(userId, async (tx) => {
+  await withCurrentUser(async (tx, userId) => {
     await tx
       .insert(userSettings)
       .values({ userId, data: parsed, updatedAt: now })

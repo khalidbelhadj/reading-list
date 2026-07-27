@@ -1,5 +1,5 @@
-import { ReviewSession } from "@/components/review/review-session";
 import type { ReviewSessionCard, ReviewSessionData } from "@/app/actions";
+import { ReviewSession } from "@/components/review/review-session";
 
 // Dev-only route to drive the full interactive review flow (reveal → rate →
 // next → summary) without a database. ReviewSession runs entirely in-memory

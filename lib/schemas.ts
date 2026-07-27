@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { ActionError } from "@/lib/safe-action";
 
 export const parseInput = <T>(schema: z.ZodSchema<T>, data: unknown): T => {
@@ -75,7 +76,31 @@ export const updateItemSchema = z.object({
   }),
 });
 
-export const toggleReadSchema = z.object({
+export const itemContentIdSchema = z.object({
+  itemId: idSchema,
+});
+
+export const semanticSearchSchema = z.object({
+  query: z.string().min(1, "Query must not be empty").max(2000),
+  limit: limitSchema.optional(),
+});
+
+export const relatedItemsSchema = z.object({
+  itemId: idSchema,
+  limit: limitSchema.optional(),
+});
+
+export const submitLiveContentSchema = z.object({
+  itemId: idSchema,
+  url: urlSchema,
+  title: titleSchema.optional(),
+  html: z
+    .string()
+    .min(1, "HTML must not be empty")
+    .max(4_000_000, "Captured HTML must be under 4MB"),
+});
+
+export const setItemReadSchema = z.object({
   itemId: idSchema,
   read: z.boolean(),
 });
@@ -98,7 +123,7 @@ export const bulkMarkReadSchema = z.object({
   read: z.boolean(),
 });
 
-export const bulkSetPinnedSchema = z.object({
+export const bulkSetStarredSchema = z.object({
   itemIds: z
     .array(idSchema)
     .max(100, "Cannot update more than 100 items at once"),
@@ -245,18 +270,6 @@ export const getReviewSessionSchema = z.object({
 
 export const getSessionSummarySchema = z.object({
   sessionId: idSchema,
-});
-
-export const getDueCardsSchema = z.object({
-  limit: limitSchema.optional(),
-});
-
-export const getNewCardsSchema = z.object({
-  limit: limitSchema.optional(),
-});
-
-export const getCardsForItemSchema = z.object({
-  itemId: idSchema,
 });
 
 export const getItemReviewStatusSchema = z.object({

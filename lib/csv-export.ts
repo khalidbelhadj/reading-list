@@ -10,7 +10,7 @@ const ensureCsvExtension = (name: string) =>
 export const defaultCsvFilename = () =>
   `reading-list-${new Date().toISOString().slice(0, 10)}`;
 
-export const itemsToCsv = (items: Item[]): string => {
+const itemsToCsv = (items: Item[]): string => {
   const header = "title,url,tags,notes,read,created_at,updated_at";
   const rows = items.map((item) =>
     [

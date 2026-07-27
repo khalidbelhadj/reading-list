@@ -1,9 +1,9 @@
-import React from "react";
-import Image from "@/components/ui/image";
 import { IconFileFilled, IconSparkles } from "@tabler/icons-react";
+import React from "react";
 
-import { Switch } from "@/components/ui/switch";
 import { getFaviconSrc } from "@/components/items-list/utils";
+import Image from "@/components/ui/image";
+import { Switch } from "@/components/ui/switch";
 import { getYouTubeVideoId } from "@/lib/url";
 import { cn } from "@/lib/utils";
 

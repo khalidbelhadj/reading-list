@@ -177,6 +177,44 @@ export const assertPublicUrl = async (url: string): Promise<void> => {
   }
 };
 
+// Stream a Response body into memory with a byte cap. Default behavior on
+// crossing the cap is to bail and return null (protects against oversized
+// bodies); `truncate: true` instead keeps the first `cap` bytes and cancels
+// the rest (for best-effort parsing like <title> extraction).
+export const readCapped = async (
+  res: Response,
+  cap: number,
+  options: { truncate?: boolean } = {},
+): Promise<Uint8Array | null> => {
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > cap) {
+      if (!options.truncate) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value.subarray(0, value.byteLength - (received - cap)));
+      received = cap;
+      await reader.cancel();
+      break;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+};
+
 export type SafeFetchOptions = {
   headers?: Record<string, string>;
   signal?: AbortSignal;

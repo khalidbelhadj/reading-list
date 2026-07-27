@@ -26,6 +26,8 @@ BEGIN;
 -- ---------------------------------------------------------------------------
 -- Trigram similarity powers MCP search (lib/trigram.ts).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- pgvector powers the semantic index (item_content.embedding, item_chunks).
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------------------
 -- 2. Trigram (GIN) search indexes
@@ -38,6 +40,23 @@ CREATE INDEX IF NOT EXISTS flashcards_front_trgm_idx
   ON public.flashcards USING gin (front gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS flashcards_back_trgm_idx
   ON public.flashcards USING gin (back gin_trgm_ops);
+
+-- Approximate nearest-neighbor index for semantic search over chunks.
+-- (The item-level embedding on item_content is scanned exactly — corpus-scale
+-- rows don't need an ANN index there.)
+--
+-- The index covers `embedding` alone, so both the user_id and model filters
+-- are post-filters over its candidate set. lib/extract/vector-search.server.ts
+-- turns on pgvector's iterative scan so a filtered query still fills its LIMIT.
+CREATE INDEX IF NOT EXISTS item_chunks_embedding_hnsw_idx
+  ON public.item_chunks USING hnsw (embedding vector_cosine_ops);
+
+-- Every search filters chunks to one model's corpus (vectors from different
+-- models are not comparable), so that predicate needs an index of its own.
+CREATE INDEX IF NOT EXISTS item_chunks_user_model_idx
+  ON public.item_chunks (user_id, model);
+CREATE INDEX IF NOT EXISTS item_content_model_idx
+  ON public.item_content (user_id, embedding_model);
 
 -- ---------------------------------------------------------------------------
 -- 3. Grants for the `authenticated` role used by withUser() (db/index.ts)
@@ -55,6 +74,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_sessions TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.card_reviews    TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_events   TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings   TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_content    TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_chunks     TO authenticated;
+-- public.app_settings is deliberately absent: it holds app-global config (the
+-- active embedding model), is read and written only over the owner connection,
+-- and has no user_id to write an RLS policy against. No grant is the policy.
 
 GRANT USAGE, SELECT ON SEQUENCE public.tags_id_seq          TO authenticated;
 GRANT USAGE, SELECT ON SEQUENCE public.review_events_id_seq TO authenticated;
@@ -80,6 +104,11 @@ ALTER TABLE public.review_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.card_reviews    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.review_events   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings   ENABLE ROW LEVEL SECURITY;
+-- Enabled but not FORCEd: the extraction worker (lib/extract/worker.server.ts)
+-- claims pending rows across users on the owner connection, same rationale as
+-- review_* above.
+ALTER TABLE public.item_content    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.item_chunks     ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------
 -- 5. Owner-only policies (DROP-then-CREATE for idempotency)
@@ -201,6 +230,34 @@ CREATE POLICY "user_settings_update_own" ON public.user_settings
 CREATE POLICY "user_settings_delete_own" ON public.user_settings
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
+-- item_content
+DROP POLICY IF EXISTS "item_content_select_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_insert_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_update_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_delete_own" ON public.item_content;
+CREATE POLICY "item_content_select_own" ON public.item_content
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "item_content_insert_own" ON public.item_content
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_content_update_own" ON public.item_content
+  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_content_delete_own" ON public.item_content
+  FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- item_chunks
+DROP POLICY IF EXISTS "item_chunks_select_own" ON public.item_chunks;
+DROP POLICY IF EXISTS "item_chunks_insert_own" ON public.item_chunks;
+DROP POLICY IF EXISTS "item_chunks_update_own" ON public.item_chunks;
+DROP POLICY IF EXISTS "item_chunks_delete_own" ON public.item_chunks;
+CREATE POLICY "item_chunks_select_own" ON public.item_chunks
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "item_chunks_insert_own" ON public.item_chunks
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_chunks_update_own" ON public.item_chunks
+  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_chunks_delete_own" ON public.item_chunks
+  FOR DELETE TO authenticated USING (user_id = auth.uid());
+
 -- ---------------------------------------------------------------------------
 -- 6. Cross-device sync: broadcast-from-database Realtime trigger
 -- ---------------------------------------------------------------------------
@@ -286,6 +343,11 @@ CREATE TRIGGER items_sync_notify
 DROP TRIGGER IF EXISTS items_sync_notify ON public.flashcards;
 CREATE TRIGGER items_sync_notify
   AFTER INSERT OR UPDATE OR DELETE ON public.flashcards
+  FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
+
+DROP TRIGGER IF EXISTS items_sync_notify ON public.item_content;
+CREATE TRIGGER items_sync_notify
+  AFTER INSERT OR UPDATE OR DELETE ON public.item_content
   FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
 
 -- Let each user SEND broadcasts on their own private topic. realtime.send()

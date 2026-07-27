@@ -11,7 +11,7 @@
  * window — so this command can be run N times (or by N agents) with zero
  * coordination. Set PORT=xxxx to pin a specific port instead of auto-selecting.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 

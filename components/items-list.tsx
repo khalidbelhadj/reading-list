@@ -1,63 +1,58 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import React from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { LoadingFade } from "@/components/ui/loading-fade";
 import { NonIdealState } from "@/components/ui/non-ideal-state";
+import { openChatWithClaude } from "@/lib/chat-with-claude";
+import { fetchItems } from "@/lib/queries";
+import { subscribeRevealItem } from "@/lib/reveal-events";
 import { type Item } from "@/lib/types";
+import { useDismissLayer } from "@/lib/use-dismiss-layer";
+import { useSettings } from "@/lib/use-settings";
 import { cn } from "@/lib/utils";
 
-import { DeleteItemDialog } from "./items-list/delete-item-dialog";
-import { makeOptimisticItem } from "./items-list/utils";
-
-import { fetchPageTitle, updateItem } from "@/app/actions";
-import { LoadingFade } from "@/components/ui/loading-fade";
-import { fetchItems } from "@/lib/queries";
-import { openChatWithClaude } from "@/lib/chat-with-claude";
-import { subscribeRevealItem } from "@/lib/reveal-events";
-import { useSettings } from "@/lib/use-settings";
-import { useDismissLayer } from "@/lib/use-dismiss-layer";
 import { AskResults } from "./items-list/ask-results";
-import { BulkDeleteDialog } from "./items-list/bulk-delete-dialog";
-import { setCursorId } from "./items-list/cursor-store";
+import { DeleteItemsDialog } from "./items-list/delete-item-dialog";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
 import {
-  ItemRowProvider,
   type ItemActions,
+  ItemRowProvider,
   type SelectModifiers,
 } from "./items-list/item-row-context";
-import {
-  clearSelection,
-  getSelectedIds,
-  pruneSelection,
-  useHasSelection,
-} from "./items-list/selection-store";
+import { ItemsEmptyState } from "./items-list/items-empty-state";
 import { ItemsSkeleton } from "./items-list/items-skeleton";
-import { PinnedSection } from "./items-list/pinned-section";
-import { SearchBar } from "./items-list/search-bar";
-import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
-import { SuggestedSection } from "./items-list/suggested-section";
 import {
   NavRegistryProvider,
   type ScrollToIdOptions,
   useNavRegistry,
 } from "./items-list/list-nav-registry";
+import { PinnedSection } from "./items-list/pinned-section";
+import { SearchBar } from "./items-list/search-bar";
+import {
+  clearSelection,
+  pruneSelection,
+  useHasSelection,
+} from "./items-list/selection-store";
+import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
+import { SuggestedSection } from "./items-list/suggested-section";
 import { TagFilters } from "./items-list/tag-filters";
 import { Toolbar } from "./items-list/toolbar";
-import { VirtualItemList } from "./items-list/virtual-item-list";
-import { VirtualScrollProvider } from "./items-list/virtual-scroll-context";
+import { useAsk } from "./items-list/use-ask";
 import { useBulkMutations } from "./items-list/use-bulk-mutations";
 import { useCreateItem } from "./items-list/use-create-item";
+import { useCursorItemActions } from "./items-list/use-cursor-item-actions";
 import { useItemsFilters } from "./items-list/use-filters";
-import { useSelection } from "./items-list/use-selection";
-import { useInvalidateItems } from "./items-list/use-invalidate-items";
 import { useKeyboardNavigation } from "./items-list/use-keyboard-navigation";
-import { useAsk } from "./items-list/use-ask";
+import { useListCursor } from "./items-list/use-list-cursor";
 import { useListSearch } from "./items-list/use-list-search";
+import { usePasteCreate } from "./items-list/use-paste-create";
+import { useSelection } from "./items-list/use-selection";
 import { useSuggestions } from "./items-list/use-suggestions";
-import { useItemsMutations } from "./items-list/use-mutations";
 import { useTypingTitles } from "./items-list/use-typing-titles";
+import { VirtualItemList } from "./items-list/virtual-item-list";
+import { VirtualScrollProvider } from "./items-list/virtual-scroll-context";
 
 export const ItemsList = ({
   onOpenItem,
@@ -67,7 +62,6 @@ export const ItemsList = ({
   onOpenItemExpanded: (id: string) => void;
 }) => {
   // Data
-  const queryClient = useQueryClient();
   const {
     data: items,
     isLoading,
@@ -137,15 +131,6 @@ export const ItemsList = ({
   // Per-row typewriter title animation (used after pasting a URL).
   const { typingTitles, animateTypingTitle } = useTypingTitles();
 
-  // Cursor — driven through an imperative store so only the previously-active
-  // and newly-active rows re-render on each move. Keeping a ref mirror lets
-  // event handlers read the current id without stale closures.
-  const cursorRef = React.useRef<string | null>(null);
-  const setCursor = React.useCallback((id: string | null) => {
-    cursorRef.current = id;
-    setCursorId(id);
-  }, []);
-
   // Shared scroll viewport for the list body. Provided to every virtualized
   // section through context so they window against it. Tracked as state (via a
   // callback ref) as well as a ref: virtualized sections key their measurement
@@ -166,16 +151,34 @@ export const ItemsList = ({
   // without items-list needing to know which sections are mounted.
   const navRegistry = useNavRegistry();
 
-  // Helpers
-  const invalidate = useInvalidateItems();
+  // Keyboard nav reads the cursor order and scrolls rows through the registry,
+  // so it stays correct across the flat list, pinned section, and every group —
+  // including rows scrolled out of a virtualized window.
+  const getOrderedIds = React.useCallback(
+    () => navRegistry.getOrderedIds(),
+    [navRegistry],
+  );
+  const scrollToId = React.useCallback(
+    (id: string, opts?: ScrollToIdOptions) => navRegistry.scrollToId(id, opts),
+    [navRegistry],
+  );
 
-  const handleOpenItem = onOpenItem;
+  // Cursor — imperative store + navigation helpers (see use-list-cursor.ts).
+  const {
+    cursorRef,
+    setCursor,
+    navigateCursor,
+    jumpCursor,
+    moveCursorOffIds,
+    selectionForCursor,
+  } = useListCursor({ getOrderedIds, scrollToId });
 
   // Hooks
   const {
-    tabItems,
+    sortedItems,
     allTags,
     filteredItems,
+    hiddenReadCount,
     pinnedItems,
     unpinnedItems,
     activeTags,
@@ -194,7 +197,7 @@ export const ItemsList = ({
     handleDeleteSingle,
     handleTogglePin,
     handleToggleHiddenFromReview,
-  } = useItemsMutations({
+  } = useCursorItemActions({
     filteredItems,
     showRead,
     setCursor,
@@ -217,18 +220,6 @@ export const ItemsList = ({
         ? allSuggestions
         : [],
     [settings.showSuggestions, searchActive, activeTags, allSuggestions],
-  );
-
-  // Keyboard nav reads the cursor order and scrolls rows through the registry,
-  // so it stays correct across the flat list, pinned section, and every group —
-  // including rows scrolled out of a virtualized window.
-  const getOrderedIds = React.useCallback(
-    () => navRegistry.getOrderedIds(),
-    [navRegistry],
-  );
-  const scrollToId = React.useCallback(
-    (id: string, opts?: ScrollToIdOptions) => navRegistry.scrollToId(id, opts),
-    [navRegistry],
   );
 
   // Reveal-item requests (cross-window "Open in list", OS deep links): move the
@@ -264,9 +255,9 @@ export const ItemsList = ({
       );
       if (!shouldOpen) return;
       setCursor(id);
-      handleOpenItem(id);
+      onOpenItem(id);
     },
-    [applyRowClick, setCursor, handleOpenItem],
+    [applyRowClick, setCursor, onOpenItem],
   );
 
   // Drop selected rows that are no longer visible — deleted (here or in
@@ -292,55 +283,6 @@ export const ItemsList = ({
     setCursor(null);
   }, [setCursor]);
 
-  // Cursor navigation driven from inside the search input — arrows / Ctrl+N/P
-  // move the cursor without unfocusing, so Enter opens the highlighted item.
-  const navigateCursor = React.useCallback(
-    (direction: "next" | "prev") => {
-      const ids = getOrderedIds();
-      if (ids.length === 0) return;
-      const current = cursorRef.current;
-      const idx = current ? ids.indexOf(current) : -1;
-      // No cursor yet — start from the row the mouse is hovering over so the
-      // first arrow press picks it up instead of jumping to the list edge.
-      if (idx === -1) {
-        const hovered = document.querySelector<HTMLElement>(
-          "[data-item-id]:hover",
-        );
-        const hoveredId = hovered?.dataset.itemId;
-        if (hoveredId && ids.includes(hoveredId)) {
-          setCursor(hoveredId);
-          scrollToId(hoveredId);
-          return;
-        }
-      }
-      const nextId =
-        idx === -1
-          ? direction === "next"
-            ? ids[0]
-            : ids[ids.length - 1]
-          : direction === "next"
-            ? ids[Math.min(idx + 1, ids.length - 1)]
-            : ids[Math.max(idx - 1, 0)];
-      if (!nextId) return;
-      setCursor(nextId);
-      scrollToId(nextId);
-    },
-    [getOrderedIds, scrollToId, setCursor],
-  );
-  // Jump the cursor to the first / last rendered row (⌘↑/⌘↓, ⌘⇧</>). Follows
-  // search results, filters, and grouping via the shared order.
-  const jumpCursor = React.useCallback(
-    (edge: "start" | "end") => {
-      const ids = getOrderedIds();
-      if (ids.length === 0) return;
-      const nextId = edge === "start" ? ids[0] : ids[ids.length - 1];
-      if (!nextId) return;
-      setCursor(nextId);
-      scrollToId(nextId);
-    },
-    [getOrderedIds, scrollToId, setCursor],
-  );
-
   // When the search filter narrows the list, pin the cursor to the first
   // visible result so Enter from the search input opens the top match.
   React.useEffect(() => {
@@ -348,7 +290,7 @@ export const ItemsList = ({
     const current = cursorRef.current;
     if (current && filteredItems.some((i) => i.id === current)) return;
     setCursor(filteredItems[0]?.id ?? null);
-  }, [searchOrder, filteredItems, setCursor]);
+  }, [searchOrder, filteredItems, cursorRef, setCursor]);
 
   const requestDeleteItem = React.useCallback(
     (id: string) => {
@@ -372,35 +314,6 @@ export const ItemsList = ({
   // prune effect above drops the vanished ids from the selection.
   const { bulkReadMutation, bulkPinMutation, bulkDeleteMutation } =
     useBulkMutations();
-
-  const moveCursorOffIds = React.useCallback(
-    (removedIds: string[]) => {
-      const cursor = cursorRef.current;
-      if (!cursor || !removedIds.includes(cursor)) return;
-      const ordered = getOrderedIds();
-      const removed = new Set(removedIds);
-      const cursorIndex = ordered.indexOf(cursor);
-      let next: string | null = null;
-      for (let i = cursorIndex + 1; i < ordered.length; i++) {
-        const id = ordered[i];
-        if (id && !removed.has(id)) {
-          next = id;
-          break;
-        }
-      }
-      if (!next) {
-        for (let i = cursorIndex - 1; i >= 0; i--) {
-          const id = ordered[i];
-          if (id && !removed.has(id)) {
-            next = id;
-            break;
-          }
-        }
-      }
-      setCursor(next);
-    },
-    [getOrderedIds, setCursor],
-  );
 
   const handleBulkMarkRead = React.useCallback(
     (itemIds: string[], read: boolean) => {
@@ -442,16 +355,6 @@ export const ItemsList = ({
     [bulkDeleteIds, items],
   );
 
-  // ⌘⌫ / ⌘⇧M / ⌘⇧P act on the whole selection when the cursor row is part of
-  // a multi-selection; otherwise they keep their single-item behavior.
-  const selectionForCursor = React.useCallback((): string[] | null => {
-    const cursor = cursorRef.current;
-    const selected = getSelectedIds();
-    return cursor && selected.size > 1 && selected.has(cursor)
-      ? [...selected]
-      : null;
-  }, []);
-
   // Create
   const {
     requestCreate,
@@ -462,133 +365,13 @@ export const ItemsList = ({
     createAnyway: handleDuplicateCreateAnyway,
   } = useCreateItem();
 
-  // Background retitle for pasted URLs: the item is created instantly with a
-  // hostname fallback title, then this fetches the real page title (external
-  // HTTP, up to ~5s) and applies it — unless the user already renamed the
-  // item in the meantime.
-  const retitleMutation = useMutation({
-    mutationFn: async (args: {
-      newId: string;
-      url: string;
-      fallback: string;
-    }): Promise<{ newId: string; title: string } | null> => {
-      const fetched = await fetchPageTitle(args.url);
-      const title = fetched?.trim();
-      if (!title || title === args.fallback) return null;
-      const current = queryClient
-        .getQueryData<Item[]>(["items"])
-        ?.find((it) => it.id === args.newId);
-      if (current && current.title !== args.fallback) return null;
-      await updateItem(args.newId, { title });
-      return { newId: args.newId, title };
-    },
-    onSuccess: (result) => {
-      if (!result) return;
-      queryClient.setQueryData<Item[]>(["items"], (old) =>
-        old?.map((it) =>
-          it.id === result.newId ? { ...it, title: result.title } : it,
-        ),
-      );
-      void animateTypingTitle(result.newId, result.title);
-      invalidate();
-    },
+  // Blank-item and paste-a-URL creation flows (see use-paste-create.ts).
+  const { handleOpenNew, requestPasteCreate, handlePasteUrl } = usePasteCreate({
+    requestCreate,
+    onOpenItem,
+    animateTypingTitle,
+    activeTags,
   });
-
-  const handleOpenNew = React.useCallback(() => {
-    requestCreate(
-      { title: "", url: "", tagNames: [] },
-      {
-        onCreated: (newId) => {
-          // Optimistically insert into the cache so the detail page can
-          // render the new (empty) item without waiting on a full refetch.
-          queryClient.setQueryData<Item[]>(["items"], (old) => {
-            if (!old) return old;
-            return [makeOptimisticItem(newId, old), ...old];
-          });
-          invalidate();
-          handleOpenItem(newId);
-        },
-        onError: () => {
-          toast.error("Could not create item", {
-            description: "Please try again.",
-          });
-        },
-      },
-    );
-  }, [requestCreate, queryClient, invalidate, handleOpenItem]);
-
-  const requestPasteCreate = React.useCallback(
-    (url: string, tagNames: string[]) => {
-      // Create immediately with the hostname fallback title — waiting on the
-      // external page-title fetch here used to block creation for up to 5s.
-      // retitleMutation swaps in the real title when it arrives.
-      const fallback = (() => {
-        try {
-          return new URL(url).hostname.replace(/^www\./, "");
-        } catch {
-          return url;
-        }
-      })();
-      requestCreate(
-        { title: fallback, url, tagNames },
-        {
-          onCreated: (newId) => {
-            // Optimistically insert so the row appears immediately; the
-            // animation typing overlay then replaces its title visually.
-            queryClient.setQueryData<Item[]>(["items"], (old) => {
-              if (!old) return old;
-              if (old.some((it) => it.id === newId)) return old;
-              return [
-                makeOptimisticItem(newId, old, {
-                  title: fallback,
-                  url,
-                  tagNames,
-                }),
-                ...old,
-              ];
-            });
-            invalidate();
-            retitleMutation.mutate({ newId, url, fallback });
-          },
-          onOpenExisting: handleOpenItem,
-        },
-      );
-    },
-    [requestCreate, handleOpenItem, invalidate, retitleMutation, queryClient],
-  );
-
-  const handlePasteUrl = React.useCallback(async () => {
-    // The dropdown menu's focus handoff hasn't settled by the time this
-    // handler runs synchronously — clipboard.readText() would reject with
-    // "Document is not focused". Wait one frame for focus to return to the
-    // trigger, then read.
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    let text: string;
-    try {
-      text = (await navigator.clipboard.readText()).trim();
-    } catch {
-      toast.error("Couldn't read clipboard", {
-        description: "Grant clipboard permission and try again.",
-      });
-      return;
-    }
-    let url: URL;
-    try {
-      url = new URL(text);
-    } catch {
-      toast.error("Invalid URL", {
-        description: "Your clipboard doesn't contain a valid URL.",
-      });
-      return;
-    }
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      toast.error("Invalid URL", {
-        description: "Your clipboard doesn't contain a valid URL.",
-      });
-      return;
-    }
-    requestPasteCreate(text, [...activeTags]);
-  }, [requestPasteCreate, activeTags]);
 
   const handleToggleReadCursor = React.useCallback(() => {
     const id = cursorRef.current;
@@ -605,7 +388,13 @@ export const ItemsList = ({
     const item = items?.find((i) => i.id === id);
     if (!item) return;
     handleToggleRead(id, !item.read);
-  }, [items, handleToggleRead, selectionForCursor, handleBulkMarkRead]);
+  }, [
+    items,
+    cursorRef,
+    handleToggleRead,
+    selectionForCursor,
+    handleBulkMarkRead,
+  ]);
 
   const handleTogglePinCursor = React.useCallback(() => {
     const id = cursorRef.current;
@@ -622,14 +411,20 @@ export const ItemsList = ({
     const item = items?.find((i) => i.id === id);
     if (!item) return;
     handleTogglePin(id, !item.starred);
-  }, [items, handleTogglePin, selectionForCursor, handleBulkSetPinned]);
+  }, [
+    items,
+    cursorRef,
+    handleTogglePin,
+    selectionForCursor,
+    handleBulkSetPinned,
+  ]);
 
   const handleChatCursor = React.useCallback(() => {
     const id = cursorRef.current;
     if (!id) return;
     const item = items?.find((i) => i.id === id);
     if (item) openChatWithClaude(item);
-  }, [items]);
+  }, [items, cursorRef]);
 
   const handleToggleDensity = React.useCallback(() => {
     setSetting("density", density === "cozy" ? "compact" : "cozy");
@@ -657,12 +452,12 @@ export const ItemsList = ({
       const selection = selectionForCursor();
       if (selection) requestBulkDelete(selection);
       else requestDeleteItem(cursor);
-    }, [requestDeleteItem, selectionForCursor, requestBulkDelete]),
+    }, [cursorRef, requestDeleteItem, selectionForCursor, requestBulkDelete]),
     onExtendSelection: extendSelection,
     onSelectAll: selectAll,
     onEscapeFallback: handleEscapeFallback,
     activeTags,
-    onOpenItem: handleOpenItem,
+    onOpenItem,
     onOpenItemExpanded,
     onOpenNew: handleOpenNew,
     onPasteCreate: requestPasteCreate,
@@ -686,83 +481,21 @@ export const ItemsList = ({
   }, [scrollContainerEl]);
 
   // Derived state
-  // Empty state message
-  const emptyState = React.useMemo(() => {
-    if (filteredItems.length > 0) return null;
-    if (tabItems.length === 0)
-      return {
-        message: "Nothing here yet",
-        description:
-          "Save articles, papers, and links to read later, and they'll show up here.",
-        hasHiddenRead: false,
-        canAdd: true,
-      };
-
-    const searchSet = searchOrder ? new Set(searchOrder) : null;
-    const hiddenReadCount = !showRead
-      ? tabItems.filter(
-          (item) =>
-            item.read &&
-            (searchSet === null || searchSet.has(item.id)) &&
-            (activeTags.size === 0 ||
-              item.tags.some((t) => activeTags.has(t.name))),
-        ).length
-      : 0;
-
-    if (hiddenReadCount > 0) {
-      return {
-        message: `${hiddenReadCount} read ${hiddenReadCount === 1 ? "item" : "items"} not shown`,
-        description: "Read items are hidden. Show them to pick back up.",
-        hasHiddenRead: true,
-        canAdd: false,
-      };
-    }
-    const trimmedQuery = searchQuery.trim();
-    if (searchActive && trimmedQuery) {
-      return {
-        message: `No results for “${trimmedQuery}”`,
-        description: "Try different keywords, or check your spelling.",
-        hasHiddenRead: false,
-        canAdd: false,
-      };
-    }
-    return {
-      message: "No items match your filters",
-      description: "Try a different search, or clear your tag filters.",
-      hasHiddenRead: false,
-      canAdd: false,
-    };
-  }, [
-    filteredItems,
-    tabItems,
-    showRead,
-    activeTags,
-    searchOrder,
-    searchActive,
-    searchQuery,
-  ]);
-
-  // Hold the "no matches" message while the backend search is still resolving —
-  // otherwise a query with no local keyword hits flashes "no results" before the
-  // trigram pass gets a chance to return any. The skeletons cover that window.
-  const emptyNode = emptyState && !searchBackendPending && (
-    <NonIdealState
-      align="center"
-      size="sm"
-      className="py-6"
-      title={emptyState.message}
-      description={emptyState.description}
-      actions={
-        emptyState.canAdd ? (
-          <Button size="sm" onClick={handleOpenNew}>
-            Add item
-          </Button>
-        ) : emptyState.hasHiddenRead ? (
-          <Button variant="outline" size="sm" onClick={() => setShowRead(true)}>
-            Show read
-          </Button>
-        ) : undefined
-      }
+  // Empty state (see items-empty-state.tsx for the message derivation).
+  const handleShowRead = React.useCallback(
+    () => setShowRead(true),
+    [setShowRead],
+  );
+  const emptyNode = (
+    <ItemsEmptyState
+      filteredCount={filteredItems.length}
+      totalCount={sortedItems.length}
+      hiddenReadCount={hiddenReadCount}
+      searchActive={searchActive}
+      searchQuery={searchQuery}
+      searchBackendPending={searchBackendPending}
+      onAdd={handleOpenNew}
+      onShowRead={handleShowRead}
     />
   );
 
@@ -864,7 +597,7 @@ export const ItemsList = ({
                   onOpenItemExpanded(id);
                   return;
                 }
-                handleOpenItem(id);
+                onOpenItem(id);
               }}
               placeholder="Search items"
             />
@@ -873,7 +606,7 @@ export const ItemsList = ({
               <TagFilters
                 allTags={allTags}
                 activeTags={activeTags}
-                items={tabItems}
+                items={sortedItems}
                 toggleTag={toggleTag}
                 setActiveTags={setActiveTags}
               />
@@ -967,15 +700,14 @@ export const ItemsList = ({
           panel butts directly against the list. */}
           <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 hidden h-8 bg-linear-to-t from-background to-transparent md:block" />
 
-          <DeleteItemDialog
+          <DeleteItemsDialog
             item={itemToDelete}
             open={deleteOpen}
-            deleting={false}
             onOpenChange={setDeleteOpen}
             onConfirm={confirmDelete}
           />
 
-          <BulkDeleteDialog
+          <DeleteItemsDialog
             items={bulkDeleteTargets}
             open={bulkDeleteIds !== null}
             onOpenChange={handleBulkDeleteOpenChange}

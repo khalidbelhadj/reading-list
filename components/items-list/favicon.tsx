@@ -1,8 +1,8 @@
 import { IconFileFilled } from "@tabler/icons-react";
 
 import Image from "@/components/ui/image";
-import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 import { getFaviconSrc } from "./utils";
 

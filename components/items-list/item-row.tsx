@@ -1,19 +1,19 @@
 import React from "react";
 
-import { cn } from "@/lib/utils";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
+import { cn } from "@/lib/utils";
 
 import { BulkMenuItems } from "./bulk-menu-items";
-import { DragToWindowGhost } from "./drag-to-window-ghost";
-import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
-import { useDragToWindow } from "./use-drag-to-window";
-import { resolveRowItem } from "./utils";
-import { ItemRowContent } from "./item-row-content";
 import { CozyRowContent } from "./cozy-row-content";
 import { useIsCursor, useIsOpenItem } from "./cursor-store";
-import { getSelectedIds, useIsSelected } from "./selection-store";
+import { DragToWindowGhost } from "./drag-to-window-ghost";
+import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
+import { ItemRowContent } from "./item-row-content";
 import { useItemActions, useItemRowState } from "./item-row-context";
+import { getSelectedIds, useIsSelected } from "./selection-store";
+import { useDragToWindow } from "./use-drag-to-window";
+import { resolveRowItem } from "./utils";
 
 export const ItemRow = ({ item }: { item: Item }) => {
   const density = useSettings().settings.density;
@@ -44,7 +44,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
   const isTyping = typingTitle !== undefined;
   const isRead = item.read;
 
-  // EXPERIMENT: drag a row past the window edge to pop it into its own window.
+  // Drag a row past the window edge to pop the item into its own window.
   const { onPointerDown, drag, wasDragged } = useDragToWindow(item);
 
   const handleClick = React.useCallback(
@@ -105,6 +105,11 @@ export const ItemRow = ({ item }: { item: Item }) => {
         render={
           <div
             data-item-id={item.id}
+            // Pairs with the reading workspace root so "Read in app" morphs
+            // the row into the panel (view transition; no-op elsewhere).
+            style={
+              { viewTransitionName: `item-${item.id}` } as React.CSSProperties
+            }
             className={cn(
               "group relative flex overflow-hidden rounded-sm outline-none select-none",
               density === "cozy"
@@ -136,7 +141,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
         {density === "cozy" ? (
           <CozyRowContent
             item={rowItem}
-            isSelected={isOpen}
+            isOpen={isOpen}
             isTyping={isTyping}
             menuOpen={menuOpen}
             suppressHover={suppressHover}
@@ -150,7 +155,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
           <ItemRowContent
             item={rowItem}
             flashcardCount={item.flashcardCount}
-            isSelected={isOpen}
+            isOpen={isOpen}
             isTyping={isTyping}
             menuOpen={menuOpen}
             suppressHover={suppressHover}

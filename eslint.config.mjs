@@ -3,6 +3,7 @@ import js from "@eslint/js";
 import reactPlugin from "eslint-plugin-react";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import unusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -40,6 +41,7 @@ const config = [
     },
     plugins: {
       "react-compiler": reactCompiler,
+      "simple-import-sort": simpleImportSort,
       "unused-imports": unusedImports,
     },
     rules: {
@@ -58,6 +60,28 @@ const config = [
       "react/jsx-no-bind": "off",
       // Covered by TypeScript itself; prop-types are not used in a TS app.
       "react/prop-types": "off",
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { fixStyle: "inline-type-imports" },
+      ],
+      "max-lines": [
+        "error",
+        { max: 500, skipBlankLines: true, skipComments: true },
+      ],
+      "max-lines-per-function": [
+        "error",
+        { max: 250, skipBlankLines: true, skipComments: true },
+      ],
+      complexity: ["error", 25],
+      "react/function-component-definition": [
+        "error",
+        {
+          namedComponents: "arrow-function",
+          unnamedComponents: "arrow-function",
+        },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
@@ -77,6 +101,184 @@ const config = [
     files: ["jest.config.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    // Client-side code must go through the RPC layer — never touch the db or
+    // server-only modules directly. app/debug/** is in scope: the route file
+    // under app/routes/ is only a shell, and the page component it renders
+    // ships to the client exactly like anything under components/.
+    files: [
+      "components/**/*.{ts,tsx}",
+      "app/routes/**/*.tsx",
+      "app/debug/**/*.{ts,tsx}",
+      "app/*.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/db",
+                "@/db/*",
+                "drizzle-orm",
+                "drizzle-orm/*",
+                "postgres",
+              ],
+              allowTypeImports: true,
+              message:
+                "Server-only. Go through @/app/actions or @/lib/queries.",
+            },
+            {
+              group: ["**/*.server"],
+              allowTypeImports: true,
+              message: "Server-only module. Import the RPC wrapper instead.",
+            },
+            {
+              // The action *impls* under app/actions/* don't end in .server.ts,
+              // so the barrel is the only safe entry — importing a subpath
+              // (e.g. @/app/actions/items) would pull db code into the client
+              // bundle with no other lint error.
+              group: ["@/app/actions/*", "@/lib/queries/*"],
+              allowTypeImports: true,
+              message:
+                "Import from the @/app/actions or @/lib/queries barrel, not the impl module.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Debug pages, scripts, tests, and schema files are exempt from the size
+    // budgets — they are not product code.
+    files: ["app/debug/**", "scripts/**", "**/*.test.ts", "db/**"],
+    rules: {
+      "max-lines": "off",
+      "max-lines-per-function": "off",
+      complexity: "off",
+    },
+  },
+  {
+    // Grandfathered oversized files — shrink this list, never grow it. An
+    // entry that no longer needs its exemption comes straight out; leaving
+    // satisfied entries in turns the budget into decoration.
+    //
+    // Split per rule rather than blanket-disabling all three budgets: a file
+    // that is merely long shouldn't also get a free pass on complexity, and
+    // vice versa. Being over one budget is the common case.
+    files: [
+      "components/items-list.tsx",
+      "components/items-list/item-dropdown.tsx",
+      "components/items-list/sliding-item-panel.tsx",
+    ],
+    rules: {
+      "max-lines": "off",
+      "max-lines-per-function": "off",
+    },
+  },
+  {
+    // Grandfathered over-complexity — same rule: shrink, never grow.
+    files: [
+      "components/items-list.tsx",
+      "components/items-list/item-dropdown.tsx",
+      "components/items-list/search-bar.tsx",
+      "components/items-list/sliding-item-panel.tsx",
+      "components/items-list/toolbar.tsx",
+      "lib/url.server.ts",
+    ],
+    rules: {
+      complexity: "off",
+    },
+  },
+  {
+    // The Electron <webview> tag takes attributes React's DOM catalog doesn't
+    // know (partition selects the guest's session). Scoped to the one file
+    // that renders it.
+    files: ["components/viewer/webview-engine.tsx"],
+    rules: {
+      "react/no-unknown-property": ["error", { ignore: ["partition"] }],
+    },
+  },
+  {
+    // components/ui is presentation-only: design-system wrappers with no app
+    // data access. Editor internals live in components/editor.
+    files: ["components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/app/actions",
+                "@/app/actions/*",
+                "@/lib/queries",
+                "@/components/items-list",
+                "@/components/items-list/*",
+                "@/components/editor/*",
+              ],
+              allowTypeImports: true,
+              message:
+                "components/ui is presentation-only — app data and editor internals don't belong here.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Window-resize handling goes through the lib hooks (use-window-resize,
+    // use-element-size) so coalescing and cleanup are never hand-rolled.
+    //
+    // Kept as its own block: sharing one `ignores` list with the URL-write
+    // rule below would silently exempt the designated URL writers from this
+    // rule too, and panel-layout is exactly where a hand-rolled resize
+    // listener would want to appear.
+    files: ["components/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "lib/**/*.ts"],
+    ignores: [
+      // The hook itself.
+      "lib/use-window-resize.ts",
+      // Anchored-popover repositioning owns its own listener bundle.
+      "lib/editor/use-anchored-popover.ts",
+      // Module-scope direct-DOM engine — no hook context available.
+      "components/items-list/use-title-morph.ts",
+      // One cohesive dismissal effect (pointerdown/keydown/scroll/resize).
+      "components/editor/card-node-view.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'CallExpression[callee.object.name="window"][callee.property.name="addEventListener"][arguments.0.value="resize"]',
+          message:
+            "Use useWindowResize/useElementSize from lib/ instead of a raw resize listener.",
+        },
+      ],
+    },
+  },
+  {
+    // URL state writes stay in their designated single writers.
+    files: ["components/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "lib/**/*.ts"],
+    ignores: [
+      // Designated URL writers: applyView, ?q sync, window-open params.
+      "components/panel-layout.tsx",
+      "components/items-list/use-list-search.ts",
+      "lib/app-windows.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[property.name=/^(pushState|replaceState)$/]",
+          message:
+            "URL state writes live in panel-layout's applyView, use-list-search, or lib/app-windows.",
+        },
+      ],
     },
   },
 ];

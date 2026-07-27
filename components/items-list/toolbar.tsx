@@ -1,6 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import { Spinner } from "@/components/ui/spinner";
 import {
   IconBolt,
   IconChevronDown,
@@ -12,19 +9,23 @@ import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import React from "react";
 
+import { getReviewStatus, type ReviewMode } from "@/app/actions";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-import { getReviewStatus, type ReviewMode } from "@/app/actions";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useElementSize } from "@/lib/use-element-size";
+
 import { PageNav } from "./page-nav";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
 import { useStartReview } from "./use-start-review";
@@ -100,15 +101,16 @@ export const Toolbar = ({
   // back into the measurement — no oscillation.
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [compact, setCompact] = React.useState(false);
-  React.useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setCompact(entry.contentRect.width < 480);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  // rAF-coalesced: during a continuous resize the observer fires per tick, so
+  // the hook keeps the latest width and applies it in at most one pending
+  // frame.
+  useElementSize(
+    rootRef,
+    React.useCallback((rect: DOMRectReadOnly) => {
+      setCompact(rect.width < 480);
+    }, []),
+    { mode: "raf" },
+  );
 
   return (
     <div ref={rootRef} className="relative flex items-center pt-1">

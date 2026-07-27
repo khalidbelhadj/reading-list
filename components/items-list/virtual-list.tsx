@@ -111,13 +111,24 @@ export const VirtualList = <T,>({
     // frame of that 280ms animation would force a reflow here, once per mounted
     // group. The viewport's own size never affects our offset, so we don't
     // observe the scroll element itself.
+    // rAF-coalesced: during a continuous window resize the content height can
+    // change every tick; scheduling at most one pending frame keeps this to one
+    // re-measure (and setState) per frame instead of one per observer callback.
+    // Deliberately not lib/use-element-size: the target is a derived node (not
+    // a ref) and the height-delta filter must gate rAF scheduling itself, so
+    // width-only animation frames schedule nothing at all.
     const content = scrollEl.firstElementChild;
     let lastHeight = content ? content.getBoundingClientRect().height : -1;
+    let observerFrame: number | null = null;
     const observer = new ResizeObserver((entries) => {
       const height = entries[entries.length - 1]?.contentRect.height;
       if (height === undefined || Math.abs(height - lastHeight) < 0.5) return;
       lastHeight = height;
-      measure();
+      if (observerFrame !== null) return;
+      observerFrame = requestAnimationFrame(() => {
+        observerFrame = null;
+        measure();
+      });
     });
     if (content) observer.observe(content);
 
@@ -129,6 +140,7 @@ export const VirtualList = <T,>({
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      if (observerFrame !== null) cancelAnimationFrame(observerFrame);
       observer.disconnect();
       scrollEl.removeEventListener("scroll", measure);
     };

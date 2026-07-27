@@ -1,4 +1,3 @@
-import React from "react";
 import {
   IconBookmark,
   IconBookmarkFilled,
@@ -6,6 +5,7 @@ import {
   IconLoader,
   IconLoader2,
 } from "@tabler/icons-react";
+import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

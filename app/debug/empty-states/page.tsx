@@ -1,5 +1,5 @@
-import React from "react";
 import {
+  type Icon as TablerIcon,
   IconAlertCircle,
   IconAlertTriangle,
   IconArchive,
@@ -19,8 +19,8 @@ import {
   IconSearch,
   IconSearchOff,
   IconWifiOff,
-  type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

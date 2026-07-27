@@ -2,9 +2,12 @@ import { eq, inArray } from "drizzle-orm";
 
 import { type Tx } from "@/db";
 import { itemsTags, tags } from "@/db/schema";
-import { searchItems as searchItemsQuery, type SearchSort } from "@/lib/search";
+import {
+  searchItems as searchItemsQuery,
+  type SearchSort,
+} from "@/lib/search.server";
 
-import { toMcpSearchItem, type McpSearchItem } from "./types";
+import { type McpSearchItem, toMcpSearchItem } from "./types";
 
 export type SearchItemsParams = {
   caseSensitive?: boolean;

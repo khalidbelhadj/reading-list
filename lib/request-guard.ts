@@ -3,13 +3,13 @@
 // static security headers that used to live in next.config.ts. Invoked by the
 // global request middleware in app/start.ts (via dynamic import so none of
 // this reaches the client bundle).
+import "@/lib/env";
+
 import {
   createServerClient,
   parseCookieHeader,
   serializeCookieHeader,
 } from "@supabase/ssr";
-
-import "@/lib/env";
 
 // Per-request CSP nonce. TanStack Start streams its hydration payload via
 // inline <script> tags whose bodies change per request, so static hashes
@@ -38,11 +38,17 @@ const buildCsp = (nonce: string): string => {
     // Schemeless sources only match http(s) — wss: must be listed explicitly
     // or the browser blocks Supabase Realtime's WebSocket.
     `connect-src 'self' *.supabase.co wss://*.supabase.co${devConnect}`,
-    "frame-src 'self' accounts.google.com",
+    // https:: the in-app viewer (/read/:itemId) embeds the item's real page
+    // in an iframe pane (mini browser) plus the youtube-nocookie player;
+    // frames are sandboxed at the element level in components/viewer/.
+    "frame-src 'self' accounts.google.com https:",
     "frame-ancestors 'none'",
     "form-action 'self' accounts.google.com",
     "base-uri 'self'",
     "object-src 'none'",
+    // pdf.js renders in a worker (custom PDF viewer); vite serves it same-
+    // origin in prod and may wrap it in a blob in dev.
+    "worker-src 'self' blob:",
   ];
   return directives.join("; ");
 };
@@ -174,6 +180,17 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
   // CORS + auth for API routes.
   if (pathname.startsWith("/api/")) {
     const isMcp = pathname.startsWith("/api/mcp");
+    // The in-app viewer embeds the PDF proxy in a same-origin <iframe>; the
+    // blanket X-Frame-Options: DENY would make the browser refuse our own
+    // response (ERR_BLOCKED_BY_RESPONSE).
+    const securityHeaders =
+      pathname === "/api/proxy-pdf"
+        ? {
+            ...SECURITY_HEADERS,
+            "X-Frame-Options": "SAMEORIGIN",
+            "Content-Security-Policy": "frame-ancestors 'self'",
+          }
+        : SECURITY_HEADERS;
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -197,7 +214,7 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
       if (user) {
         const result = await next();
         applyHeaders(result.response, {
-          ...SECURITY_HEADERS,
+          ...securityHeaders,
           ...corsHeaders(request, isMcp),
         });
         return result;
@@ -210,7 +227,7 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
     if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
       const result = await next();
       applyHeaders(result.response, {
-        ...SECURITY_HEADERS,
+        ...securityHeaders,
         ...corsHeaders(request, isMcp),
       });
       return result;
@@ -227,7 +244,7 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
 
     const result = await next();
     applyHeaders(result.response, {
-      ...SECURITY_HEADERS,
+      ...securityHeaders,
       ...corsHeaders(request, isMcp),
     });
     applySetCookies(result.response, setCookies);

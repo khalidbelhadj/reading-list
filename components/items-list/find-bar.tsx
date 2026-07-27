@@ -1,10 +1,11 @@
-import React from "react";
 import { IconChevronDown, IconChevronUp, IconX } from "@tabler/icons-react";
+import React from "react";
 
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { isModKey } from "@/lib/input-context";
 import { useDismissLayer } from "@/lib/use-dismiss-layer";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 import type { PanelFind } from "./use-panel-find";
 
 export const FindBar = ({ find }: { find: PanelFind }) => {

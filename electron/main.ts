@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import {
   app,
   BrowserWindow,
@@ -6,7 +8,8 @@ import {
   nativeTheme,
   shell,
 } from "electron";
-import path from "node:path";
+
+import { APP_CHANNELS } from "./channels";
 
 const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
 const PROD_URL = "https://reading-list.khalidbelhadj.com";
@@ -84,7 +87,7 @@ const applyZoomToWindow = (win: BrowserWindow) => {
     const inset = trafficLightInset(zoomFactor);
     win.setWindowButtonPosition({ x: inset, y: inset });
   }
-  win.webContents.send("zoom", zoomFactor);
+  win.webContents.send(APP_CHANNELS.zoom, zoomFactor);
 };
 
 const setZoom = (next: number) => {
@@ -101,7 +104,7 @@ const themeBg = () => (nativeTheme.shouldUseDarkColors ? DARK_BG : LIGHT_BG);
 
 const sendDeepLink = (url: string) => {
   if (mainWindow && !mainWindow.webContents.isLoading()) {
-    mainWindow.webContents.send("deep-link", url);
+    mainWindow.webContents.send(APP_CHANNELS.deepLink, url);
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   } else {
@@ -115,13 +118,44 @@ const sharedWebPreferences = () => ({
   contextIsolation: true,
   nodeIntegration: false,
   sandbox: true,
+  // The in-app viewer (/read/:itemId) embeds arbitrary web pages in a
+  // <webview>. Hardened per-attach in attachWindowBehavior's
+  // will-attach-webview handler.
+  webviewTag: true,
 });
+
+// Viewer <webview> guests host third-party pages: window.open and any
+// escape-hatch navigation goes to the system browser; the guest itself may
+// browse http(s) freely (it IS a browser pane).
+const attachViewerWebviewBehavior = (contents: Electron.WebContents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
+  contents.on("will-navigate", (event, url) => {
+    if (!/^https?:/i.test(url)) event.preventDefault();
+  });
+};
 
 // Per-webContents wiring shared by the main window and any secondary windows
 // the renderer opens (item windows, review windows). Registered globally via
 // app.on("web-contents-created") so child windows get the exact same
 // navigation guards, zoom handling, and dev title stamp as the main window.
 const attachWindowBehavior = (contents: Electron.WebContents) => {
+  // Enforce guest hardening no matter what attributes the renderer put on
+  // the <webview> tag: our preload, no node, sandboxed, isolated session.
+  contents.on("will-attach-webview", (_event, webPreferences) => {
+    webPreferences.preload = path.join(__dirname, "viewer-preload.js");
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    // Chromium's built-in PDF viewer (PDFium), for live guest pages that
+    // navigate to a raw PDF URL. A guest doesn't inherit the embedder's
+    // webPreferences, so it has to be set here rather than on the host window.
+    // (The app's own PDF pane renders via pdf.js, not this.)
+    webPreferences.plugins = true;
+  });
+
   // window.open() — app-origin URLs become real child windows (keeping their
   // window.opener link back to the parent, which the renderer uses to hand
   // items back to the originating window); everything else goes to the
@@ -219,7 +253,7 @@ const createWindow = () => {
 
   mainWindow.webContents.on("did-finish-load", () => {
     if (pendingDeepLink && mainWindow) {
-      mainWindow.webContents.send("deep-link", pendingDeepLink);
+      mainWindow.webContents.send(APP_CHANNELS.deepLink, pendingDeepLink);
       pendingDeepLink = null;
     }
   });
@@ -252,9 +286,10 @@ if (app.isPackaged) {
 
 // Custom protocol registration. macOS dispatches via open-url; Windows/Linux
 // pass the URL as a process argument and we forward via the single-instance lock.
-if (process.defaultApp && process.argv.length >= 2) {
+const appEntryArg = process.argv[1];
+if (process.defaultApp && appEntryArg !== undefined) {
   app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [
-    path.resolve(process.argv[1]),
+    path.resolve(appEntryArg),
   ]);
 } else {
   app.setAsDefaultProtocolClient(PROTOCOL);
@@ -280,17 +315,24 @@ if (!gotLock) {
 
   // Guards + zoom + dev title for every window, including child windows the
   // renderer opens via window.open (which never pass through createWindow).
+  // Viewer webview guests get browser-pane behavior instead — the app-origin
+  // navigation guard would otherwise eject every embedded page to the system
+  // browser.
   app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() === "webview") {
+      attachViewerWebviewBehavior(contents);
+      return;
+    }
     attachWindowBehavior(contents);
   });
 
-  ipcMain.handle("open-external", (_event, url: string) =>
+  ipcMain.handle(APP_CHANNELS.openExternal, (_event, url: string) =>
     shell.openExternal(url),
   );
 
   // Raise the calling window. Used when a secondary window hands an item back
   // to the window that opened it — the renderer can't focus a window itself.
-  ipcMain.handle("focus-window", (event) => {
+  ipcMain.handle(APP_CHANNELS.focusWindow, (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
     if (win.isMinimized()) win.restore();
@@ -299,18 +341,24 @@ if (!gotLock) {
 
   // Renderer reads the current zoom on mount so its toolbar clearance is
   // correct even if it remounts (HMR) after the last "zoom" broadcast.
-  ipcMain.handle("zoom-current", () => zoomFactor);
+  ipcMain.handle(APP_CHANNELS.zoomCurrent, () => zoomFactor);
 
   // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
   // "change" listener when the macOS appearance flips while the app is
   // running. nativeTheme.on("updated", ...) is the authoritative signal —
   // forward it to every renderer so the theme follows the OS live, and keep
   // each window's background color in sync so resizes don't flash.
-  ipcMain.handle("native-theme-current", () => nativeTheme.shouldUseDarkColors);
+  ipcMain.handle(
+    APP_CHANNELS.nativeThemeCurrent,
+    () => nativeTheme.shouldUseDarkColors,
+  );
   nativeTheme.on("updated", () => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.setBackgroundColor(themeBg());
-      win.webContents.send("native-theme", nativeTheme.shouldUseDarkColors);
+      win.webContents.send(
+        APP_CHANNELS.nativeTheme,
+        nativeTheme.shouldUseDarkColors,
+      );
     }
   });
 

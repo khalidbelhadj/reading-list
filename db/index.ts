@@ -1,9 +1,12 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
-import postgres from "postgres";
-import * as schema from "./schema";
-import { perfLog } from "@/lib/perf";
 import "@/lib/env";
+
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+import { perfLog } from "@/lib/perf";
+
+import * as schema from "./schema";
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 

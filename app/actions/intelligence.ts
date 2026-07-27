@@ -1,0 +1,496 @@
+// Server-only implementations for the intelligence layer: the extraction
+// pipeline's job state, per-item content, and the embedding-model selection.
+// Vector search lives in ./semantic-search.ts. Client code goes through the
+// createServerFn RPC layer in ./index.ts, same as every other action module.
+import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
+
+import { withUser } from "@/db";
+import { itemContent, items } from "@/db/schema";
+import { getCurrentUserId } from "@/lib/auth";
+import {
+  assertOwnedItem,
+  requireAuth,
+  withCurrentUser,
+} from "@/lib/db-helpers.server";
+import {
+  type EmbeddingConfig,
+  embeddingConfigSchema,
+} from "@/lib/extract/embedding-config";
+import {
+  getActiveModelId,
+  getEmbeddingConfig,
+  setEmbeddingConfig,
+} from "@/lib/extract/embedding-config.server";
+import {
+  extractFromHtml,
+  UnsupportedContentError,
+} from "@/lib/extract/extractors.server";
+import {
+  applyExtraction,
+  drainAll,
+  type DrainResult,
+  enqueueItemContent,
+  LEASE_MINUTES,
+  MAX_ATTEMPTS,
+  processPendingContent,
+  reembedFromStored,
+  reembedMissing,
+  scheduleProcessing,
+} from "@/lib/extract/worker.server";
+import { ActionError, safeAction } from "@/lib/safe-action";
+import {
+  itemContentIdSchema,
+  parseInput,
+  submitLiveContentSchema,
+} from "@/lib/schemas";
+import { normalizeUrl } from "@/lib/url";
+
+// ---------------------------------------------------------------------------
+// Read: overview + per-item content (powers /read and /debug/intelligence)
+// ---------------------------------------------------------------------------
+
+const overviewRowSchema = z.object({
+  item_id: z.string(),
+  item_title: z.string(),
+  url: z.string(),
+  status: z.string(),
+  source: z.string().nullable(),
+  extractor: z.string().nullable(),
+  word_count: z.number().nullable(),
+  attempts: z.number(),
+  error: z.string().nullable(),
+  embedding_error: z.string().nullable(),
+  has_embedding: z.boolean(),
+  embedding_model: z.string().nullable(),
+  stale_model: z.boolean(),
+  chunk_count: z.number(),
+  fetched_at: z.string().nullable(),
+  next_retry_at: z.string().nullable(),
+  queue_state: z.string(),
+});
+
+export type ContentOverviewRow = {
+  itemId: string;
+  itemTitle: string;
+  url: string;
+  status: string;
+  source: string | null;
+  extractor: string | null;
+  wordCount: number | null;
+  attempts: number;
+  error: string | null;
+  embeddingError: string | null;
+  hasEmbedding: boolean;
+  // The model the stored vector was produced with. Vectors from different
+  // models are never compared, so this is what decides whether the worker
+  // re-embeds a row whose content hasn't changed (see applyExtraction).
+  embeddingModel: string | null;
+  // embeddingModel differs from the model the app is currently configured to
+  // use — this row's vector is due to be replaced on its next pass.
+  staleModel: boolean;
+  chunkCount: number;
+  fetchedAt: string | null;
+  nextRetryAt: string | null;
+  // Where this row sits in the extraction queue, derived from the same three
+  // facts the worker's claim query uses (see queueStateSql below).
+  queueState: QueueState;
+};
+
+// "none" = not in the queue at all (status is already ok/failed/unsupported).
+export type QueueState = "none" | "queued" | "running" | "retry-wait" | "stuck";
+
+export type ModelCoverage = {
+  model: string;
+  items: number;
+};
+
+export type IntelligenceOverview = {
+  totalItems: number;
+  rows: ContentOverviewRow[];
+  // The model searches currently filter on. Everything not on it is excluded
+  // from results until it re-embeds, so the page has to be able to say so.
+  activeModel: string;
+  // One entry per distinct stored model, so a mixed corpus is visible as a
+  // fact rather than inferred from a column of badges.
+  coverage: ModelCoverage[];
+};
+
+// Mirrors the worker's claim predicate exactly (lib/extract/worker.server.ts):
+// a pending row is claimable when it has attempts left and no live lease.
+// Claiming stamps next_retry_at = now() + LEASE_MINUTES, and a non-terminal
+// failure stamps it an hour or six out — so the distance into the future is
+// what separates "a worker is on it right now" from "waiting out a backoff".
+// Evaluated in SQL so it uses the database's clock, not the browser's.
+const queueStateSql = sql`
+  CASE
+    WHEN ic.status <> 'pending' THEN 'none'
+    WHEN ic.attempts >= ${MAX_ATTEMPTS} THEN 'stuck'
+    WHEN ic.next_retry_at IS NULL OR ic.next_retry_at < now() THEN 'queued'
+    WHEN ic.next_retry_at <= now() + make_interval(mins => ${LEASE_MINUTES})
+      THEN 'running'
+    ELSE 'retry-wait'
+  END`;
+
+export const getIntelligenceOverview = safeAction(
+  async function getIntelligenceOverview(): Promise<IntelligenceOverview> {
+    const activeModel = await getActiveModelId();
+    return withCurrentUser(async (tx, userId) => {
+      const [countRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(items)
+        .where(eq(items.userId, userId));
+
+      const coverageRaw = await tx.execute(sql`
+        SELECT COALESCE(embedding_model, '(none)') AS model,
+          count(*)::int AS items
+        FROM item_content
+        WHERE user_id = ${userId} AND embedding IS NOT NULL
+        GROUP BY 1 ORDER BY 2 DESC
+      `);
+      const coverage = z
+        .array(z.object({ model: z.string(), items: z.number() }))
+        .parse(Array.from(coverageRaw));
+
+      const raw = await tx.execute(sql`
+        SELECT ic.item_id, i.title AS item_title, i.url, ic.status, ic.source,
+          ic.extractor, ic.word_count, ic.attempts, ic.error,
+          ic.embedding_error, (ic.embedding IS NOT NULL) AS has_embedding,
+          ic.embedding_model,
+          -- Compared in SQL against the model this process is configured with,
+          -- so the flag can't drift from what the worker would actually do.
+          (ic.embedding IS NOT NULL AND ic.embedding_model IS DISTINCT FROM
+            ${activeModel}) AS stale_model,
+          COALESCE(c.chunk_count, 0)::int AS chunk_count,
+          ic.fetched_at::text AS fetched_at,
+          ic.next_retry_at::text AS next_retry_at,
+          ${queueStateSql} AS queue_state
+        FROM item_content ic
+        JOIN items i ON i.id = ic.item_id
+        LEFT JOIN (
+          SELECT item_id, count(*)::int AS chunk_count
+          FROM item_chunks WHERE user_id = ${userId} GROUP BY item_id
+        ) c ON c.item_id = ic.item_id
+        WHERE ic.user_id = ${userId}
+        ORDER BY ic.updated_at DESC
+      `);
+      const rows = z.array(overviewRowSchema).parse(Array.from(raw));
+      return {
+        totalItems: countRow?.count ?? 0,
+        activeModel,
+        coverage,
+        rows: rows.map((row) => ({
+          itemId: row.item_id,
+          itemTitle: row.item_title,
+          url: row.url,
+          status: row.status,
+          source: row.source,
+          extractor: row.extractor,
+          wordCount: row.word_count,
+          attempts: row.attempts,
+          error: row.error,
+          embeddingError: row.embedding_error,
+          hasEmbedding: row.has_embedding,
+          embeddingModel: row.embedding_model,
+          staleModel: row.stale_model,
+          chunkCount: row.chunk_count,
+          fetchedAt: row.fetched_at,
+          nextRetryAt: row.next_retry_at,
+          queueState: row.queue_state as QueueState,
+        })),
+      };
+    });
+  },
+  "Could not load the intelligence overview.",
+);
+
+export type ItemContentDetail = {
+  status: string;
+  source: string | null;
+  extractor: string | null;
+  title: string | null;
+  markdown: string | null;
+  wordCount: number | null;
+  error: string | null;
+  embeddingError: string | null;
+  hasEmbedding: boolean;
+  fetchedAt: string | null;
+} | null;
+
+export const getItemContent = safeAction(async function getItemContent(
+  itemId: string,
+): Promise<ItemContentDetail> {
+  parseInput(itemContentIdSchema, { itemId });
+  return withCurrentUser(async (tx, userId) => {
+    const [row] = await tx
+      .select({
+        status: itemContent.status,
+        source: itemContent.source,
+        extractor: itemContent.extractor,
+        title: itemContent.title,
+        markdown: itemContent.markdown,
+        wordCount: itemContent.wordCount,
+        error: itemContent.error,
+        embeddingError: itemContent.embeddingError,
+        // Same truth source as getIntelligenceOverview — the vector column
+        // itself, not embeddingModel — so one fact has one definition.
+        // Computed in SQL to avoid pulling the 1536-float vector over the wire.
+        hasEmbedding: sql<boolean>`${itemContent.embedding} IS NOT NULL`,
+        fetchedAt: itemContent.fetchedAt,
+      })
+      .from(itemContent)
+      .where(
+        and(eq(itemContent.itemId, itemId), eq(itemContent.userId, userId)),
+      )
+      .limit(1);
+    if (!row) return null;
+    return row;
+  });
+}, "Could not load item content.");
+
+// Chunks as they were actually stored — the text that was embedded and the
+// model it went out under. This is the ground truth behind a search hit, so
+// the detail drawer reads it rather than reconstructing chunks client-side.
+const chunkRowSchema = z.object({
+  chunk_index: z.number(),
+  text: z.string(),
+  model: z.string(),
+});
+
+export type ItemChunk = {
+  chunkIndex: number;
+  text: string;
+  model: string;
+};
+
+export const getItemChunks = safeAction(async function getItemChunks(
+  itemId: string,
+): Promise<ItemChunk[]> {
+  parseInput(itemContentIdSchema, { itemId });
+  return withCurrentUser(async (tx, userId) => {
+    const raw = await tx.execute(sql`
+      SELECT chunk_index, text, model
+      FROM item_chunks
+      WHERE item_id = ${itemId} AND user_id = ${userId}
+      ORDER BY chunk_index
+    `);
+    return z
+      .array(chunkRowSchema)
+      .parse(Array.from(raw))
+      .map((row) => ({
+        chunkIndex: row.chunk_index,
+        text: row.text,
+        model: row.model,
+      }));
+  });
+}, "Could not load chunks for this item.");
+
+// ---------------------------------------------------------------------------
+// Embedding model selection (app-global — see embedding-config.server.ts)
+// ---------------------------------------------------------------------------
+
+export const getEmbeddingSettings = safeAction(
+  async function getEmbeddingSettings(): Promise<EmbeddingConfig> {
+    await requireAuth();
+    return getEmbeddingConfig();
+  },
+  "Could not load the embedding settings.",
+);
+
+// Switching the model does not invalidate anything by itself: existing rows
+// keep their vectors and their stored model id, searches start filtering to
+// the new model, and the drain paths re-embed the stale rows in the
+// background (reembedMissing). That ordering is deliberate — nothing is
+// deleted, so a switch is reversible until the re-embed completes.
+export const updateEmbeddingSettings = safeAction(
+  async function updateEmbeddingSettings(
+    next: EmbeddingConfig,
+  ): Promise<EmbeddingConfig> {
+    await requireAuth();
+    const parsed = parseInput(embeddingConfigSchema, next);
+    try {
+      return await setEmbeddingConfig(parsed);
+    } catch (error) {
+      throw new ActionError(
+        error instanceof Error ? error.message : "Invalid embedding model.",
+      );
+    }
+  },
+  "Could not update the embedding settings.",
+);
+
+// ---------------------------------------------------------------------------
+// Pipeline controls
+// ---------------------------------------------------------------------------
+
+export const reextractItem = safeAction(async function reextractItem(
+  itemId: string,
+): Promise<ItemContentDetail> {
+  parseInput(itemContentIdSchema, { itemId });
+  await withCurrentUser(async (tx, userId) => {
+    await assertOwnedItem(tx, userId, itemId);
+    // Force a full re-run: clear the hash so unchanged content still rewrites
+    // (useful after extractor changes), and reset job state.
+    await enqueueItemContent(tx, userId, [itemId]);
+    await tx
+      .update(itemContent)
+      .set({ contentHash: null })
+      .where(
+        and(eq(itemContent.itemId, itemId), eq(itemContent.userId, userId)),
+      );
+  });
+  await processPendingContent(1, itemId);
+  // getItemContent is itself a safeAction, so this re-authenticates and opens
+  // a fresh transaction — accepted for this debug-page path.
+  return getItemContent(itemId);
+}, "Could not re-extract this item.");
+
+// Runs cross-user on the owner connection (deliberate — the queue is global;
+// backfillMyContent is the user-scoped entry point).
+export const processQueueBatch = safeAction(
+  async function processQueueBatch(): Promise<DrainResult> {
+    await requireAuth();
+    const result = await processPendingContent(10);
+    // Also nibble at embedding gaps (quota hits leave status ok, vector null).
+    await reembedMissing(3);
+    return result;
+  },
+  "Could not process the extraction queue.",
+);
+
+// Repairs rows whose extraction succeeded but embedding failed (status ok,
+// embedding NULL) — e.g. after a quota hit or transient embedding error.
+// Loops reembedMissing in small batches until it stops finding work or the
+// per-call cap is hit, so a single button click can clear a larger backlog.
+// Runs cross-user on the owner connection (deliberate; see processQueueBatch).
+const HEAL_BATCH = 5;
+const HEAL_MAX_EXAMINED = 50;
+export const retryMissingEmbeddings = safeAction(
+  async function retryMissingEmbeddings(): Promise<{ healed: number }> {
+    await requireAuth();
+    let healed = 0;
+    let examined = 0;
+    // Stop on an empty queue (`examined === 0`), not on an unproductive pass —
+    // a batch of rows that can never embed heals nothing but is still
+    // progress, and reembedMissing has moved them to the back of the queue.
+    // The examined cap bounds the work one click can do.
+    while (healed < 25 && examined < HEAL_MAX_EXAMINED) {
+      const pass = await reembedMissing(HEAL_BATCH);
+      if (pass.examined === 0) break;
+      healed += pass.healed;
+      examined += pass.examined;
+    }
+    return { healed };
+  },
+  "Could not retry missing embeddings.",
+);
+
+// Enqueue every item of the current user that has no content row yet, then
+// drain in the background. Deliberate action (debug page button) — this is
+// the "index my whole reading list" switch.
+export const backfillMyContent = safeAction(
+  async function backfillMyContent(): Promise<{ enqueued: number }> {
+    const enqueued = await withCurrentUser(async (tx, userId) => {
+      const raw = await tx.execute(sql`
+        INSERT INTO item_content (item_id, user_id, status, created_at, updated_at)
+        SELECT i.id, i.user_id, 'pending', now(), now()
+        FROM items i
+        WHERE i.user_id = ${userId}
+          AND NOT EXISTS (SELECT 1 FROM item_content ic WHERE ic.item_id = i.id)
+        RETURNING item_id
+      `);
+      return Array.from(raw).length;
+    });
+    if (enqueued > 0) drainAll();
+    return { enqueued };
+  },
+  "Could not start the backfill.",
+);
+
+export const reembedItem = safeAction(async function reembedItem(
+  itemId: string,
+): Promise<boolean> {
+  parseInput(itemContentIdSchema, { itemId });
+  await withCurrentUser((tx, userId) => assertOwnedItem(tx, userId, itemId));
+  return reembedFromStored(itemId);
+}, "Could not re-embed this item.");
+
+// ---------------------------------------------------------------------------
+// Live capture (the in-app viewer's write path)
+// ---------------------------------------------------------------------------
+
+// Accepts the rendered DOM from the viewer (Electron webview preload) and
+// runs the same readability → markdown step as the server fetch. Source
+// "live" takes precedence over server extractions.
+export const submitLiveContent = safeAction(
+  async function submitLiveContent(input: {
+    itemId: string;
+    url: string;
+    title?: string;
+    html: string;
+  }): Promise<{ ok: boolean; reason?: string }> {
+    const parsed = parseInput(submitLiveContentSchema, input);
+    const userId = await getCurrentUserId();
+
+    const prior = await withUser(userId, async (tx) => {
+      const [item] = await tx
+        .select({ id: items.id, url: items.url })
+        .from(items)
+        .where(and(eq(items.id, parsed.itemId), eq(items.userId, userId)))
+        .limit(1);
+      if (!item) throw new ActionError("Item not found.");
+      // Only accept captures of the item's own page — the viewer may navigate
+      // elsewhere, and those pages are not this item's content.
+      if (normalizeUrl(parsed.url) !== normalizeUrl(item.url)) {
+        return null;
+      }
+      await enqueueItemContent(tx, userId, [parsed.itemId]);
+      const [row] = await tx
+        .select({
+          source: itemContent.source,
+          contentHash: itemContent.contentHash,
+          embeddingModel: itemContent.embeddingModel,
+          hasEmbedding: sql<boolean>`(${itemContent.embedding} IS NOT NULL)`,
+        })
+        .from(itemContent)
+        .where(
+          and(
+            eq(itemContent.itemId, parsed.itemId),
+            eq(itemContent.userId, userId),
+          ),
+        )
+        .limit(1);
+      return row ?? null;
+    });
+    if (!prior) return { ok: false, reason: "url-mismatch" };
+
+    try {
+      const extraction = extractFromHtml(parsed.html, parsed.url);
+      await applyExtraction({
+        itemId: parsed.itemId,
+        userId,
+        extraction: {
+          ...extraction,
+          title: extraction.title ?? parsed.title ?? null,
+        },
+        source: "live",
+        prior: {
+          source: prior.source,
+          contentHash: prior.contentHash,
+          hasEmbedding: prior.hasEmbedding,
+          embeddingModel: prior.embeddingModel,
+        },
+      });
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof UnsupportedContentError) {
+        // Not an error worth surfacing — the page just isn't article-shaped.
+        // Fall back to whatever the server pipeline produced.
+        scheduleProcessing(parsed.itemId);
+        return { ok: false, reason: "not-readable" };
+      }
+      throw error;
+    }
+  },
+  "Could not save captured content.",
+);

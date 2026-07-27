@@ -1,6 +1,10 @@
+// Item "⋯" dropdown and right-click context menu: shared menu items (open/
+// copy/review/read-state/delete), the per-item review submenu, and the shared
+// shell wiring (open-state mirror + copy auto-close) via useItemMenuShell.
 import {
   IconAppWindow,
   IconArrowUpRight,
+  IconArticle,
   IconBolt,
   IconCalendarDue,
   IconCards,
@@ -22,8 +26,8 @@ import React from "react";
 import { getItemReviewStatus, type ReviewMode } from "@/app/actions";
 import { IconClaude } from "@/components/ui/claude-icon";
 import {
-  ContextMenuContent,
   ContextMenu as ContextMenuRoot,
+  ContextMenuContent,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -48,8 +52,10 @@ import {
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
+import { dispatchReadItem } from "@/lib/panel-events";
 import { type Item } from "@/lib/types";
 import { useIsElectron } from "@/lib/use-is-electron";
+
 import { Button } from "../ui/button";
 import { ReviewConfirmDialog } from "./review-confirm-dialog";
 import { useStartReview } from "./use-start-review";
@@ -206,24 +212,26 @@ const ItemReviewDialog = ({ review }: { review: ItemReviewState }) => (
   />
 );
 
+type CopyTarget = "id" | "title" | "notes";
+
 // Internal hook returning the action handlers + visible-state needed to render
 // the menu items. Used by both ItemDropdown and ItemContextMenu so the copy
 // feedback behaviour stays consistent across both entry points.
 const useItemMenuActions = ({ item }: { item: Item }) => {
   const isElectron = useIsElectron();
-  const [lastCopied, setLastCopied] = React.useState<string | null>(null);
+  const [lastCopied, setLastCopied] = React.useState<CopyTarget | null>(null);
   const [copyTriggered, setCopyTriggered] = React.useState(false);
 
   const handleCopyId = React.useCallback(() => {
     navigator.clipboard.writeText(item.id);
-    setLastCopied("__id__");
+    setLastCopied("id");
     setTimeout(() => setLastCopied(null), 2000);
     setCopyTriggered(true);
   }, [item.id]);
 
   const handleCopyTitle = React.useCallback(() => {
     navigator.clipboard.writeText(item.title);
-    setLastCopied("__title__");
+    setLastCopied("title");
     setTimeout(() => setLastCopied(null), 2000);
     setCopyTriggered(true);
   }, [item.title]);
@@ -231,7 +239,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
   const handleCopyNotes = React.useCallback(() => {
     if (!item.notes) return;
     navigator.clipboard.writeText(stripBlankLineSentinel(item.notes));
-    setLastCopied("__notes__");
+    setLastCopied("notes");
     setTimeout(() => setLastCopied(null), 2000);
     setCopyTriggered(true);
   }, [item.notes]);
@@ -261,6 +269,13 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     openChatWithClaude(item);
   }, [item]);
 
+  // "Read in app" opens the reading panel beside the item's content, in
+  // whichever layout is hosting us — PanelLayout in the main window,
+  // ItemWindow in a dedicated one. Both subscribe.
+  const handleReadInApp = React.useCallback(() => {
+    dispatchReadItem(item.id);
+  }, [item.id]);
+
   const canOpenUrl = !!item.url && URL.canParse(item.url);
   const hasNotes =
     !!item.notes && stripBlankLineSentinel(item.notes).trim().length > 0;
@@ -277,6 +292,7 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     handleOpenInNewWindow,
     handleOpenInApp,
     handleChatWithClaude,
+    handleReadInApp,
     inItemWindow,
     handleOpenInList,
     canOpenUrl,
@@ -284,32 +300,98 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
   };
 };
 
+// Everything ItemMenuItems needs, bundled as one object: the caller-provided
+// toggle/delete callbacks, the shared menu action handlers, and review state.
+type ItemMenuState = ItemMenuActionsProps &
+  ReturnType<typeof useItemMenuActions> & { review: ItemReviewState };
+
+// Shared shell wiring for both menu entry points: mirrors the open state
+// (some call sites leave the menu uncontrolled, but the review submenu needs
+// to know when it opens to lazily fetch counts), resets the copy flag on
+// close, and runs the copy auto-close timer.
+const useItemMenuShell = ({
+  item,
+  open,
+  onOpenChange,
+}: {
+  item: Item;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) => {
+  const actions = useItemMenuActions({ item });
+
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isOpen = open ?? internalOpen;
+  const handleOpenChange = React.useCallback(
+    (next: boolean) => {
+      setInternalOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
+
+  React.useEffect(() => {
+    if (!isOpen) actions.setCopyTriggered(false);
+  }, [isOpen, actions]);
+
+  useAutoCloseAfterCopy({
+    open: isOpen,
+    copyTriggered: actions.copyTriggered,
+    onClose: () => handleOpenChange(false),
+  });
+
+  return { actions, isOpen, handleOpenChange };
+};
+
+const CopyMenuItem = ({
+  showCopied,
+  onCopy,
+  label,
+}: {
+  showCopied: boolean;
+  onCopy: () => void;
+  label: string;
+}) => (
+  <Tooltip open={showCopied}>
+    <TooltipTrigger
+      render={
+        <DropdownMenuItem closeOnClick={false} onClick={onCopy}>
+          <IconCopy />
+          {label}
+        </DropdownMenuItem>
+      }
+    />
+    <TooltipContent side="right">Copied</TooltipContent>
+  </Tooltip>
+);
+
 // Renders just the menu items (no Root/Popup/Content wrapper). Both the
 // dropdown and context-menu wrappers use the same MenuPrimitive.Item under
 // the hood (ContextMenuRoot creates Menu.Root internally), so DropdownMenu*
 // items render correctly inside either context.
-const ItemMenuItems = ({
-  item,
-  review,
-  isElectron,
-  canOpenUrl,
-  hasNotes,
-  lastCopied,
-  handleOpenInNewTab,
-  handleOpenInNewWindow,
-  handleOpenInApp,
-  handleChatWithClaude,
-  inItemWindow,
-  handleOpenInList,
-  handleCopyId,
-  handleCopyTitle,
-  handleCopyNotes,
-  onTogglePin,
-  onToggleRead,
-  onToggleHiddenFromReview,
-  onDelete,
-}: ItemMenuActionsProps &
-  ReturnType<typeof useItemMenuActions> & { review: ItemReviewState }) => {
+const ItemMenuItems = ({ actions }: { actions: ItemMenuState }) => {
+  const {
+    item,
+    review,
+    isElectron,
+    canOpenUrl,
+    hasNotes,
+    lastCopied,
+    handleOpenInNewTab,
+    handleOpenInNewWindow,
+    handleOpenInApp,
+    handleChatWithClaude,
+    handleReadInApp,
+    inItemWindow,
+    handleOpenInList,
+    handleCopyId,
+    handleCopyTitle,
+    handleCopyNotes,
+    onTogglePin,
+    onToggleRead,
+    onToggleHiddenFromReview,
+    onDelete,
+  } = actions;
   const isRead = item.read;
   const isHiddenFromReview = item.hiddenFromReview;
 
@@ -317,6 +399,12 @@ const ItemMenuItems = ({
     <>
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
+      )}
+      {canOpenUrl && (
+        <DropdownMenuItem onClick={handleReadInApp}>
+          <IconArticle />
+          Read in app
+        </DropdownMenuItem>
       )}
       {inItemWindow ? (
         <DropdownMenuItem onClick={handleOpenInList}>
@@ -347,46 +435,22 @@ const ItemMenuItems = ({
           Copy
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
-          <Tooltip open={lastCopied === "__title__"}>
-            <TooltipTrigger
-              render={
-                <DropdownMenuItem
-                  closeOnClick={false}
-                  onClick={handleCopyTitle}
-                >
-                  <IconCopy />
-                  Copy title
-                </DropdownMenuItem>
-              }
-            />
-            <TooltipContent side="right">Copied</TooltipContent>
-          </Tooltip>
-          <Tooltip open={lastCopied === "__id__"}>
-            <TooltipTrigger
-              render={
-                <DropdownMenuItem closeOnClick={false} onClick={handleCopyId}>
-                  <IconCopy />
-                  Copy ID
-                </DropdownMenuItem>
-              }
-            />
-            <TooltipContent side="right">Copied</TooltipContent>
-          </Tooltip>
+          <CopyMenuItem
+            showCopied={lastCopied === "title"}
+            onCopy={handleCopyTitle}
+            label="Copy title"
+          />
+          <CopyMenuItem
+            showCopied={lastCopied === "id"}
+            onCopy={handleCopyId}
+            label="Copy ID"
+          />
           {hasNotes && (
-            <Tooltip open={lastCopied === "__notes__"}>
-              <TooltipTrigger
-                render={
-                  <DropdownMenuItem
-                    closeOnClick={false}
-                    onClick={handleCopyNotes}
-                  >
-                    <IconCopy />
-                    Copy notes as Markdown
-                  </DropdownMenuItem>
-                }
-              />
-              <TooltipContent side="right">Copied</TooltipContent>
-            </Tooltip>
+            <CopyMenuItem
+              showCopied={lastCopied === "notes"}
+              onCopy={handleCopyNotes}
+              label="Copy notes as Markdown"
+            />
           )}
         </DropdownMenuSubContent>
       </DropdownMenuSub>
@@ -487,42 +551,17 @@ export const ItemDropdown = ({
   onToggleHiddenFromReview,
   onDelete,
   children,
-}: {
-  item: Item;
+}: ItemMenuActionsProps & {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onTogglePin?: () => void;
-  onToggleRead?: () => void;
-  onToggleHiddenFromReview?: () => void;
-  onDelete?: () => void;
   children: React.ReactNode;
 }) => {
-  const actions = useItemMenuActions({ item });
-
-  // Some call sites leave the dropdown uncontrolled (no `open` prop), but the
-  // review submenu needs to know when the menu opens to lazily fetch counts —
-  // so mirror the open state internally and resolve to whichever is in charge.
-  const [internalOpen, setInternalOpen] = React.useState(false);
-  const isOpen = open ?? internalOpen;
-  const handleOpenChange = React.useCallback(
-    (next: boolean) => {
-      setInternalOpen(next);
-      onOpenChange?.(next);
-    },
-    [onOpenChange],
-  );
-
-  const review = useItemReview({ item, menuOpen: isOpen });
-
-  React.useEffect(() => {
-    if (!isOpen) actions.setCopyTriggered(false);
-  }, [isOpen, actions]);
-
-  useAutoCloseAfterCopy({
-    open: isOpen,
-    copyTriggered: actions.copyTriggered,
-    onClose: () => handleOpenChange(false),
+  const { actions, isOpen, handleOpenChange } = useItemMenuShell({
+    item,
+    open,
+    onOpenChange,
   });
+  const review = useItemReview({ item, menuOpen: isOpen });
 
   const handleStopPropagation = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -538,13 +577,15 @@ export const ItemDropdown = ({
           onClick={handleStopPropagation}
         >
           <ItemMenuItems
-            item={item}
-            review={review}
-            onTogglePin={onTogglePin}
-            onToggleRead={onToggleRead}
-            onToggleHiddenFromReview={onToggleHiddenFromReview}
-            onDelete={onDelete}
-            {...actions}
+            actions={{
+              ...actions,
+              item,
+              review,
+              onTogglePin,
+              onToggleRead,
+              onToggleHiddenFromReview,
+              onDelete,
+            }}
           />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -562,12 +603,7 @@ export const ItemContextMenu = ({
   onOpenChange,
   bulkContent,
   children,
-}: {
-  item: Item;
-  onTogglePin?: () => void;
-  onToggleRead?: () => void;
-  onToggleHiddenFromReview?: () => void;
-  onDelete?: () => void;
+}: ItemMenuActionsProps & {
   onOpenChange?: (open: boolean) => void;
   // When set, the menu shows these bulk-selection actions instead of the
   // single-item ones (ItemRow passes them while the row is part of a
@@ -575,42 +611,28 @@ export const ItemContextMenu = ({
   bulkContent?: React.ReactNode;
   children: React.ReactNode;
 }) => {
-  const [open, setOpenState] = React.useState(false);
-  const actions = useItemMenuActions({ item });
-  const review = useItemReview({ item, menuOpen: open && !bulkContent });
-
-  const setOpen = React.useCallback(
-    (next: boolean) => {
-      setOpenState(next);
-      onOpenChange?.(next);
-    },
-    [onOpenChange],
-  );
-
-  React.useEffect(() => {
-    if (!open) actions.setCopyTriggered(false);
-  }, [open, actions]);
-
-  useAutoCloseAfterCopy({
-    open,
-    copyTriggered: actions.copyTriggered,
-    onClose: () => setOpen(false),
+  const { actions, isOpen, handleOpenChange } = useItemMenuShell({
+    item,
+    onOpenChange,
   });
+  const review = useItemReview({ item, menuOpen: isOpen && !bulkContent });
 
   return (
     <>
-      <ContextMenuRoot open={open} onOpenChange={setOpen}>
+      <ContextMenuRoot open={isOpen} onOpenChange={handleOpenChange}>
         {children}
         <ContextMenuContent>
           {bulkContent ?? (
             <ItemMenuItems
-              item={item}
-              review={review}
-              onTogglePin={onTogglePin}
-              onToggleRead={onToggleRead}
-              onToggleHiddenFromReview={onToggleHiddenFromReview}
-              onDelete={onDelete}
-              {...actions}
+              actions={{
+                ...actions,
+                item,
+                review,
+                onTogglePin,
+                onToggleRead,
+                onToggleHiddenFromReview,
+                onDelete,
+              }}
             />
           )}
         </ContextMenuContent>

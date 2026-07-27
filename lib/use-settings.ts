@@ -1,12 +1,12 @@
-import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import React from "react";
 
 import { getSettings, updateSettings } from "@/app/actions";
 import {
   DEFAULT_SETTINGS,
-  SETTINGS_STORAGE_KEY,
   parseSettings,
   type Settings,
+  SETTINGS_STORAGE_KEY,
   type SettingsPatch,
 } from "@/lib/settings";
 
@@ -116,5 +116,5 @@ export const useSettings = () => {
     [queryClient, flush],
   );
 
-  return { settings, setSetting };
+  return { settings, setSetting, flushSettings: flush };
 };

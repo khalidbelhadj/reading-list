@@ -13,7 +13,9 @@
 //   - Snapshots pre-migration notes to a JSON file for rollback
 //     (`--rollback <file>` restores them).
 import "@/lib/env";
-import { writeFileSync, readFileSync } from "node:fs";
+
+import { readFileSync, writeFileSync } from "node:fs";
+
 import postgres from "postgres";
 
 import { parseCardsFromNotes } from "@/lib/card-parse";

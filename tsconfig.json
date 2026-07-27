@@ -23,8 +23,6 @@
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": [
     "node_modules",
-    "backend",
-    "frontend",
     "electron",
     "dist-electron",
     ".output",

@@ -1,5 +1,5 @@
-import { SessionSummaryView } from "@/components/review/review-session";
 import type { SessionSummary } from "@/app/actions";
+import { SessionSummaryView } from "@/components/review/session-summary";
 
 // Dev-only route to iterate on the session summary screen without having to
 // complete a real review. Match a row pattern by tweaking the stub below.

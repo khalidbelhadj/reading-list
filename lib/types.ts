@@ -1,4 +1,4 @@
-import type { items, tags, flashcards } from "@/db/schema";
+import type { flashcards, items, tags } from "@/db/schema";
 
 // DB-level types (source of truth)
 export type DbItem = typeof items.$inferSelect;

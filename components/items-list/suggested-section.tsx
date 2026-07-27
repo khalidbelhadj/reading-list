@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/context-menu";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { type Item } from "@/lib/types";
+import { useWindowResize } from "@/lib/use-window-resize";
 import { cn } from "@/lib/utils";
 
 import { ItemContextMenu, ItemContextMenuTrigger } from "./item-dropdown";
@@ -46,21 +47,38 @@ export const SuggestedSection = ({
   const [atStart, setAtStart] = React.useState(true);
   const [atEnd, setAtEnd] = React.useState(true);
 
+  // rAF-coalesced: scroll/resize fire at 60Hz+, so instead of a setState per
+  // event we schedule at most one pending frame that reads layout and applies
+  // the latest fade state.
+  const fadeFrameRef = React.useRef<number | null>(null);
   const updateFades = React.useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    setAtStart(scrollLeft <= 0);
-    // 1px slack absorbs sub-pixel rounding at the far edge.
-    setAtEnd(scrollLeft >= scrollWidth - clientWidth - 1);
+    if (fadeFrameRef.current !== null) return;
+    fadeFrameRef.current = requestAnimationFrame(() => {
+      fadeFrameRef.current = null;
+      const el = scrollRef.current;
+      if (!el) return;
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setAtStart(scrollLeft <= 0);
+      // 1px slack absorbs sub-pixel rounding at the far edge.
+      setAtEnd(scrollLeft >= scrollWidth - clientWidth - 1);
+    });
   }, []);
 
+  // Follow viewport resizes that alter how much fits on screen. Registered
+  // sync because updateFades already rAF-coalesces internally (the same
+  // scheduler serves the scroll handler and the items-change effect below).
+  useWindowResize(updateFades, { mode: "sync" });
+
   // Recompute on mount and whenever the item set (and thus content width)
-  // changes; also follow viewport resizes that alter how much fits on screen.
+  // changes.
   React.useEffect(() => {
     updateFades();
-    window.addEventListener("resize", updateFades);
-    return () => window.removeEventListener("resize", updateFades);
+    return () => {
+      if (fadeFrameRef.current !== null) {
+        cancelAnimationFrame(fadeFrameRef.current);
+        fadeFrameRef.current = null;
+      }
+    };
   }, [updateFades, items]);
 
   if (items.length === 0) return null;

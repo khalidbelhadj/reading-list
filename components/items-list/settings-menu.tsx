@@ -1,21 +1,22 @@
+// The list toolbar's settings dropdown: view options (show read/suggestions/
+// tags, group/sort/density/theme), export, and the account submenu. Pure
+// settings *writes* — the global theme/full-width effects live in
+// components/settings-effects.tsx.
 import {
   IconAppWindow,
   IconArrowsMaximize,
   IconArrowsSort,
+  IconBrain,
   IconBulb,
   IconCalendar,
-  IconCheck,
   IconCircleOff,
-  IconCopy,
   IconDeviceDesktop,
-  IconDevices,
   IconDownload,
   IconEye,
   IconFilter,
   IconLayoutList,
   IconList,
   IconListDetails,
-  IconLogout,
   IconMoon,
   IconPalette,
   IconSortAscending,
@@ -23,26 +24,14 @@ import {
   IconSun,
   IconTag,
 } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
-import { logout } from "@/app/logout/actions";
-import { broadcastSignOut } from "@/lib/auth-broadcast";
 import { type GroupBy, type SortBy } from "@/components/items-list/use-filters";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -52,9 +41,10 @@ import {
   DropdownMenuSwitchItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { defaultCsvFilename, downloadItemsCsv } from "@/lib/csv-export";
-import { useCurrentUser } from "@/lib/use-current-user";
 import { useSettings } from "@/lib/use-settings";
+
+import { AccountMenu } from "./account-menu";
+import { ExportCsvDialog } from "./export-csv-dialog";
 
 type ThemeKey = "system" | "light" | "dark";
 
@@ -71,14 +61,6 @@ const THEME_ICONS: Record<
   system: IconDeviceDesktop,
   light: IconSun,
   dark: IconMoon,
-};
-
-const applyTheme = (theme: ThemeKey) => {
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.classList.toggle("dark", isDark);
 };
 
 const GROUP_BY_LABELS: Record<GroupBy, string> = {
@@ -120,8 +102,7 @@ export const SettingsMenu = ({
   hasTags: boolean;
   trigger: React.ReactElement;
 }) => {
-  const queryClient = useQueryClient();
-  const { data: user } = useCurrentUser();
+  const navigate = useNavigate();
   const { settings, setSetting } = useSettings();
   const {
     theme,
@@ -134,41 +115,9 @@ export const SettingsMenu = ({
     tagsOpen,
     reviewsInNewWindow,
   } = settings;
-  const email = user?.email ?? null;
-  const userId = user?.id ?? null;
-  const fullName =
-    (user?.user_metadata?.full_name as string) ??
-    (user?.user_metadata?.name as string) ??
-    null;
-  const initials = fullName
-    ? fullName
-        .split(" ")
-        .map((w: string) => w[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : null;
   const [mounted, setMounted] = React.useState(false);
   const [isElectron, setIsElectron] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
-  const [copiedUserId, setCopiedUserId] = React.useState(false);
-  const [exportFilename, setExportFilename] =
-    React.useState(defaultCsvFilename());
-
-  const logoutMutation = useMutation({
-    mutationFn: async (scope: "local" | "global") => {
-      // Signal this user's other devices before revoking, so they redirect in
-      // near-real-time instead of waiting for their next token refresh.
-      if (scope === "global") await broadcastSignOut();
-      await logout(scope);
-    },
-    onSuccess: () => {
-      queryClient.clear();
-      // Hard navigation out of the SPA — /login is a native Next route, and a
-      // full reload guarantees all client caches are cleared post-logout.
-      window.location.replace("/login");
-    },
-  });
 
   const handleThemeChange = React.useCallback(
     (value: string) => setSetting("theme", value as ThemeKey),
@@ -176,56 +125,12 @@ export const SettingsMenu = ({
   );
 
   const openExport = React.useCallback(() => {
-    setExportFilename(defaultCsvFilename());
     setExportOpen(true);
   }, []);
 
-  const handleExport = React.useCallback(() => {
-    const trimmed = exportFilename.trim();
-    if (!trimmed) return;
-    downloadItemsCsv(queryClient, trimmed);
-    setExportOpen(false);
-  }, [queryClient, exportFilename]);
-
-  const handleCopyUserId = React.useCallback(() => {
-    if (!userId) return;
-    navigator.clipboard.writeText(userId);
-    setCopiedUserId(true);
-    setTimeout(() => setCopiedUserId(false), 2000);
-  }, [userId]);
-
-  const handleLogout = React.useCallback(() => {
-    logoutMutation.mutate("local");
-  }, [logoutMutation]);
-
-  const handleLogoutEverywhere = React.useCallback(() => {
-    logoutMutation.mutate("global");
-  }, [logoutMutation]);
-
-  const handleExportFilenameChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      const stripped = value.toLowerCase().endsWith(".csv")
-        ? value.slice(0, -4)
-        : value;
-      setExportFilename(stripped);
-    },
-    [],
-  );
-
-  const handleExportKeyDown = React.useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleExport();
-      }
-    },
-    [handleExport],
-  );
-
-  const handleCancelExport = React.useCallback(() => {
-    setExportOpen(false);
-  }, []);
+  const handleNavigateToIntelligence = React.useCallback(() => {
+    void navigate({ to: "/debug/intelligence" });
+  }, [navigate]);
 
   const handleTagsOpenChange = React.useCallback(
     (checked: boolean) => setSetting("tagsOpen", checked),
@@ -272,21 +177,6 @@ export const SettingsMenu = ({
     setMounted(true);
     setIsElectron(document.documentElement.classList.contains("electron"));
   }, []);
-
-  // Apply theme to <html>. Watches both settings.theme and the system dark
-  // media query so "system" tracks OS changes without a manual toggle.
-  React.useEffect(() => {
-    applyTheme(theme);
-    if (theme !== "system") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => applyTheme("system");
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [theme]);
-
-  React.useEffect(() => {
-    document.documentElement.classList.toggle("full-width", fullWidth);
-  }, [fullWidth]);
 
   return (
     <DropdownMenu>
@@ -423,76 +313,14 @@ export const SettingsMenu = ({
           <IconDownload />
           Export as CSV
         </DropdownMenuItem>
-        {mounted && (fullName || email) && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <span className="flex items-center gap-2">
-                {initials && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-                    {initials}
-                  </span>
-                )}
-                {fullName ?? email}
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {email && (
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-                    {email}
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
-              )}
-              {userId && (
-                <DropdownMenuItem
-                  closeOnClick={false}
-                  onClick={handleCopyUserId}
-                >
-                  {copiedUserId ? <IconCheck /> : <IconCopy />}
-                  {copiedUserId ? "Copied" : "Copy user ID"}
-                </DropdownMenuItem>
-              )}
-              {(email || userId) && <DropdownMenuSeparator />}
-              <DropdownMenuItem onClick={handleLogout}>
-                <IconLogout />
-                Log out
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogoutEverywhere}>
-                <IconDevices />
-                Log out everywhere
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
+        <DropdownMenuItem onClick={handleNavigateToIntelligence}>
+          <IconBrain />
+          Intelligence
+        </DropdownMenuItem>
+        <AccountMenu />
       </DropdownMenuContent>
 
-      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Export as CSV</DialogTitle>
-          </DialogHeader>
-          <div className="flex h-8 items-center rounded-md bg-card px-2 ring-1 ring-foreground/10 focus-within:ring-foreground/25">
-            <input
-              autoFocus
-              value={exportFilename}
-              onChange={handleExportFilenameChange}
-              onKeyDown={handleExportKeyDown}
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none"
-            />
-            <span className="pl-1 text-xs text-muted-foreground/60 select-none">
-              .csv
-            </span>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelExport}>
-              Cancel
-            </Button>
-            <Button onClick={handleExport} disabled={!exportFilename.trim()}>
-              Export
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExportCsvDialog open={exportOpen} onOpenChange={setExportOpen} />
     </DropdownMenu>
   );
 };

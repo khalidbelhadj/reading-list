@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { bulkDeleteItems, bulkMarkRead, bulkSetPinned } from "@/app/actions";
+import { bulkDeleteItems, bulkMarkRead, bulkSetStarred } from "@/app/actions";
 import { type Item } from "@/lib/types";
+
 import { useInvalidateItems } from "./use-invalidate-items";
 
 // The bulk action schemas cap each call at 100 ids — a select-all can exceed
@@ -59,7 +60,7 @@ export const useBulkMutations = () => {
       itemIds: string[];
       starred: boolean;
     }) =>
-      Promise.all(chunked(itemIds).map((ids) => bulkSetPinned(ids, starred))),
+      Promise.all(chunked(itemIds).map((ids) => bulkSetStarred(ids, starred))),
     onMutate: ({ itemIds, starred }) => {
       const ids = new Set(itemIds);
       return applyOptimistic((item) =>

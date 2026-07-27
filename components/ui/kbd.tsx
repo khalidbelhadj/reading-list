@@ -27,12 +27,12 @@ const kbdVariants = cva(
   },
 );
 
-function Kbd({
+const Kbd = ({
   className,
   variant,
   size,
   ...props
-}: React.ComponentProps<"kbd"> & VariantProps<typeof kbdVariants>) {
+}: React.ComponentProps<"kbd"> & VariantProps<typeof kbdVariants>) => {
   return (
     <kbd
       data-slot="kbd"
@@ -40,9 +40,9 @@ function Kbd({
       {...props}
     />
   );
-}
+};
 
-function KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
+const KbdGroup = ({ className, ...props }: React.ComponentProps<"div">) => {
   return (
     <kbd
       data-slot="kbd-group"
@@ -50,6 +50,6 @@ function KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     />
   );
-}
+};
 
 export { Kbd, KbdGroup, kbdVariants };

@@ -1,4 +1,6 @@
-import { findCardClose, extractSideRaw } from "@/lib/card-parse";
+import { describe, expect, it } from "bun:test";
+
+import { extractSideRaw, findCardClose } from "@/lib/card-parse";
 
 describe("findCardClose", () => {
   const at = (lines: string[]) => (i: number) => lines[i];
