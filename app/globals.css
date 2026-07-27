@@ -315,6 +315,15 @@ html.electron .panel-toolbar.electron-top-bar-inset {
   padding-left: var(--traffic-clearance);
 }
 
+/* The clearance above ends roughly where the dots end, which reads fine when
+   the first thing in the bar is a button (its own padding supplies the gap)
+   but leaves a *text* first child sitting flush against the last dot. Opt in
+   with this class on any toolbar that starts with text. Scoped to .electron
+   so web keeps the plain px-4 start. */
+html.electron .electron-top-bar-text-start.electron-top-bar-inset {
+  padding-left: calc(var(--traffic-clearance) + 0.75rem);
+}
+
 html.electron .electron-top-bar-inset button,
 html.electron .electron-top-bar-inset a,
 html.electron .electron-top-bar-inset input,

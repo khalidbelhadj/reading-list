@@ -29,6 +29,7 @@ export const FACET_COLUMNS = [
   "source",
   "extractor",
   "hasEmbedding",
+  "embeddingModel",
   "hasError",
 ] as const;
 
@@ -38,6 +39,7 @@ export const FACET_LABELS: Record<(typeof FACET_COLUMNS)[number], string> = {
   source: "Source",
   extractor: "Extractor",
   hasEmbedding: "Embedding",
+  embeddingModel: "Model",
   hasError: "Error",
 };
 
@@ -66,6 +68,18 @@ const Nullable = ({ value }: { value: string | number | null }) =>
     <span className="text-muted-foreground/50">—</span>
   ) : (
     <>{value}</>
+  );
+
+// Numeric cells (words, chunks, attempts) read as counts, so they get the
+// same badge treatment as the header's tallies. Zero stays a dash — a badge
+// reading "0" is louder than the absence it represents.
+const CountBadge = ({ value }: { value: number | null }) =>
+  value === null || value === 0 ? (
+    <Nullable value={null} />
+  ) : (
+    <Badge variant="secondary" className="tabular-nums">
+      {value.toLocaleString()}
+    </Badge>
   );
 
 const mono = "font-mono text-xs";
@@ -209,19 +223,13 @@ export const intelligenceColumns: ColumnDef<IntelligenceRow>[] = [
     accessorKey: "wordCount",
     header: "Words",
     size: 90,
-    cell: ({ getValue }) => (
-      <span className={cn(mono, "tabular-nums")}>
-        <Nullable value={getValue<number | null>()} />
-      </span>
-    ),
+    cell: ({ getValue }) => <CountBadge value={getValue<number | null>()} />,
   },
   {
     accessorKey: "chunkCount",
     header: "Chunks",
     size: 90,
-    cell: ({ getValue }) => (
-      <span className={cn(mono, "tabular-nums")}>{getValue<number>()}</span>
-    ),
+    cell: ({ getValue }) => <CountBadge value={getValue<number>()} />,
   },
   {
     // Boolean facets read better as words than as checkmarks, and the filter
@@ -234,12 +242,34 @@ export const intelligenceColumns: ColumnDef<IntelligenceRow>[] = [
     cell: ({ getValue }) => <span className={mono}>{getValue<string>()}</span>,
   },
   {
+    // The model the stored vector was produced with. Vectors from different
+    // models are never compared, so a row whose model no longer matches the
+    // configured one is due for re-embedding — flag that rather than making
+    // the reader diff two strings by eye.
+    accessorKey: "embeddingModel",
+    header: "Model",
+    size: 200,
+    filterFn: "arrIncludesSome",
+    cell: ({ getValue, row }) => {
+      const model = getValue<string | null>();
+      if (!model) return <Nullable value={null} />;
+      return (
+        <span className="inline-flex items-center gap-1">
+          <Badge variant="outline" className={mono}>
+            {model}
+          </Badge>
+          {row.original.staleModel && (
+            <Badge variant="destructive">stale</Badge>
+          )}
+        </span>
+      );
+    },
+  },
+  {
     accessorKey: "attempts",
     header: "Attempts",
     size: 100,
-    cell: ({ getValue }) => (
-      <span className={cn(mono, "tabular-nums")}>{getValue<number>()}</span>
-    ),
+    cell: ({ getValue }) => <CountBadge value={getValue<number>()} />,
   },
   {
     accessorKey: "fetchedAt",

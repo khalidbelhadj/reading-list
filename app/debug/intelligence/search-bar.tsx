@@ -16,6 +16,8 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 
+import { Stat } from "./stat";
+
 export type SearchTuning = {
   // Drop hits below this cosine similarity. Embeddings rarely score below
   // ~0.2 for unrelated text, so the useful band is roughly 0.2–0.6.
@@ -71,14 +73,15 @@ export const SearchBar = ({
   tuning,
   onTuningChange,
   searching,
-  resultSummary,
+  results,
 }: {
   query: string;
   onQueryChange: (query: string) => void;
   tuning: SearchTuning;
   onTuningChange: (tuning: SearchTuning) => void;
   searching: boolean;
-  resultSummary: string | null;
+  // Null while there's no settled search to report on.
+  results: { items: number; chunks: number } | null;
 }) => {
   // Local draft so typing doesn't fire an embedding call per keystroke —
   // the query commits on Enter (each search costs a provider round-trip).
@@ -150,9 +153,10 @@ export const SearchBar = ({
           </div>
         </PopoverContent>
       </Popover>
-      {resultSummary && (
-        <span className="font-mono text-xs text-muted-foreground">
-          {resultSummary}
+      {results && (
+        <span className="flex items-center gap-1.5">
+          <Stat label="items" value={results.items} />
+          <Stat label="chunks" value={results.chunks} />
         </span>
       )}
     </div>

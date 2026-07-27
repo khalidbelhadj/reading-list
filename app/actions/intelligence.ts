@@ -12,7 +12,11 @@ import {
   requireAuth,
   withCurrentUser,
 } from "@/lib/db-helpers.server";
-import { embedQuery, toVectorLiteral } from "@/lib/extract/embed.server";
+import {
+  EMBEDDING_MODEL,
+  embedQuery,
+  toVectorLiteral,
+} from "@/lib/extract/embed.server";
 import {
   extractFromHtml,
   UnsupportedContentError,
@@ -56,6 +60,8 @@ const overviewRowSchema = z.object({
   error: z.string().nullable(),
   embedding_error: z.string().nullable(),
   has_embedding: z.boolean(),
+  embedding_model: z.string().nullable(),
+  stale_model: z.boolean(),
   chunk_count: z.number(),
   fetched_at: z.string().nullable(),
   next_retry_at: z.string().nullable(),
@@ -74,6 +80,13 @@ export type ContentOverviewRow = {
   error: string | null;
   embeddingError: string | null;
   hasEmbedding: boolean;
+  // The model the stored vector was produced with. Vectors from different
+  // models are never compared, so this is what decides whether the worker
+  // re-embeds a row whose content hasn't changed (see applyExtraction).
+  embeddingModel: string | null;
+  // embeddingModel differs from the model the app is currently configured to
+  // use — this row's vector is due to be replaced on its next pass.
+  staleModel: boolean;
   chunkCount: number;
   fetchedAt: string | null;
   nextRetryAt: string | null;
@@ -118,6 +131,11 @@ export const getIntelligenceOverview = safeAction(
         SELECT ic.item_id, i.title AS item_title, i.url, ic.status, ic.source,
           ic.extractor, ic.word_count, ic.attempts, ic.error,
           ic.embedding_error, (ic.embedding IS NOT NULL) AS has_embedding,
+          ic.embedding_model,
+          -- Compared in SQL against the model this process is configured with,
+          -- so the flag can't drift from what the worker would actually do.
+          (ic.embedding IS NOT NULL AND ic.embedding_model IS DISTINCT FROM
+            ${EMBEDDING_MODEL}) AS stale_model,
           COALESCE(c.chunk_count, 0)::int AS chunk_count,
           ic.fetched_at::text AS fetched_at,
           ic.next_retry_at::text AS next_retry_at,
@@ -146,6 +164,8 @@ export const getIntelligenceOverview = safeAction(
           error: row.error,
           embeddingError: row.embedding_error,
           hasEmbedding: row.has_embedding,
+          embeddingModel: row.embedding_model,
+          staleModel: row.stale_model,
           chunkCount: row.chunk_count,
           fetchedAt: row.fetched_at,
           nextRetryAt: row.next_retry_at,

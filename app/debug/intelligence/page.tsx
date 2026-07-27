@@ -27,6 +27,7 @@ import {
   retryMissingEmbeddings,
   semanticSearch,
 } from "@/app/actions";
+import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ import {
 import { FilterSidebar, type PipelineAction } from "./filter-sidebar";
 import { HeaderCell } from "./header-cell";
 import { DEFAULT_TUNING, SearchBar, type SearchTuning } from "./search-bar";
+import { Stat } from "./stat";
 
 const COLUMN_IDS = intelligenceColumns.map(
   (column) => column.id ?? ("accessorKey" in column ? column.accessorKey : ""),
@@ -403,53 +405,50 @@ const DebugIntelligencePage = () => {
       {/* This page owns the window's top-left corner, so the header reserves
           the macOS traffic-light clearance (no-op on web) and doubles as the
           window drag region. */}
-      <header className="electron-top-bar-inset panel-toolbar flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-3">
+      <header className="electron-top-bar-inset electron-top-bar-text-start panel-toolbar flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
         <h1 className="font-content text-base">Intelligence</h1>
-        <p className="text-xs text-muted-foreground">
-          {visibleRows.length} of {rows.length} content rows ·{" "}
-          {overview?.totalItems ?? "…"} items total
+        <span className="flex items-center gap-1.5">
+          <Stat label="rows" value={`${visibleRows.length} / ${rows.length}`} />
+          <Stat label="items" value={overview?.totalItems ?? "…"} />
           {noColumnMatch && (
-            <span className="text-destructive"> · no columns match</span>
+            <Badge variant="destructive">no columns match</Badge>
           )}
-        </p>
-        <p className="font-mono text-xs text-muted-foreground">
-          queue: {queueCounts.running} running · {queueCounts.queued} queued ·{" "}
-          {queueCounts.retryWait} waiting
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Stat label="running" value={queueCounts.running} tone="default" />
+          <Stat label="queued" value={queueCounts.queued} />
+          <Stat label="waiting" value={queueCounts.retryWait} tone="outline" />
           {queueCounts.stuck > 0 && (
-            <span className="text-destructive">
-              {" "}
-              · {queueCounts.stuck} stuck
-            </span>
+            <Stat label="stuck" value={queueCounts.stuck} tone="destructive" />
           )}
-        </p>
+        </span>
         <SearchBar
           query={searchQuery}
           onQueryChange={setSearchQuery}
           tuning={tuning}
           onTuningChange={setTuning}
           searching={searching}
-          resultSummary={
+          results={
             isSearching && !searching
-              ? `${matches.size} items / ${hits?.length ?? 0} chunks`
+              ? { items: matches.size, chunks: hits?.length ?? 0 }
               : null
           }
         />
         {backfill.data && (
-          <span className="text-xs text-muted-foreground">
-            enqueued {backfill.data.enqueued}
-          </span>
+          <Stat label="enqueued" value={backfill.data.enqueued} />
         )}
         {drain.data && (
-          <span className="text-xs text-muted-foreground">
-            processed {drain.data.processed} (ok {drain.data.ok}, failed{" "}
-            {drain.data.failed})
+          <span className="flex items-center gap-1.5">
+            <Stat label="processed" value={drain.data.processed} />
+            <Stat label="ok" value={drain.data.ok} />
+            <Stat
+              label="failed"
+              value={drain.data.failed}
+              tone={drain.data.failed > 0 ? "destructive" : "secondary"}
+            />
           </span>
         )}
-        {heal.data && (
-          <span className="text-xs text-muted-foreground">
-            healed {heal.data.healed}
-          </span>
-        )}
+        {heal.data && <Stat label="healed" value={heal.data.healed} />}
       </header>
 
       <div className="flex min-h-0 flex-1">
