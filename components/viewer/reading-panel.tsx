@@ -227,7 +227,12 @@ export const ReadingPanel = ({
         // This panel is z-[35], above the item panel's z-30: expanding grows
         // it leftward over the stationary item panel rather than pushing it
         // aside. They never overlap while restored, so a constant z is enough.
-        className="pointer-events-auto fixed z-[35] flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+        className={cn(
+          "pointer-events-auto fixed z-[35] flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm",
+          // Only an expanded reader reaches the window's top-left, so only it
+          // needs the engine toolbar aligned under the traffic lights.
+          expanded && "reader-expanded",
+        )}
         style={{
           top: SLIDE_OFFSET,
           right: SLIDE_OFFSET,

@@ -86,7 +86,7 @@ export const ViewerHeader = ({
   return (
     <header
       className={cn(
-        "flex h-10 shrink-0 items-center gap-0.5 px-2 transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "flex h-10 shrink-0 items-center gap-0.5 border-b border-border/60 px-2 transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
         // Only an expanded reader covers the window's top-left, so that's the
         // only state needing the macOS traffic-light clearance (and the drag
         // region that comes with it). No-op outside Electron.

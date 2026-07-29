@@ -1,12 +1,9 @@
 // Shared ResizeObserver hooks for element-size reactions. Modes mirror
 // use-window-resize: "sync" runs the handler on every observer callback;
 // "raf" coalesces to at most one call per animation frame with the latest
-// rect. For trailing-debounced width-as-state, use useDebouncedElementWidth
-// at the bottom of this file.
+// rect.
 // The handler is kept in a ref, so an unstable callback never re-observes.
 import React from "react";
-
-import { WINDOW_RESIZE_DEBOUNCE_MS } from "@/lib/use-window-resize";
 
 export type ElementSizeOptions = {
   mode: "sync" | "raf";
@@ -56,45 +53,4 @@ export const useElementSize = (
       observer.disconnect();
     };
   }, [ref, mode, enabled, immediate]);
-};
-
-// Content-box width of `ref`'s element as state. The first measurement applies
-// immediately (initial layout needs the real width); subsequent measurements
-// are debounced trailing, so consumers keep their last-settled size mid-resize
-// and react once after it settles. Separate from useElementSize because the
-// reactions here are expensive enough to want state, not a callback — PDF
-// re-rasterization at DPR, full-panel re-renders.
-export const useDebouncedElementWidth = (
-  ref: React.RefObject<HTMLElement | null>,
-): number => {
-  const [width, setWidth] = React.useState(0);
-
-  React.useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
-    let hasMeasured = false;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const next = entry.contentRect.width;
-      if (!hasMeasured) {
-        hasMeasured = true;
-        setWidth(next);
-        return;
-      }
-      if (debounceTimeout !== null) clearTimeout(debounceTimeout);
-      debounceTimeout = setTimeout(() => {
-        debounceTimeout = null;
-        setWidth(next);
-      }, WINDOW_RESIZE_DEBOUNCE_MS);
-    });
-    observer.observe(element);
-    return () => {
-      if (debounceTimeout !== null) clearTimeout(debounceTimeout);
-      observer.disconnect();
-    };
-  }, [ref]);
-
-  return width;
 };

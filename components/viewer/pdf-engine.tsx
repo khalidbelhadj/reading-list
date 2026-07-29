@@ -1,33 +1,36 @@
 // Custom PDF engine: pdf.js rendering pages as cards on the app background,
-// virtualized with @tanstack/react-virtual, with a text layer so selection
-// works. Replaces the browser's built-in viewer — this both matches the app's
-// design language and makes PDFs fully observable through ViewerSession
-// (page, visible text, selection), which the built-in viewer's opaque plugin
-// never allowed. Zoom/page controls render as a floating pill over the pages;
-// the session's `pdf` capability exposes the same controls programmatically.
-import { IconMinus, IconPlus } from "@tabler/icons-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+// virtualized, with a real text layer so selection works. Replaces the
+// browser's built-in viewer — this both matches the app's design language and
+// makes PDFs fully observable through ViewerSession (page, visible text,
+// selection), which the built-in viewer's opaque plugin never allowed.
+//
+// The moving parts live next door: `use-pdf-viewer` owns scale/scroll/page,
+// `lib/viewer/pdf-render` owns the render queue, `pdf-sidebar` owns
+// thumbnails/bookmarks/search, `use-pdf-session` owns the agent-facing
+// session. This file is composition and keyboard handling.
 import React from "react";
 
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useDebouncedElementWidth } from "@/lib/use-element-size";
-import { describeSelection } from "@/lib/viewer/selection";
-import {
-  createViewerEmitter,
-  useRegisterViewerSession,
-  type ViewerSession,
-  type ViewerState,
-} from "@/lib/viewer/session";
+import { usePanelResize } from "@/lib/use-panel-resize";
+import { cn } from "@/lib/utils";
+import { createPdfRenderer } from "@/lib/viewer/pdf-render";
 
-import { PdfPage } from "./pdf-page";
+import { PdfPageColumn } from "./pdf-page-column";
+import { PdfSidebar, type PdfSidebarTab } from "./pdf-sidebar";
+import { PdfToolbar } from "./pdf-toolbar";
 import { usePdfDocument } from "./use-pdf-document";
+import { usePdfSearch } from "./use-pdf-search";
+import { usePdfSession } from "./use-pdf-session";
+import { nextZoomStop, usePdfViewer } from "./use-pdf-viewer";
 
-const PAGE_GAP = 16;
-const STAGE_PADDING = 24;
-const MAX_FIT_WIDTH = 900;
+const SIDEBAR_DEFAULT = 280;
+// Floor set by the tab strip, not by the thumbnails: below this the three tab
+// labels stop fitting on one row and get clipped.
+const SIDEBAR_MIN = 264;
+const SIDEBAR_MAX = 460;
 
-type Scale = number | "fit";
+const safeFileName = (title: string) =>
+  `${(title || "document").replace(/[^\w.-]+/g, "-").slice(0, 80)}.pdf`;
 
 export const PdfEngine = ({
   itemId,
@@ -40,64 +43,74 @@ export const PdfEngine = ({
   title: string;
   markdown: string | null;
 }) => {
-  const { doc, baseMetrics, error } = usePdfDocument(itemId);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [scaleSetting, setScaleSetting] = React.useState<Scale>("fit");
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const { doc, sizes, outline, error } = usePdfDocument(itemId);
+  // The scroll element as state, not a ref: this component renders a spinner
+  // until the document resolves, so effects keyed on a ref would run while it
+  // was still null and never re-attach.
+  const [container, setContainer] = React.useState<HTMLDivElement | null>(null);
+  const rowRef = React.useRef<HTMLDivElement>(null);
   const pageTextsRef = React.useRef(new Map<number, string>());
-  const emitterRef = React.useRef(createViewerEmitter());
 
-  // Track the stage width for fit-to-width. The first measurement applies
-  // immediately (the initial rasterization needs the real width); during a
-  // continuous resize (window or panel drag) every tick would otherwise
-  // change `scale` and re-rasterize every visible canvas at DPR — very
-  // expensive — so subsequent measurements are debounced trailing: pages keep
-  // their last-settled size mid-resize and re-render once (canvas + text
-  // layer together, so they stay aligned) after the resize settles.
-  const containerWidth = useDebouncedElementWidth(containerRef);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_DEFAULT);
+  const [sidebarTab, setSidebarTab] =
+    React.useState<PdfSidebarTab>("thumbnails");
 
-  const scale = React.useMemo(() => {
-    if (scaleSetting !== "fit") return scaleSetting;
-    if (!baseMetrics || containerWidth === 0) return 1;
-    const available = Math.min(
-      containerWidth - STAGE_PADDING * 2,
-      MAX_FIT_WIDTH,
-    );
-    return Math.max(0.3, available / baseMetrics.width);
-  }, [scaleSetting, baseMetrics, containerWidth]);
+  const renderers = React.useMemo(
+    () =>
+      doc
+        ? {
+            // Serialized, and two queues rather than one: pdf.js draws on the
+            // main thread, so overlapping renders only interleave long tasks,
+            // and filling the thumbnail rail must never sit in front of the
+            // page the reader is looking at.
+            page: createPdfRenderer(doc, { concurrency: 1 }),
+            thumb: createPdfRenderer(doc, { concurrency: 1 }),
+          }
+        : null,
+    [doc],
+  );
+  React.useEffect(
+    () => () => {
+      renderers?.page.destroy();
+      renderers?.thumb.destroy();
+    },
+    [renderers],
+  );
 
-  const pageCount = doc?.numPages ?? 0;
-  const pageWidth = (baseMetrics?.width ?? 600) * scale;
-  const pageHeight = (baseMetrics?.height ?? 800) * scale;
+  const {
+    layout,
+    metrics,
+    scale,
+    renderScale,
+    rotation,
+    zoom,
+    currentPage,
+    pageWindow,
+    visibleWindow,
+    scrolling,
+    totalHeight,
+    columnWidth,
+    setZoom,
+    rotate,
+    goToPage,
+  } = usePdfViewer(container, sizes);
+  const search = usePdfSearch(doc);
 
-  const virtualizer = useVirtualizer({
-    count: pageCount,
-    getScrollElement: () => containerRef.current,
-    estimateSize: () => pageHeight + PAGE_GAP,
-    overscan: 1,
+  usePdfSession({
+    itemId,
+    url,
+    title,
+    markdown,
+    container,
+    pageTextsRef,
+    currentPage,
+    pageCount: layout.count,
+    zoom,
+    pageWindow,
+    goToPage,
+    setZoom,
   });
-  const virtualizerRef = React.useRef(virtualizer);
-  virtualizerRef.current = virtualizer;
-
-  // Re-measure when zoom changes.
-  React.useEffect(() => {
-    virtualizerRef.current.measure();
-  }, [pageHeight]);
-
-  // Current page = the page covering the upper third of the stage.
-  const virtualItems = virtualizer.getVirtualItems();
-  const scrollOffset = virtualizer.scrollOffset ?? 0;
-  React.useEffect(() => {
-    const anchor = scrollOffset + (containerRef.current?.clientHeight ?? 0) / 3;
-    const active = virtualItems.find(
-      (item) => item.start <= anchor && item.end > anchor,
-    );
-    const page = (active?.index ?? 0) + 1;
-    setCurrentPage((previous) => (previous === page ? previous : page));
-  }, [virtualItems, scrollOffset]);
-
-  const stateRef = React.useRef({ page: 1, pageCount: 0, scale: scaleSetting });
-  stateRef.current = { page: currentPage, pageCount, scale: scaleSetting };
 
   const handlePageText = React.useCallback(
     (pageNumber: number, text: string) => {
@@ -106,51 +119,69 @@ export const PdfEngine = ({
     [],
   );
 
-  const session = React.useMemo<ViewerSession>(() => {
-    return {
-      kind: "pdf",
-      itemId,
-      pdf: {
-        state: () => ({ ...stateRef.current }),
-        goToPage: (page: number) => {
-          const target = Math.min(
-            Math.max(1, page),
-            stateRef.current.pageCount,
-          );
-          virtualizerRef.current.scrollToIndex(target - 1, { align: "start" });
-        },
-        setScale: (next: Scale) => setScaleSetting(next),
-      },
-      getState: async (): Promise<ViewerState> => ({
-        kind: "pdf",
-        url,
-        title,
-        page: {
-          current: stateRef.current.page,
-          total: stateRef.current.pageCount,
-        },
-        selection: containerRef.current
-          ? describeSelection(containerRef.current)
-          : null,
-      }),
-      // Text of the pages currently in view — real visible-context now that
-      // the text layer is ours (the built-in viewer was a black box). Falls
-      // back to extracted markdown before the text layer has rendered.
-      getVisibleText: async () => {
-        const texts = virtualizerRef.current
-          .getVirtualItems()
-          .map((item) => pageTextsRef.current.get(item.index + 1))
-          .filter((text): text is string => Boolean(text));
-        if (texts.length > 0) return texts.join("\n\n").slice(0, 8000);
-        return markdown?.slice(0, 4000) ?? "";
-      },
-      getSelection: async () =>
-        containerRef.current ? describeSelection(containerRef.current) : null,
-      on: emitterRef.current.on,
-    };
-  }, [itemId, url, title, markdown]);
+  const handleZoomStep = React.useCallback(
+    (direction: 1 | -1) => {
+      setZoom({ mode: "custom", value: nextZoomStop(scale, direction) });
+    },
+    [scale, setZoom],
+  );
 
-  useRegisterViewerSession(session);
+  const handleFitWidth = React.useCallback(() => {
+    setZoom({ mode: "fit-width", value: scale });
+  }, [scale, setZoom]);
+
+  const handleOpenSearch = React.useCallback(() => {
+    setSidebarOpen(true);
+    setSidebarTab("search");
+  }, []);
+
+  const handleRotate = React.useCallback(() => rotate(1), [rotate]);
+
+  // Sidebar resize. The width is React state rather than a direct style write
+  // (the pattern the reading panel uses) because the rail's thumbnails have to
+  // resize with it — and that's affordable here precisely because the column
+  // beside it now rescales on the compositor and rasterizes only on settle.
+  const applySidebarWidth = React.useCallback((clientX: number) => {
+    const left = rowRef.current?.getBoundingClientRect().left ?? 0;
+    setSidebarWidth(
+      Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, clientX - left)),
+    );
+  }, []);
+  const { dragging, startResize } = usePanelResize({
+    onDrag: applySidebarWidth,
+    onEnd: applySidebarWidth,
+  });
+
+  // Jumping to a hit is a side effect of the active result changing, so it
+  // fires the same way whether the reader clicked the list or stepped with the
+  // keyboard.
+  const activeResult = search.results[search.activeIndex] ?? null;
+  const goToPageRef = React.useRef(goToPage);
+  goToPageRef.current = goToPage;
+  React.useEffect(() => {
+    if (activeResult) goToPageRef.current(activeResult.page);
+  }, [activeResult]);
+
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+      if ((event.metaKey || event.ctrlKey) && event.key === "f") {
+        event.preventDefault();
+        handleOpenSearch();
+        return;
+      }
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "+" || event.key === "=") handleZoomStep(1);
+      else if (event.key === "-") handleZoomStep(-1);
+      else if (event.key === "0") handleFitWidth();
+      else if (event.key === "r") handleRotate();
+      else return;
+      event.preventDefault();
+    },
+    [handleFitWidth, handleOpenSearch, handleRotate, handleZoomStep],
+  );
 
   if (error) {
     return (
@@ -161,7 +192,7 @@ export const PdfEngine = ({
     );
   }
 
-  if (!doc || !baseMetrics) {
+  if (!doc || !renderers || layout.count === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner />
@@ -169,77 +200,85 @@ export const PdfEngine = ({
     );
   }
 
-  const stepZoom = (direction: 1 | -1) => {
-    const current = scaleSetting === "fit" ? scale : scaleSetting;
-    setScaleSetting(
-      Math.min(
-        3,
-        Math.max(0.3, Math.round((current + direction * 0.1) * 10) / 10),
-      ),
-    );
-  };
-
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={containerRef}
-        className="min-h-0 flex-1 overflow-y-auto"
-        style={{ padding: STAGE_PADDING }}
-      >
-        <div
-          className="relative w-full"
-          style={{ height: virtualizer.getTotalSize() }}
-        >
-          {virtualItems.map((item) => (
-            <div
-              key={item.key}
-              className="absolute left-0 w-full"
-              style={{ top: item.start, height: item.size }}
-            >
-              <PdfPage
-                doc={doc}
-                pageNumber={item.index + 1}
-                scale={scale}
-                width={pageWidth}
-                height={pageHeight}
-                onText={handlePageText}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+    <div
+      className="relative flex min-h-0 flex-1 flex-col"
+      onKeyDown={handleKeyDown}
+    >
+      <PdfToolbar
+        currentPage={currentPage}
+        pageCount={layout.count}
+        scale={scale}
+        zoom={zoom}
+        sidebarOpen={sidebarOpen}
+        downloadUrl={`/api/proxy-pdf?item=${encodeURIComponent(itemId)}`}
+        downloadName={safeFileName(title)}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        onGoToPage={goToPage}
+        onZoomStep={handleZoomStep}
+        onSetZoom={setZoom}
+        onRotate={handleRotate}
+      />
 
-      {/* Page + zoom — engine-owned, floating over the pages (the panel
-          toolbar stays minimal). */}
-      <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-card/90 px-2 py-0.5 text-xs text-muted-foreground shadow-md backdrop-blur">
-        <span className="px-1 font-mono tabular-nums">
-          {currentPage} / {pageCount}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => stepZoom(-1)}
-          aria-label="Zoom out"
+      <div ref={rowRef} className="flex min-h-0 flex-1">
+        {sidebarOpen && (
+          <PdfSidebar
+            doc={doc}
+            renderer={renderers.thumb}
+            sizes={sizes}
+            outline={outline}
+            currentPage={currentPage}
+            tab={sidebarTab}
+            onTabChange={setSidebarTab}
+            onGoToPage={goToPage}
+            search={search}
+            onGoToResult={search.setActiveIndex}
+            width={sidebarWidth}
+          />
+        )}
+
+        {/* Resize handle — a zero-width flex item whose grab area straddles
+            the sidebar's border, so the divider itself is what you drag. */}
+        {sidebarOpen && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            onPointerDown={startResize}
+            className="relative z-10 w-0 shrink-0 cursor-col-resize"
+          >
+            <div className="absolute inset-y-0 -left-1 w-2" />
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-0 -left-px w-px transition-colors",
+                dragging ? "bg-foreground/50" : "bg-transparent",
+              )}
+            />
+          </div>
+        )}
+
+        <div
+          ref={setContainer}
+          tabIndex={0}
+          className="min-h-0 min-w-0 flex-1 [scrollbar-width:thin] overflow-auto [overscroll-behavior:contain] outline-none"
         >
-          <IconMinus />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-5 px-1 font-mono text-xs tabular-nums"
-          onClick={() => setScaleSetting("fit")}
-          aria-label="Fit width"
-        >
-          {scaleSetting === "fit" ? "Fit" : `${Math.round(scale * 100)}%`}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => stepZoom(1)}
-          aria-label="Zoom in"
-        >
-          <IconPlus />
-        </Button>
+          <PdfPageColumn
+            doc={doc}
+            renderer={renderers.page}
+            layout={layout}
+            metrics={metrics}
+            scale={scale}
+            renderScale={renderScale}
+            rotation={rotation}
+            pageWindow={pageWindow}
+            visibleWindow={visibleWindow}
+            totalHeight={totalHeight}
+            columnWidth={columnWidth}
+            searchQuery={search.query.trim()}
+            activeResult={activeResult}
+            scrolling={scrolling}
+            onText={handlePageText}
+          />
+        </div>
       </div>
     </div>
   );
