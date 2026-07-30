@@ -148,6 +148,24 @@ export const createPdfRenderer = (
   };
 };
 
+// pdf.js's TextLayer measures every span against a shared hidden canvas that
+// it appends to document.body. Setting a font on an *attached* canvas forces a
+// synchronous style recalc of whatever is dirty in the document — and the text
+// layer dirties the document between measurements, so every span cost a
+// full-document recalc (~14ms each in this app: seconds of freeze per dense
+// page). Detached, the same measurement is ~3µs. pdf.js keeps its 2D-context
+// reference and keeps working; the canvas just stops pinning the live DOM.
+// Runs after every build because pdf.js re-creates the canvas after a cleanup.
+export const detachPdfMeasureCanvases = () => {
+  for (const canvas of document.querySelectorAll<HTMLCanvasElement>(
+    "body > canvas",
+  )) {
+    if (canvas.style.display === "none" && canvas.style.width === "0px") {
+      canvas.remove();
+    }
+  }
+};
+
 // Text content is fetched by the text layer, by search, and by
 // ViewerSession.getVisibleText — cache it per document so those three never
 // pay for the same page twice. Keyed weakly so it dies with the document.

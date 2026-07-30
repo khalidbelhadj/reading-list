@@ -366,21 +366,36 @@ export const usePdfViewer = (
   const scaleRef = React.useRef(scale);
   scaleRef.current = scale;
 
-  // NOTE: there is deliberately no wheel listener on the scroll container.
+  // Pinch-to-zoom — Electron only, and the listener MUST stay passive.
   //
-  // Trackpad pinch arrives as ctrl+wheel, and intercepting it needs
-  // `preventDefault`, which means a *non-passive* wheel listener. Chromium
-  // takes any non-passive wheel listener on a scroller (or its ancestors) as
-  // notice that script might cancel the scroll, so it drops that scroller off
-  // the compositor's fast path and runs every scroll through the main thread.
-  // The whole point of the design above is that scrolling never touches the
-  // main thread; one listener would have quietly undone it, and it would only
-  // show up on a real trackpad — never in a synthetic scroll test.
+  // Trackpad pinch arrives as ctrl+wheel. Intercepting it on the web needs
+  // `preventDefault` (or the browser zooms the whole page too), which means a
+  // *non-passive* wheel listener — and Chromium takes any non-passive wheel
+  // listener on a scroller (or its ancestors) as notice that script might
+  // cancel the scroll, so it drops that scroller off the compositor's fast
+  // path and runs every scroll through the main thread. That silently undoes
+  // the whole design above, and only shows up on a real trackpad — never in a
+  // synthetic scroll test. So: no pinch on the web build.
   //
-  // Zoom is available from the toolbar, the zoom menu, and +/-/0, all of which
-  // route through `applyScale` and keep the anchoring. Pinch-to-zoom can come
-  // back if native zoom is disabled at the Electron level first, so this
-  // listener never has to cancel anything.
+  // Electron disables native visual zoom, so there is nothing to cancel: a
+  // passive listener can just *observe* the ctrl+wheel stream and drive the
+  // same anchored `applyScale` the toolbar uses. Display scale is a
+  // compositor transform, so tracking the gesture per event is cheap; the
+  // rasterizer catches up once on settle.
+  React.useEffect(() => {
+    if (!container || window.readingList?.platform !== "electron") return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      // The standard gesture mapping: each wheel tick scales exponentially,
+      // anchored under the cursor so the point being pinched stays put.
+      applyScaleRef.current(
+        scaleRef.current * Math.exp(-event.deltaY / 100),
+        event,
+      );
+    };
+    container.addEventListener("wheel", onWheel, { passive: true });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, [container]);
 
   const goToPage = React.useCallback(
     (page: number, options?: { smooth?: boolean }) => {

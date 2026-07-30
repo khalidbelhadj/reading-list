@@ -199,7 +199,7 @@ export const PdfSidebar = ({
         </TabsTrigger>
         <TabsTrigger value="outline">
           <IconListTree data-icon="inline-start" />
-          Overview
+          Outline
         </TabsTrigger>
         <TabsTrigger value="search">
           <IconSearch data-icon="inline-start" />

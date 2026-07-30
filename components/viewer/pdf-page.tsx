@@ -17,6 +17,7 @@ import React from "react";
 
 import { cn } from "@/lib/utils";
 import {
+  detachPdfMeasureCanvases,
   flattenTextContent,
   getPageTextContent,
   type PdfRenderer,
@@ -123,14 +124,29 @@ export const PdfPage = ({
           scale: renderScaleRef.current,
           rotation: (page.rotate + rotation) % 360,
         });
-        container.replaceChildren();
+        // Built into a detached host, not the live container. pdf.js appends
+        // one span, then measures the next against a shared hidden canvas —
+        // and measuring on a dirty document forces a style recalc first, so
+        // building in place cost a full-document recalc per span (~14ms × a
+        // few hundred spans = seconds of freeze per dense page). Detached,
+        // the document stays clean for the whole build; the finished spans
+        // land in a single append below.
+        const host = document.createElement("div");
         layer = new TextLayer({
           textContentSource: content,
-          container,
+          container: host,
           viewport,
         });
         await layer.render();
         if (cancelled) return;
+        // pdf.js put --min-font-size and the layer's dimensions inline on the
+        // host — they belong to the layer, so they move with the spans.
+        container.style.cssText = host.style.cssText;
+        container.replaceChildren(...host.childNodes);
+        // And unpin its measurement canvas from the DOM so the re-measure on
+        // zoom settle (layer.update) can't thrash either — see
+        // detachPdfMeasureCanvases.
+        detachPdfMeasureCanvases();
         textLayerRef.current = layer;
         builtKeyRef.current = key;
         layoutScaleRef.current = renderScaleRef.current;
