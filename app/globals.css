@@ -110,6 +110,9 @@
   --toast-error-border: oklch(0.9 0.04 25);
   --selection: oklch(0.85 0.04 150 / 0.5);
   --selection-foreground: oklch(0.18 0.003 85);
+  /* PDF page edge. Darker than --border (0.92): the page is white on a white
+     surface, so a border-strength hairline is effectively invisible there. */
+  --pdf-page-outline: oklch(0.72 0.003 85);
   --depth-button:
     inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary:
@@ -169,6 +172,9 @@
   --toast-error-border: oklch(0.35 0.06 25);
   --selection: oklch(0.5 0.04 150 / 0.55);
   --selection-foreground: oklch(0.982 0.002 85);
+  /* Dark mode needs the opposite: a white page already separates hard from
+     the dark stage, so this only softens the edge rather than defining it. */
+  --pdf-page-outline: oklch(0.48 0.003 85);
   --depth-button:
     inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary:
@@ -313,6 +319,19 @@ html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
    regardless of viewport width. */
 html.electron .panel-toolbar.electron-top-bar-inset {
   padding-left: var(--traffic-clearance);
+}
+
+/* The expanded reader stacks a second toolbar row *below* the traffic lights
+   rather than beside them, so it doesn't want the full clearance — it wants
+   its first control to line up with the dots above it. The dots' left edge is
+   at (18 + 6) * zoom - 6 window points (electron/main.ts), which is
+   `24px - 6px / zoom` in page pixels; the panel itself is inset from the
+   window edge by SLIDE_OFFSET (8px, lib/motion.ts). */
+html.electron .reader-expanded .pdf-toolbar {
+  /* Centre the first control on the first dot: dot centre sits at
+     (24px - 6px/zoom - 8px) + 6px from the panel's left edge, and the icon
+     button is 24px wide, so its box starts 12px before that. */
+  padding-left: calc(10px - 6px / var(--zoom, 1));
 }
 
 /* The clearance above ends roughly where the dots end, which reads fine when
@@ -1167,18 +1186,69 @@ back.card-side {
   text-align: left;
 }
 
-/* pdf.js text layer (custom PDF viewer) — transparent selectable text over
-   the rendered canvas. Positioning comes inline from pdf.js; the container
-   carries --scale-factor. */
+/* pdf.js text layer (custom PDF viewer) — transparent selectable text over the
+   rendered canvas.
+
+   These rules are pdf.js's own contract, not decoration. Since v5 the layer is
+   laid out entirely in *page* units: spans are positioned in percentages and
+   sized from --font-height multiplied by --total-scale-factor, and the
+   container's own width/height come from an inline
+   `round(down, var(--total-scale-factor) * Npx, var(--scale-round-x))`. Every
+   variable below therefore has to exist, or the layer collapses (an undefined
+   --scale-round-x makes the whole width declaration invalid). The payoff is
+   that zoom is a single custom-property change on the page wrapper: no
+   re-render, no re-fetch, no lost selection. */
+.pdf-page {
+  --user-unit: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+
+  /* A page's text layer is thousands of absolutely-positioned spans. Without
+     containment, any style or layout invalidation anywhere in the stage walks
+     all of them, on every mounted page — which is most of the cost of
+     scrolling a dense document. `strict` is safe here (and not merely
+     `content`) because the element's size is set explicitly from the layout,
+     so size containment can't collapse it. */
+  contain: strict;
+}
+.pdf-page-edge {
+  border: 1px solid var(--pdf-page-outline);
+}
+
 .pdf-text-layer {
+  color-scheme: only light;
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
+  text-align: initial;
   line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
   text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;
   caret-color: CanvasText;
+  z-index: 0;
+
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+/* Rotation. pdf.js lays spans out in *unrotated* page space (percentages of
+   the raw page box) and sizes the container to match; the rotation itself is
+   the layer's `data-main-rotation` attribute plus these transforms — copied
+   from pdf_viewer.css, where they're generic `[data-main-rotation]` rules.
+   Without them a rotated page (or a page with intrinsic /Rotate) paints
+   rotated on the canvas while selection and highlights stay unrotated. */
+.pdf-text-layer[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.pdf-text-layer[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.pdf-text-layer[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
 }
 .pdf-text-layer :is(span, br) {
   color: transparent;
@@ -1186,7 +1256,35 @@ back.card-side {
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+  user-select: text;
 }
+.pdf-text-layer > :not(.markedContent),
+.pdf-text-layer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+.pdf-text-layer .markedContent {
+  display: contents;
+}
+/* `color: transparent` is not optional here, and leaving it out is the whole
+   reason selection used to paint a second copy of the text over the canvas:
+   a ::selection rule that sets only `background` still lets the UA's default
+   selection *foreground* colour apply, which overrides the layer's
+   `color: transparent` and makes every selected span visible. pdf.js's own
+   stylesheet sets both — so does this.
+
+   `br` gets a transparent background for the same class of reason: the line
+   breaks pdf.js emits would otherwise paint stray selection blocks in the
+   gaps between lines. */
 .pdf-text-layer ::selection {
   background: color-mix(in oklch, var(--primary) 35%, transparent);
+  color: transparent;
+}
+.pdf-text-layer br::selection {
+  background: transparent;
 }
