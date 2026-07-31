@@ -5,7 +5,7 @@ import { SecondaryPage } from "@/components/items-list/secondary-page";
 
 export const Route = createFileRoute("/review/")({
   component: () => (
-    <SecondaryPage>
+    <SecondaryPage current="/review">
       <PageEmptyState message="Your review activity and stats will live here." />
     </SecondaryPage>
   ),

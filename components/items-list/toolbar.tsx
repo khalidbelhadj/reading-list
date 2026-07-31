@@ -114,7 +114,7 @@ export const Toolbar = ({
 
   return (
     <div ref={rootRef} className="relative flex items-center pt-1">
-      <PageNav hasTags={hasTags} compact={compact} />
+      <PageNav current="/" hasTags={hasTags} compact={compact} />
 
       <div className="flex-1" />
 

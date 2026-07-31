@@ -5,7 +5,7 @@ import { SecondaryPage } from "@/components/items-list/secondary-page";
 
 export const Route = createFileRoute("/settings")({
   component: () => (
-    <SecondaryPage>
+    <SecondaryPage current="/settings">
       <PageEmptyState message="App preferences will live here." />
     </SecondaryPage>
   ),
