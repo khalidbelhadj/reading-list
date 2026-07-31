@@ -9,10 +9,14 @@
 // point it discards canvases, which forces re-renders, which is where the
 // freezing came from.
 //
-// So: no cache. pdf.js renders straight into the canvas that is on screen, the
-// way its own viewer does. What's left is the part that was pulling its weight
-// — a queue, because pdf.js parses in the worker but *draws on the main
-// thread*, so overlapping renders interleave long tasks and drop frames.
+// So: no cache. What survives is a queue — pdf.js parses in the worker but
+// *draws on the main thread*, so overlapping renders interleave long tasks and
+// drop frames — plus one scratch canvas per renderer (not a cache: it holds no
+// finished bitmaps, it's the drawing surface). pdf.js draws into the scratch,
+// and the finished raster is blitted to the on-screen canvas in a single
+// frame. The visible canvas therefore never clears mid-render and never shows
+// a half-drawn page: resizing a canvas is what blanks it, and the old pixels
+// (CSS-stretched to the new committed size) stay up until the swap.
 import type { PDFDocumentProxy } from "pdfjs-dist";
 
 // pdfjs-dist doesn't re-export TextContent from its entry point; derive it.
@@ -36,8 +40,11 @@ export type PdfRenderHandle = {
 };
 
 export type PdfRenderer = {
-  // Sizes `canvas` for the given scale and draws the page into it. The canvas
-  // belongs to the caller; the renderer keeps no reference once it settles.
+  // Draws the page and, once the draw is complete, sizes `canvas`'s backing
+  // store and blits the result in — the caller's canvas keeps its previous
+  // pixels until then. The renderer never touches the canvas's CSS size;
+  // callers stretch it over their page box (100%/100%), which is also what
+  // keeps the old raster tracking the box while the new one is in flight.
   render(
     canvas: HTMLCanvasElement,
     page: number,
@@ -55,6 +62,11 @@ export const createPdfRenderer = (
   const waiting: Array<() => void> = [];
   let active = 0;
   let destroyed = false;
+
+  // Scratch drawing surfaces, pooled so concurrent slots never share one.
+  // With concurrency 1 (both current renderers) this is a single canvas that
+  // grows to the largest raster and is reused for every draw.
+  const scratchPool: HTMLCanvasElement[] = [];
 
   const acquire = () =>
     new Promise<void>((resolve) => {
@@ -100,30 +112,52 @@ export const createPdfRenderer = (
             MAX_RENDER_DPR,
             Math.sqrt(MAX_BITMAP_PIXELS / area),
           );
-          canvas.width = Math.max(1, Math.floor(viewport.width * dpr));
-          canvas.height = Math.max(1, Math.floor(viewport.height * dpr));
-          canvas.style.width = `${viewport.width}px`;
-          canvas.style.height = `${viewport.height}px`;
+          const width = Math.max(1, Math.floor(viewport.width * dpr));
+          const height = Math.max(1, Math.floor(viewport.height * dpr));
 
-          const context = canvas.getContext("2d", { alpha: false });
-          if (!context) return;
-          // Opaque white ground: PDFs paint no background, and compositing
-          // page content over transparent black fringes antialiased glyphs.
-          context.fillStyle = "#ffffff";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-
-          const render = proxy.render({
-            canvas,
-            canvasContext: context,
-            viewport,
-            transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-          });
-          task = render;
-          liveTasks.add(render);
+          // Draw into the scratch, not the visible canvas — resizing is what
+          // clears a canvas, and this resize happens off-screen.
+          const scratch = scratchPool.pop() ?? document.createElement("canvas");
           try {
-            await render.promise;
+            scratch.width = width;
+            scratch.height = height;
+            const context = scratch.getContext("2d", { alpha: false });
+            if (!context) return;
+            // Opaque white ground: PDFs paint no background, and compositing
+            // page content over transparent black fringes antialiased glyphs.
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, width, height);
+
+            const render = proxy.render({
+              canvas: scratch,
+              canvasContext: context,
+              viewport,
+              transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+            });
+            task = render;
+            liveTasks.add(render);
+            try {
+              await render.promise;
+            } finally {
+              liveTasks.delete(render);
+            }
+            if (cancelled || destroyed) return;
+
+            // The swap: size the visible backing store and copy in the same
+            // task, so the reader goes from old raster to new with no cleared
+            // or half-drawn frame in between.
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext("2d", { alpha: false })?.drawImage(scratch, 0, 0);
           } finally {
-            liveTasks.delete(render);
+            // A render that outlived destroy() must not re-pool its scratch —
+            // the pool was already drained; free the backing store instead.
+            if (destroyed) {
+              scratch.width = 0;
+              scratch.height = 0;
+            } else {
+              scratchPool.push(scratch);
+            }
           }
         } finally {
           releaseSlot();
@@ -144,6 +178,12 @@ export const createPdfRenderer = (
       for (const task of liveTasks) task.cancel();
       liveTasks.clear();
       waiting.length = 0;
+      // Free the scratch backing stores now rather than waiting for GC.
+      for (const scratch of scratchPool) {
+        scratch.width = 0;
+        scratch.height = 0;
+      }
+      scratchPool.length = 0;
     },
   };
 };

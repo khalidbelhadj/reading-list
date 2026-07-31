@@ -73,7 +73,7 @@ const PdfThumbnail = ({
         )}
         style={{ width, height }}
       >
-        <canvas ref={canvasRef} className="block" />
+        <canvas ref={canvasRef} className="block h-full w-full" />
       </span>
       <span
         className={cn(

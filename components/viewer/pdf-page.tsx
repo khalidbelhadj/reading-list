@@ -246,9 +246,11 @@ export const PdfPage = ({
           transform: bridge === 1 ? undefined : `scale(${bridge})`,
         }}
       >
-        {/* Sized by the renderer, not here — it owns both the backing store
-            and the CSS box so the two can never disagree. */}
-        <canvas ref={canvasRef} className="block" aria-hidden />
+        {/* Stretched over the committed box rather than sized by the
+            renderer: while a re-raster is in flight the canvas still holds
+            the previous scale's pixels, and 100%/100% keeps them tracking
+            the box until the renderer blits the new raster in. */}
+        <canvas ref={canvasRef} className="block h-full w-full" aria-hidden />
         <div className="pointer-events-none absolute inset-0">
           {highlights.map((rect, index) => (
             <div

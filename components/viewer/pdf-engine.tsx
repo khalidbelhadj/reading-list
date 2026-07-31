@@ -11,6 +11,7 @@
 import React from "react";
 
 import { Spinner } from "@/components/ui/spinner";
+import { EASE, SLIDE_MS } from "@/lib/motion";
 import { usePanelResize } from "@/lib/use-panel-resize";
 import { cn } from "@/lib/utils";
 import { createPdfRenderer } from "@/lib/viewer/pdf-render";
@@ -55,6 +56,25 @@ export const PdfEngine = ({
   const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_DEFAULT);
   const [sidebarTab, setSidebarTab] =
     React.useState<PdfSidebarTab>("thumbnails");
+
+  // Slide choreography: the rail mounts at width 0 and transitions open a
+  // tick later (same enter pattern as use-slide-in); on close it transitions
+  // shut first and unmounts after the slide, so thumbnails stop costing
+  // anything once it's gone. The rail itself keeps its full width inside a
+  // clipping wrapper — content is revealed, never squished.
+  const [sidebarMounted, setSidebarMounted] = React.useState(false);
+  const [sidebarEntered, setSidebarEntered] = React.useState(false);
+  React.useEffect(() => {
+    // setTimeout, not rAF — a throttled tab may never paint a frame.
+    if (sidebarOpen) {
+      setSidebarMounted(true);
+      const timer = setTimeout(() => setSidebarEntered(true), 10);
+      return () => clearTimeout(timer);
+    }
+    setSidebarEntered(false);
+    const timer = setTimeout(() => setSidebarMounted(false), SLIDE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [sidebarOpen]);
 
   const renderers = React.useMemo(
     () =>
@@ -221,20 +241,28 @@ export const PdfEngine = ({
       />
 
       <div ref={rowRef} className="flex min-h-0 flex-1">
-        {sidebarOpen && (
-          <PdfSidebar
-            doc={doc}
-            renderer={renderers.thumb}
-            sizes={sizes}
-            outline={outline}
-            currentPage={currentPage}
-            tab={sidebarTab}
-            onTabChange={setSidebarTab}
-            onGoToPage={goToPage}
-            search={search}
-            onGoToResult={search.setActiveIndex}
-            width={sidebarWidth}
-          />
+        {sidebarMounted && (
+          <div
+            className="flex shrink-0 overflow-hidden"
+            style={{
+              width: sidebarEntered ? sidebarWidth : 0,
+              transition: dragging ? undefined : `width ${SLIDE_MS}ms ${EASE}`,
+            }}
+          >
+            <PdfSidebar
+              doc={doc}
+              renderer={renderers.thumb}
+              sizes={sizes}
+              outline={outline}
+              currentPage={currentPage}
+              tab={sidebarTab}
+              onTabChange={setSidebarTab}
+              onGoToPage={goToPage}
+              search={search}
+              onGoToResult={search.setActiveIndex}
+              width={sidebarWidth}
+            />
+          </div>
         )}
 
         {/* Resize handle — a zero-width flex item whose grab area straddles

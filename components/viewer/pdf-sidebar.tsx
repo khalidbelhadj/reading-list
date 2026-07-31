@@ -192,20 +192,24 @@ export const PdfSidebar = ({
       className="flex shrink-0 flex-col gap-2 overflow-hidden border-r border-border bg-muted/25 pt-2"
       style={{ width }}
     >
-      <TabsList variant="line" className="mx-2 h-7 justify-start">
-        <TabsTrigger value="thumbnails">
-          <IconLayoutGrid data-icon="inline-start" />
-          Pages
-        </TabsTrigger>
-        <TabsTrigger value="outline">
-          <IconListTree data-icon="inline-start" />
-          Outline
-        </TabsTrigger>
-        <TabsTrigger value="search">
-          <IconSearch data-icon="inline-start" />
-          Search
-        </TabsTrigger>
-      </TabsList>
+      {/* The wrapper carries the divider so it spans the full rail width;
+          the list keeps its inset via padding instead of margin. */}
+      <div className="border-b border-border px-2">
+        <TabsList variant="line" className="h-7 justify-start">
+          <TabsTrigger value="thumbnails">
+            <IconLayoutGrid data-icon="inline-start" />
+            Pages
+          </TabsTrigger>
+          <TabsTrigger value="outline">
+            <IconListTree data-icon="inline-start" />
+            Outline
+          </TabsTrigger>
+          <TabsTrigger value="search">
+            <IconSearch data-icon="inline-start" />
+            Search
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent
         value="thumbnails"

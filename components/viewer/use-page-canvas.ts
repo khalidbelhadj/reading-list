@@ -1,10 +1,10 @@
 // Draws a page into its own on-screen canvas, via the shared render queue.
 //
-// There is no intermediate bitmap and no cache: pdf.js paints directly into
-// the element the reader is looking at, which is how its own viewer works. The
-// canvas keeps its previous pixels while the request waits in the queue — the
-// renderer only resizes it once its turn comes up (resizing is what clears a
-// canvas), so the blank window is the render itself and nothing more.
+// The canvas keeps its previous pixels for the *entire* life of a request:
+// pdf.js draws into the renderer's off-screen scratch, and the finished
+// raster is blitted here in one frame (see lib/viewer/pdf-render.ts). A page
+// therefore never blanks or shows a half-drawn state on zoom or re-render —
+// the only white canvas is one that has never been drawn at all.
 import React from "react";
 
 import { type PdfRenderer } from "@/lib/viewer/pdf-render";
