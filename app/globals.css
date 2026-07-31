@@ -1235,6 +1235,21 @@ back.card-side {
   --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));
 }
+/* Rotation. pdf.js lays spans out in *unrotated* page space (percentages of
+   the raw page box) and sizes the container to match; the rotation itself is
+   the layer's `data-main-rotation` attribute plus these transforms — copied
+   from pdf_viewer.css, where they're generic `[data-main-rotation]` rules.
+   Without them a rotated page (or a page with intrinsic /Rotate) paints
+   rotated on the canvas while selection and highlights stay unrotated. */
+.pdf-text-layer[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.pdf-text-layer[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.pdf-text-layer[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
+}
 .pdf-text-layer :is(span, br) {
   color: transparent;
   position: absolute;

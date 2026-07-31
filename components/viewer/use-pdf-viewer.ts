@@ -203,8 +203,12 @@ export const usePdfViewer = (
     [sizes, rotation],
   );
 
-  // Fit modes measure against the widest page and the page under the reader,
-  // so a landscape plate mid-document doesn't silently rescale the whole run.
+  // Fit modes measure against the document's extremes (widest page, tallest
+  // page) — deliberately NOT against the page under the reader. A fit scale
+  // that reads `currentPage` feeds back into the layout that determines the
+  // current page, and on a mixed-size document (a landscape plate in a
+  // portrait run) the two flip-flop forever: page → scale → new page top →
+  // other page → other scale, with the settle timer resetting on every hop.
   const scale = React.useMemo(() => {
     if (zoom.mode === "custom") return clampScale(zoom.value);
     if (viewport.width === 0 || layout.count === 0) return 1;
@@ -214,14 +218,13 @@ export const usePdfViewer = (
       max: MAX_SCALE,
     });
     if (zoom.mode === "fit-width") return width;
-    const active = layout.sizes[currentPage - 1] ?? layout.sizes[0];
     const height = fitScale(
-      active?.height ?? 1,
+      layout.maxHeight,
       viewport.height - STAGE_PADDING * 2,
       { min: MIN_SCALE, max: MAX_SCALE },
     );
     return Math.min(width, height);
-  }, [zoom, viewport, layout, currentPage]);
+  }, [zoom, viewport, layout]);
 
   const metrics = React.useMemo<PdfMetrics>(
     () => ({ scale, gap: PAGE_GAP, padding: STAGE_PADDING }),
@@ -397,6 +400,12 @@ export const usePdfViewer = (
     return () => container.removeEventListener("wheel", onWheel);
   }, [container]);
 
+  // Read through a ref so goToPage keeps a stable identity across page
+  // changes — it's handed to the session, the sidebar, and a jump effect,
+  // none of which should re-wire on every scroll.
+  const currentPageRef = React.useRef(currentPage);
+  currentPageRef.current = currentPage;
+
   const goToPage = React.useCallback(
     (page: number, options?: { smooth?: boolean }) => {
       const { layout: live, metrics: liveMetrics } = geometryRef.current;
@@ -405,13 +414,13 @@ export const usePdfViewer = (
       const top = pageTop(live, index, liveMetrics) - STAGE_PADDING;
       // Smooth only for short hops: easing across two hundred pages would
       // mount and rasterize every page on the way.
-      const nearby = Math.abs(index - (currentPage - 1)) <= 3;
+      const nearby = Math.abs(index - (currentPageRef.current - 1)) <= 3;
       container.scrollTo({
         top: Math.max(0, top),
         behavior: options?.smooth !== false && nearby ? "smooth" : "auto",
       });
     },
-    [container, currentPage],
+    [container],
   );
 
   const setZoom = React.useCallback((next: PdfZoom) => {

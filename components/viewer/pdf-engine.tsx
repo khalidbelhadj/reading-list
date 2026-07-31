@@ -174,13 +174,11 @@ export const PdfEngine = ({
 
   // Jumping to a hit is a side effect of the active result changing, so it
   // fires the same way whether the reader clicked the list or stepped with the
-  // keyboard.
+  // keyboard. goToPage is identity-stable, so depending on it is free.
   const activeResult = search.results[search.activeIndex] ?? null;
-  const goToPageRef = React.useRef(goToPage);
-  goToPageRef.current = goToPage;
   React.useEffect(() => {
-    if (activeResult) goToPageRef.current(activeResult.page);
-  }, [activeResult]);
+    if (activeResult) goToPage(activeResult.page);
+  }, [activeResult, goToPage]);
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {

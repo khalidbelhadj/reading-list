@@ -13,11 +13,14 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import React from "react";
 
 import { getPageTextContent } from "@/lib/viewer/pdf-render";
-import { findOccurrences, normalizeForSearch } from "@/lib/viewer/pdf-search";
+import {
+  findOccurrences,
+  MIN_SEARCH_QUERY,
+  normalizeForSearch,
+} from "@/lib/viewer/pdf-search";
 
 const MAX_RESULTS = 500;
 const SNIPPET_CONTEXT = 42;
-const MIN_QUERY = 2;
 
 export type PdfSearchMatch = {
   page: number;
@@ -35,9 +38,7 @@ export type PdfSearch = {
   results: PdfSearchMatch[];
   activeIndex: number;
   setActiveIndex: (index: number) => void;
-  step: (direction: 1 | -1) => void;
   searching: boolean;
-  clear: () => void;
 };
 
 export const usePdfSearch = (doc: PDFDocumentProxy | null): PdfSearch => {
@@ -50,7 +51,7 @@ export const usePdfSearch = (doc: PDFDocumentProxy | null): PdfSearch => {
     const needle = normalizeForSearch(query.trim());
     setResults([]);
     setActiveIndex(0);
-    if (!doc || needle.length < MIN_QUERY) {
+    if (!doc || needle.length < MIN_SEARCH_QUERY) {
       setSearching(false);
       return;
     }
@@ -96,31 +97,12 @@ export const usePdfSearch = (doc: PDFDocumentProxy | null): PdfSearch => {
     };
   }, [doc, query]);
 
-  const step = React.useCallback(
-    (direction: 1 | -1) => {
-      setActiveIndex((previous) =>
-        results.length === 0
-          ? 0
-          : (previous + direction + results.length) % results.length,
-      );
-    },
-    [results.length],
-  );
-
-  const clear = React.useCallback(() => {
-    setQuery("");
-    setResults([]);
-    setActiveIndex(0);
-  }, []);
-
   return {
     query,
     setQuery,
     results,
     activeIndex,
     setActiveIndex,
-    step,
     searching,
-    clear,
   };
 };

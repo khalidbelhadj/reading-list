@@ -26,12 +26,14 @@ describe("buildPdfLayout", () => {
     expect(layout.offsets).toEqual([0, 800, 1300]);
     expect(layout.totalHeight).toBe(2100);
     expect(layout.maxWidth).toBe(1000);
+    expect(layout.maxHeight).toBe(800);
   });
 
   it("swaps width and height on a quarter turn", () => {
     const layout = buildPdfLayout(MIXED, 90);
     expect(layout.sizes[1]).toEqual({ width: 500, height: 1000 });
     expect(layout.maxWidth).toBe(800);
+    expect(layout.maxHeight).toBe(1000);
   });
 
   it("leaves sizes alone on a half turn", () => {

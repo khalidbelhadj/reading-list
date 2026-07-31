@@ -11,9 +11,11 @@
 // waits for it to settle.
 import React from "react";
 
+import { useSettled } from "@/lib/use-settled";
 import { cn } from "@/lib/utils";
 import {
   buildPdfLayout,
+  contentHeight,
   pageTop,
   type PdfMetrics,
   type PdfPageSize,
@@ -21,7 +23,7 @@ import {
 } from "@/lib/viewer/pdf-layout";
 import { type PdfRenderer } from "@/lib/viewer/pdf-render";
 
-import { usePageCanvas, useSettled } from "./use-page-canvas";
+import { usePageCanvas } from "./use-page-canvas";
 
 // Room the rail keeps either side of a thumbnail for the page-number label and
 // the active outline.
@@ -203,12 +205,7 @@ export const PdfThumbnails = ({
     <div ref={setScrollElement} className="min-h-0 flex-1 overflow-y-auto">
       <div
         className="relative"
-        style={{
-          height:
-            layout.totalHeight * scale +
-            Math.max(0, layout.count - 1) * THUMB_GAP +
-            THUMB_PADDING * 2,
-        }}
+        style={{ height: contentHeight(layout, metrics) }}
       >
         {rows}
       </div>

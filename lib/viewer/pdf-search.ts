@@ -10,6 +10,11 @@ export type HighlightRect = {
   active: boolean;
 };
 
+// Shortest query worth matching — one character lights up half the document.
+// Shared by the search hook, the sidebar, and the highlight geometry so they
+// can't disagree about when a query is "on".
+export const MIN_SEARCH_QUERY = 2;
+
 // Case- and accent-insensitive, and crucially **length-preserving**: every
 // input UTF-16 unit maps to exactly one output character. Offsets found in the
 // normalized text therefore index straight back into the original, which is
@@ -88,7 +93,7 @@ export const computeHighlightRects = ({
   activeOrdinal: number | null;
 }): HighlightRect[] => {
   const needle = normalizeForSearch(query);
-  if (needle.length < 2 || strings.length === 0) return [];
+  if (needle.length < MIN_SEARCH_QUERY || strings.length === 0) return [];
 
   const offsets: number[] = new Array<number>(strings.length);
   const lengths: number[] = new Array<number>(strings.length);

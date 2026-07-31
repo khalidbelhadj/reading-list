@@ -16,6 +16,11 @@ export type PdfLayout = {
   offsets: number[];
   sizes: PdfPageSize[];
   maxWidth: number;
+  // Tallest page. Fit modes measure against the extremes rather than the page
+  // under the reader: a fit scale that depends on `currentPage` feeds back
+  // into the layout that *determines* the current page, which oscillates on
+  // mixed-size documents.
+  maxHeight: number;
   totalHeight: number;
 };
 
@@ -32,18 +37,21 @@ export const buildPdfLayout = (
   const offsets: number[] = new Array<number>(rotated.length);
   let running = 0;
   let maxWidth = 0;
+  let maxHeight = 0;
   for (let index = 0; index < rotated.length; index += 1) {
     const size = rotated[index];
     if (!size) continue;
     offsets[index] = running;
     running += size.height;
     maxWidth = Math.max(maxWidth, size.width);
+    maxHeight = Math.max(maxHeight, size.height);
   }
   return {
     count: rotated.length,
     offsets,
     sizes: rotated,
     maxWidth,
+    maxHeight,
     totalHeight: running,
   };
 };

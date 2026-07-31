@@ -177,7 +177,10 @@ export const createPdfRenderer = (
       destroyed = true;
       for (const task of liveTasks) task.cancel();
       liveTasks.clear();
-      waiting.length = 0;
+      // Wake queued acquirers rather than abandoning them — each observes
+      // `destroyed` and bails, so their render promises settle instead of
+      // hanging forever.
+      while (waiting.length > 0) waiting.pop()?.();
       // Free the scratch backing stores now rather than waiting for GC.
       for (const scratch of scratchPool) {
         scratch.width = 0;
@@ -200,7 +203,14 @@ export const detachPdfMeasureCanvases = () => {
   for (const canvas of document.querySelectorAll<HTMLCanvasElement>(
     "body > canvas",
   )) {
-    if (canvas.style.display === "none" && canvas.style.width === "0px") {
+    // Match pdf.js's canvas by its full inline signature (see TextLayer
+    // #getCtx: "position:absolute;…;display:none;letter-spacing:normal;…") so
+    // another library's hidden probe canvas can't be swept up by accident.
+    if (
+      canvas.style.display === "none" &&
+      canvas.style.width === "0px" &&
+      canvas.style.letterSpacing === "normal"
+    ) {
       canvas.remove();
     }
   }

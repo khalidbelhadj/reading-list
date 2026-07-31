@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -138,9 +139,7 @@ export const PdfToolbar = ({
         <IconChevronDown />
       </ToolbarButton>
       <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
-        <input
-          // Deliberately unstyled: an inline numeric field that inherits the
-          // toolbar's type, not a standalone form control.
+        <Input
           value={value}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => event.currentTarget.select()}
@@ -154,7 +153,9 @@ export const PdfToolbar = ({
           }}
           inputMode="numeric"
           aria-label="Page number"
-          className="w-8 rounded-sm bg-muted/60 px-1 py-0.5 text-center font-mono text-xs text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          // The compact toolbar cut of the shared Input: no chrome of its
+          // own beyond the pill, sized to the widest plausible page count.
+          className="h-auto w-8 rounded-sm border-0 bg-muted/60 px-1 py-0.5 text-center font-mono text-xs text-foreground tabular-nums shadow-none"
         />
         <span className="font-mono tabular-nums">/ {pageCount}</span>
       </div>

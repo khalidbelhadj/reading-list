@@ -2,6 +2,7 @@
 // desktop PDF reader has, which this viewer previously had none of.
 import {
   IconChevronRight,
+  IconExternalLink,
   IconLayoutGrid,
   IconListTree,
   IconSearch,
@@ -15,10 +16,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { type PdfPageSize } from "@/lib/viewer/pdf-layout";
 import { type PdfRenderer } from "@/lib/viewer/pdf-render";
+import { MIN_SEARCH_QUERY } from "@/lib/viewer/pdf-search";
 
 import { PdfThumbnails } from "./pdf-thumbnails";
 import { type PdfOutlineNode, resolveOutlinePage } from "./use-pdf-document";
 import { type PdfSearch } from "./use-pdf-search";
+import { openExternally } from "./viewer-stage";
 
 export type PdfSidebarTab = "thumbnails" | "outline" | "search";
 
@@ -29,10 +32,13 @@ const OutlineRow = ({
 }: {
   node: PdfOutlineNode;
   depth: number;
-  onNavigate: (dest: string | unknown[] | null) => void;
+  onNavigate: (node: PdfOutlineNode) => void;
 }) => {
   const [open, setOpen] = React.useState(depth === 0);
   const hasChildren = node.items.length > 0;
+  // A bookmark is either an in-document destination or an external URL —
+  // manuals and reports mix the two freely in one outline.
+  const isExternal = !node.dest && !!node.url;
 
   return (
     <li>
@@ -56,7 +62,7 @@ const OutlineRow = ({
         )}
         <button
           type="button"
-          onClick={() => onNavigate(node.dest)}
+          onClick={() => onNavigate(node)}
           className={cn(
             "min-w-0 flex-1 py-0.5 pr-1 text-left text-xs leading-snug text-foreground/80 hover:text-foreground",
             node.bold && "font-medium",
@@ -64,6 +70,9 @@ const OutlineRow = ({
           )}
         >
           {node.title || "Untitled"}
+          {isExternal && (
+            <IconExternalLink className="mb-0.5 ml-1 inline size-3 opacity-60" />
+          )}
         </button>
       </div>
       {/* Indentation comes from a bordered nested list rather than a computed
@@ -100,6 +109,11 @@ const SearchPane = ({
     inputRef.current?.focus();
   }, []);
 
+  const resultsLabel =
+    searching && results.length === 0
+      ? "Searching…"
+      : `${results.length} result${results.length === 1 ? "" : "s"}${searching ? "…" : ""}`;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="relative px-2">
@@ -114,11 +128,9 @@ const SearchPane = ({
         />
       </div>
 
-      {query.trim().length >= 2 && (
+      {query.trim().length >= MIN_SEARCH_QUERY && (
         <p className="px-2 text-[0.6875rem] text-muted-foreground">
-          {searching && results.length === 0
-            ? "Searching…"
-            : `${results.length} result${results.length === 1 ? "" : "s"}${searching ? "…" : ""}`}
+          {resultsLabel}
         </p>
       )}
 
@@ -177,8 +189,14 @@ export const PdfSidebar = ({
   width: number;
 }) => {
   const handleOutlineNavigate = React.useCallback(
-    (dest: string | unknown[] | null) => {
-      void resolveOutlinePage(doc, dest).then((page) => {
+    (node: PdfOutlineNode) => {
+      // URL-only bookmarks (a /URI action, no destination) point outside the
+      // document — treating them as page jumps made them dead clicks.
+      if (!node.dest && node.url) {
+        openExternally(node.url);
+        return;
+      }
+      void resolveOutlinePage(doc, node.dest).then((page) => {
         if (page) onGoToPage(page);
       });
     },

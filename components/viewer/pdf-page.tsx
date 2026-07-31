@@ -139,9 +139,18 @@ export const PdfPage = ({
         });
         await layer.render();
         if (cancelled) return;
-        // pdf.js put --min-font-size and the layer's dimensions inline on the
-        // host — they belong to the layer, so they move with the spans.
+        // pdf.js put --min-font-size, the layer's dimensions, and the
+        // data-main-rotation attribute on the host — they belong to the
+        // layer, so they move with the spans. The attribute is what the
+        // .pdf-text-layer rotation rules in globals.css key off; dropping it
+        // leaves selection unrotated under a rotated canvas.
         container.style.cssText = host.style.cssText;
+        const mainRotation = host.getAttribute("data-main-rotation");
+        if (mainRotation === null) {
+          container.removeAttribute("data-main-rotation");
+        } else {
+          container.setAttribute("data-main-rotation", mainRotation);
+        }
         container.replaceChildren(...host.childNodes);
         // And unpin its measurement canvas from the DOM so the re-measure on
         // zoom settle (layer.update) can't thrash either — see
