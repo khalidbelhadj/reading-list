@@ -99,7 +99,7 @@ const setZoom = (next: number) => {
 // window background color so fast resizes don't expose a white (or dark)
 // strip that mismatches the page until React paints.
 const LIGHT_BG = "#fcfbf9";
-const DARK_BG = "#1a1a17";
+const DARK_BG = "#22211e";
 const themeBg = () => (nativeTheme.shouldUseDarkColors ? DARK_BG : LIGHT_BG);
 
 const sendDeepLink = (url: string) => {

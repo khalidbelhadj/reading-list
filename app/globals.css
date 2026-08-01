@@ -133,56 +133,57 @@
 }
 
 .dark {
-  --background: oklch(0.195 0.002 85);
-  --foreground: oklch(0.982 0.002 85);
-  --card: oklch(0.225 0.003 85);
-  --card-foreground: oklch(0.982 0.002 85);
-  --surface: oklch(0.25 0.003 85);
-  --popover: oklch(0.225 0.003 85);
-  --popover-foreground: oklch(0.982 0.002 85);
-  --primary: oklch(0.7 0.1 150);
-  --primary-foreground: oklch(0.18 0.003 85);
-  --secondary: oklch(0.305 0.004 85);
-  --secondary-foreground: oklch(0.982 0.002 85);
-  --muted: oklch(0.285 0.004 85);
-  --muted-foreground: oklch(0.709 0 0);
-  --accent: oklch(0.325 0.004 85);
-  --accent-foreground: oklch(0.982 0.002 85);
-  --badge: oklch(0.305 0.004 85);
-  --badge-foreground: oklch(0.982 0.002 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.3 0.003 85);
-  --input: oklch(0.33 0.003 85);
-  --ring: oklch(0.553 0 0);
-  --chart-1: oklch(0.869 0 0);
-  --chart-2: oklch(0.553 0 0);
-  --chart-3: oklch(0.444 0 0);
-  --chart-4: oklch(0.374 0 0);
-  --chart-5: oklch(0.268 0 0);
-  --sidebar: oklch(0.25 0.003 85);
-  --sidebar-foreground: oklch(0.982 0.002 85);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.982 0.002 85);
-  --sidebar-accent: oklch(0.305 0.004 85);
-  --sidebar-accent-foreground: oklch(0.982 0.002 85);
-  --sidebar-border: oklch(0.3 0.003 85);
-  --sidebar-ring: oklch(0.553 0 0);
-  --toast-error-bg: oklch(0.27 0.04 25);
-  --toast-error-text: oklch(0.8 0.14 25);
-  --toast-error-border: oklch(0.35 0.06 25);
-  --selection: oklch(0.5 0.04 150 / 0.55);
-  --selection-foreground: oklch(0.982 0.002 85);
+  --background: oklch(0.227 0.002 85);
+  --foreground: oklch(0.983 0.002 85);
+  --card: oklch(0.256 0.003 85);
+  --card-foreground: oklch(0.983 0.002 85);
+  --surface: oklch(0.28 0.003 85);
+  --popover: oklch(0.256 0.003 85);
+  --popover-foreground: oklch(0.983 0.002 85);
+  --primary: oklch(0.712 0.1 150);
+  --primary-foreground: oklch(0.213 0.003 85);
+  --secondary: oklch(0.333 0.004 85);
+  --secondary-foreground: oklch(0.983 0.002 85);
+  --muted: oklch(0.314 0.004 85);
+  --muted-foreground: oklch(0.721 0 0);
+  --accent: oklch(0.352 0.004 85);
+  --accent-foreground: oklch(0.983 0.002 85);
+  --badge: oklch(0.333 0.004 85);
+  --badge-foreground: oklch(0.983 0.002 85);
+  --destructive: oklch(0.716 0.191 22.216);
+  --border: oklch(0.328 0.003 85);
+  --input: oklch(0.357 0.003 85);
+  --ring: oklch(0.571 0 0);
+  --chart-1: oklch(0.874 0 0);
+  --chart-2: oklch(0.571 0 0);
+  --chart-3: oklch(0.466 0 0);
+  --chart-4: oklch(0.399 0 0);
+  --chart-5: oklch(0.297 0 0);
+  --sidebar: oklch(0.28 0.003 85);
+  --sidebar-foreground: oklch(0.983 0.002 85);
+  --sidebar-primary: oklch(0.508 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.983 0.002 85);
+  --sidebar-accent: oklch(0.333 0.004 85);
+  --sidebar-accent-foreground: oklch(0.983 0.002 85);
+  --sidebar-border: oklch(0.328 0.003 85);
+  --sidebar-ring: oklch(0.571 0 0);
+  --toast-error-bg: oklch(0.299 0.04 25);
+  --toast-error-text: oklch(0.808 0.14 25);
+  --toast-error-border: oklch(0.376 0.06 25);
+  --selection: oklch(0.52 0.04 150 / 0.55);
+  --selection-foreground: oklch(0.983 0.002 85);
   /* Dark mode needs the opposite: a white page already separates hard from
      the dark stage, so this only softens the edge rather than defining it. */
-  --pdf-page-outline: oklch(0.48 0.003 85);
+  --pdf-page-outline: oklch(0.501 0.003 85);
   --depth-button:
     inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary:
-    inset 0 -1px 0 0 oklch(0.52 0.1 150 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+    inset 0 -1px 0 0 oklch(0.539 0.1 150 / 0.5),
+    0 1px 2px -1px rgb(0 0 0 / 0.35);
   --depth-button-destructive:
-    inset 0 -1px 0 0 oklch(0.55 0.18 22 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-  --primary-border: oklch(0.61 0.1 150);
-  --destructive-border: oklch(0.6 0.18 22 / 0.5);
+    inset 0 -1px 0 0 oklch(0.568 0.18 22 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --primary-border: oklch(0.626 0.1 150);
+  --destructive-border: oklch(0.616 0.18 22 / 0.5);
   --depth-floating:
     inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.4),
     0 12px 24px -8px rgb(0 0 0 / 0.25);
@@ -569,18 +570,18 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 }
 .dark .markdown-editor .ProseMirror .hljs-comment,
 .dark .markdown-editor .ProseMirror .hljs-quote {
-  color: oklch(0.6 0.01 85);
+  color: oklch(0.616 0.01 85);
 }
 .dark .markdown-editor .ProseMirror .hljs-keyword,
 .dark .markdown-editor .ProseMirror .hljs-selector-tag,
 .dark .markdown-editor .ProseMirror .hljs-literal,
 .dark .markdown-editor .ProseMirror .hljs-section,
 .dark .markdown-editor .ProseMirror .hljs-link {
-  color: oklch(0.75 0.14 290);
+  color: oklch(0.76 0.14 290);
 }
 .dark .markdown-editor .ProseMirror .hljs-built_in,
 .dark .markdown-editor .ProseMirror .hljs-type {
-  color: oklch(0.78 0.12 200);
+  color: oklch(0.789 0.12 200);
 }
 .dark .markdown-editor .ProseMirror .hljs-string,
 .dark .markdown-editor .ProseMirror .hljs-title,
@@ -592,15 +593,15 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 .dark .markdown-editor .ProseMirror .hljs-variable,
 .dark .markdown-editor .ProseMirror .hljs-template-tag,
 .dark .markdown-editor .ProseMirror .hljs-template-variable {
-  color: oklch(0.78 0.13 145);
+  color: oklch(0.789 0.13 145);
 }
 .dark .markdown-editor .ProseMirror .hljs-number,
 .dark .markdown-editor .ProseMirror .hljs-regexp,
 .dark .markdown-editor .ProseMirror .hljs-meta {
-  color: oklch(0.78 0.13 60);
+  color: oklch(0.789 0.13 60);
 }
 .dark .markdown-editor .ProseMirror .hljs-deletion {
-  color: oklch(0.75 0.16 25);
+  color: oklch(0.76 0.16 25);
 }
 /* Block math (KaTeX). Collapsed state: the rendered equation, centered. */
 .markdown-editor .ProseMirror .block-math-node {
@@ -911,7 +912,7 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   color: oklch(0.55 0.16 250);
 }
 .dark .markdown-editor .ProseMirror a {
-  color: oklch(0.72 0.14 245);
+  color: oklch(0.731 0.14 245);
 }
 .markdown-editor .ProseMirror hr {
   border: none;
