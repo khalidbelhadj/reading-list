@@ -1,1 +1,0 @@
-/Users/khalid/Developer/reading-list/.agents/skills/Bun Next.js

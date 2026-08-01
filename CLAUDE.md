@@ -148,7 +148,24 @@ Supabase Auth with Google OAuth. All authentication flows through Supabase — n
 
 ## Notes
 
-`notes/` contains documentation of past bugs, implementation decisions, and architectural notes. Search this directory when investigating issues that may have been encountered before.
+`notes/` is this repo's memory of *why* — past bugs and their root causes,
+implementation decisions, architectural notes. It is the historical record;
+consult it before re-deriving anything.
+
+**Read it first.** When investigating a bug, a performance problem, or any
+"why is it built this way", search `notes/` before searching the code. Several
+of these took days to diagnose and the symptom never points at the cause.
+
+**Write it back.** After fixing a non-obvious bug — one where the symptom and
+the cause were far apart, where the obvious fix was wrong, or where you'd have
+saved hours by knowing something up front — add a note. Symptom, cause, fix,
+and what generalises. A note that only restates the diff is not worth adding;
+the value is in the part that isn't recoverable from the code.
+
+Current notes: viewer/context pipeline plan, multi-window architecture,
+multi-select, local Supabase setup, Electron debugging, the pdf.js
+`measureText` freeze, CSP vs. dev HMR, live-DB-vs-schema drift, base-ui popups
+inside tiptap.
 
 ## Known Issues
 
