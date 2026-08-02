@@ -11,8 +11,8 @@ export const SIGNOUT_BROADCAST_EVENT = "signout";
 // blocks the actual sign-out flow.
 export const broadcastSignOut = async () => {
   const supabase = createClient();
-  const { data } = await supabase.auth.getUser();
-  const userId = data.user?.id;
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims.sub;
   if (!userId) return;
 
   const channel = supabase.channel(logoutChannelName(userId));

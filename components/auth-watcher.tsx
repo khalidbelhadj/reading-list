@@ -31,8 +31,11 @@ export const AuthWatcher = () => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
 
-    supabase.auth.getUser().then(({ data }) => {
-      const userId = data.user?.id;
+    // getClaims, not getUser: this runs on every page load, and getUser is a
+    // round trip to /auth/v1/user (measured at 207ms + a 32ms CORS preflight
+    // in prod). getClaims verifies the token locally against a cached JWKS.
+    supabase.auth.getClaims().then(({ data }) => {
+      const userId = data?.claims.sub;
       if (!userId || cancelled) return;
       channel = supabase
         .channel(logoutChannelName(userId))
