@@ -35,7 +35,7 @@ export const SuggestedSection = ({
   onHide,
 }: SuggestedSectionProps) => {
   const {
-    onSelect,
+    onActivate,
     onDelete,
     onToggleRead,
     onTogglePin,
@@ -134,7 +134,7 @@ export const SuggestedSection = ({
                     render={
                       <button
                         type="button"
-                        onClick={() => onSelect(item.id)}
+                        onClick={() => onActivate(item.id)}
                         className="flex w-36 shrink-0 flex-col gap-1.5 text-left outline-none"
                       />
                     }

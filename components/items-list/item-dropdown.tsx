@@ -57,7 +57,7 @@ import { type Item } from "@/lib/types";
 import { useIsElectron } from "@/lib/use-is-electron";
 
 import { Button } from "../ui/button";
-import { ReviewConfirmDialog } from "./review-confirm-dialog";
+import { ReviewConfirmPopover } from "./review-confirm-popover";
 import { useStartReview } from "./use-start-review";
 
 const AUTO_CLOSE_MS = 3000;
@@ -132,7 +132,7 @@ type ItemMenuActionsProps = {
 
 // Item-scoped review sessions launched from the menu. Counts are fetched
 // lazily when the menu opens (per-item due/new counts aren't part of the
-// items query) and the confirm dialog lives outside the menu popup so it
+// items query) and the confirm popover lives outside the menu popup so it
 // survives the menu closing.
 const useItemReview = ({
   item,
@@ -150,12 +150,35 @@ const useItemReview = ({
   const { startingMode, startReview } = useStartReview();
   const isStarting = startingMode !== null;
   const [pendingMode, setPendingMode] = React.useState<ReviewMode | null>(null);
+  // The menu item that launched the confirm has unmounted with the menu by the
+  // time the popover positions, so anchor to a snapshot of where it was.
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+  const anchor = React.useMemo(
+    () => (anchorRect ? { getBoundingClientRect: () => anchorRect } : null),
+    [anchorRect],
+  );
 
-  const handleDueClick = React.useCallback(() => setPendingMode("due"), []);
-  const handleNewClick = React.useCallback(() => setPendingMode("new"), []);
-  const handleCramClick = React.useCallback(() => setPendingMode("cram"), []);
+  const openConfirm = React.useCallback(
+    (mode: ReviewMode, event: React.MouseEvent) => {
+      setAnchorRect(event.currentTarget.getBoundingClientRect());
+      setPendingMode(mode);
+    },
+    [],
+  );
+  const handleDueClick = React.useCallback(
+    (event: React.MouseEvent) => openConfirm("due", event),
+    [openConfirm],
+  );
+  const handleNewClick = React.useCallback(
+    (event: React.MouseEvent) => openConfirm("new", event),
+    [openConfirm],
+  );
+  const handleCramClick = React.useCallback(
+    (event: React.MouseEvent) => openConfirm("cram", event),
+    [openConfirm],
+  );
 
-  const handleDialogOpenChange = React.useCallback(
+  const handleConfirmOpenChange = React.useCallback(
     (open: boolean) => {
       if (!open && !isStarting) setPendingMode(null);
     },
@@ -175,7 +198,7 @@ const useItemReview = ({
     wasStartingRef.current = isStarting;
   }, [isStarting, pendingMode]);
 
-  const dialogCardCount =
+  const confirmCardCount =
     pendingMode === "cram"
       ? (reviewStatus?.totalCardCount ?? item.flashcardCount)
       : pendingMode === "new"
@@ -187,24 +210,27 @@ const useItemReview = ({
     reviewStatus,
     cramCount: reviewStatus?.totalCardCount ?? item.flashcardCount,
     pendingMode,
+    anchor,
     isStarting,
     handleDueClick,
     handleNewClick,
     handleCramClick,
-    handleDialogOpenChange,
+    handleConfirmOpenChange,
     handleConfirm,
-    dialogCardCount,
+    confirmCardCount,
   };
 };
 
 type ItemReviewState = ReturnType<typeof useItemReview>;
 
-const ItemReviewDialog = ({ review }: { review: ItemReviewState }) => (
-  <ReviewConfirmDialog
+const ItemReviewConfirm = ({ review }: { review: ItemReviewState }) => (
+  <ReviewConfirmPopover
     open={review.pendingMode !== null}
-    onOpenChange={review.handleDialogOpenChange}
+    onOpenChange={review.handleConfirmOpenChange}
+    anchor={review.anchor}
+    align="start"
     mode={review.pendingMode}
-    cardCount={review.dialogCardCount}
+    cardCount={review.confirmCardCount}
     itemCount={1}
     itemScoped
     onConfirm={review.handleConfirm}
@@ -589,7 +615,7 @@ export const ItemDropdown = ({
           />
         </DropdownMenuContent>
       </DropdownMenu>
-      <ItemReviewDialog review={review} />
+      <ItemReviewConfirm review={review} />
     </>
   );
 };
@@ -637,7 +663,7 @@ export const ItemContextMenu = ({
           )}
         </ContextMenuContent>
       </ContextMenuRoot>
-      {!bulkContent && <ItemReviewDialog review={review} />}
+      {!bulkContent && <ItemReviewConfirm review={review} />}
     </>
   );
 };

@@ -13,6 +13,7 @@ import { useSettings } from "@/lib/use-settings";
 import { cn } from "@/lib/utils";
 
 import { AskResults } from "./items-list/ask-results";
+import { getOpenItemId } from "./items-list/cursor-store";
 import { DeleteItemsDialog } from "./items-list/delete-item-dialog";
 import { DuplicateDialog } from "./items-list/duplicate-dialog";
 import { GroupedList } from "./items-list/grouped-list";
@@ -33,6 +34,7 @@ import { SearchBar } from "./items-list/search-bar";
 import {
   clearSelection,
   pruneSelection,
+  setSelection,
   useHasSelection,
 } from "./items-list/selection-store";
 import { ShortcutsDialog } from "./items-list/shortcuts-dialog";
@@ -245,8 +247,12 @@ export const ItemsList = ({
     setCursor,
   });
 
-  // Clicking a row moves the list cursor onto it; a plain click also opens
-  // it, while cmd/shift clicks only change the selection.
+  // Clicking a row moves the list cursor onto it; a plain click also opens it,
+  // while cmd/shift clicks only change the selection. With `openOnSingleClick`
+  // off, opening moves to the double-click below — but only for the *first*
+  // open: once a preview is up, single clicks steer it, because a panel that
+  // ignored the row you just clicked would be showing the wrong item.
+  const openOnSingleClick = settings.openOnSingleClick;
   const handleSelectItem = React.useCallback(
     (id: string, modifiers?: SelectModifiers) => {
       const shouldOpen = applyRowClick(
@@ -254,6 +260,24 @@ export const ItemsList = ({
         modifiers ?? { meta: false, shift: false },
       );
       if (!shouldOpen) return;
+      setCursor(id);
+      if (!openOnSingleClick) {
+        setSelection([id], id);
+        const openId = getOpenItemId();
+        // Nothing open yet (double-click opens), or this row is already the
+        // one on screen — either way the click is selection only.
+        if (openId === null || openId === id) return;
+      }
+      onOpenItem(id);
+    },
+    [applyRowClick, setCursor, onOpenItem, openOnSingleClick],
+  );
+
+  // Double-click (and the suggested strip's cards): open regardless of the
+  // setting, collapsing any selection the way a plain opening click does.
+  const handleActivateItem = React.useCallback(
+    (id: string) => {
+      applyRowClick(id, { meta: false, shift: false });
       setCursor(id);
       onOpenItem(id);
     },
@@ -533,6 +557,7 @@ export const ItemsList = ({
   const itemActions = React.useMemo<ItemActions>(
     () => ({
       onSelect: handleSelectItem,
+      onActivate: handleActivateItem,
       onDelete: requestDeleteItem,
       onToggleRead: handleToggleRead,
       onTogglePin: handleTogglePin,
@@ -545,6 +570,7 @@ export const ItemsList = ({
     }),
     [
       handleSelectItem,
+      handleActivateItem,
       requestDeleteItem,
       handleToggleRead,
       handleTogglePin,

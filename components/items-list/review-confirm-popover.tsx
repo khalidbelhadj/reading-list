@@ -1,22 +1,28 @@
+// Start-a-review confirmation, anchored to whatever launched it — the toolbar's
+// review buttons or the menu item that was clicked. Matches the "End session"
+// popover in the review screen so both ends of a session use the same surface
+// rather than a modal at one end and a popover at the other.
 import type { ReviewMode } from "@/app/actions";
+import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverDescription,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverTitle,
+} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 
 const pluralize = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
 
-export const ReviewConfirmDialog = ({
+export const ReviewConfirmPopover = ({
   open,
   onOpenChange,
+  anchor,
+  align = "end",
   mode,
   cardCount,
   itemCount,
@@ -26,6 +32,8 @@ export const ReviewConfirmDialog = ({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  anchor: React.ComponentProps<typeof PopoverContent>["anchor"];
+  align?: React.ComponentProps<typeof PopoverContent>["align"];
   mode: ReviewMode | null;
   cardCount: number;
   itemCount: number;
@@ -70,37 +78,35 @@ export const ReviewConfirmDialog = ({
       : `${pluralize(cardCount, "card")} due across ${pluralize(itemCount, "item")}.`;
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverContent anchor={anchor} align={align} side="bottom">
+        <PopoverHeader>
+          <PopoverTitle>{title}</PopoverTitle>
+          <PopoverDescription>
             {description}
             {!isEmpty && isCram && (
               <> Cram sessions don&rsquo;t affect your schedule.</>
             )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
+          </PopoverDescription>
+        </PopoverHeader>
+        <PopoverFooter>
           {isEmpty ? (
-            <AlertDialogCancel>OK</AlertDialogCancel>
+            <PopoverClose>OK</PopoverClose>
           ) : (
             <>
-              <AlertDialogCancel disabled={isStarting}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={onConfirm} disabled={isStarting}>
+              <PopoverClose disabled={isStarting}>Cancel</PopoverClose>
+              <Button onClick={onConfirm} disabled={isStarting}>
                 {isStarting && <Spinner className="size-3" />}
                 {isCram
                   ? "Start cram"
                   : isNew
                     ? "Start new cards"
                     : "Start review"}
-              </AlertDialogAction>
+              </Button>
             </>
           )}
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </PopoverFooter>
+      </PopoverContent>
+    </Popover>
   );
 };

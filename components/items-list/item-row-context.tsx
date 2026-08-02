@@ -28,6 +28,10 @@ export type ItemActions = {
   // `modifiers` carries the click's cmd/shift state for multi-select; command
   // sources without a pointer event (suggested cards) omit it — plain select.
   onSelect: (id: string, modifiers?: SelectModifiers) => void;
+  // Unconditionally opens the item, whatever `openOnSingleClick` says — the
+  // double-click gesture, and command sources whose only meaning is "open
+  // this" (the suggested strip's cards).
+  onActivate: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
   onTogglePin: (id: string, starred: boolean) => void;

@@ -27,6 +27,9 @@ export const settingsSchema = z.object({
   showSuggestions: z.boolean().catch(false),
   tagsOpen: z.boolean().catch(false),
   reviewsInNewWindow: z.boolean().catch(true),
+  // When false, a plain row click only selects the row and the panel opens on
+  // double-click instead.
+  openOnSingleClick: z.boolean().catch(true),
   readingPanel: readingPanelSchema,
 });
 
@@ -42,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showSuggestions: false,
   tagsOpen: false,
   reviewsInNewWindow: true,
+  openOnSingleClick: true,
   readingPanel: readingPanelSchema.parse(undefined),
 };
 
