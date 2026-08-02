@@ -18,9 +18,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useIsElectron } from "@/lib/platform";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
-import { useIsElectron } from "@/lib/use-is-electron";
 
 import { useItemActions } from "./item-row-context";
 

@@ -15,6 +15,7 @@
 //    compositor stretches for free, so a pinch never waits on pdf.js.
 import React from "react";
 
+import { isElectron } from "@/lib/platform";
 import {
   buildPdfLayout,
   contentHeight,
@@ -386,7 +387,7 @@ export const usePdfViewer = (
   // compositor transform, so tracking the gesture per event is cheap; the
   // rasterizer catches up once on settle.
   React.useEffect(() => {
-    if (!container || window.readingList?.platform !== "electron") return;
+    if (!container || !isElectron()) return;
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey) return;
       // The standard gesture mapping: each wheel tick scales exponentially,

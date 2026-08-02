@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Image from "@/components/ui/image";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { isElectron } from "@/lib/platform";
 import { createClient } from "@/lib/supabase/client";
 
 const IS_LOCAL_BACKEND = /localhost|127\.0\.0\.1/.test(
@@ -51,9 +52,7 @@ export const LoginForm = ({
     const callback = new URL("/auth/callback", window.location.origin);
     if (redirectTo) callback.searchParams.set("next", redirectTo);
 
-    const isElectron = window.readingList?.platform === "electron";
-
-    if (isElectron && window.readingList) {
+    if (isElectron() && window.readingList) {
       // Get the OAuth URL but don't navigate the Electron renderer to it —
       // Google blocks embedded browser flows. The /auth/callback route detects
       // ?from=electron and bounces back to a readinglist:// deep link so the
