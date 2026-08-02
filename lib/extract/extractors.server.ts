@@ -4,9 +4,16 @@
 // SSRF guard applies — this module fetches arbitrary user-saved URLs.
 import { loadPdfDocument } from "@/lib/pdf-preview.server";
 import { getYouTubeVideoId } from "@/lib/url";
-import { readCapped, safeFetch } from "@/lib/url.server";
+import { assertPublicUrl, readCapped, safeFetch } from "@/lib/url.server";
 
 import { classifyUrl, getArxivId, getPdfUrl } from "./classify";
+import {
+  describeResponse,
+  describeThrown,
+  failureForStatus,
+  IndexFailure,
+  readErrorBody,
+} from "./failure";
 import { htmlToArticleMarkdown } from "./readability.server";
 
 // Provenance only: stamped onto item_content rows at write time so we know
@@ -23,15 +30,6 @@ export type Extraction = {
   markdown: string;
 };
 
-// Terminal "this URL will never extract" (binary blobs, empty readability
-// output) — the worker maps it to status "unsupported" instead of retrying.
-export class UnsupportedContentError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UnsupportedContentError";
-  }
-}
-
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const FETCH_TIMEOUT_MS = 20_000;
@@ -45,6 +43,25 @@ const MIN_ARTICLE_WORDS = 40;
 export const countWords = (text: string): number =>
   text.split(/\s+/).filter(Boolean).length;
 
+/**
+ * Strips characters Postgres `text` cannot store.
+ *
+ * A NUL byte aborts the INSERT with "unsupported Unicode escape sequence",
+ * which surfaces as a failed query rather than anything resembling a content
+ * problem — eleven items in this library were stuck on exactly that, their
+ * error a truncated SQL statement. PDFs are the usual source: pdf.js hands
+ * back the glyph codes it finds, and NUL is a real code point in a broken
+ * font map. Lone surrogates go the same way, so they go too.
+ */
+const scrubForStorage = (text: string): string =>
+  text.replace(/\u0000/g, "").replace(/[\uD800-\uDFFF]/g, "");
+
+const clean = (extraction: Extraction): Extraction => ({
+  ...extraction,
+  title: extraction.title ? scrubForStorage(extraction.title) : null,
+  markdown: scrubForStorage(extraction.markdown),
+});
+
 // ---------------------------------------------------------------------------
 // Web pages (and the shared HTML → markdown step used by live capture)
 // ---------------------------------------------------------------------------
@@ -52,11 +69,16 @@ export const countWords = (text: string): number =>
 export const extractFromHtml = (html: string, url: string): Extraction => {
   const article = htmlToArticleMarkdown(html, url);
   if (!article || countWords(article.markdown) < MIN_ARTICLE_WORDS) {
-    throw new UnsupportedContentError(
-      "No readable article content on this page",
+    throw new IndexFailure(
+      "not_readable",
+      "Readability found no article, or too few words to be one",
     );
   }
-  return { extractor: "web", title: article.title, markdown: article.markdown };
+  return clean({
+    extractor: "web",
+    title: article.title,
+    markdown: article.markdown,
+  });
 };
 
 const extractWeb = async (url: string): Promise<Extraction> => {
@@ -64,22 +86,28 @@ const extractWeb = async (url: string): Promise<Extraction> => {
     headers: { "User-Agent": UA, Accept: "text/html,application/pdf" },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
+  if (!res.ok) {
+    throw new IndexFailure(
+      failureForStatus(res.status),
+      describeResponse(res, await readErrorBody(res)),
+    );
+  }
 
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType.includes("application/pdf")) {
     const bytes = await readCapped(res, MAX_PDF_BYTES);
-    if (!bytes) throw new Error("PDF exceeds size cap");
-    return extractPdfBytes(bytes);
+    if (!bytes) throw new IndexFailure("too_large", "PDF exceeds size cap");
+    return clean(await extractPdfBytes(bytes));
   }
   if (!contentType.includes("html")) {
-    throw new UnsupportedContentError(
+    throw new IndexFailure(
+      "not_readable",
       `Unsupported content type: ${contentType || "unknown"}`,
     );
   }
 
   const bytes = await readCapped(res, MAX_HTML_BYTES);
-  if (!bytes) throw new Error("HTML exceeds size cap");
+  if (!bytes) throw new IndexFailure("too_large", "HTML exceeds size cap");
   const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
   return extractFromHtml(html, url);
 };
@@ -117,7 +145,8 @@ const extractPdfBytes = async (bytes: Uint8Array): Promise<Extraction> => {
 
     const markdown = pages.join("\n\n");
     if (countWords(markdown) < MIN_ARTICLE_WORDS) {
-      throw new UnsupportedContentError(
+      throw new IndexFailure(
+        "not_readable",
         "PDF has no extractable text (likely scanned)",
       );
     }
@@ -132,9 +161,14 @@ const extractPdf = async (pdfUrl: string): Promise<Extraction> => {
     headers: { "User-Agent": UA },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`PDF fetch failed with status ${res.status}`);
+  if (!res.ok) {
+    throw new IndexFailure(
+      failureForStatus(res.status),
+      describeResponse(res, await readErrorBody(res)),
+    );
+  }
   const bytes = await readCapped(res, MAX_PDF_BYTES);
-  if (!bytes) throw new Error("PDF exceeds size cap");
+  if (!bytes) throw new IndexFailure("too_large", "PDF exceeds size cap");
   return extractPdfBytes(bytes);
 };
 
@@ -180,11 +214,18 @@ const extractArxiv = async (arxivId: string): Promise<Extraction> => {
     `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`,
     { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15_000) },
   );
-  if (!res.ok) throw new Error(`arXiv API failed with status ${res.status}`);
+  if (!res.ok) {
+    throw new IndexFailure(
+      failureForStatus(res.status),
+      describeResponse(res, await readErrorBody(res)),
+    );
+  }
   const xml = await res.text();
 
   const entry = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1];
-  if (!entry) throw new Error("arXiv API returned no entry");
+  if (!entry) {
+    throw new IndexFailure("not_readable", "arXiv API returned no entry");
+  }
   const title = decodeAndCollapse(
     entry.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "",
   );
@@ -382,7 +423,10 @@ const extractYouTube = async (
 
   const markdown = parts.join("\n");
   if (!description && !transcript && !title) {
-    throw new Error("Could not fetch any YouTube metadata");
+    throw new IndexFailure(
+      "not_readable",
+      "No transcript or metadata available for this video",
+    );
   }
   return { extractor: "youtube", title, markdown };
 };
@@ -392,22 +436,38 @@ const extractYouTube = async (
 // ---------------------------------------------------------------------------
 
 export const extractForUrl = async (url: string): Promise<Extraction> => {
+  // The SSRF guard (lib/url.server.ts) is shared with the rest of the app and
+  // has no opinion about indexing, so its rejections are translated here
+  // rather than there — from the reader's side they all mean the same thing:
+  // this link can't be fetched from the server, and never will be.
+  if (!URL.canParse(url)) {
+    throw new IndexFailure("invalid_url", `Not a parseable URL: ${url}`);
+  }
+  try {
+    await assertPublicUrl(url);
+  } catch (error) {
+    throw new IndexFailure("invalid_url", `${url}\n${describeThrown(error)}`);
+  }
+
+  // Every path funnels through clean(): whatever an extractor produces has to
+  // survive a Postgres text column, and that is not each extractor's problem
+  // to remember.
   const kind = classifyUrl(url);
   switch (kind) {
     case "youtube": {
       const videoId = getYouTubeVideoId(url);
       if (!videoId) return extractWeb(url);
-      return extractYouTube(url, videoId);
+      return clean(await extractYouTube(url, videoId));
     }
     case "arxiv": {
       const arxivId = getArxivId(url);
       if (!arxivId) return extractWeb(url);
-      return extractArxiv(arxivId);
+      return clean(await extractArxiv(arxivId));
     }
     case "pdf": {
       const pdfUrl = getPdfUrl(url);
       if (!pdfUrl) return extractWeb(url);
-      return extractPdf(pdfUrl);
+      return clean(await extractPdf(pdfUrl));
     }
     case "web":
       return extractWeb(url);

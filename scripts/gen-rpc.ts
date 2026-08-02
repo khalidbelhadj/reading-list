@@ -69,10 +69,11 @@ const manifest: Section[] = [
     typeExports: {
       names: [
         "ContentOverviewRow",
+        "FailureGroup",
+        "IndexSummary",
         "IntelligenceOverview",
         "ItemChunk",
         "ItemContentDetail",
-        "ModelCoverage",
       ],
     },
     fns: [
@@ -81,12 +82,21 @@ const manifest: Section[] = [
       { name: "getItemChunks" },
       { name: "getEmbeddingSettings", zeroArg: true },
       { name: "updateEmbeddingSettings" },
-      { name: "reextractItem" },
-      { name: "reembedItem" },
-      { name: "processQueueBatch", zeroArg: true },
-      { name: "retryMissingEmbeddings", zeroArg: true },
-      { name: "backfillMyContent", zeroArg: true },
       { name: "submitLiveContent" },
+    ],
+  },
+  {
+    header: "indexer controls (pause, queue, retry)",
+    module: "./pipeline",
+    typeExports: { names: ["PipelineRunState"] },
+    fns: [
+      { name: "getPipelineRunState", zeroArg: true },
+      { name: "setPipelinePaused" },
+      { name: "indexEverything", zeroArg: true },
+      { name: "retryFailedItems", zeroArg: true },
+      { name: "retryFailureReason" },
+      { name: "reindexItems" },
+      { name: "reembedForCurrentModel", zeroArg: true },
     ],
   },
   {

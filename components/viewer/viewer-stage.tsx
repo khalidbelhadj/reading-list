@@ -31,14 +31,18 @@ const useViewerContent = (item: Item) => {
   const { data: content, isLoading } = useQuery({
     queryKey: ["item-content", item.id],
     queryFn: () => getItemContent(item.id),
-    // The pipeline may still be extracting right after a save — poll gently
-    // until the row leaves "pending".
-    refetchInterval: (query) =>
-      query.state.data?.status === "pending" ? 4000 : false,
+    // The indexer may still be working right after a save — poll gently until
+    // the row settles.
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "pending" || state === "running" ? 4000 : false;
+    },
   });
 
   const kind: ContentKind = classifyUrl(item.url);
-  const markdown = content?.status === "ok" ? (content.markdown ?? null) : null;
+  // Text is shown as soon as it exists, whether or not the embed step has
+  // finished — the reader does not care about the vector.
+  const markdown = content?.markdown ?? null;
   const title = item.title || content?.title || item.url;
   return { content, contentLoading: isLoading, kind, markdown, title };
 };

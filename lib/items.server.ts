@@ -2,10 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { type db, type Tx } from "@/db";
 import { flashcards, items, itemsTags } from "@/db/schema";
-import {
-  enqueueItemContent,
-  scheduleProcessing,
-} from "@/lib/extract/worker.server";
+import { enqueueItems } from "@/lib/extract/worker.server";
 import { syncFlashcardsFromNotes } from "@/lib/flashcard-sync.server";
 import {
   ensureTagsLinkedForItems,
@@ -68,10 +65,9 @@ export const createItems = async (
     await ensureTagsLinkedForItems(tx, userId, itemIds, tagNames);
   }
 
-  // Kick the extraction pipeline for the new items. Enqueued inside this
-  // transaction; processing starts after a delay so the commit lands first.
-  await enqueueItemContent(tx, userId, ids);
-  scheduleProcessing(ids.length === 1 ? ids[0] : undefined);
+  // Queue only — the indexer loop picks these up on its next pass. Nothing
+  // here starts a worker, because one is already running.
+  await enqueueItems(tx, userId, ids);
 
   return ids;
 };
@@ -122,12 +118,11 @@ const updateItem = async (
     await syncItemTags(tx, userId, itemId, fields.tagNames);
   }
 
-  // A changed URL means the extracted content is for the wrong page —
-  // re-extract. (No-op re-saves of the same URL are filtered by the
-  // content-hash check in the worker.)
+  // A changed URL means the stored text describes the wrong page, so it has
+  // to go: a re-queued row with text still on it skips extraction entirely
+  // and would re-embed the old article under the new URL.
   if (fields.url !== undefined && fields.url !== "") {
-    await enqueueItemContent(tx, userId, [itemId]);
-    scheduleProcessing(itemId);
+    await enqueueItems(tx, userId, [itemId], { discardText: true });
   }
 
   return true;

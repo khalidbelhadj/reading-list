@@ -3,7 +3,6 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { flashcards, items } from "@/db/schema";
 import { withCurrentUser } from "@/lib/db-helpers.server";
-import { maybeDrainInBackground } from "@/lib/extract/worker.server";
 import { perfLog } from "@/lib/perf";
 import { safeAction } from "@/lib/safe-action";
 import type { Item } from "@/lib/types";
@@ -46,10 +45,6 @@ export const fetchItems = safeAction(async function fetchItems(): Promise<
 > {
   const start = performance.now();
   const [allItems, counts] = await withCurrentUser((tx, userId) => {
-    // Opportunistic, throttled queue drain so extraction retries eventually
-    // run without a cron — the authed list refetch is the app's steadiest
-    // heartbeat.
-    maybeDrainInBackground();
     return Promise.all([
       tx.query.items.findMany({
         // Exclude previewImageUrl: base64 PDF renders are ~94% of this

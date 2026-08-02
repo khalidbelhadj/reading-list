@@ -9,15 +9,15 @@ import { IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
+import type { ContentOverviewRow } from "@/app/actions";
 import { getItemContent } from "@/app/actions";
 import { Favicon } from "@/components/items-list/favicon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { describeFailure } from "@/lib/extract/failure";
 import { usePanelResize } from "@/lib/use-panel-resize";
 import { cn } from "@/lib/utils";
-
-import { type IntelligenceRow } from "./columns";
 
 const MIN_WIDTH = 360;
 const MAX_WIDTH = 900;
@@ -47,7 +47,7 @@ export const DetailPane = ({
   width,
   onWidthChange,
 }: {
-  row: IntelligenceRow;
+  row: ContentOverviewRow;
   activeModel: string | undefined;
   onClose: () => void;
   // Owned by the page so it survives this pane's per-item remount.
@@ -105,17 +105,16 @@ export const DetailPane = ({
       </div>
 
       <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1.5 px-3 pb-3 text-xs">
-        <Row label="status">
-          <Badge variant="outline">{row.status}</Badge>
+        <Row label="state">
+          <Badge variant={row.state === "failed" ? "destructive" : "outline"}>
+            {row.state}
+          </Badge>
         </Row>
-        {row.queueState !== "none" && (
-          <Row label="queue">
-            <Badge variant="outline">{row.queueState}</Badge>
-          </Row>
+        {row.state === "failed" && (
+          <Row label="reason">{describeFailure(row.failureReason).label}</Row>
         )}
         <Row label="words">{row.wordCount ?? 0}</Row>
         <Row label="chunks">{row.chunkCount}</Row>
-        <Row label="attempts">{row.attempts}</Row>
         {row.source && <Row label="source">{row.source}</Row>}
         {row.extractor && <Row label="extractor">{row.extractor}</Row>}
         {row.embeddingModel && (
@@ -129,18 +128,22 @@ export const DetailPane = ({
           </Row>
         )}
         {row.fetchedAt && <Row label="fetched at">{row.fetchedAt}</Row>}
-        {row.nextRetryAt && <Row label="next retry at">{row.nextRetryAt}</Row>}
-        {row.error && (
-          <Row label="extract error">
-            <span className="text-destructive">{row.error}</span>
-          </Row>
-        )}
-        {row.embeddingError && (
-          <Row label="embedding error">
-            <span className="text-destructive">{row.embeddingError}</span>
-          </Row>
-        )}
       </div>
+
+      {row.failureDetail && (
+        <div className="border-t border-border px-3 py-3">
+          <p className="pb-1.5 text-xs text-muted-foreground">
+            What actually happened
+          </p>
+          {/* Verbatim: status line and response body for an HTTP failure, or
+              the exception with its cause chain and stack. Its own block
+              rather than a grid cell because it is many lines and the point
+              is to be able to read all of them. */}
+          <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-[11px]/relaxed break-words whitespace-pre-wrap text-destructive">
+            {row.failureDetail}
+          </pre>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-3 py-3">
         {contentLoading ? (
