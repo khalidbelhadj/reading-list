@@ -30,6 +30,48 @@ export const getAppUrl = async () => {
   return trim(devMode && appUrl ? appUrl : PRODUCTION_URL);
 };
 
+// --- saved-state cache -----------------------------------------------------
+// The popup used to block on a network lookup before it could render *any*
+// button. It now renders from this cache immediately and revalidates in the
+// background, so opening the popup is instant in the common case.
+//
+// Keys are a rough client-side normalization (drop the hash, lowercase the
+// host) — enough to hit for the same page revisited, while the server stays
+// the authority on what counts as a duplicate. chrome.storage.session clears
+// on browser restart, which is the right lifetime for a cache we can rebuild.
+export const cacheKey = (url) => {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    parsed.hostname = parsed.hostname.toLowerCase();
+    return `item:${parsed.toString()}`;
+  } catch {
+    return `item:${url}`;
+  }
+};
+
+// How long a cached lookup is trusted without re-asking the server. Bounds the
+// request rate when someone cycles through tabs, which fires a lookup per
+// activation otherwise.
+export const CACHE_TTL_MS = 5 * 60 * 1000;
+
+// Cached lookup result: { item, fetchedAt } where item is the saved row or
+// null. Returns undefined when we've never looked this url up.
+export const readCache = async (url) => {
+  const key = cacheKey(url);
+  const stored = await chrome.storage.session.get(key);
+  return stored[key];
+};
+
+export const isFresh = (cached) =>
+  !!cached && Date.now() - (cached.fetchedAt ?? 0) < CACHE_TTL_MS;
+
+export const writeCache = async (url, item) => {
+  await chrome.storage.session.set({
+    [cacheKey(url)]: { item, fetchedAt: Date.now() },
+  });
+};
+
 export const itemUrl = (appUrl, itemId) =>
   `${appUrl}/?item=${encodeURIComponent(itemId)}`;
 

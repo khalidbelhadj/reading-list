@@ -36,17 +36,34 @@ open the extension's **Settings** (popup → gear → Settings), turn on
 
 ## Using it
 
+- **Toolbar badge**: a ✓ on the icon means the page is already in your list, so
+  the usual question is answered without opening anything.
+- **Keyboard shortcut** (⌘⇧S / Ctrl+Shift+S): saves the current page with no
+  popup at all — the fastest path. Rebind it at `chrome://extensions/shortcuts`.
 - **Popup** (toolbar icon): one contextual button.
   - Page not saved yet → **Save to reading list** (or just press ⏎).
   - Page already saved → **Open in reading list →**, which jumps to the item.
-  The popup checks on open whether the current page is already in your list.
 - **Right-click** a link or page → "Save … to reading list". A notification
   confirms the save and offers an **Open in reading list** button.
+
+## Why it feels instant
+
+The popup never blocks on the network. The service worker looks up the active
+tab's url when you switch tabs and caches the answer in `chrome.storage.session`
+(5 minute TTL), so the popup renders a usable button on the first frame.
+
+Clicking **Save** flips to the saved state immediately and hands the write to
+the service worker, which outlives the popup — so the request finishes whether
+or not the popup is still open. The tradeoff: a save that fails server-side
+reports via a notification *after* the popup already showed a tick.
 
 ## Notes
 
 - Right-clicked links are saved with just their URL; the server fetches the page
   title automatically.
+- The `tabs` permission is what lets the worker read the active tab's url on
+  switch to keep the badge current. Without it there's no badge and no prefetch,
+  and the popup goes back to waiting on a lookup.
 - Duplicate URLs aren't saved twice — the popup shows the page as already saved
   and lets you open the existing item.
 

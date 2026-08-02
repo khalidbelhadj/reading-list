@@ -113,6 +113,12 @@ const applyHeaders = (
 // session from request cookies, lets supabase refresh it if needed, and
 // collects the resulting Set-Cookie values to append to whatever response we
 // end up returning.
+//
+// Uses getClaims() rather than getUser() so the token is verified locally
+// instead of round-tripping to Supabase Auth on every page and API request
+// (see lib/auth.ts for the full rationale). getClaims still refreshes a
+// near-expiry session before validating, so the Set-Cookie behaviour that
+// keeps sessions alive is unchanged.
 const getSessionFromRequest = async (request: Request) => {
   const setCookies: string[] = [];
   const supabase = createServerClient(
@@ -133,11 +139,9 @@ const getSessionFromRequest = async (request: Request) => {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
 
-  return { user, setCookies };
+  return { userId: data?.claims.sub ?? null, setCookies };
 };
 
 const applySetCookies = (response: Response, setCookies: string[]): void => {
@@ -156,6 +160,15 @@ const isPublicPath = (pathname: string): boolean =>
   /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|ttf|otf|map|txt|json)$/i.test(
     pathname,
   );
+
+// Per-request phase timings, surfaced as a Server-Timing header so prod
+// latency is attributable straight from a browser (or the extension's)
+// network panel: `auth` is session resolution, `handler` is everything the
+// route itself does. Dev perfLog output only covers the server functions,
+// and MOCK_USER_ID skips auth entirely there — this is the only view of
+// what auth actually costs against a real Supabase project.
+const serverTiming = (marks: [string, number][]): string =>
+  marks.map(([name, ms]) => `${name};dur=${ms.toFixed(1)}`).join(", ");
 
 type GuardNextResult = { response: Response };
 
@@ -208,14 +221,19 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         { cookies: { getAll: () => [], setAll: () => {} } },
       );
-      const {
-        data: { user },
-      } = await supabase.auth.getUser(token);
-      if (user) {
+      const authStart = performance.now();
+      const { data } = await supabase.auth.getClaims(token);
+      const authMs = performance.now() - authStart;
+      if (data?.claims.sub) {
+        const handlerStart = performance.now();
         const result = await next();
         applyHeaders(result.response, {
           ...securityHeaders,
           ...corsHeaders(request, isMcp),
+          "Server-Timing": serverTiming([
+            ["auth", authMs],
+            ["handler", performance.now() - handlerStart],
+          ]),
         });
         return result;
       }
@@ -234,18 +252,25 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
     }
 
     // Fall back to Supabase cookie session
-    const { user, setCookies } = await getSessionFromRequest(request);
-    if (!user) {
+    const authStart = performance.now();
+    const { userId, setCookies } = await getSessionFromRequest(request);
+    const authMs = performance.now() - authStart;
+    if (!userId) {
       const headers = corsHeaders(request, isMcp);
       headers["WWW-Authenticate"] =
         `Bearer resource_metadata="${new URL(request.url).origin}/.well-known/oauth-protected-resource"`;
       return Response.json({ error: "Unauthorized" }, { status: 401, headers });
     }
 
+    const handlerStart = performance.now();
     const result = await next();
     applyHeaders(result.response, {
       ...securityHeaders,
       ...corsHeaders(request, isMcp),
+      "Server-Timing": serverTiming([
+        ["auth", authMs],
+        ["handler", performance.now() - handlerStart],
+      ]),
     });
     applySetCookies(result.response, setCookies);
     return result;
@@ -256,32 +281,46 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
   // carries it.
   const nonce = crypto.randomUUID().replace(/-/g, "");
 
-  const finish = async (setCookies: string[]): Promise<TResult> => {
+  const finish = async (
+    setCookies: string[],
+    authMs: number,
+  ): Promise<TResult> => {
+    const handlerStart = performance.now();
     const result = await next({ context: { cspNonce: nonce } });
     applyHeaders(result.response, SECURITY_HEADERS);
     result.response.headers.set("Content-Security-Policy", buildCsp(nonce));
+    result.response.headers.set(
+      "Server-Timing",
+      serverTiming([
+        ["auth", authMs],
+        ["handler", performance.now() - handlerStart],
+      ]),
+    );
     applySetCookies(result.response, setCookies);
     return result;
   };
 
   // Public paths still refresh the session cookie, but never redirect.
   if (isPublicPath(pathname)) {
+    const publicAuthStart = performance.now();
     const { setCookies } = await getSessionFromRequest(request);
-    return finish(setCookies);
+    return finish(setCookies, performance.now() - publicAuthStart);
   }
 
   // Allow bypass in development with explicit mock user
   if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
-    return finish([]);
+    return finish([], 0);
   }
 
   // Check session for web routes, redirect to login if unauthenticated
-  const { user, setCookies } = await getSessionFromRequest(request);
-  if (!user) {
+  const authStart = performance.now();
+  const { userId, setCookies } = await getSessionFromRequest(request);
+  const authMs = performance.now() - authStart;
+  if (!userId) {
     return new Response(null, {
       status: 307,
       headers: { Location: new URL("/login", request.url).toString() },
     });
   }
-  return finish(setCookies);
+  return finish(setCookies, authMs);
 }
