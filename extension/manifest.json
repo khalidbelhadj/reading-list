@@ -3,7 +3,13 @@
   "name": "Reading List",
   "version": "1.0.0",
   "description": "Save the current page to your reading list, then jump straight to your notes.",
-  "permissions": ["activeTab", "contextMenus", "storage", "notifications"],
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "contextMenus",
+    "storage",
+    "notifications"
+  ],
   "host_permissions": [
     "https://reading-list.khalidbelhadj.com/*",
     "http://localhost/*"
@@ -19,6 +25,12 @@
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
+    }
+  },
+  "commands": {
+    "save-current-page": {
+      "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" },
+      "description": "Save the current page to your reading list"
     }
   },
   "options_page": "options.html",

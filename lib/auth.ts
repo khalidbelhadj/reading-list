@@ -15,16 +15,27 @@ const getMockUserId = (): string | null => {
   return process.env.MOCK_USER_ID ?? null;
 };
 
+// getClaims() verifies the access token's signature locally (WebCrypto,
+// against a JWKS cached per server instance) whenever the Supabase project
+// signs with asymmetric keys — no network hop. The getUser() this replaced
+// always round-tripped to /auth/v1/user, which put ~30ms of Supabase Auth
+// latency on the critical path of every server function and API route.
+//
+// On a project still using the legacy HS256 symmetric secret, getClaims
+// falls back to exactly that remote call, so this is correct either way —
+// it just isn't fast until the project rotates to asymmetric signing keys.
+//
+// The tradeoff local verification makes is the usual JWT one: a session
+// revoked mid-lifetime stays valid until its access token expires.
 export const getCurrentUserId = async (): Promise<string> => {
   const start = performance.now();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims.sub ?? null;
   perfLog("getCurrentUserId", performance.now() - start, {
-    hasUser: !!user,
+    hasUser: !!userId,
   });
-  if (user) return user.id;
+  if (userId) return userId;
 
   const mockId = getMockUserId();
   if (mockId) return mockId;
@@ -48,10 +59,8 @@ export const getCurrentUserIdFromRequest = async (
         },
       },
     );
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(token);
-    if (user) return user.id;
+    const { data } = await supabase.auth.getClaims(token);
+    if (data?.claims.sub) return data.claims.sub;
   }
 
   // No MOCK_USER_ID fallback here: middleware already 401s every /api/*

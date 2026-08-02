@@ -1,4 +1,10 @@
-import { lookupItem, saveItem, openItem, getAppUrl } from "./api.js";
+import {
+  getAppUrl,
+  lookupItem,
+  openItem,
+  readCache,
+  writeCache,
+} from "./api.js";
 
 const card = document.getElementById("card");
 const faviconEl = document.getElementById("favicon");
@@ -54,7 +60,12 @@ const hostOf = (url) => {
   }
 };
 
+// In-flight optimistic save, if any. "Open in reading list" waits on it,
+// because the item id only exists once the worker's write comes back.
+let pendingSave = null;
+
 const openCurrentItem = async () => {
+  if (pendingSave) await pendingSave;
   if (!ctx.item) return;
   await openItem(ctx.appUrl, ctx.item.id);
   window.close();
@@ -91,28 +102,51 @@ const handleFailure = () => {
   actionEl.onclick = () => chrome.runtime.openOptionsPage();
 };
 
-const doSave = async () => {
-  setState("saving");
-  setAction(`${ICON.spinner}<span>Save to reading list</span>`, {
-    disabled: true,
-  });
-  try {
-    const result = await saveItem({
-      url: ctx.tab.url,
-      title: ctx.tab.title,
-      faviconUrl: ctx.tab.favIconUrl,
+// Optimistic: flip to the saved state on the click and hand the write to the
+// service worker, which outlives this popup. The old version awaited the POST
+// with the popup held open, so every save cost a full round trip of staring at
+// a spinner. A failed write notifies from the background instead.
+const doSave = () => {
+  ctx.item = null;
+  pendingSave = chrome.runtime
+    .sendMessage({
+      type: "save",
+      tabId: ctx.tab.id,
+      payload: {
+        url: ctx.tab.url,
+        title: ctx.tab.title,
+        faviconUrl: ctx.tab.favIconUrl,
+      },
+    })
+    .then((result) => {
+      if (result?.ok) ctx.item = result.item;
+    })
+    .catch(() => {
+      // The worker notifies on failure; the popup is likely gone by now.
     });
-    ctx.item = result.ok ? { id: result.itemId } : result.duplicate;
-    renderSaved({ justSaved: true });
-  } catch (err) {
-    handleFailure(err);
+  renderSaved({ justSaved: true });
+};
+
+const showItem = (item, tab) => {
+  ctx.item = item;
+  if (item) {
+    if (item.title) titleEl.textContent = item.title;
+    setFavicon(item.faviconUrl || tab.favIconUrl);
+    renderSaved();
+  } else {
+    renderUnsaved();
   }
 };
 
 const init = async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // Independent reads — the old sequential await chain delayed the first paint
+  // by a storage round trip for no reason.
+  const [[tab], appUrl] = await Promise.all([
+    chrome.tabs.query({ active: true, currentWindow: true }),
+    getAppUrl(),
+  ]);
   ctx.tab = tab;
-  ctx.appUrl = await getAppUrl();
+  ctx.appUrl = appUrl;
 
   const savable = tab && /^https?:/.test(tab.url || "");
   if (!savable) {
@@ -123,24 +157,29 @@ const init = async () => {
     return;
   }
 
-  // optimistic identity from the tab while we check the server
+  // Identity from the tab itself — always available, never waits.
   titleEl.textContent = tab.title || hostOf(tab.url);
   hostEl.textContent = hostOf(tab.url);
   setFavicon(tab.favIconUrl);
 
+  // Render a usable button on the first frame: the background worker has
+  // usually already looked this url up on tab activation. Falling back to
+  // "unsaved" is the safe guess — worst case the revalidation below corrects
+  // it, and saving an already-saved url is a no-op the server dedupes.
+  const cached = await readCache(tab.url);
+  showItem(cached?.item ?? null, tab);
+
+  // Revalidate regardless; a cache hit just means the user never saw a spinner.
   try {
-    const { item, appUrl } = await lookupItem(tab.url);
-    ctx.appUrl = appUrl;
-    if (item) {
-      ctx.item = item;
-      if (item.title) titleEl.textContent = item.title;
-      setFavicon(item.faviconUrl || tab.favIconUrl);
-      renderSaved();
-    } else {
-      renderUnsaved();
-    }
+    const { item, appUrl: resolvedUrl } = await lookupItem(tab.url);
+    ctx.appUrl = resolvedUrl;
+    await writeCache(tab.url, item);
+    // Don't stomp an optimistic save that landed while this was in flight.
+    if (!pendingSave) showItem(item, tab);
   } catch (err) {
-    handleFailure(err);
+    // A stale cache hit is more useful than an error card; only report the
+    // failure when we had nothing to show in the first place.
+    if (!cached) handleFailure(err);
   }
 };
 
