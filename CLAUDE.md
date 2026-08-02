@@ -36,6 +36,14 @@ If asked to run the dev server, run it in the background and read its output to 
 - Raw `<input>`/`<textarea>` are acceptable *only* for genuinely unstyled
   inline fields (an in-place title edit that must inherit its surroundings),
   never for a standalone form control that should look like the rest of the app.
+- **Platform gating goes through `lib/platform.ts`** — `isElectron()` in
+  imperative code, `useIsElectron()` in components, `<ElectronOnly>`
+  (`components/electron-only.tsx`, takes an optional `fallback`) for a whole
+  subtree or page. Never read `window.readingList` or
+  `documentElement.classList.contains("electron")` directly; CSS is the one
+  exception and gates on `html.electron`. Gate the feature at its choke point
+  (the dispatcher, the URL parser) as well as in the UI that offers it — see
+  `dispatchReadItem` in `lib/panel-events.ts` for the desktop-only reader.
 - Export components and hooks as `const X = () =>`, not `function X()`
 - Use `useCallback` for functions passed as props
 - Component ordering: data/queries → UI state → refs → helpers → hooks → mutations/callbacks → effects → derived state → render

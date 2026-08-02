@@ -7,9 +7,16 @@ import { ItemWindow } from "@/components/items-list/item-window";
 import { SlidingItemPanel } from "@/components/items-list/sliding-item-panel";
 import { ReadingPanel } from "@/components/viewer/reading-panel";
 import { subscribeReadItem } from "@/lib/panel-events";
+import { isElectron } from "@/lib/platform";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
+
+// The reader is desktop-only (see dispatchReadItem), so ?read= is ignored on
+// the web app — a shared or bookmarked reading URL just opens the item panel
+// there instead of a reader the web build can't host.
+const readParam = (params: URLSearchParams) =>
+  isElectron() ? params.get("read") : null;
 
 // The home route renders either the central layout (list + sliding panel) or,
 // when opened as a dedicated single-item window (?window=1 via
@@ -50,7 +57,7 @@ const MainPanelLayout = () => {
   const [readingItemId, setReadingItemId] = React.useState<string | null>(
     () => {
       if (typeof window === "undefined") return null;
-      return new URLSearchParams(window.location.search).get("read");
+      return readParam(new URLSearchParams(window.location.search));
     },
   );
 
@@ -75,7 +82,7 @@ const MainPanelLayout = () => {
       const params = new URLSearchParams(window.location.search);
       setOpenItemId(params.get("item"));
       setExpanded(params.get("expanded") != null);
-      setReadingItemId(params.get("read"));
+      setReadingItemId(readParam(params));
       setReaderExpanded(params.get("readerFull") != null);
     };
     window.addEventListener("popstate", onPop);
