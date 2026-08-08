@@ -8,11 +8,7 @@ import { z } from "zod";
 import { withUser } from "@/db";
 import { itemContent, items } from "@/db/schema";
 import { getCurrentUserId } from "@/lib/auth";
-import {
-  assertOwnedItem,
-  requireAuth,
-  withCurrentUser,
-} from "@/lib/db-helpers.server";
+import { requireAuth, withCurrentUser } from "@/lib/db-helpers.server";
 import {
   type EmbeddingConfig,
   embeddingConfigSchema,
@@ -22,21 +18,17 @@ import {
   getEmbeddingConfig,
   setEmbeddingConfig,
 } from "@/lib/extract/embedding-config.server";
+import { extractFromHtml } from "@/lib/extract/extractors.server";
 import {
-  extractFromHtml,
-  UnsupportedContentError,
-} from "@/lib/extract/extractors.server";
+  FAILURE_REASONS,
+  type FailureReason,
+  IndexFailure,
+} from "@/lib/extract/failure";
+import { isPaused } from "@/lib/extract/pipeline-control.server";
 import {
-  applyExtraction,
-  drainAll,
-  type DrainResult,
-  enqueueItemContent,
-  LEASE_MINUTES,
-  MAX_ATTEMPTS,
-  processPendingContent,
-  reembedFromStored,
-  reembedMissing,
-  scheduleProcessing,
+  applyLiveCapture,
+  enqueueItems,
+  type IndexState,
 } from "@/lib/extract/worker.server";
 import { ActionError, safeAction } from "@/lib/safe-action";
 import {
@@ -54,117 +46,147 @@ const overviewRowSchema = z.object({
   item_id: z.string(),
   item_title: z.string(),
   url: z.string(),
-  status: z.string(),
+  state: z.string(),
+  failure_reason: z.string().nullable(),
+  failure_detail: z.string().nullable(),
   source: z.string().nullable(),
   extractor: z.string().nullable(),
   word_count: z.number().nullable(),
-  attempts: z.number(),
-  error: z.string().nullable(),
-  embedding_error: z.string().nullable(),
-  has_embedding: z.boolean(),
   embedding_model: z.string().nullable(),
-  stale_model: z.boolean(),
   chunk_count: z.number(),
   fetched_at: z.string().nullable(),
-  next_retry_at: z.string().nullable(),
-  queue_state: z.string(),
 });
 
 export type ContentOverviewRow = {
   itemId: string;
   itemTitle: string;
   url: string;
-  status: string;
+  state: IndexState;
+  // Set only when state is "failed". One of lib/extract/failure.ts's closed
+  // set; the UI reads its metadata for the label and for whether to offer a
+  // retry at all.
+  failureReason: FailureReason | null;
+  failureDetail: string | null;
   source: string | null;
   extractor: string | null;
   wordCount: number | null;
-  attempts: number;
-  error: string | null;
-  embeddingError: string | null;
-  hasEmbedding: boolean;
-  // The model the stored vector was produced with. Vectors from different
-  // models are never compared, so this is what decides whether the worker
-  // re-embeds a row whose content hasn't changed (see applyExtraction).
   embeddingModel: string | null;
-  // embeddingModel differs from the model the app is currently configured to
-  // use — this row's vector is due to be replaced on its next pass.
-  staleModel: boolean;
   chunkCount: number;
   fetchedAt: string | null;
-  nextRetryAt: string | null;
-  // Where this row sits in the extraction queue, derived from the same three
-  // facts the worker's claim query uses (see queueStateSql below).
-  queueState: QueueState;
 };
 
-// "none" = not in the queue at all (status is already ok/failed/unsupported).
-export type QueueState = "none" | "queued" | "running" | "retry-wait" | "stuck";
+/** One row per distinct failure reason, for the failures list. */
+export type FailureGroup = {
+  reason: FailureReason;
+  count: number;
+  retryable: boolean;
+};
 
-export type ModelCoverage = {
-  model: string;
-  items: number;
+/**
+ * What the header says. `ready` is the headline and means the only thing a
+ * reader would assume it means: extracted, embedded, and findable by search.
+ *
+ * The four counts partition the library exactly —
+ * `ready + working + failed + notIndexed === totalItems` — which is the
+ * property the old five-column arrangement could not offer, and the reason
+ * nobody could tell whether the numbers added up.
+ */
+export type IndexSummary = {
+  totalItems: number;
+  ready: number;
+  // pending + running: queued or being worked on right now.
+  working: number;
+  failed: number;
+  // No content row at all — never queued.
+  notIndexed: number;
+  // Of `working`, the ones a worker holds this instant. Recorded, not
+  // inferred from a timestamp.
+  running: number;
+  failures: FailureGroup[];
+  paused: boolean;
+  activeModel: string;
+  // Rows carrying a vector from a previous model. They still count as ready
+  // (they have text and a vector) but search filters to the active model, so
+  // this is the "your model switch hasn't finished" number.
+  staleModel: number;
 };
 
 export type IntelligenceOverview = {
-  totalItems: number;
   rows: ContentOverviewRow[];
-  // The model searches currently filter on. Everything not on it is excluded
-  // from results until it re-embeds, so the page has to be able to say so.
-  activeModel: string;
-  // One entry per distinct stored model, so a mixed corpus is visible as a
-  // fact rather than inferred from a column of badges.
-  coverage: ModelCoverage[];
+  summary: IndexSummary;
 };
 
-// Mirrors the worker's claim predicate exactly (lib/extract/worker.server.ts):
-// a pending row is claimable when it has attempts left and no live lease.
-// Claiming stamps next_retry_at = now() + LEASE_MINUTES, and a non-terminal
-// failure stamps it an hour or six out — so the distance into the future is
-// what separates "a worker is on it right now" from "waiting out a backoff".
-// Evaluated in SQL so it uses the database's clock, not the browser's.
-const queueStateSql = sql`
-  CASE
-    WHEN ic.status <> 'pending' THEN 'none'
-    WHEN ic.attempts >= ${MAX_ATTEMPTS} THEN 'stuck'
-    WHEN ic.next_retry_at IS NULL OR ic.next_retry_at < now() THEN 'queued'
-    WHEN ic.next_retry_at <= now() + make_interval(mins => ${LEASE_MINUTES})
-      THEN 'running'
-    ELSE 'retry-wait'
-  END`;
+const summarize = (
+  rows: ContentOverviewRow[],
+  totalItems: number,
+  staleModel: number,
+  activeModel: string,
+  paused: boolean,
+): IndexSummary => {
+  let ready = 0;
+  let working = 0;
+  let running = 0;
+  let failed = 0;
+  const byReason = new Map<FailureReason, number>();
+  for (const row of rows) {
+    if (row.state === "ready") ready++;
+    else if (row.state === "failed") {
+      failed++;
+      const reason = row.failureReason ?? "internal";
+      byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
+    } else {
+      working++;
+      if (row.state === "running") running++;
+    }
+  }
+  const failures = [...byReason.entries()]
+    .map(([reason, count]) => ({
+      reason,
+      count,
+      retryable: FAILURE_REASONS[reason].retryable,
+    }))
+    .sort((a, b) => b.count - a.count);
+  return {
+    totalItems,
+    ready,
+    working,
+    running,
+    failed,
+    notIndexed: Math.max(0, totalItems - rows.length),
+    failures,
+    paused,
+    activeModel,
+    staleModel,
+  };
+};
 
 export const getIntelligenceOverview = safeAction(
   async function getIntelligenceOverview(): Promise<IntelligenceOverview> {
     const activeModel = await getActiveModelId();
+    const paused = await isPaused();
     return withCurrentUser(async (tx, userId) => {
       const [countRow] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(items)
         .where(eq(items.userId, userId));
 
-      const coverageRaw = await tx.execute(sql`
-        SELECT COALESCE(embedding_model, '(none)') AS model,
-          count(*)::int AS items
-        FROM item_content
-        WHERE user_id = ${userId} AND embedding IS NOT NULL
-        GROUP BY 1 ORDER BY 2 DESC
-      `);
-      const coverage = z
-        .array(z.object({ model: z.string(), items: z.number() }))
-        .parse(Array.from(coverageRaw));
+      const [staleRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(itemContent)
+        .where(
+          and(
+            eq(itemContent.userId, userId),
+            eq(itemContent.state, "ready"),
+            sql`${itemContent.embeddingModel} IS DISTINCT FROM ${activeModel}`,
+          ),
+        );
 
       const raw = await tx.execute(sql`
-        SELECT ic.item_id, i.title AS item_title, i.url, ic.status, ic.source,
-          ic.extractor, ic.word_count, ic.attempts, ic.error,
-          ic.embedding_error, (ic.embedding IS NOT NULL) AS has_embedding,
-          ic.embedding_model,
-          -- Compared in SQL against the model this process is configured with,
-          -- so the flag can't drift from what the worker would actually do.
-          (ic.embedding IS NOT NULL AND ic.embedding_model IS DISTINCT FROM
-            ${activeModel}) AS stale_model,
+        SELECT ic.item_id, i.title AS item_title, i.url, ic.state,
+          ic.failure_reason, ic.failure_detail, ic.source, ic.extractor,
+          ic.word_count, ic.embedding_model,
           COALESCE(c.chunk_count, 0)::int AS chunk_count,
-          ic.fetched_at::text AS fetched_at,
-          ic.next_retry_at::text AS next_retry_at,
-          ${queueStateSql} AS queue_state
+          ic.fetched_at::text AS fetched_at
         FROM item_content ic
         JOIN items i ON i.id = ic.item_id
         LEFT JOIN (
@@ -174,46 +196,46 @@ export const getIntelligenceOverview = safeAction(
         WHERE ic.user_id = ${userId}
         ORDER BY ic.updated_at DESC
       `);
-      const rows = z.array(overviewRowSchema).parse(Array.from(raw));
+      const parsed = z.array(overviewRowSchema).parse(Array.from(raw));
+      const totalItems = countRow?.count ?? 0;
+      const rows: ContentOverviewRow[] = parsed.map((row) => ({
+        itemId: row.item_id,
+        itemTitle: row.item_title,
+        url: row.url,
+        state: row.state as IndexState,
+        failureReason: (row.failure_reason as FailureReason | null) ?? null,
+        failureDetail: row.failure_detail,
+        source: row.source,
+        extractor: row.extractor,
+        wordCount: row.word_count,
+        embeddingModel: row.embedding_model,
+        chunkCount: row.chunk_count,
+        fetchedAt: row.fetched_at,
+      }));
       return {
-        totalItems: countRow?.count ?? 0,
-        activeModel,
-        coverage,
-        rows: rows.map((row) => ({
-          itemId: row.item_id,
-          itemTitle: row.item_title,
-          url: row.url,
-          status: row.status,
-          source: row.source,
-          extractor: row.extractor,
-          wordCount: row.word_count,
-          attempts: row.attempts,
-          error: row.error,
-          embeddingError: row.embedding_error,
-          hasEmbedding: row.has_embedding,
-          embeddingModel: row.embedding_model,
-          staleModel: row.stale_model,
-          chunkCount: row.chunk_count,
-          fetchedAt: row.fetched_at,
-          nextRetryAt: row.next_retry_at,
-          queueState: row.queue_state as QueueState,
-        })),
+        rows,
+        summary: summarize(
+          rows,
+          totalItems,
+          staleRow?.count ?? 0,
+          activeModel,
+          paused,
+        ),
       };
     });
   },
-  "Could not load the intelligence overview.",
+  "Could not load the index overview.",
 );
 
 export type ItemContentDetail = {
-  status: string;
+  state: IndexState;
+  failureReason: FailureReason | null;
+  failureDetail: string | null;
   source: string | null;
   extractor: string | null;
   title: string | null;
   markdown: string | null;
   wordCount: number | null;
-  error: string | null;
-  embeddingError: string | null;
-  hasEmbedding: boolean;
   fetchedAt: string | null;
 } | null;
 
@@ -224,18 +246,14 @@ export const getItemContent = safeAction(async function getItemContent(
   return withCurrentUser(async (tx, userId) => {
     const [row] = await tx
       .select({
-        status: itemContent.status,
+        state: itemContent.state,
+        failureReason: itemContent.failureReason,
+        failureDetail: itemContent.failureDetail,
         source: itemContent.source,
         extractor: itemContent.extractor,
         title: itemContent.title,
         markdown: itemContent.markdown,
         wordCount: itemContent.wordCount,
-        error: itemContent.error,
-        embeddingError: itemContent.embeddingError,
-        // Same truth source as getIntelligenceOverview — the vector column
-        // itself, not embeddingModel — so one fact has one definition.
-        // Computed in SQL to avoid pulling the 1536-float vector over the wire.
-        hasEmbedding: sql<boolean>`${itemContent.embedding} IS NOT NULL`,
         fetchedAt: itemContent.fetchedAt,
       })
       .from(itemContent)
@@ -244,7 +262,11 @@ export const getItemContent = safeAction(async function getItemContent(
       )
       .limit(1);
     if (!row) return null;
-    return row;
+    return {
+      ...row,
+      state: row.state as IndexState,
+      failureReason: (row.failureReason as FailureReason | null) ?? null,
+    };
   });
 }, "Could not load item content.");
 
@@ -320,102 +342,6 @@ export const updateEmbeddingSettings = safeAction(
 );
 
 // ---------------------------------------------------------------------------
-// Pipeline controls
-// ---------------------------------------------------------------------------
-
-export const reextractItem = safeAction(async function reextractItem(
-  itemId: string,
-): Promise<ItemContentDetail> {
-  parseInput(itemContentIdSchema, { itemId });
-  await withCurrentUser(async (tx, userId) => {
-    await assertOwnedItem(tx, userId, itemId);
-    // Force a full re-run: clear the hash so unchanged content still rewrites
-    // (useful after extractor changes), and reset job state.
-    await enqueueItemContent(tx, userId, [itemId]);
-    await tx
-      .update(itemContent)
-      .set({ contentHash: null })
-      .where(
-        and(eq(itemContent.itemId, itemId), eq(itemContent.userId, userId)),
-      );
-  });
-  await processPendingContent(1, itemId);
-  // getItemContent is itself a safeAction, so this re-authenticates and opens
-  // a fresh transaction — accepted for this debug-page path.
-  return getItemContent(itemId);
-}, "Could not re-extract this item.");
-
-// Runs cross-user on the owner connection (deliberate — the queue is global;
-// backfillMyContent is the user-scoped entry point).
-export const processQueueBatch = safeAction(
-  async function processQueueBatch(): Promise<DrainResult> {
-    await requireAuth();
-    const result = await processPendingContent(10);
-    // Also nibble at embedding gaps (quota hits leave status ok, vector null).
-    await reembedMissing(3);
-    return result;
-  },
-  "Could not process the extraction queue.",
-);
-
-// Repairs rows whose extraction succeeded but embedding failed (status ok,
-// embedding NULL) — e.g. after a quota hit or transient embedding error.
-// Loops reembedMissing in small batches until it stops finding work or the
-// per-call cap is hit, so a single button click can clear a larger backlog.
-// Runs cross-user on the owner connection (deliberate; see processQueueBatch).
-const HEAL_BATCH = 5;
-const HEAL_MAX_EXAMINED = 50;
-export const retryMissingEmbeddings = safeAction(
-  async function retryMissingEmbeddings(): Promise<{ healed: number }> {
-    await requireAuth();
-    let healed = 0;
-    let examined = 0;
-    // Stop on an empty queue (`examined === 0`), not on an unproductive pass —
-    // a batch of rows that can never embed heals nothing but is still
-    // progress, and reembedMissing has moved them to the back of the queue.
-    // The examined cap bounds the work one click can do.
-    while (healed < 25 && examined < HEAL_MAX_EXAMINED) {
-      const pass = await reembedMissing(HEAL_BATCH);
-      if (pass.examined === 0) break;
-      healed += pass.healed;
-      examined += pass.examined;
-    }
-    return { healed };
-  },
-  "Could not retry missing embeddings.",
-);
-
-// Enqueue every item of the current user that has no content row yet, then
-// drain in the background. Deliberate action (debug page button) — this is
-// the "index my whole reading list" switch.
-export const backfillMyContent = safeAction(
-  async function backfillMyContent(): Promise<{ enqueued: number }> {
-    const enqueued = await withCurrentUser(async (tx, userId) => {
-      const raw = await tx.execute(sql`
-        INSERT INTO item_content (item_id, user_id, status, created_at, updated_at)
-        SELECT i.id, i.user_id, 'pending', now(), now()
-        FROM items i
-        WHERE i.user_id = ${userId}
-          AND NOT EXISTS (SELECT 1 FROM item_content ic WHERE ic.item_id = i.id)
-        RETURNING item_id
-      `);
-      return Array.from(raw).length;
-    });
-    if (enqueued > 0) drainAll();
-    return { enqueued };
-  },
-  "Could not start the backfill.",
-);
-
-export const reembedItem = safeAction(async function reembedItem(
-  itemId: string,
-): Promise<boolean> {
-  parseInput(itemContentIdSchema, { itemId });
-  await withCurrentUser((tx, userId) => assertOwnedItem(tx, userId, itemId));
-  return reembedFromStored(itemId);
-}, "Could not re-embed this item.");
-
-// ---------------------------------------------------------------------------
 // Live capture (the in-app viewer's write path)
 // ---------------------------------------------------------------------------
 
@@ -432,7 +358,7 @@ export const submitLiveContent = safeAction(
     const parsed = parseInput(submitLiveContentSchema, input);
     const userId = await getCurrentUserId();
 
-    const prior = await withUser(userId, async (tx) => {
+    const ok = await withUser(userId, async (tx) => {
       const [item] = await tx
         .select({ id: items.id, url: items.url })
         .from(items)
@@ -441,52 +367,23 @@ export const submitLiveContent = safeAction(
       if (!item) throw new ActionError("Item not found.");
       // Only accept captures of the item's own page — the viewer may navigate
       // elsewhere, and those pages are not this item's content.
-      if (normalizeUrl(parsed.url) !== normalizeUrl(item.url)) {
-        return null;
-      }
-      await enqueueItemContent(tx, userId, [parsed.itemId]);
-      const [row] = await tx
-        .select({
-          source: itemContent.source,
-          contentHash: itemContent.contentHash,
-          embeddingModel: itemContent.embeddingModel,
-          hasEmbedding: sql<boolean>`(${itemContent.embedding} IS NOT NULL)`,
-        })
-        .from(itemContent)
-        .where(
-          and(
-            eq(itemContent.itemId, parsed.itemId),
-            eq(itemContent.userId, userId),
-          ),
-        )
-        .limit(1);
-      return row ?? null;
+      if (normalizeUrl(parsed.url) !== normalizeUrl(item.url)) return false;
+      await enqueueItems(tx, userId, [parsed.itemId]);
+      return true;
     });
-    if (!prior) return { ok: false, reason: "url-mismatch" };
+    if (!ok) return { ok: false, reason: "url-mismatch" };
 
     try {
       const extraction = extractFromHtml(parsed.html, parsed.url);
-      await applyExtraction({
-        itemId: parsed.itemId,
-        userId,
-        extraction: {
-          ...extraction,
-          title: extraction.title ?? parsed.title ?? null,
-        },
-        source: "live",
-        prior: {
-          source: prior.source,
-          contentHash: prior.contentHash,
-          hasEmbedding: prior.hasEmbedding,
-          embeddingModel: prior.embeddingModel,
-        },
+      await applyLiveCapture(parsed.itemId, userId, {
+        ...extraction,
+        title: extraction.title ?? parsed.title ?? null,
       });
       return { ok: true };
     } catch (error) {
-      if (error instanceof UnsupportedContentError) {
-        // Not an error worth surfacing — the page just isn't article-shaped.
-        // Fall back to whatever the server pipeline produced.
-        scheduleProcessing(parsed.itemId);
+      if (error instanceof IndexFailure && error.reason === "not_readable") {
+        // Not worth surfacing: the rendered page just isn't article-shaped.
+        // The row is already queued, so the server extractor gets its turn.
         return { ok: false, reason: "not-readable" };
       }
       throw error;

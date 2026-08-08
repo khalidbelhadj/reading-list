@@ -7,16 +7,10 @@ import { ItemWindow } from "@/components/items-list/item-window";
 import { SlidingItemPanel } from "@/components/items-list/sliding-item-panel";
 import { ReadingPanel } from "@/components/viewer/reading-panel";
 import { subscribeReadItem } from "@/lib/panel-events";
-import { isElectron } from "@/lib/platform";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
+import { usePanelView } from "@/lib/use-panel-view";
 import { useSettings } from "@/lib/use-settings";
-
-// The reader is desktop-only (see dispatchReadItem), so ?read= is ignored on
-// the web app — a shared or bookmarked reading URL just opens the item panel
-// there instead of a reader the web build can't host.
-const readParam = (params: URLSearchParams) =>
-  isElectron() ? params.get("read") : null;
 
 // The home route renders either the central layout (list + sliding panel) or,
 // when opened as a dedicated single-item window (?window=1 via
@@ -40,35 +34,11 @@ const MainPanelLayout = () => {
     queryFn: fetchItems,
   });
 
-  const [openItemId, setOpenItemId] = React.useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("item");
-  });
-  // Whether the open item is shown expanded (fullw). Mirrored to the
-  // ?expanded=1 URL param so expanded mode is deep-linkable and survives
-  // reload/back-forward. Only meaningful when an item is open.
-  const [expanded, setExpanded] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("expanded") != null;
-  });
-
-  // The reading panel (mini browser / reader / pdf / video) for one item.
-  // Mirrored to ?read= so it survives reload and back/forward.
-  const [readingItemId, setReadingItemId] = React.useState<string | null>(
-    () => {
-      if (typeof window === "undefined") return null;
-      return readParam(new URLSearchParams(window.location.search));
-    },
-  );
-
-  // Whether the reader fills the whole layout area (item panel hidden).
-  // Mirrored to ?readerFull=1 like the other view facets.
-  const [readerExpanded, setReaderExpanded] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return (
-      new URLSearchParams(window.location.search).get("readerFull") != null
-    );
-  });
+  // The four URL-mirrored view facets (item panel, its expanded flag, the
+  // reading panel, the reader's expanded flag) and the single writer that
+  // moves them — see lib/use-panel-view.ts.
+  const { openItemId, expanded, readingItemId, readerExpanded, applyView } =
+    usePanelView();
 
   // Mount the panel only after client hydration. The panel's inline styles
   // depend on orientation (matchMedia), which differs between server and
@@ -76,62 +46,6 @@ const MainPanelLayout = () => {
   // force React to keep the (wrong) server-rendered orientation.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
-
-  React.useEffect(() => {
-    const onPop = () => {
-      const params = new URLSearchParams(window.location.search);
-      setOpenItemId(params.get("item"));
-      setExpanded(params.get("expanded") != null);
-      setReadingItemId(readParam(params));
-      setReaderExpanded(params.get("readerFull") != null);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // The single URL writer: applies a partial view (item panel, reading
-  // panel, expanded flag) to both the query string and the mirrored state in
-  // one place. `undefined` leaves a facet untouched; `null` clears it.
-  // Handlers stay 1–3 line statements of intent and choose push (a new
-  // navigational place) vs replace (refining the current one).
-  const applyView = React.useCallback(
-    (
-      next: {
-        item?: string | null;
-        read?: string | null;
-        expanded?: boolean;
-        readerFull?: boolean;
-      },
-      opts?: { push?: boolean },
-    ) => {
-      const params = new URLSearchParams(window.location.search);
-      if (next.item !== undefined) {
-        if (next.item === null) params.delete("item");
-        else params.set("item", next.item);
-      }
-      if (next.read !== undefined) {
-        if (next.read === null) params.delete("read");
-        else params.set("read", next.read);
-      }
-      if (next.expanded !== undefined) {
-        if (next.expanded) params.set("expanded", "1");
-        else params.delete("expanded");
-      }
-      if (next.readerFull !== undefined) {
-        if (next.readerFull) params.set("readerFull", "1");
-        else params.delete("readerFull");
-      }
-      const qs = params.toString();
-      const url = qs ? `?${qs}` : window.location.pathname;
-      if (opts?.push) window.history.pushState(null, "", url);
-      else window.history.replaceState(null, "", url);
-      if (next.item !== undefined) setOpenItemId(next.item);
-      if (next.read !== undefined) setReadingItemId(next.read);
-      if (next.expanded !== undefined) setExpanded(next.expanded);
-      if (next.readerFull !== undefined) setReaderExpanded(next.readerFull);
-    },
-    [],
-  );
 
   // On the first home-page visit per session, restore the last-opened item
   // in the panel if it still exists.
@@ -184,11 +98,21 @@ const MainPanelLayout = () => {
     }
   }, [openItemId, items, handleCloseItem]);
 
-  // Closing the reader also drops the item panel back to its side view —
-  // the reader and the panel's preview mode never coexist (see below), so
-  // expanded mode is exited together with the reader.
+  // How the item panel looked when "Read in app" was invoked, so closing the
+  // reader can put the layout back exactly as it was. No panel open at all
+  // collapses to "side": leaving the user with nothing after they close the
+  // reader would be a worse landing than the preview they came from.
+  const preReadingViewRef = React.useRef<"expanded" | "side">("side");
+
+  // Closing the reader hands the layout back to whatever the item panel was
+  // showing beforehand — expanded stays expanded, a side preview (or nothing)
+  // returns to the side view, always on the item that was being read.
   const handleCloseReading = React.useCallback(() => {
-    applyView({ read: null, expanded: false, readerFull: false });
+    applyView({
+      read: null,
+      expanded: preReadingViewRef.current === "expanded",
+      readerFull: false,
+    });
   }, [applyView]);
 
   // "Read in app": open the reading panel AND the item panel for the same
@@ -198,6 +122,14 @@ const MainPanelLayout = () => {
     (id: string) => {
       const params = new URLSearchParams(window.location.search);
       const hadAny = params.has("read") || params.has("item");
+      // Only the first entry into reading mode records the layout to return
+      // to — switching items while reading would otherwise remember the
+      // reader's own (always expanded) view.
+      if (!params.has("read")) {
+        preReadingViewRef.current = params.has("expanded")
+          ? "expanded"
+          : "side";
+      }
       applyView(
         { read: id, item: id, expanded: true, readerFull: false },
         { push: !hadAny },
@@ -285,10 +217,12 @@ const MainPanelLayout = () => {
   }, [readingItemId, applyView, handleCloseItem]);
 
   // Restore while reading = leave reading mode entirely: close the reader
-  // and show the item panel's side view.
+  // and show the item panel's side view. An explicit restore outranks the
+  // remembered pre-reading layout — the user just asked for the side view.
   const handleExpandedChangeWithReader = React.useCallback(
     (next: boolean) => {
       if (!next && readingItemId) {
+        preReadingViewRef.current = "side";
         handleCloseReading();
         return;
       }

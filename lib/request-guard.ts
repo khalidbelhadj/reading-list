@@ -11,6 +11,17 @@ import {
   serializeCookieHeader,
 } from "@supabase/ssr";
 
+import { startIndexer } from "@/lib/extract/worker.server";
+
+// The indexer is started here as well as from app/server.ts because that entry
+// is only used by the production server — `vite dev` never evaluates it, so in
+// development the loop would simply never run, and the queue would look
+// mysteriously stuck. This module is server-only, dynamically imported, and
+// evaluated exactly once per process in every environment, which makes it the
+// one place that reliably means "the server is up". startIndexer is idempotent,
+// so being called from both is fine.
+startIndexer();
+
 // Per-request CSP nonce. TanStack Start streams its hydration payload via
 // inline <script> tags whose bodies change per request, so static hashes
 // can't cover them. The router is given the nonce (see app/router.tsx), so

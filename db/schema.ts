@@ -182,7 +182,15 @@ export const itemContent = pgTable(
       .primaryKey()
       .references(() => items.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(),
-    status: text("status").notNull().default("pending"),
+    // The whole job state, in one column: pending | running | ready | failed.
+    // `ready` means extracted AND embedded — an item is not half-indexed, it
+    // is indexed or it isn't. See lib/extract/worker.server.ts.
+    state: text("state").notNull().default("pending"),
+    // Set only when state is 'failed'. `failureReason` is one of the closed
+    // set in lib/extract/failure.ts and decides what the UI says and whether
+    // retrying is offered; `failureDetail` is the raw message, for diagnosis.
+    failureReason: text("failure_reason"),
+    failureDetail: text("failure_detail"),
     source: text("source"),
     extractor: text("extractor"),
     extractorVersion: integer("extractor_version").notNull().default(0),
@@ -190,17 +198,9 @@ export const itemContent = pgTable(
     title: text("title"),
     markdown: text("markdown"),
     wordCount: integer("word_count"),
-    error: text("error"),
-    attempts: integer("attempts").notNull().default(0),
-    nextRetryAt: timestamp("next_retry_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    // Item-level embedding: normalized mean of the chunk vectors. Null until
-    // the embed step succeeds; embeddingError records why it hasn't.
+    // Item-level embedding: normalized mean of the chunk vectors.
     embedding: vector("embedding", { dimensions: 1536 }),
     embeddingModel: text("embedding_model"),
-    embeddingError: text("embedding_error"),
     fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: "string" }),
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -213,7 +213,7 @@ export const itemContent = pgTable(
   },
   (table) => [
     index("item_content_user_idx").on(table.userId),
-    index("item_content_claim_idx").on(table.status, table.nextRetryAt),
+    index("item_content_state_idx").on(table.state),
   ],
 );
 

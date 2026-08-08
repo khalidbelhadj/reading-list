@@ -9,10 +9,7 @@
 // re-embed. That "off-model" count lives inside the dropdown, at the moment of
 // the click, since that is the one consequence worth showing.
 import { IconCheck, IconChevronDown, IconServer } from "@tabler/icons-react";
-import React from "react";
 
-import { type ModelCoverage } from "@/app/actions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,7 +17,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Image from "@/components/ui/image";
@@ -75,29 +71,13 @@ const ProviderLogo = ({
 
 export const ModelPicker = ({
   config,
-  activeModel,
-  coverage,
   pending,
   onSelect,
 }: {
   config: EmbeddingConfig | undefined;
-  activeModel: string | undefined;
-  // Distinct stored models across the corpus, so a switch's cost is visible.
-  coverage: ModelCoverage[];
   pending: boolean;
   onSelect: (next: EmbeddingConfig) => void;
 }) => {
-  // Anything not on the active model is excluded from search until it
-  // re-embeds. Summing here rather than in SQL keeps it in step with whatever
-  // the picker currently shows as active.
-  const strandedItems = React.useMemo(
-    () =>
-      coverage
-        .filter((entry) => entry.model !== activeModel)
-        .reduce((total, entry) => total + entry.items, 0),
-    [coverage, activeModel],
-  );
-
   // The clean model name, not the "provider:model" id — the provider is shown
   // as its logo instead.
   const activeInfo = config
@@ -177,42 +157,6 @@ export const ModelPicker = ({
             );
           })}
         </DropdownMenuGroup>
-
-        {strandedItems > 0 && (
-          <div className="flex items-center gap-1.5 px-2 pt-1 text-xs text-muted-foreground">
-            <Badge variant="destructive" className="tabular-nums">
-              {strandedItems}
-            </Badge>
-            off-model, re-embedding in the background
-          </div>
-        )}
-
-        {coverage.length > 1 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Corpus</DropdownMenuLabel>
-              {coverage.map((entry) => (
-                <div
-                  key={entry.model}
-                  className="flex items-center justify-between gap-2 px-2 py-1 text-xs"
-                >
-                  <span className="truncate font-mono text-muted-foreground">
-                    {entry.model}
-                  </span>
-                  <Badge
-                    variant={
-                      entry.model === activeModel ? "secondary" : "outline"
-                    }
-                    className="tabular-nums"
-                  >
-                    {entry.items}
-                  </Badge>
-                </div>
-              ))}
-            </DropdownMenuGroup>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

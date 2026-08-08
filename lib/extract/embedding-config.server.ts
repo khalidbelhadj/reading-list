@@ -23,21 +23,26 @@ import {
 
 const EMBEDDING_SETTINGS_ID = "embedding";
 
-// Seeded from the env vars this pipeline shipped with, so an instance that
-// never opens the picker keeps its existing behaviour.
+// Seeded from EMBEDDING_PROVIDER. The fallback is local Ollama: the hosted
+// providers are rate-limited per minute and per day, and a free-tier quota
+// stall is silent — extraction succeeds, the vector is never written, and the
+// item drops out of search with nothing to see. A local model has no quota,
+// so the queue can actually drain. Deployments that can't reach an Ollama
+// host must set EMBEDDING_PROVIDER (or pick a model in the picker, which is
+// stored in app_settings and wins over this).
 const envDefault = (): EmbeddingConfig => {
   const provider = process.env.EMBEDDING_PROVIDER;
-  if (provider === "ollama") {
-    return {
-      provider: "ollama",
-      model: process.env.OLLAMA_EMBEDDING_MODEL ?? "nomic-embed-text",
-      ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
-    };
+  if (provider === "gemini") {
+    return { provider: "gemini", model: "gemini-embedding-001" };
   }
   if (provider === "openai") {
     return { provider: "openai", model: "text-embedding-3-small" };
   }
-  return { provider: "gemini", model: "gemini-embedding-001" };
+  return {
+    provider: "ollama",
+    model: process.env.OLLAMA_EMBEDDING_MODEL ?? "nomic-embed-text",
+    ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
+  };
 };
 
 // Short TTL rather than a permanent memo: embedding runs in long-lived server

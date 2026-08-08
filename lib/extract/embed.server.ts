@@ -1,18 +1,19 @@
 // Embedding provider for the semantic index. Three backends behind one
 // interface, selected by the app-global config (embedding-config.server.ts,
-// picker on /debug/intelligence) and seeded from the env vars this pipeline
-// originally shipped with:
+// picker on /debug/intelligence) and seeded from EMBEDDING_PROVIDER:
 //
-//   "gemini" (default) — gemini-embedding-001 via the AI SDK
+//   "ollama" (default) — a local model via the Ollama HTTP API. The default
+//                        because it has no quota: a hosted free tier stalls
+//                        the whole index and says nothing.
+//   "gemini"           — gemini-embedding-001 via the AI SDK
 //                        (GOOGLE_GENERATIVE_AI_API_KEY).
 //   "openai"           — text-embedding-3-* over the REST API
 //                        (OPENAI_API_KEY). Called directly rather than
 //                        through the AI SDK: the endpoint is one POST, and
 //                        this keeps the `dimensions` request explicit next
 //                        to the column width it has to satisfy.
-//   "ollama"           — a local model via the Ollama HTTP API. Lower-dim
-//                        vectors are zero-padded to 1536, which preserves
-//                        cosine similarity exactly.
+// Vectors narrower than the column are zero-padded to 1536, which preserves
+// cosine similarity exactly.
 //
 // Vectors are L2-normalized here regardless of backend, and the model id is
 // stored on every row. Vectors from different models are never compared:
@@ -27,6 +28,12 @@ import {
   embeddingModelId,
 } from "./embedding-config";
 import { getEmbeddingConfig } from "./embedding-config.server";
+import {
+  describeResponse,
+  describeThrown,
+  IndexFailure,
+  readErrorBody,
+} from "./failure";
 
 const google = createGoogleGenerativeAI({});
 
@@ -37,15 +44,21 @@ const normalize = (vector: number[]): number[] => {
   // A zero vector has no direction, so cosine distance against it is
   // undefined — pgvector would return NaN and the row would rank arbitrarily.
   // Refuse it here instead of storing a poisoned vector.
-  if (norm === 0) throw new Error("Embedding backend returned a zero vector");
+  if (norm === 0) {
+    throw new IndexFailure(
+      "embed_rejected",
+      "Backend returned a zero vector, which has no direction to compare",
+    );
+  }
   return vector.map((v) => v / norm);
 };
 
 const padToDimensions = (vector: number[]): number[] => {
   if (vector.length === EMBEDDING_DIMENSIONS) return vector;
   if (vector.length > EMBEDDING_DIMENSIONS) {
-    throw new Error(
-      `Embedding has ${vector.length} dims — exceeds the vector(${EMBEDDING_DIMENSIONS}) column`,
+    throw new IndexFailure(
+      "embed_unavailable",
+      `Model returns ${vector.length} dims, which does not fit the vector(${EMBEDDING_DIMENSIONS}) column`,
     );
   }
   return [
@@ -77,18 +90,40 @@ const ollamaEmbed = async (
   const out: number[][] = [];
   for (let i = 0; i < texts.length; i += OLLAMA_BATCH_SIZE) {
     const batch = texts.slice(i, i + OLLAMA_BATCH_SIZE);
-    const res = await fetch(`${baseUrl}/api/embed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: config.model, input: batch }),
-      signal: AbortSignal.timeout(120_000),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/api/embed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: config.model, input: batch }),
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (error) {
+      // Connection refused / DNS / timeout: the server isn't there. Distinct
+      // from a server that answered and said no, because the fix is different
+      // — start Ollama, rather than wait out a limit.
+      // Node nests the real complaint: "TypeError: fetch failed" with an
+      // ECONNREFUSED underneath. describeThrown unwraps it.
+      throw new IndexFailure(
+        "embed_unavailable",
+        `Could not reach Ollama at ${baseUrl}\n${describeThrown(error)}`,
+      );
+    }
     if (!res.ok) {
-      throw new Error(`Ollama embed failed with status ${res.status}`);
+      // A 404 here means the model isn't pulled, which is configuration, not
+      // a transient refusal. Ollama puts a plain {"error": "..."} in the body,
+      // which usually says exactly which model it couldn't find.
+      throw new IndexFailure(
+        res.status === 404 ? "embed_unavailable" : "embed_rejected",
+        describeResponse(res, await readErrorBody(res)),
+      );
     }
     const data = (await res.json()) as { embeddings?: number[][] };
     if (!data.embeddings || data.embeddings.length !== batch.length) {
-      throw new Error("Ollama embed returned a malformed response");
+      throw new IndexFailure(
+        "embed_rejected",
+        "Ollama returned a malformed response",
+      );
     }
     out.push(...data.embeddings);
   }
@@ -106,7 +141,9 @@ const openaiEmbed = async (
   texts: string[],
 ): Promise<number[][]> => {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+  if (!apiKey) {
+    throw new IndexFailure("embed_unavailable", "OPENAI_API_KEY is not set");
+  }
   const out: number[][] = [];
   for (let i = 0; i < texts.length; i += OPENAI_BATCH_SIZE) {
     const batch = texts.slice(i, i + OPENAI_BATCH_SIZE);
@@ -127,20 +164,29 @@ const openaiEmbed = async (
       signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
-      throw new Error(`OpenAI embed failed with status ${res.status}`);
+      throw new IndexFailure(
+        res.status === 401 ? "embed_unavailable" : "embed_rejected",
+        describeResponse(res, await readErrorBody(res)),
+      );
     }
     const data = (await res.json()) as {
       data?: { index: number; embedding: number[] }[];
     };
     if (!data.data || data.data.length !== batch.length) {
-      throw new Error("OpenAI embed returned a malformed response");
+      throw new IndexFailure(
+        "embed_rejected",
+        "OpenAI returned a malformed response",
+      );
     }
     // The API documents that results may arrive out of order — place each by
     // its index rather than trusting array position.
     const ordered = new Array<number[]>(batch.length);
     for (const entry of data.data) ordered[entry.index] = entry.embedding;
     if (ordered.some((vector) => vector === undefined)) {
-      throw new Error("OpenAI embed returned a gap in the result set");
+      throw new IndexFailure(
+        "embed_rejected",
+        "OpenAI returned a gap in the result set",
+      );
     }
     out.push(...ordered);
   }
@@ -160,28 +206,52 @@ const geminiProviderOptions = (
   },
 });
 
+// The AI SDK throws its own error types, so Gemini is the one backend whose
+// failures have to be read rather than raised deliberately. Only two outcomes
+// matter to the caller: the credential is wrong (fix it) or the service said
+// no (wait and retry).
+const geminiFailure = (error: unknown): IndexFailure => {
+  const message = error instanceof Error ? error.message : String(error);
+  const detail = describeThrown(error);
+  const missingKey =
+    /api key/i.test(message) &&
+    /(missing|not (?:set|found)|invalid)/i.test(message);
+  return new IndexFailure(
+    missingKey ? "embed_unavailable" : "embed_rejected",
+    detail,
+  );
+};
+
 const geminiEmbedDocuments = async (
   config: EmbeddingConfig,
   texts: string[],
 ): Promise<number[][]> => {
-  const { embeddings } = await embedMany({
-    model: google.textEmbedding(config.model),
-    values: texts,
-    providerOptions: geminiProviderOptions("RETRIEVAL_DOCUMENT"),
-  });
-  return embeddings;
+  try {
+    const { embeddings } = await embedMany({
+      model: google.textEmbedding(config.model),
+      values: texts,
+      providerOptions: geminiProviderOptions("RETRIEVAL_DOCUMENT"),
+    });
+    return embeddings;
+  } catch (error) {
+    throw geminiFailure(error);
+  }
 };
 
 const geminiEmbedQuery = async (
   config: EmbeddingConfig,
   text: string,
 ): Promise<number[]> => {
-  const { embedding } = await embed({
-    model: google.textEmbedding(config.model),
-    value: text,
-    providerOptions: geminiProviderOptions("RETRIEVAL_QUERY"),
-  });
-  return embedding;
+  try {
+    const { embedding } = await embed({
+      model: google.textEmbedding(config.model),
+      value: text,
+      providerOptions: geminiProviderOptions("RETRIEVAL_QUERY"),
+    });
+    return embedding;
+  } catch (error) {
+    throw geminiFailure(error);
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -215,8 +285,9 @@ export const embedDocuments = async (texts: string[]): Promise<EmbedResult> => {
   // vector N), so a short response must fail here rather than surface as an
   // undefined vector at the insert.
   if (raw.length !== texts.length) {
-    throw new Error(
-      `Embedding backend returned ${raw.length} vectors for ${texts.length} inputs`,
+    throw new IndexFailure(
+      "embed_rejected",
+      `Backend returned ${raw.length} vectors for ${texts.length} inputs`,
     );
   }
   return {
@@ -236,7 +307,9 @@ export const embedQuery = async (text: string): Promise<EmbedResult> => {
       : config.provider === "openai"
         ? (await openaiEmbed(config, [text]))[0]
         : await geminiEmbedQuery(config, text);
-  if (!raw) throw new Error("Embedding backend returned no vector");
+  if (!raw) {
+    throw new IndexFailure("embed_rejected", "Backend returned no vector");
+  }
   return { vectors: [normalize(padToDimensions(raw))], modelId };
 };
 

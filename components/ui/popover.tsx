@@ -17,12 +17,16 @@ const PopoverContent = ({
   alignOffset = 0,
   side = "bottom",
   sideOffset = 8,
+  // `anchor` lets a controlled popover position against something other than a
+  // trigger — an element ref, or a virtual element when the thing that opened
+  // it (a menu item) is already gone.
+  anchor,
   className,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "anchor" | "side" | "sideOffset"
   >) => {
   return (
     <PopoverPrimitive.Portal>
@@ -30,6 +34,7 @@ const PopoverContent = ({
         className="isolate z-50 outline-none"
         align={align}
         alignOffset={alignOffset}
+        anchor={anchor}
         side={side}
         sideOffset={sideOffset}
       >

@@ -27,7 +27,7 @@ import {
 import { useElementSize } from "@/lib/use-element-size";
 
 import { PageNav } from "./page-nav";
-import { ReviewConfirmDialog } from "./review-confirm-dialog";
+import { ReviewConfirmPopover } from "./review-confirm-popover";
 import { useStartReview } from "./use-start-review";
 
 export const Toolbar = ({
@@ -50,6 +50,10 @@ export const Toolbar = ({
     queryFn: getReviewStatus,
   });
   const dueCount = reviewStatus?.dueCount ?? 0;
+  // The confirm popover hangs off the whole review button group, so it lands in
+  // the same place whether the mode came from the Review button or the
+  // overflow menu beside it.
+  const reviewGroupRef = React.useRef<HTMLDivElement>(null);
   const { startingMode, startReview } = useStartReview();
   const isStarting = startingMode !== null;
   const [pendingMode, setPendingMode] = React.useState<ReviewMode | null>(null);
@@ -65,7 +69,7 @@ export const Toolbar = ({
     if (isStarting) return;
     setPendingMode("new");
   }, [isStarting]);
-  const handleDialogOpenChange = React.useCallback(
+  const handleConfirmOpenChange = React.useCallback(
     (open: boolean) => {
       if (!open && !isStarting) setPendingMode(null);
     },
@@ -82,13 +86,13 @@ export const Toolbar = ({
     }
     wasStartingRef.current = isStarting;
   }, [isStarting, pendingMode]);
-  const dialogCardCount =
+  const confirmCardCount =
     pendingMode === "cram"
       ? (reviewStatus?.totalCardCount ?? 0)
       : pendingMode === "new"
         ? (reviewStatus?.newCount ?? 0)
         : (reviewStatus?.dueCount ?? 0);
-  const dialogItemCount =
+  const confirmItemCount =
     pendingMode === "cram"
       ? (reviewStatus?.totalItemCount ?? 0)
       : pendingMode === "new"
@@ -118,7 +122,7 @@ export const Toolbar = ({
 
       <div className="flex-1" />
 
-      <ButtonGroup className="ml-1">
+      <ButtonGroup ref={reviewGroupRef} className="ml-1">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -226,12 +230,13 @@ export const Toolbar = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ReviewConfirmDialog
+      <ReviewConfirmPopover
         open={pendingMode !== null}
-        onOpenChange={handleDialogOpenChange}
+        onOpenChange={handleConfirmOpenChange}
+        anchor={reviewGroupRef}
         mode={pendingMode}
-        cardCount={dialogCardCount}
-        itemCount={dialogItemCount}
+        cardCount={confirmCardCount}
+        itemCount={confirmItemCount}
         onConfirm={handleConfirm}
         isStarting={isStarting}
       />

@@ -16,9 +16,10 @@ import { useDragToWindow } from "./use-drag-to-window";
 import { resolveRowItem } from "./utils";
 
 export const ItemRow = ({ item }: { item: Item }) => {
-  const density = useSettings().settings.density;
+  const { density, openOnSingleClick } = useSettings().settings;
   const {
     onSelect,
+    onActivate,
     onDelete,
     onToggleRead,
     onTogglePin,
@@ -58,6 +59,15 @@ export const ItemRow = ({ item }: { item: Item }) => {
       });
     },
     [onSelect, item.id, wasDragged],
+  );
+  // Only bound when a single click stops at selecting — otherwise the first
+  // click has already opened the item and the second would re-open it.
+  const handleDoubleClick = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      onActivate(item.id);
+    },
+    [onActivate, item.id],
   );
   const handleTogglePin = React.useCallback(
     () => onTogglePin(item.id, !item.starred),
@@ -135,6 +145,7 @@ export const ItemRow = ({ item }: { item: Item }) => {
             data-menu-open={menuOpen || contextMenuOpen || undefined}
             onPointerDown={onPointerDown}
             onClick={handleClick}
+            onDoubleClick={openOnSingleClick ? undefined : handleDoubleClick}
           />
         }
       >

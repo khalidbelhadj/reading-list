@@ -1,73 +1,128 @@
-// Extraction worker. The item_content row IS the job: the claim query leases
-// pending rows (attempts++ plus a next_retry_at lease) with FOR UPDATE SKIP
-// LOCKED, so concurrent drains never double-process. Runs on the owner
-// connection (plain `db`) because it drains across users; every row it
-// touches was created inside a user-scoped transaction.
+// The indexer: one loop, one job, four states.
 //
-// Source precedence: live capture ("live") beats server fetch ("server") —
-// a server re-extract never overwrites live-captured content, it just
-// re-marks the row ok. Same-source rewrites are skipped when the content
-// hash is unchanged (except to fill in missing embeddings).
+//   pending → running → ready
+//                    ↘ failed (with a typed reason)
+//
+// A row is `ready` only when it has both extracted text and an embedding from
+// the current model. There is no half-indexed state, because "extracted but
+// not searchable" is what nobody could name before.
+//
+// What is deliberately NOT here, having been removed: leases, attempt counts,
+// retry backoff, a claim predicate mirrored in SQL, rows that fall out of the
+// state machine and need sweeping, and four different ways to kick the queue.
+// One interval owns the work. Retrying is a button — a failure that a person
+// can see and act on beats one that silently reschedules itself for six hours
+// from now.
+//
+// Runs on the owner connection (plain `db`) because it drains across users;
+// every row it touches was created inside a user-scoped transaction.
 import { createHash } from "node:crypto";
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, type Tx } from "@/db";
-import { itemChunks, itemContent, items } from "@/db/schema";
+import { itemContent } from "@/db/schema";
 
-import { chunkMarkdown } from "./chunk";
-import { embedDocuments, meanVector } from "./embed.server";
+import { embedItems, type EmbedSource } from "./embed-items.server";
 import { getActiveModelId } from "./embedding-config.server";
 import {
   countWords,
   extractForUrl,
   type Extraction,
   EXTRACTOR_VERSION,
-  UnsupportedContentError,
 } from "./extractors.server";
+import {
+  DETAIL_CAP,
+  type FailureReason,
+  type IndexFailure,
+  toIndexFailure,
+} from "./failure";
+import { isPaused } from "./pipeline-control.server";
 
-// Exported so the intelligence overview can derive the same queue states this
-// worker enforces (claimable / leased / backing off / stuck) instead of
-// hard-coding a second copy of the numbers.
-export const MAX_ATTEMPTS = 3;
-// Lease while a claim is being processed; also the implicit retry delay if
-// the process dies mid-extraction.
-export const LEASE_MINUTES = 10;
-// Backoff after a recorded failure: 1h after the first attempt, 6h after the
-// second; the third failure is terminal ("failed").
-const RETRY_DELAY_MINUTES = [60, 360];
+export type IndexState = "pending" | "running" | "ready" | "failed";
 
 export type ContentSource = "server" | "live" | "extension";
+
+// How many items one pass takes. Also the embedding batch size, since the
+// pass embeds everything it extracted in a single provider call.
+const BATCH = 8;
+// Gap between passes when there is work. Long enough not to hammer a local
+// model, short enough that a newly added item indexes while you are still
+// looking at it.
+const TICK_MS = 4_000;
+// Gap after an empty pass. Nothing is waiting, so ask less often.
+const IDLE_TICK_MS = 30_000;
+// Ceiling for the failure backoff: ~17 minutes. A dependency that has been
+// broken this long needs a person, not another connection attempt.
+const MAX_BACKOFF_MS = 1_024_000;
 
 const nowIso = () => new Date().toISOString();
 
 const sha256 = (text: string): string =>
   createHash("sha256").update(text).digest("hex");
 
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+// ---------------------------------------------------------------------------
+// Writing outcomes
+// ---------------------------------------------------------------------------
+
+const markFailed = async (
+  itemId: string,
+  failure: IndexFailure,
+): Promise<void> => {
+  await db
+    .update(itemContent)
+    .set({
+      state: "failed",
+      failureReason: failure.reason,
+      failureDetail: failure.detail?.slice(0, DETAIL_CAP) ?? null,
+      updatedAt: nowIso(),
+    })
+    .where(eq(itemContent.itemId, itemId));
+};
+
+const markReady = async (itemId: string): Promise<void> => {
+  await db
+    .update(itemContent)
+    .set({
+      state: "ready",
+      failureReason: null,
+      failureDetail: null,
+      updatedAt: nowIso(),
+    })
+    .where(eq(itemContent.itemId, itemId));
+};
 
 // ---------------------------------------------------------------------------
 // Enqueue (runs inside user-scoped transactions — RLS applies)
 // ---------------------------------------------------------------------------
 
-// Upsert a pending job without clobbering previously extracted content —
-// only the job-control columns reset.
-export const enqueueItemContent = async (
+/**
+ * Queues items for indexing.
+ *
+ * By default the stored text is kept, so a re-queued row skips extraction and
+ * goes straight to embedding — that is what makes a re-embed cheap. Pass
+ * `discardText` when the text is no longer *about* the right page (the item's
+ * URL changed), because otherwise the pass would happily re-embed the old
+ * article and the row would look freshly indexed while describing the wrong
+ * thing.
+ */
+export const enqueueItems = async (
   tx: Tx | typeof db,
   userId: string,
   itemIds: string[],
+  options?: { discardText?: boolean },
 ): Promise<void> => {
   if (itemIds.length === 0) return;
   const now = nowIso();
+  const discard = options?.discardText === true;
   await tx
     .insert(itemContent)
     .values(
       itemIds.map((itemId) => ({
         itemId,
         userId,
-        status: "pending",
+        state: "pending",
         createdAt: now,
         updatedAt: now,
       })),
@@ -75,399 +130,333 @@ export const enqueueItemContent = async (
     .onConflictDoUpdate({
       target: itemContent.itemId,
       set: {
-        status: "pending",
-        attempts: 0,
-        nextRetryAt: null,
-        error: null,
+        state: "pending",
+        failureReason: null,
+        failureDetail: null,
         updatedAt: now,
+        ...(discard ? { markdown: null, contentHash: null } : {}),
       },
     });
 };
 
-// Fire-and-forget processing kick, delayed slightly so the enqueueing
-// transaction has committed before the worker's claim query looks for the
-// row. Never throws.
-export const scheduleProcessing = (itemId?: string): void => {
-  setTimeout(() => {
-    void processPendingContent(itemId ? 1 : 5, itemId).catch((error) => {
-      console.warn("[extract] background processing failed", error);
-    });
-  }, 1000);
-};
-
-// Background drain loop for backfills: keep processing batches until the
-// queue is empty or the batch cap is hit. Fire-and-forget; never throws.
-const MAX_DRAIN_BATCHES = 60;
-export const drainAll = (): void => {
-  void (async () => {
-    for (let batch = 0; batch < MAX_DRAIN_BATCHES; batch++) {
-      const result = await processPendingContent(5);
-      if (result.processed === 0) return;
-      console.log("[extract] drain batch", { batch, ...result });
-    }
-    console.warn("[extract] drainAll hit batch cap — more items pending");
-  })().catch((error) => {
-    console.warn("[extract] drainAll failed", error);
-  });
-};
-
-// Opportunistic drain: called fire-and-forget from hot paths (fetchItems) so
-// retries eventually run without a cron. Throttled hard.
-let lastDrainAt = 0;
-export const maybeDrainInBackground = (): void => {
-  const now = Date.now();
-  if (now - lastDrainAt < 60_000) return;
-  lastDrainAt = now;
-  setTimeout(() => {
-    void processPendingContent(3)
-      .then(() => reembedMissing(2))
-      .catch((error) => {
-        console.warn("[extract] background drain failed", error);
-      });
-  }, 50);
-};
-
 // ---------------------------------------------------------------------------
-// Claim + process
+// One pass
 // ---------------------------------------------------------------------------
 
-const claimedRowSchema = z.object({
+const claimedSchema = z.object({
   item_id: z.string(),
   user_id: z.string(),
-  attempts: z.number(),
-  source: z.string().nullable(),
+  url: z.string(),
+  title: z.string().nullable(),
+  markdown: z.string().nullable(),
   content_hash: z.string().nullable(),
-  embedding_model: z.string().nullable(),
-  has_embedding: z.boolean(),
 });
 
-const claimRows = async (limit: number, onlyItemId?: string) => {
-  const filter = onlyItemId ? sql` AND ic.item_id = ${onlyItemId}` : sql``;
+type Claimed = z.infer<typeof claimedSchema>;
+
+// SKIP LOCKED still earns its place: it is one clause, and it means two
+// processes (the desktop app and a hosted instance) never pick the same row.
+// What it is NOT is a lease — the row moves to 'running' and stays there until
+// this pass finishes it, and a process that dies leaves it there for
+// resetRunning() to reclaim at the next boot.
+const claimBatch = async (limit: number): Promise<Claimed[]> => {
   const rows = await db.execute(sql`
-    UPDATE item_content SET
-      attempts = attempts + 1,
-      next_retry_at = now() + make_interval(mins => ${LEASE_MINUTES}),
-      updated_at = now()
+    UPDATE item_content SET state = 'running', updated_at = now()
     WHERE item_id IN (
       SELECT ic.item_id FROM item_content ic
-      WHERE ic.status = 'pending'
-        AND ic.attempts < ${MAX_ATTEMPTS}
-        AND (ic.next_retry_at IS NULL OR ic.next_retry_at < now())${filter}
+      WHERE ic.state = 'pending'
       ORDER BY ic.updated_at ASC
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING item_id, user_id::text AS user_id, attempts, source, content_hash,
-      embedding_model, (embedding IS NOT NULL) AS has_embedding
+    RETURNING item_id, user_id::text AS user_id, title, markdown, content_hash,
+      (SELECT i.url FROM items i WHERE i.id = item_content.item_id) AS url
   `);
-  return z.array(claimedRowSchema).parse(Array.from(rows));
+  return z.array(claimedSchema).parse(Array.from(rows));
 };
 
-export type DrainResult = {
-  processed: number;
-  ok: number;
-  failed: number;
+/**
+ * Rows left `running` by a process that died. Called once at startup: if this
+ * process is only now booting, nothing it can see is genuinely in flight.
+ *
+ * This replaces the old stuck-row problem rather than renaming it. Before, a
+ * row that was claimed three times without ever recording a failure ran out of
+ * attempts while still `pending`, which made it permanently unclaimable and
+ * invisible — and needed a dedicated sweep to find. Now the same crash leaves
+ * a row in `running`, which is plainly visible, and boot puts it back.
+ */
+export const resetRunning = async (): Promise<number> => {
+  const rows = await db.execute(sql`
+    UPDATE item_content SET state = 'pending', updated_at = now()
+    WHERE state = 'running'
+    RETURNING item_id
+  `);
+  return Array.from(rows).length;
 };
 
-export const processPendingContent = async (
-  limit = 5,
-  onlyItemId?: string,
-): Promise<DrainResult> => {
-  const claimed = await claimRows(limit, onlyItemId);
-  if (claimed.length === 0) return { processed: 0, ok: 0, failed: 0 };
-
-  const itemRows = await db
-    .select({ id: items.id, url: items.url, title: items.title })
-    .from(items)
-    .where(
-      inArray(
-        items.id,
-        claimed.map((row) => row.item_id),
-      ),
-    );
-  const itemById = new Map(itemRows.map((row) => [row.id, row]));
-
-  let ok = 0;
-  let failed = 0;
-  for (const row of claimed) {
-    const item = itemById.get(row.item_id);
-    if (!item) continue; // Deleted between claim and here; cascade cleans up.
-    try {
-      const extraction = await extractForUrl(item.url);
-      await applyExtraction({
-        itemId: row.item_id,
-        userId: row.user_id,
-        extraction,
-        source: "server",
-        prior: {
-          source: row.source,
-          contentHash: row.content_hash,
-          hasEmbedding: row.has_embedding,
-          embeddingModel: row.embedding_model,
-        },
-      });
-      ok++;
-    } catch (error) {
-      failed++;
-      await recordFailure(row.item_id, row.attempts, error);
-    }
-  }
-  return { processed: claimed.length, ok, failed };
-};
-
-const recordFailure = async (
+const storeExtraction = async (
   itemId: string,
-  attempts: number,
-  error: unknown,
+  extraction: Extraction,
+  source: ContentSource,
 ): Promise<void> => {
-  const unsupported = error instanceof UnsupportedContentError;
-  const terminal = unsupported || attempts >= MAX_ATTEMPTS;
-  const delayMinutes = RETRY_DELAY_MINUTES[attempts - 1] ?? 360;
-  console.warn("[extract] extraction failed", {
-    itemId,
-    attempts,
-    terminal,
-    error: errorMessage(error),
-  });
+  const now = nowIso();
   await db
     .update(itemContent)
     .set({
-      status: terminal ? (unsupported ? "unsupported" : "failed") : "pending",
-      error: errorMessage(error).slice(0, 2000),
-      nextRetryAt: terminal
-        ? null
-        : new Date(Date.now() + delayMinutes * 60_000).toISOString(),
-      updatedAt: nowIso(),
+      source,
+      extractor: extraction.extractor,
+      extractorVersion: EXTRACTOR_VERSION,
+      contentHash: sha256(extraction.markdown),
+      title: extraction.title,
+      markdown: extraction.markdown,
+      wordCount: countWords(extraction.markdown),
+      fetchedAt: now,
+      updatedAt: now,
     })
     .where(eq(itemContent.itemId, itemId));
 };
 
-// ---------------------------------------------------------------------------
-// Write path (shared by the worker and submitLiveContent)
-// ---------------------------------------------------------------------------
+export type PassResult = { indexed: number; failed: number };
 
-type PriorState = {
-  source: string | null;
-  contentHash: string | null;
-  hasEmbedding: boolean;
-  embeddingModel: string | null;
-};
+/**
+ * Extract anything missing text, then embed the whole batch in one call.
+ *
+ * The two steps are separate because they fail for unrelated reasons and only
+ * the second one is worth batching: extraction is N network fetches of N
+ * different sites, embedding is one request to one model.
+ */
+export const runPass = async (limit = BATCH): Promise<PassResult> => {
+  const claimed = await claimBatch(limit);
+  if (claimed.length === 0) return { indexed: 0, failed: 0 };
 
-export const applyExtraction = async (args: {
-  itemId: string;
-  userId: string;
-  extraction: Extraction;
-  source: ContentSource;
-  prior: PriorState;
-}): Promise<void> => {
-  const { itemId, userId, extraction, source, prior } = args;
-  const now = nowIso();
+  let failed = 0;
+  const sources: EmbedSource[] = [];
 
-  // Precedence: a server fetch never overwrites live-captured content.
-  if (source === "server" && prior.source === "live" && prior.contentHash) {
-    await db
-      .update(itemContent)
-      .set({ status: "ok", error: null, nextRetryAt: null, updatedAt: now })
-      .where(eq(itemContent.itemId, itemId));
-    return;
-  }
-
-  const contentHash = sha256(extraction.markdown);
-  const unchanged = contentHash === prior.contentHash;
-
-  if (!unchanged) {
-    await db
-      .update(itemContent)
-      .set({
-        status: "ok",
-        source,
-        extractor: extraction.extractor,
-        extractorVersion: EXTRACTOR_VERSION,
-        contentHash,
+  for (const row of claimed) {
+    // Text we already have is text we don't re-fetch: a row that failed at the
+    // embed step, or is being re-embedded for a new model, skips straight to
+    // the second half.
+    if (row.markdown && row.content_hash) {
+      sources.push({
+        itemId: row.item_id,
+        userId: row.user_id,
+        title: row.title,
+        markdown: row.markdown,
+      });
+      continue;
+    }
+    try {
+      const extraction = await extractForUrl(row.url);
+      await storeExtraction(row.item_id, extraction, "server");
+      sources.push({
+        itemId: row.item_id,
+        userId: row.user_id,
         title: extraction.title,
         markdown: extraction.markdown,
-        wordCount: countWords(extraction.markdown),
-        error: null,
-        nextRetryAt: null,
-        fetchedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(itemContent.itemId, itemId));
-  } else {
-    await db
-      .update(itemContent)
-      .set({
-        status: "ok",
-        error: null,
-        nextRetryAt: null,
-        fetchedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(itemContent.itemId, itemId));
+      });
+    } catch (error) {
+      failed++;
+      await markFailed(row.item_id, toIndexFailure(error));
+    }
   }
 
-  // Embed when content changed, or to fill a missing/stale-model embedding.
-  const needsEmbedding =
-    !unchanged ||
-    !prior.hasEmbedding ||
-    prior.embeddingModel !== (await getActiveModelId());
-  if (needsEmbedding) {
-    try {
-      await embedItemContent(itemId, userId, extraction);
-    } catch (error) {
-      console.warn("[extract] embedding failed", {
-        itemId,
-        error: errorMessage(error),
-      });
-      await db
-        .update(itemContent)
-        .set({
-          embeddingError: errorMessage(error).slice(0, 2000),
-          updatedAt: nowIso(),
-        })
-        .where(eq(itemContent.itemId, itemId));
+  const outcomes = await embedItems(sources);
+  let indexed = 0;
+  for (const outcome of outcomes) {
+    if (outcome.result === "embedded") {
+      indexed++;
+      await markReady(outcome.itemId);
+    } else {
+      failed++;
+      await markFailed(outcome.itemId, outcome.failure);
     }
+  }
+  return { indexed, failed };
+};
+
+// ---------------------------------------------------------------------------
+// The loop
+// ---------------------------------------------------------------------------
+
+let timer: ReturnType<typeof setTimeout> | null = null;
+let stopped = false;
+// Consecutive failed passes. Drives the backoff below, and reset to 0 by any
+// pass that gets as far as talking to the database.
+let consecutiveFailures = 0;
+
+const schedule = (delay: number) => {
+  if (stopped) return;
+  timer = setTimeout(() => void tick(), delay);
+};
+
+/**
+ * How long to wait after a pass that threw.
+ *
+ * A background loop that retries a broken dependency on a fixed schedule is
+ * not resilient, it is a load generator. With bad database credentials this
+ * loop produced a failed authentication every 30 seconds forever, which is
+ * what Supabase's circuit breaker counts — and once it trips it blocks *new
+ * connections for the whole project*, so an indexer that could not do its own
+ * job took the rest of the app down with it.
+ *
+ * So: exponential, and capped well above the point where a human would have
+ * noticed. The queue is not urgent; nothing is lost by waiting.
+ */
+const failureDelay = (failures: number): number =>
+  Math.min(IDLE_TICK_MS * 2 ** (failures - 1), MAX_BACKOFF_MS);
+
+const tick = async (): Promise<void> => {
+  let delay = IDLE_TICK_MS;
+  try {
+    if (await isPaused()) return;
+    const result = await runPass();
+    consecutiveFailures = 0;
+    if (result.indexed + result.failed > 0) {
+      delay = TICK_MS;
+      console.log("[index] pass", result);
+    }
+  } catch (error) {
+    // A pass must never take the loop down with it — the next one may well
+    // succeed, and a dead indexer is far harder to notice than a slow one.
+    // But it must not keep knocking at the same rate either.
+    consecutiveFailures++;
+    delay = failureDelay(consecutiveFailures);
+    console.warn("[index] pass failed", {
+      consecutiveFailures,
+      retryInSeconds: Math.round(delay / 1000),
+      error,
+    });
+  } finally {
+    schedule(delay);
   }
 };
 
-// Returns whether an embedding was actually written — false when the markdown
-// yields no chunks, so callers that heal "missing embedding" rows don't count
-// a no-op as success and re-select the same row every pass.
-const embedItemContent = async (
+/**
+ * Starts the indexer. Called once from the server entry; safe to call twice.
+ *
+ * This is the only thing that makes indexing happen. It replaces a setTimeout
+ * on item creation, a throttled piggyback on fetchItems, a 60-batch drain
+ * loop, and three buttons — all of which had their own limits, and none of
+ * which ran unless somebody happened to open the app.
+ */
+export const startIndexer = (): void => {
+  if (timer) return;
+  stopped = false;
+  void resetRunning()
+    .then((reclaimed) => {
+      if (reclaimed > 0) {
+        console.log(
+          "[index] reclaimed rows left running by a previous process",
+          {
+            reclaimed,
+          },
+        );
+      }
+    })
+    .catch((error) => console.warn("[index] reclaim failed", error))
+    .finally(() => schedule(TICK_MS));
+};
+
+export const stopIndexer = (): void => {
+  stopped = true;
+  if (timer) clearTimeout(timer);
+  timer = null;
+};
+
+// ---------------------------------------------------------------------------
+// Requeue helpers (the buttons)
+// ---------------------------------------------------------------------------
+
+/** Re-index specific items from scratch, discarding the stored text. */
+export const requeueItems = async (
+  userId: string,
+  itemIds: string[],
+): Promise<number> => {
+  if (itemIds.length === 0) return 0;
+  const rows = await db
+    .update(itemContent)
+    .set({
+      state: "pending",
+      contentHash: null,
+      markdown: null,
+      failureReason: null,
+      failureDetail: null,
+      updatedAt: nowIso(),
+    })
+    .where(
+      and(eq(itemContent.userId, userId), inArray(itemContent.itemId, itemIds)),
+    )
+    .returning({ itemId: itemContent.itemId });
+  return rows.length;
+};
+
+/**
+ * Retry failures worth retrying. `reasons` is the caller's filter — the UI
+ * passes only the reasons whose metadata says retrying can work, so the
+ * button never promises to re-fetch a page that has already been established
+ * to contain no article.
+ */
+export const requeueFailed = async (
+  userId: string,
+  reasons: FailureReason[],
+): Promise<number> => {
+  if (reasons.length === 0) return 0;
+  const rows = await db
+    .update(itemContent)
+    .set({
+      state: "pending",
+      failureReason: null,
+      failureDetail: null,
+      updatedAt: nowIso(),
+    })
+    .where(
+      and(
+        eq(itemContent.userId, userId),
+        eq(itemContent.state, "failed"),
+        inArray(itemContent.failureReason, reasons),
+      ),
+    )
+    .returning({ itemId: itemContent.itemId });
+  return rows.length;
+};
+
+/**
+ * Queue every row whose vector predates the current model. Called after a
+ * model switch: the stored text is kept, so this costs embedding only.
+ */
+export const requeueStaleModel = async (): Promise<number> => {
+  const activeModel = await getActiveModelId();
+  const rows = await db.execute(sql`
+    UPDATE item_content SET state = 'pending', updated_at = now()
+    WHERE state = 'ready'
+      AND embedding_model IS DISTINCT FROM ${activeModel}
+    RETURNING item_id
+  `);
+  return Array.from(rows).length;
+};
+
+// ---------------------------------------------------------------------------
+// Live capture (the in-app viewer's write path)
+// ---------------------------------------------------------------------------
+
+/**
+ * Text captured from the rendered page in the viewer. Takes precedence over
+ * anything the server fetched — it is the page as the user actually saw it,
+ * past whatever wall the server hit.
+ */
+export const applyLiveCapture = async (
   itemId: string,
   userId: string,
   extraction: Extraction,
-): Promise<boolean> => {
-  const chunks = chunkMarkdown(extraction.markdown);
-  if (chunks.length === 0) return false;
-
-  // Prefix each chunk with the title at embed time (not in the stored text)
-  // so every vector carries the document's identity.
-  const titlePrefix = extraction.title ? `${extraction.title}\n\n` : "";
-  // modelId comes back from the same call that produced the vectors — read
-  // separately, a config switch between the embed and the write would tag
-  // model A's vectors as model B's, which is exactly the mislabelling that
-  // makes a mixed corpus impossible to clean up afterwards.
-  const { vectors, modelId } = await embedDocuments(
-    chunks.map((chunk) => `${titlePrefix}${chunk}`),
-  );
-  const itemVector = meanVector(vectors);
-
-  const now = nowIso();
-  await db.transaction(async (tx) => {
-    await tx.delete(itemChunks).where(eq(itemChunks.itemId, itemId));
-    await tx.insert(itemChunks).values(
-      chunks.map((chunk, index) => ({
-        id: `${itemId}#${index}`,
-        userId,
-        itemId,
-        chunkIndex: index,
-        text: chunk,
-        embedding: vectors[index]!,
-        model: modelId,
-        createdAt: now,
-      })),
-    );
-    await tx
-      .update(itemContent)
-      .set({
-        embedding: itemVector,
-        embeddingModel: modelId,
-        embeddingError: null,
-        updatedAt: now,
-      })
-      .where(eq(itemContent.itemId, itemId));
-  });
-  return true;
-};
-
-// Rows needing embedding work: extraction succeeded but the embedding didn't
-// (typically a per-minute quota hit), or the stored vector was produced by a
-// model that is no longer the active one. Retried in small doses by the drain
-// paths so coverage converges without burning quota.
-//
-// The candidate query is ordered by updated_at, so every outcome MUST touch
-// updated_at or the row stays at the head of the ordering and is re-selected
-// on every pass forever. That starves the rows behind it: a full batch of
-// permanently unembeddable rows makes this return 0, which reads to callers
-// as "queue empty" while real work is still waiting.
-export type ReembedResult = {
-  // Rows that now have an embedding they didn't have before.
-  healed: number;
-  // Rows looked at this pass. Zero means the queue really is empty; a caller
-  // that loops must key its stop condition on this rather than on `healed`,
-  // or a batch of unembeddable rows ends the loop with work still queued.
-  examined: number;
-};
-
-export const reembedMissing = async (limit = 2): Promise<ReembedResult> => {
-  // Stale-model rows are work too, not just missing ones. Searches filter to
-  // the active model, so a row still carrying the previous model's vector is
-  // invisible to search until re-embedded — picking those up here is what
-  // makes a model switch migrate itself in the background instead of
-  // silently dropping half the corpus out of results.
-  const activeModel = await getActiveModelId();
-  const rows = await db
-    .select({ itemId: itemContent.itemId })
-    .from(itemContent)
-    .where(
-      and(
-        eq(itemContent.status, "ok"),
-        sql`(${itemContent.embedding} IS NULL
-          OR ${itemContent.embeddingModel} IS DISTINCT FROM ${activeModel})`,
-      ),
-    )
-    .orderBy(itemContent.updatedAt)
-    .limit(limit);
-  let ok = 0;
-  for (const row of rows) {
-    try {
-      if (await reembedFromStored(row.itemId)) {
-        ok++;
-      } else {
-        // No chunkable content — nothing to embed, ever, from this markdown.
-        // Record why and push the row to the back of the queue so the next
-        // pass moves on instead of re-picking it.
-        await db
-          .update(itemContent)
-          .set({
-            embeddingError: "No chunkable content to embed",
-            updatedAt: nowIso(),
-          })
-          .where(eq(itemContent.itemId, row.itemId));
-      }
-    } catch (error) {
-      await db
-        .update(itemContent)
-        .set({
-          embeddingError: errorMessage(error).slice(0, 2000),
-          updatedAt: nowIso(),
-        })
-        .where(eq(itemContent.itemId, row.itemId));
-    }
+): Promise<void> => {
+  await storeExtraction(itemId, extraction, "live");
+  const outcomes = await embedItems([
+    { itemId, userId, title: extraction.title, markdown: extraction.markdown },
+  ]);
+  const outcome = outcomes[0];
+  if (!outcome || outcome.result === "embedded") {
+    await markReady(itemId);
+    return;
   }
-  return { healed: ok, examined: rows.length };
-};
-
-// Re-embed an item from its stored markdown (e.g. after an embedding-model
-// change or a transient API failure) without re-fetching the source.
-export const reembedFromStored = async (itemId: string): Promise<boolean> => {
-  const [row] = await db
-    .select({
-      userId: itemContent.userId,
-      markdown: itemContent.markdown,
-      title: itemContent.title,
-      extractor: itemContent.extractor,
-    })
-    .from(itemContent)
-    .where(and(eq(itemContent.itemId, itemId), eq(itemContent.status, "ok")))
-    .limit(1);
-  if (!row?.markdown) return false;
-  // Propagate the real outcome: markdown that chunks to nothing writes no
-  // embedding, so this must report false or reembedMissing counts it healed.
-  return embedItemContent(itemId, row.userId, {
-    extractor: (row.extractor ?? "web") as Extraction["extractor"],
-    title: row.title,
-    markdown: row.markdown,
-  });
+  await markFailed(itemId, outcome.failure);
 };

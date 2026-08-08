@@ -64,6 +64,8 @@ export const setOpenItemId = (id: string | null): void => {
   if (id !== null) openListeners.get(id)?.forEach((cb) => cb());
 };
 
+export const getOpenItemId = (): string | null => openId;
+
 export const useIsOpenItem = (id: string): boolean => {
   return useSyncExternalStore(
     (cb) => {

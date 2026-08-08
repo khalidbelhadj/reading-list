@@ -19,6 +19,7 @@ import {
   IconListDetails,
   IconMoon,
   IconPalette,
+  IconPointer,
   IconSortAscending,
   IconSortDescending,
   IconSun,
@@ -115,6 +116,7 @@ export const SettingsMenu = ({
     showSuggestions,
     tagsOpen,
     reviewsInNewWindow,
+    openOnSingleClick,
   } = settings;
   const [exportOpen, setExportOpen] = React.useState(false);
 
@@ -169,6 +171,11 @@ export const SettingsMenu = ({
 
   const handleReviewsInNewWindowChange = React.useCallback(
     (checked: boolean) => setSetting("reviewsInNewWindow", checked),
+    [setSetting],
+  );
+
+  const handleOpenOnSingleClickChange = React.useCallback(
+    (checked: boolean) => setSetting("openOnSingleClick", checked),
     [setSetting],
   );
 
@@ -286,6 +293,13 @@ export const SettingsMenu = ({
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuSwitchItem
+          checked={openOnSingleClick}
+          onCheckedChange={handleOpenOnSingleClickChange}
+        >
+          <IconPointer />
+          Open on single click
+        </DropdownMenuSwitchItem>
         <DropdownMenuSwitchItem
           checked={reviewsInNewWindow}
           onCheckedChange={handleReviewsInNewWindowChange}

@@ -114,6 +114,11 @@ const config = [
       "app/debug/**/*.{ts,tsx}",
       "app/*.{ts,tsx}",
     ],
+    // app/server.ts IS the server: it's the process entry, never bundled for
+    // the client, and it's where the indexer loop is started. The rule below
+    // exists to keep server code out of the client bundle, which is exactly
+    // not the risk here.
+    ignores: ["app/server.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
@@ -265,7 +270,7 @@ const config = [
     files: ["components/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "lib/**/*.ts"],
     ignores: [
       // Designated URL writers: applyView, ?q sync, window-open params.
-      "components/panel-layout.tsx",
+      "lib/use-panel-view.ts",
       "components/items-list/use-list-search.ts",
       "lib/app-windows.ts",
     ],
@@ -276,7 +281,7 @@ const config = [
           selector:
             "MemberExpression[property.name=/^(pushState|replaceState)$/]",
           message:
-            "URL state writes live in panel-layout's applyView, use-list-search, or lib/app-windows.",
+            "URL state writes live in use-panel-view's applyView, use-list-search, or lib/app-windows.",
         },
       ],
     },

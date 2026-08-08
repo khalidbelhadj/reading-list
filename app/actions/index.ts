@@ -4,6 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type * as flashcardsImpl from "./flashcards";
 import type * as intelligenceImpl from "./intelligence";
 import type * as itemsImpl from "./items";
+import type * as pipelineImpl from "./pipeline";
 import type * as reviewSessionImpl from "./review-session";
 import type * as reviewStatsImpl from "./review-stats";
 import type * as semanticSearchImpl from "./semantic-search";
@@ -110,10 +111,11 @@ export const generateItemPreview: typeof itemsImpl.generateItemPreview = (
 
 export type {
   ContentOverviewRow,
+  FailureGroup,
+  IndexSummary,
   IntelligenceOverview,
   ItemChunk,
   ItemContentDetail,
-  ModelCoverage,
 } from "./intelligence";
 
 const getIntelligenceOverviewFn = createServerFn({ method: "POST" }).handler(
@@ -155,40 +157,6 @@ const updateEmbeddingSettingsFn = createServerFn({ method: "POST" })
 export const updateEmbeddingSettings: typeof intelligenceImpl.updateEmbeddingSettings =
   (...args) => updateEmbeddingSettingsFn({ data: args });
 
-const reextractItemFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof intelligenceImpl.reextractItem>) => args)
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.reextractItem(...data)),
-  );
-export const reextractItem: typeof intelligenceImpl.reextractItem = (...args) =>
-  reextractItemFn({ data: args });
-
-const reembedItemFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof intelligenceImpl.reembedItem>) => args)
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.reembedItem(...data)),
-  );
-export const reembedItem: typeof intelligenceImpl.reembedItem = (...args) =>
-  reembedItemFn({ data: args });
-
-const processQueueBatchFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./intelligence").then((m) => m.processQueueBatch()),
-);
-export const processQueueBatch: typeof intelligenceImpl.processQueueBatch =
-  () => processQueueBatchFn();
-
-const retryMissingEmbeddingsFn = createServerFn({ method: "POST" }).handler(
-  () => import("./intelligence").then((m) => m.retryMissingEmbeddings()),
-);
-export const retryMissingEmbeddings: typeof intelligenceImpl.retryMissingEmbeddings =
-  () => retryMissingEmbeddingsFn();
-
-const backfillMyContentFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./intelligence").then((m) => m.backfillMyContent()),
-);
-export const backfillMyContent: typeof intelligenceImpl.backfillMyContent =
-  () => backfillMyContentFn();
-
 const submitLiveContentFn = createServerFn({ method: "POST" })
   .validator(
     (args: Parameters<typeof intelligenceImpl.submitLiveContent>) => args,
@@ -199,6 +167,60 @@ const submitLiveContentFn = createServerFn({ method: "POST" })
 export const submitLiveContent: typeof intelligenceImpl.submitLiveContent = (
   ...args
 ) => submitLiveContentFn({ data: args });
+
+// --- indexer controls (pause, queue, retry) ---
+
+export type { PipelineRunState } from "./pipeline";
+
+const getPipelineRunStateFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./pipeline").then((m) => m.getPipelineRunState()),
+);
+export const getPipelineRunState: typeof pipelineImpl.getPipelineRunState =
+  () => getPipelineRunStateFn();
+
+const setPipelinePausedFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof pipelineImpl.setPipelinePaused>) => args)
+  .handler(({ data }) =>
+    import("./pipeline").then((m) => m.setPipelinePaused(...data)),
+  );
+export const setPipelinePaused: typeof pipelineImpl.setPipelinePaused = (
+  ...args
+) => setPipelinePausedFn({ data: args });
+
+const indexEverythingFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./pipeline").then((m) => m.indexEverything()),
+);
+export const indexEverything: typeof pipelineImpl.indexEverything = () =>
+  indexEverythingFn();
+
+const retryFailedItemsFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./pipeline").then((m) => m.retryFailedItems()),
+);
+export const retryFailedItems: typeof pipelineImpl.retryFailedItems = () =>
+  retryFailedItemsFn();
+
+const retryFailureReasonFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof pipelineImpl.retryFailureReason>) => args)
+  .handler(({ data }) =>
+    import("./pipeline").then((m) => m.retryFailureReason(...data)),
+  );
+export const retryFailureReason: typeof pipelineImpl.retryFailureReason = (
+  ...args
+) => retryFailureReasonFn({ data: args });
+
+const reindexItemsFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof pipelineImpl.reindexItems>) => args)
+  .handler(({ data }) =>
+    import("./pipeline").then((m) => m.reindexItems(...data)),
+  );
+export const reindexItems: typeof pipelineImpl.reindexItems = (...args) =>
+  reindexItemsFn({ data: args });
+
+const reembedForCurrentModelFn = createServerFn({ method: "POST" }).handler(
+  () => import("./pipeline").then((m) => m.reembedForCurrentModel()),
+);
+export const reembedForCurrentModel: typeof pipelineImpl.reembedForCurrentModel =
+  () => reembedForCurrentModelFn();
 
 // --- semantic search (vector queries over the embeddings) ---
 
