@@ -53,6 +53,9 @@ const BATCH = 8;
 const TICK_MS = 4_000;
 // Gap after an empty pass. Nothing is waiting, so ask less often.
 const IDLE_TICK_MS = 30_000;
+// Ceiling for the failure backoff: ~17 minutes. A dependency that has been
+// broken this long needs a person, not another connection attempt.
+const MAX_BACKOFF_MS = 1_024_000;
 
 const nowIso = () => new Date().toISOString();
 
@@ -277,17 +280,37 @@ export const runPass = async (limit = BATCH): Promise<PassResult> => {
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let stopped = false;
+// Consecutive failed passes. Drives the backoff below, and reset to 0 by any
+// pass that gets as far as talking to the database.
+let consecutiveFailures = 0;
 
 const schedule = (delay: number) => {
   if (stopped) return;
   timer = setTimeout(() => void tick(), delay);
 };
 
+/**
+ * How long to wait after a pass that threw.
+ *
+ * A background loop that retries a broken dependency on a fixed schedule is
+ * not resilient, it is a load generator. With bad database credentials this
+ * loop produced a failed authentication every 30 seconds forever, which is
+ * what Supabase's circuit breaker counts — and once it trips it blocks *new
+ * connections for the whole project*, so an indexer that could not do its own
+ * job took the rest of the app down with it.
+ *
+ * So: exponential, and capped well above the point where a human would have
+ * noticed. The queue is not urgent; nothing is lost by waiting.
+ */
+const failureDelay = (failures: number): number =>
+  Math.min(IDLE_TICK_MS * 2 ** (failures - 1), MAX_BACKOFF_MS);
+
 const tick = async (): Promise<void> => {
   let delay = IDLE_TICK_MS;
   try {
     if (await isPaused()) return;
     const result = await runPass();
+    consecutiveFailures = 0;
     if (result.indexed + result.failed > 0) {
       delay = TICK_MS;
       console.log("[index] pass", result);
@@ -295,7 +318,14 @@ const tick = async (): Promise<void> => {
   } catch (error) {
     // A pass must never take the loop down with it — the next one may well
     // succeed, and a dead indexer is far harder to notice than a slow one.
-    console.warn("[index] pass failed", error);
+    // But it must not keep knocking at the same rate either.
+    consecutiveFailures++;
+    delay = failureDelay(consecutiveFailures);
+    console.warn("[index] pass failed", {
+      consecutiveFailures,
+      retryInSeconds: Math.round(delay / 1000),
+      error,
+    });
   } finally {
     schedule(delay);
   }
