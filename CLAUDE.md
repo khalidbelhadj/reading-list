@@ -15,8 +15,19 @@ All commands use `bun` (not npm/npx):
 - `bun run db:seed` — Seed database with sample data
 - `bun x drizzle-kit generate` — Generate Drizzle migrations
 - `bun x shadcn@latest add <component>` — Add shadcn/ui components
+- `bun run electron:local` / `electron:prod` — Electron dev window against the local / hosted Supabase (`PORT=<n>` to pin a port; each instance is fully isolated)
+- `bun run cdp <command>` — Attach to the running dev Electron app over CDP
 
 If asked to run the dev server, run it in the background and read its output to check for errors.
+
+**Verifying anything Electron-specific — secondary item/review windows, the
+viewer `<webview>`, traffic-light clearance, zoom, native theme, deep links —
+means driving the real app, not the browser preview.** `electron/main.ts` opens
+a CDP listener in dev (port `9222 + (devPort - 3000)`, printed at startup), and
+`bun run cdp` attaches to it: `list` enumerates every window and webview as its
+own target, `screenshot --all` captures them, and `eval` / `click` / `console`
+drive and read one (`--target=<substring>` picks it). See
+[notes/electron-debugging.md](notes/electron-debugging.md).
 
 ## Code Conventions
 
@@ -145,7 +156,24 @@ Supabase Auth with Google OAuth. All authentication flows through Supabase — n
 
 ## Notes
 
-`notes/` contains documentation of past bugs, implementation decisions, and architectural notes. Search this directory when investigating issues that may have been encountered before.
+`notes/` is this repo's memory of *why* — past bugs and their root causes,
+implementation decisions, architectural notes. It is the historical record;
+consult it before re-deriving anything.
+
+**Read it first.** When investigating a bug, a performance problem, or any
+"why is it built this way", search `notes/` before searching the code. Several
+of these took days to diagnose and the symptom never points at the cause.
+
+**Write it back.** After fixing a non-obvious bug — one where the symptom and
+the cause were far apart, where the obvious fix was wrong, or where you'd have
+saved hours by knowing something up front — add a note. Symptom, cause, fix,
+and what generalises. A note that only restates the diff is not worth adding;
+the value is in the part that isn't recoverable from the code.
+
+Current notes: viewer/context pipeline plan, multi-window architecture,
+multi-select, local Supabase setup, Electron debugging, the pdf.js
+`measureText` freeze, CSP vs. dev HMR, live-DB-vs-schema drift, base-ui popups
+inside tiptap.
 
 ## Known Issues
 

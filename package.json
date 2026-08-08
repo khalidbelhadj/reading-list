@@ -34,6 +34,7 @@
     "electron:dev": "bun scripts/electron-dev.ts",
     "electron:local": "bun scripts/dev-electron.ts local",
     "electron:prod": "bun scripts/dev-electron.ts prod",
+    "cdp": "bun scripts/electron-cdp.ts",
     "electron:pack": "bun run electron:build && electron-builder --mac --arm64",
     "electron:release": "bun run electron:build && electron-builder --mac --arm64 --publish always"
   },

@@ -19,7 +19,6 @@
     "electron/**/*.ts",
     "types/**/*.ts"
   ],
-  "ignore": ["app/routeTree.gen.ts"],
   "ignoreDependencies": [
     "@fontsource-variable/dm-sans",
     "@fontsource/dm-mono",
