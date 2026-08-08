@@ -9,8 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useIsElectron } from "@/lib/platform";
 import { useDevDevtools } from "@/lib/use-dev-devtools";
-import { useIsElectron } from "@/lib/use-is-electron";
 import { cn } from "@/lib/utils";
 
 // Static list of navigable page routes (no API/route handlers). Dynamic routes

@@ -8,9 +8,9 @@ import type React from "react";
 import { getItemContent } from "@/app/actions";
 import { Spinner } from "@/components/ui/spinner";
 import { classifyUrl, type ContentKind } from "@/lib/extract/classify";
+import { useIsElectron } from "@/lib/platform";
 import { type Item } from "@/lib/types";
 import { getYouTubeVideoId } from "@/lib/url";
-import { useIsElectron } from "@/lib/use-is-electron";
 
 import { IframeEngine } from "./iframe-engine";
 import { PdfEngine } from "./pdf-engine";

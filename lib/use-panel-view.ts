@@ -1,5 +1,7 @@
 import React from "react";
 
+import { isElectron } from "@/lib/platform";
+
 // The home layout's view, split into four independent facets and mirrored to
 // the query string so every one of them is deep-linkable and survives reload
 // and back/forward:
@@ -11,6 +13,12 @@ import React from "react";
 //
 // The hook owns the URL↔state mirror only. What the facets mean together, and
 // which combinations are legal, stays in the layout that calls it.
+//
+// One exception, and it belongs here rather than in the layout because it is a
+// fact about reading the URL: the reader is desktop-only (see
+// dispatchReadItem), so ?read= is ignored on the web app. A shared or
+// bookmarked reading URL opens the item panel there instead of a reader the
+// web build cannot host.
 export type PanelView = {
   openItemId: string | null;
   expanded: boolean;
@@ -31,6 +39,9 @@ const param = (name: string): string | null => {
   return new URLSearchParams(window.location.search).get(name);
 };
 
+const readParam = (params: URLSearchParams): string | null =>
+  isElectron() ? params.get("read") : null;
+
 export const usePanelView = (): PanelView => {
   const [openItemId, setOpenItemId] = React.useState<string | null>(() =>
     param("item"),
@@ -39,7 +50,9 @@ export const usePanelView = (): PanelView => {
     () => param("expanded") != null,
   );
   const [readingItemId, setReadingItemId] = React.useState<string | null>(() =>
-    param("read"),
+    typeof window === "undefined"
+      ? null
+      : readParam(new URLSearchParams(window.location.search)),
   );
   const [readerExpanded, setReaderExpanded] = React.useState<boolean>(
     () => param("readerFull") != null,
@@ -50,7 +63,7 @@ export const usePanelView = (): PanelView => {
       const params = new URLSearchParams(window.location.search);
       setOpenItemId(params.get("item"));
       setExpanded(params.get("expanded") != null);
-      setReadingItemId(params.get("read"));
+      setReadingItemId(readParam(params));
       setReaderExpanded(params.get("readerFull") != null);
     };
     window.addEventListener("popstate", onPop);

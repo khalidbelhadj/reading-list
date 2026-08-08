@@ -28,6 +28,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
+import { ElectronOnly } from "@/components/electron-only";
 import { type GroupBy, type SortBy } from "@/components/items-list/use-filters";
 import {
   DropdownMenu,
@@ -117,8 +118,6 @@ export const SettingsMenu = ({
     reviewsInNewWindow,
     openOnSingleClick,
   } = settings;
-  const [mounted, setMounted] = React.useState(false);
-  const [isElectron, setIsElectron] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
 
   const handleThemeChange = React.useCallback(
@@ -179,11 +178,6 @@ export const SettingsMenu = ({
     (checked: boolean) => setSetting("openOnSingleClick", checked),
     [setSetting],
   );
-
-  React.useEffect(() => {
-    setMounted(true);
-    setIsElectron(document.documentElement.classList.contains("electron"));
-  }, []);
 
   return (
     <DropdownMenu>
@@ -313,7 +307,8 @@ export const SettingsMenu = ({
           <IconAppWindow />
           Reviews in new window
         </DropdownMenuSwitchItem>
-        {mounted && isElectron && (
+        {/* Full width only means something inside the desktop window. */}
+        <ElectronOnly>
           <DropdownMenuSwitchItem
             checked={fullWidth}
             onCheckedChange={handleFullWidthChange}
@@ -321,7 +316,7 @@ export const SettingsMenu = ({
             <IconArrowsMaximize />
             Full width
           </DropdownMenuSwitchItem>
-        )}
+        </ElectronOnly>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={openExport}>
           <IconDownload />

@@ -6,6 +6,8 @@
 //   expand   — step toward more screen:  side → fullw
 //   collapse — step toward less screen:  fullw → side → closed
 //   peek     — ensure the list is visible: fullw → side (never closes)
+import { isElectron } from "@/lib/platform";
+
 export type PanelCommand = "expand" | "collapse" | "peek";
 
 const EVENT = "rl:panel-command";
@@ -29,9 +31,16 @@ export const subscribePanelCommand = (
 // "Read in app" — opens the reading panel for an item. Dispatched from the
 // item menu (deep in the list tree), actuated by PanelLayout, which owns the
 // reading-panel state.
+//
+// Desktop-only: the mini browser is Electron's <webview>, and the PDF and
+// video engines lean on the shell too (native zoom, live capture). The web
+// app offers "Open in desktop app" instead. This is the single choke point
+// for opening the reader interactively — the menu item is hidden on the web
+// as well, and PanelLayout ignores a ?read= deep link there.
 const READ_EVENT = "rl:read-item";
 
 export const dispatchReadItem = (itemId: string): void => {
+  if (!isElectron()) return;
   window.dispatchEvent(new CustomEvent<string>(READ_EVENT, { detail: itemId }));
 };
 

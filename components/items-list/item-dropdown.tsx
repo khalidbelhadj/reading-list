@@ -24,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
 import { getItemReviewStatus, type ReviewMode } from "@/app/actions";
+import { ElectronOnly } from "@/components/electron-only";
 import { IconClaude } from "@/components/ui/claude-icon";
 import {
   ContextMenu as ContextMenuRoot,
@@ -53,8 +54,8 @@ import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
 import { dispatchReadItem } from "@/lib/panel-events";
+import { useIsElectron } from "@/lib/platform";
 import { type Item } from "@/lib/types";
-import { useIsElectron } from "@/lib/use-is-electron";
 
 import { Button } from "../ui/button";
 import { ReviewConfirmPopover } from "./review-confirm-popover";
@@ -426,11 +427,15 @@ const ItemMenuItems = ({ actions }: { actions: ItemMenuState }) => {
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
       )}
+      {/* The reader is desktop-only (see dispatchReadItem); on the web the
+          "Open in desktop app" item below is the way in. */}
       {canOpenUrl && (
-        <DropdownMenuItem onClick={handleReadInApp}>
-          <IconArticle />
-          Read in app
-        </DropdownMenuItem>
+        <ElectronOnly>
+          <DropdownMenuItem onClick={handleReadInApp}>
+            <IconArticle />
+            Read in app
+          </DropdownMenuItem>
+        </ElectronOnly>
       )}
       {inItemWindow ? (
         <DropdownMenuItem onClick={handleOpenInList}>
