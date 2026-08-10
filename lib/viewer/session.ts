@@ -5,7 +5,7 @@
 // engine-agnostic and additive.
 import React from "react";
 
-export type ViewerKind = "web" | "reader" | "youtube" | "pdf";
+type ViewerKind = "web" | "reader" | "youtube" | "pdf";
 
 // Selections carry surrounding context (W3C-annotation style) so future
 // captures can re-anchor quotes after content is re-extracted.
@@ -33,7 +33,7 @@ export type ViewerEvent =
 // Browser-style navigation, exposed only by engines that can honestly drive
 // it (the Electron webview fully; the web-app iframe reload-only). The
 // workspace header renders exactly the controls the active session offers.
-export type ViewerNav = {
+type ViewerNav = {
   currentUrl(): string;
   canGoBack(): boolean;
   canGoForward(): boolean;
@@ -44,7 +44,7 @@ export type ViewerNav = {
 
 // PDF engine controls (custom pdf.js viewer). Scale "fit" tracks the stage
 // width.
-export type ViewerPdfControls = {
+type ViewerPdfControls = {
   state(): { page: number; pageCount: number; scale: number | "fit" };
   goToPage(page: number): void;
   setScale(scale: number | "fit"): void;

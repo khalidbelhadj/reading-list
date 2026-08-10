@@ -173,7 +173,7 @@ export const startReviewSessionSchema = z.object({
 
 // Telemetry events the client queues locally and flushes with the next
 // rateCard / endReviewSession call instead of sending one action per event.
-export const batchedReviewEventSchema = z.discriminatedUnion("type", [
+const batchedReviewEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("card_shown"),
     flashcardId: idSchema,

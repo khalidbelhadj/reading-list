@@ -65,7 +65,9 @@ console.log(
 );
 if (isProd) console.log("[dev-electron] ⚠️  Writes hit PRODUCTION data.");
 
-const child = spawn("bun", ["scripts/electron-dev.ts"], {
+// Resolved against `root` rather than the cwd: this only ever worked because
+// `bun run` happens to start in the package root.
+const child = spawn("bun", [join(root, "scripts/electron-dev.ts")], {
   stdio: "inherit",
   // profileEnv overrides any same-named vars; @next/env then won't overwrite
   // these from .env.local, so the window targets the chosen backend.

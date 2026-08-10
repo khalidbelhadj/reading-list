@@ -81,7 +81,7 @@ type ShortcutDisplay = {
   combos: string[][];
 };
 
-export type ShortcutBinding = {
+type ShortcutBinding = {
   action: ShortcutActionId;
   chords: ChordSpec[];
   gate: ShortcutGate;
@@ -418,7 +418,7 @@ export const SHORTCUT_ENTRIES: ShortcutEntry[] = [
   },
 ];
 
-export type Shortcut = {
+type Shortcut = {
   label: string;
   // Each inner array is one key combo (rendered as adjacent keycaps); multiple
   // entries are alternative bindings for the same action (rendered "A / B").

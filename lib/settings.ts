@@ -1,21 +1,11 @@
 import { z } from "zod";
 
-// Reading panel state. The reading surface slides in on the right of the
-// main layout; notes are the regular item panel, docked to its left. The
-// panel width is remembered so the panel never asks twice. (Values stored
-// under the old `readerNotes` key, and extra keys from the removed
-// floating-notes mode, reset harmlessly via the .catch defaults.)
-const READING_PANEL_DEFAULTS = {
-  panelWidth: 640,
-};
-
-const readingPanelSchema = z
-  .object({
-    panelWidth: z.number().catch(READING_PANEL_DEFAULTS.panelWidth),
-  })
-  .catch(READING_PANEL_DEFAULTS);
-
-export const settingsSchema = z.object({
+// The reading surface used to own a persisted width (`readingPanel`), back
+// when it was a third column docked to the right. It now stands in for the
+// items list and takes its size from the item panel's own width, so there is
+// nothing left to remember here — stored values for the old key are dropped
+// on the next write, like the `readerNotes` key before it.
+const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).catch("system"),
   density: z.enum(["compact", "cozy"]).catch("cozy"),
   fullWidth: z.boolean().catch(true),
@@ -30,7 +20,6 @@ export const settingsSchema = z.object({
   // When false, a plain row click only selects the row and the panel opens on
   // double-click instead.
   openOnSingleClick: z.boolean().catch(true),
-  readingPanel: readingPanelSchema,
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -46,7 +35,6 @@ export const DEFAULT_SETTINGS: Settings = {
   tagsOpen: false,
   reviewsInNewWindow: true,
   openOnSingleClick: true,
-  readingPanel: readingPanelSchema.parse(undefined),
 };
 
 // Let zod own the whole decision: every field already `.catch`es to its

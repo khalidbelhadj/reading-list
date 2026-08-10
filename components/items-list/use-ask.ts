@@ -16,7 +16,7 @@ import React from "react";
 
 const PRESENT_RESULTS = "present_results";
 
-export type AskToolStep = {
+type AskToolStep = {
   kind: "tool";
   toolCallId: string;
   name: string;
@@ -28,7 +28,7 @@ export type AskToolStep = {
   output: unknown;
 };
 
-export type AskTextStep = { kind: "text"; text: string };
+type AskTextStep = { kind: "text"; text: string };
 
 export type AskStep = AskToolStep | AskTextStep;
 

@@ -34,7 +34,7 @@ const MAX_RENDER_DPR = 2;
 // ratio is walked down instead; 8MP is still ~2900px on a side.
 const MAX_BITMAP_PIXELS = 8_388_608;
 
-export type PdfRenderHandle = {
+type PdfRenderHandle = {
   promise: Promise<void>;
   cancel: () => void;
 };

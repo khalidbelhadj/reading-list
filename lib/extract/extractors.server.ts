@@ -22,7 +22,7 @@ import { htmlToArticleMarkdown } from "./readability.server";
 // re-extraction is manual via the reextractItem action.
 export const EXTRACTOR_VERSION = 1;
 
-export type Extractor = "web" | "pdf" | "arxiv" | "youtube";
+type Extractor = "web" | "pdf" | "arxiv" | "youtube";
 
 export type Extraction = {
   extractor: Extractor;

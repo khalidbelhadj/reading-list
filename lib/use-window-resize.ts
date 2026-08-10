@@ -9,7 +9,7 @@
 // The handler is kept in a ref, so an unstable callback never re-subscribes.
 import React from "react";
 
-export const WINDOW_RESIZE_DEBOUNCE_MS = 150;
+const WINDOW_RESIZE_DEBOUNCE_MS = 150;
 
 export type WindowResizeOptions = {
   mode: "sync" | "raf" | "debounce";

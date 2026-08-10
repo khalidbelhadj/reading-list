@@ -5,7 +5,7 @@
 // pointing at the window that spawned it, which is what routes "show this
 // item" requests back to the original window — no platform branching needed.
 
-export const OPEN_ITEM_MESSAGE = "readinglist:open-item";
+const OPEN_ITEM_MESSAGE = "readinglist:open-item";
 
 type OpenItemMessage = { type: typeof OPEN_ITEM_MESSAGE; itemId: string };
 

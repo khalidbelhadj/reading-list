@@ -18,7 +18,7 @@ import React from "react";
  */
 export type SelectModifiers = { meta: boolean; shift: boolean };
 
-export type BulkActions = {
+type BulkActions = {
   markRead: (itemIds: string[], read: boolean) => void;
   setPinned: (itemIds: string[], starred: boolean) => void;
   requestDelete: (itemIds: string[]) => void;

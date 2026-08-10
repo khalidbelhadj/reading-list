@@ -35,14 +35,14 @@ const parseRows = <T>(schema: z.ZodType<T>, rows: unknown): T[] => {
   return z.array(schema).parse(rows);
 };
 
-export type SearchMode = "fuzzy" | "regex";
+type SearchMode = "fuzzy" | "regex";
 
 export type SearchSort = "newest" | "oldest" | "title";
 
 // Optional post-match filters / ordering, applied in SQL (so sort + limit are
 // correct against the full match set, not a capped slice). Currently honored by
 // regex search only — that's the path the MCP/Ask `search_items` tools use.
-export type SearchFilters = {
+type SearchFilters = {
   tag?: string;
   read?: boolean;
   starred?: boolean;

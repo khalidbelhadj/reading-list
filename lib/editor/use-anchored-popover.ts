@@ -7,7 +7,7 @@ import React from "react";
 // follows it on scroll/resize and content reflow, plus optional
 // outside-mousedown / Escape dismissal wired to `popoverRef`.
 
-export type AnchorRect = { left: number; top: number; bottom: number };
+type AnchorRect = { left: number; top: number; bottom: number };
 
 export type UseAnchoredPopoverOptions = {
   open: boolean;

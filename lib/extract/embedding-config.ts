@@ -15,7 +15,7 @@ import { z } from "zod";
 // exactly.
 export const EMBEDDING_DIMENSIONS = 1536;
 
-export const EMBEDDING_PROVIDERS = ["gemini", "openai", "ollama"] as const;
+const EMBEDDING_PROVIDERS = ["gemini", "openai", "ollama"] as const;
 export type EmbeddingProvider = (typeof EMBEDDING_PROVIDERS)[number];
 
 export const PROVIDER_LABELS: Record<EmbeddingProvider, string> = {

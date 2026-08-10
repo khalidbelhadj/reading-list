@@ -6,11 +6,12 @@ import { setOpenItemId as setOpenItemIdStore } from "@/components/items-list/cur
 import { ItemWindow } from "@/components/items-list/item-window";
 import { SlidingItemPanel } from "@/components/items-list/sliding-item-panel";
 import { ReadingPanel } from "@/components/viewer/reading-panel";
+import { FADE_MS } from "@/lib/motion";
 import { subscribeReadItem } from "@/lib/panel-events";
 import { fetchItems } from "@/lib/queries";
 import { type Item } from "@/lib/types";
+import { useLinger } from "@/lib/use-linger";
 import { usePanelView } from "@/lib/use-panel-view";
-import { useSettings } from "@/lib/use-settings";
 
 // The home route renders either the central layout (list + sliding panel) or,
 // when opened as a dedicated single-item window (?window=1 via
@@ -102,11 +103,15 @@ const MainPanelLayout = () => {
   // reader can put the layout back exactly as it was. No panel open at all
   // collapses to "side": leaving the user with nothing after they close the
   // reader would be a worse landing than the preview they came from.
+  // Reading itself always drops the notes to the side view — they share the
+  // window with the reader — so without this the expanded state would be lost
+  // every time someone read an item.
   const preReadingViewRef = React.useRef<"expanded" | "side">("side");
 
-  // Closing the reader hands the layout back to whatever the item panel was
-  // showing beforehand — expanded stays expanded, a side preview (or nothing)
-  // returns to the side view, always on the item that was being read.
+  // Closing the reader gives the list back and hands the layout to whatever
+  // the item panel was showing beforehand — expanded stays expanded, a side
+  // preview (or nothing) returns to the side view, always on the item that
+  // was being read.
   const handleCloseReading = React.useCallback(() => {
     applyView({
       read: null,
@@ -116,22 +121,23 @@ const MainPanelLayout = () => {
   }, [applyView]);
 
   // "Read in app": open the reading panel AND the item panel for the same
-  // item — always in expanded mode. The reader only ever coexists with the
-  // expanded item panel; the side/preview view belongs to list browsing.
+  // item. The reader takes the list's place on the left, so the notes stay in
+  // their ordinary docked side view on the right — the two are a split, not a
+  // stack.
   const handleOpenReading = React.useCallback(
     (id: string) => {
       const params = new URLSearchParams(window.location.search);
       const hadAny = params.has("read") || params.has("item");
       // Only the first entry into reading mode records the layout to return
-      // to — switching items while reading would otherwise remember the
-      // reader's own (always expanded) view.
+      // to — switching items while reading would otherwise overwrite it with
+      // the side view reading itself just imposed.
       if (!params.has("read")) {
         preReadingViewRef.current = params.has("expanded")
           ? "expanded"
           : "side";
       }
       applyView(
-        { read: id, item: id, expanded: true, readerFull: false },
+        { read: id, item: id, expanded: false, readerFull: false },
         { push: !hadAny },
       );
     },
@@ -183,25 +189,21 @@ const MainPanelLayout = () => {
     [applyView],
   );
 
-  const { settings, setSetting } = useSettings();
-  const handlePanelWidthChange = React.useCallback(
-    (panelWidth: number) => {
-      setSetting("readingPanel", (prev) => ({ ...prev, panelWidth }));
-    },
-    [setSetting],
-  );
-
   const readingItem =
     readingItemId != null
       ? (items?.find((i) => i.id === readingItemId) ?? null)
       : null;
 
-  // Invariant: while the reader is open the item panel is always expanded
-  // (covers deep links / popstate where ?read exists without ?expanded).
-  const effectiveExpanded = expanded || readingItem != null;
+  // The reader dissolves rather than unmounting on the spot, so it outlives
+  // its id by one fade. Everything below that decides *behaviour* reads
+  // `readingItem`; only rendering and the covered-layer flags read this.
+  const { value: renderedReadingItem, exiting: readerExiting } = useLinger(
+    readingItem,
+    FADE_MS,
+  );
 
   // Reading mode owns both panes: the item panel always shows the reading
-  // item (never a divergent list selection), docked left of the reader.
+  // item (never a divergent list selection), docked right of the reader.
   // There is no reader-without-notes state: closing the item panel exits
   // reading mode entirely (see handleCloseItemOrReading).
   const itemPanelId = readingItem ? readingItem.id : openItemId;
@@ -216,19 +218,22 @@ const MainPanelLayout = () => {
     handleCloseItem();
   }, [readingItemId, applyView, handleCloseItem]);
 
-  // Restore while reading = leave reading mode entirely: close the reader
-  // and show the item panel's side view. An explicit restore outranks the
-  // remembered pre-reading layout — the user just asked for the side view.
+  // Expanding the notes while reading covers the reader rather than closing
+  // it, and restoring goes back to the split — the two panes trade which one
+  // is full-bleed, and only their ✕ buttons actually leave reading mode.
+  // An explicit expand/restore also becomes the layout the reader's own close
+  // lands on: the user's latest choice outranks whatever was on screen before
+  // they started reading.
   const handleExpandedChangeWithReader = React.useCallback(
     (next: boolean) => {
-      if (!next && readingItemId) {
-        preReadingViewRef.current = "side";
-        handleCloseReading();
+      if (readingItemId) {
+        preReadingViewRef.current = next ? "expanded" : "side";
+        applyView({ expanded: next, readerFull: false });
         return;
       }
       handleExpandedChange(next);
     },
-    [readingItemId, handleCloseReading, handleExpandedChange],
+    [readingItemId, applyView, handleExpandedChange],
   );
 
   // Reader expand/restore — replace, since toggling the view isn't a new
@@ -242,12 +247,18 @@ const MainPanelLayout = () => {
     <div className="h-dvh overflow-hidden">
       <div className="h-full p-2">
         <div className="flex h-full flex-col md:flex-row">
-          {/* While the item panel is expanded it fully covers the list +
-              toolbar; make that layer inert so buried controls can't hold
-              focus, hover, or tooltips (the browser blurs into-inert focus). */}
+          {/* The list is covered whenever the item panel is expanded or the
+              reader has taken its place; make that layer inert so buried
+              controls can't hold focus, hover, or tooltips (the browser blurs
+              into-inert focus). */}
           <div
             className="contents"
-            inert={mounted && effectiveExpanded ? true : undefined}
+            // Live, not lingering: an exiting reader is already
+            // pointer-transparent, and the list should answer to the cursor
+            // the moment it starts coming back.
+            inert={
+              mounted && (expanded || readingItem != null) ? true : undefined
+            }
           >
             <ItemsList
               onOpenItem={handleOpenItem}
@@ -270,22 +281,27 @@ const MainPanelLayout = () => {
               <SlidingItemPanel
                 itemId={itemPanelId}
                 onClose={handleCloseItemOrReading}
-                expanded={effectiveExpanded}
+                expanded={expanded}
                 onExpandedChange={handleExpandedChangeWithReader}
               />
             )}
           </div>
-          {mounted && readingItem && (
-            <ReadingPanel
-              key={readingItem.id}
-              item={readingItem}
-              panelWidth={settings.readingPanel.panelWidth}
-              onPanelWidthChange={handlePanelWidthChange}
-              onClose={handleCloseReading}
-              expanded={readerExpanded}
-              onExpandedChange={handleReaderExpandedChange}
-            />
-          )}
+          {/* ...and the mirror of it: expanded notes cover the reader. */}
+          <div
+            className="contents"
+            inert={mounted && expanded ? true : undefined}
+          >
+            {mounted && renderedReadingItem && (
+              <ReadingPanel
+                key={renderedReadingItem.id}
+                item={renderedReadingItem}
+                exiting={readerExiting}
+                onClose={handleCloseReading}
+                expanded={readerExpanded}
+                onExpandedChange={handleReaderExpandedChange}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
