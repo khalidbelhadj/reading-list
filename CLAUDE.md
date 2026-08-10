@@ -173,7 +173,7 @@ the value is in the part that isn't recoverable from the code.
 Current notes: viewer/context pipeline plan, multi-window architecture,
 multi-select, local Supabase setup, Electron debugging, the pdf.js
 `measureText` freeze, CSP vs. dev HMR, live-DB-vs-schema drift, base-ui popups
-inside tiptap.
+inside tiptap, the reader replacing the list.
 
 ## Known Issues
 

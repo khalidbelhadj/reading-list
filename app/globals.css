@@ -252,8 +252,8 @@ body.panel-resizing-row {
 body.panel-resizing :is(iframe, webview, embed, object) {
   pointer-events: none;
 }
-/* No transitions while a divider is being dragged. Dragging the reader
-   moves --reading-offset, which repositions/resizes the item panel — its
+/* No transitions while a divider is being dragged. Dragging the notes edge
+   moves --notes-inset-right, which resizes the reading panel beside it — the
    inline `transition` strings would smear each per-move update over ~300ms,
    making the panels trail the cursor. !important is required to beat those
    inline styles; scoped to the drag, when nothing should be animating. */
@@ -314,20 +314,24 @@ html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
   padding-left: var(--traffic-clearance);
 }
 
-/* The side-panel toolbar covers the top-left of the window once it starts
-   expanding, so the traffic-light clearance must always be reserved —
-   regardless of viewport width. */
+/* Toolbars that cover the top-left of the window — the expanding side panel,
+   a detached item window, the reader — always reserve the traffic-light
+   clearance, regardless of viewport width. The clearance alone only reaches
+   where the dots *end*, so the extra 4px is breathing room before the first
+   control; with the panel floating SLIDE_OFFSET (8px) in and its own 1px
+   border, that puts the control's box at 93px — 23px clear of the green dot,
+   which ends at 70px. */
 html.electron .panel-toolbar.electron-top-bar-inset {
-  padding-left: var(--traffic-clearance);
+  padding-left: calc(var(--traffic-clearance) + 0.25rem);
 }
 
-/* The expanded reader stacks a second toolbar row *below* the traffic lights
-   rather than beside them, so it doesn't want the full clearance — it wants
-   its first control to line up with the dots above it. The dots' left edge is
+/* The reader stacks a second toolbar row *below* the traffic lights rather
+   than beside them, so it doesn't want the full clearance — it wants its
+   first control to line up with the dots above it. The dots' left edge is
    at (18 + 6) * zoom - 6 window points (electron/main.ts), which is
    `24px - 6px / zoom` in page pixels; the panel itself is inset from the
    window edge by SLIDE_OFFSET (8px, lib/motion.ts). */
-html.electron .reader-expanded .pdf-toolbar {
+html.electron .reader-panel .pdf-toolbar {
   /* Centre the first control on the first dot: dot centre sits at
      (24px - 6px/zoom - 8px) + 6px from the panel's left edge, and the icon
      button is 24px wide, so its box starts 12px before that. */

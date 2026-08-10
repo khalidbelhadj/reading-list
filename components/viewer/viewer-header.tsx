@@ -86,11 +86,21 @@ export const ViewerHeader = ({
   return (
     <header
       className={cn(
-        "flex h-10 shrink-0 items-center gap-0.5 border-b border-border/60 px-2 transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
-        // Only an expanded reader covers the window's top-left, so that's the
-        // only state needing the macOS traffic-light clearance (and the drag
-        // region that comes with it). No-op outside Electron.
-        expanded && "electron-top-bar-inset panel-toolbar",
+        // Controls are anchored to the top of the bar rather than centred in
+        // it. The reader starts at the layout's 8px padding, so pt-1 puts them
+        // 12px down the window — exactly where the list toolbar's buttons sit,
+        // and, because the macOS traffic lights are inset by 18px with a 6px
+        // radius, on the dots' own centre line too.
+        //
+        // The height comes from the padding rather than a fixed h-*, so the
+        // top anchor can't drift: border-b sits inside a fixed height and
+        // would steal a pixel from the bottom gap.
+        "flex shrink-0 items-start gap-0.5 border-b border-border/60 px-2 pt-1 pb-3 transition-[padding] duration-220 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        // The reader is docked to the left edge in every state, so it always
+        // covers the window's top-left and always needs the macOS
+        // traffic-light clearance (and the drag region that comes with it).
+        // No-op outside Electron.
+        "electron-top-bar-inset panel-toolbar",
       )}
     >
       <ToolbarButton label="Close" onClick={onClose}>

@@ -37,10 +37,42 @@ const OPEN_MS = 280; // closed ↔ side (slide in/out)
 // off-screen. It must match that padding, so the panel toolbar's buttons line
 // up with the list toolbar's buttons.
 // The resize handle is a strip centered over the boundary between the panel
-// and the list — the SLIDE_OFFSET gap (side) or the top edge (bottom).
+// and whatever is beside it — the SLIDE_OFFSET gap (side) or the top edge
+// (bottom).
 const HANDLE_SIZE = 16;
 
 const PANEL_RADIUS = 8;
+
+// The panel publishes where the *main column* has to stop — measured from the
+// edge this panel is docked to, and inclusive of everything between: the
+// panel's own size, the SLIDE_OFFSET it floats in, and the gap (if any) on the
+// column's side of it. The reading panel, which has no size of its own, reads
+// this as its trailing inset and so lands in exactly the box the list occupies.
+//
+// The two axes differ because the layout does: docked to the side the panel
+// floats free with a gap on both sides, docked to the bottom it butts against
+// the content above it (see layoutGap below). Publishing the *edge* rather
+// than the *size* keeps that asymmetry in one place instead of forcing every
+// consumer to re-derive it — an earlier version added a uniform gap here and
+// left an 8px sliver of the list showing through in the narrow layout.
+// Only the live axis is ever set.
+type NotesInset = "--notes-inset-right" | "--notes-inset-bottom";
+const NOTES_INSETS: NotesInset[] = [
+  "--notes-inset-right",
+  "--notes-inset-bottom",
+];
+const setNotesInset = (prop: NotesInset, size: number) => {
+  const root = document.documentElement;
+  for (const other of NOTES_INSETS) {
+    if (other !== prop) root.style.removeProperty(other);
+  }
+  root.style.setProperty(prop, `${size}px`);
+};
+const clearNotesInsets = () => {
+  for (const prop of NOTES_INSETS) {
+    document.documentElement.style.removeProperty(prop);
+  }
+};
 
 export const SlidingItemPanel = ({
   itemId,
@@ -268,7 +300,8 @@ export const SlidingItemPanel = ({
         if (spacerRef.current)
           spacerRef.current.style.width = `${effective + SLIDE_OFFSET}px`;
         if (handleRef.current)
-          handleRef.current.style.right = `calc(${effective + SLIDE_OFFSET / 2}px + var(--reading-offset, 0px))`;
+          handleRef.current.style.right = `${effective + SLIDE_OFFSET / 2}px`;
+        setNotesInset("--notes-inset-right", effective + SLIDE_OFFSET * 2);
       } else {
         if (visualRef.current)
           visualRef.current.style.height = `${effective}px`;
@@ -276,6 +309,7 @@ export const SlidingItemPanel = ({
           spacerRef.current.style.height = `${effective}px`;
         if (handleRef.current)
           handleRef.current.style.bottom = `${effective}px`;
+        setNotesInset("--notes-inset-bottom", effective + SLIDE_OFFSET);
       }
     },
     [],
@@ -402,6 +436,36 @@ export const SlidingItemPanel = ({
     resizing ||
     isDraggingResize;
 
+  // Publish where the main column stops. Closed clears the variable rather
+  // than zeroing it, so the reader falls back to the layout's own padding.
+  // While expanded the side size still applies: the reader keeps its restored
+  // geometry underneath and is simply covered.
+  React.useEffect(() => {
+    if (phase === "closed") {
+      clearNotesInsets();
+      return;
+    }
+    if (orientation === "side")
+      setNotesInset("--notes-inset-right", panelWidth + SLIDE_OFFSET * 2);
+    else setNotesInset("--notes-inset-bottom", panelHeight + SLIDE_OFFSET);
+    return clearNotesInsets;
+  }, [phase, orientation, panelWidth, panelHeight]);
+
+  // Whatever suppresses this panel's own transitions must suppress the
+  // reader's trailing-edge easing too, or the two edges of the same boundary
+  // drift apart mid-drag.
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (!suppressTransitions) {
+      root.style.removeProperty("--notes-resize-ms");
+      return;
+    }
+    root.style.setProperty("--notes-resize-ms", "0ms");
+    return () => {
+      root.style.removeProperty("--notes-resize-ms");
+    };
+  }, [suppressTransitions]);
+
   // Primary axis size for the "side" phase. fullw sizes come from filling
   // the viewport rather than from this value.
   const sidePrimary =
@@ -460,19 +524,17 @@ export const SlidingItemPanel = ({
   //   fullw: panel fills the layout's padded area (still SLIDE_OFFSET in)
   const visualPosition: React.CSSProperties = (() => {
     if (orientation === "side") {
-      // --reading-offset (set by the reading panel, 0 otherwise) shifts this
-      // panel left so it sits beside the reading surface instead of under it.
       if (visualPhase === "fullw") {
         return {
           top: SLIDE_OFFSET,
-          right: `calc(${SLIDE_OFFSET}px + var(--reading-offset, 0px))`,
+          right: SLIDE_OFFSET,
           bottom: SLIDE_OFFSET,
-          width: `calc(100vw - ${SLIDE_OFFSET * 2}px - var(--reading-offset, 0px))`,
+          width: `calc(100vw - ${SLIDE_OFFSET * 2}px)`,
         };
       }
       return {
         top: SLIDE_OFFSET,
-        right: `calc(${SLIDE_OFFSET}px + var(--reading-offset, 0px))`,
+        right: SLIDE_OFFSET,
         bottom: SLIDE_OFFSET,
         width: sidePrimary,
       };
@@ -522,7 +584,10 @@ export const SlidingItemPanel = ({
           borderRadius: PANEL_RADIUS,
           transform: visualTransform,
           transition: visualTransition,
-          zIndex: 30,
+          // Above the reading panel's z-[35] only while expanded — that's the
+          // notes covering the reader, the mirror of the reader covering the
+          // notes when *it* expands.
+          zIndex: visualPhase === "fullw" ? 40 : 30,
         }}
       >
         {renderedId && (
@@ -537,9 +602,9 @@ export const SlidingItemPanel = ({
         )}
       </div>
 
-      {/* Resize handle — lives in the SLIDE_OFFSET gap between list and
-          panel, not inside the panel itself. Follows the panel via the
-          same slide transform so it appears/disappears with it. */}
+      {/* Resize handle — lives in the SLIDE_OFFSET gap between the panel and
+          whatever is beside it, not inside the panel itself. Follows the panel
+          via the same slide transform so it appears/disappears with it. */}
       {(phase === "side" || phase === "closed") && (
         <div
           ref={handleRef}
@@ -557,10 +622,10 @@ export const SlidingItemPanel = ({
               ? {
                   top: SLIDE_OFFSET,
                   bottom: SLIDE_OFFSET,
-                  // Centered over the SLIDE_OFFSET gap between list and
-                  // panel. Tracks the panel, which itself shifts left of the
-                  // reading panel via --reading-offset.
-                  right: `calc(${panelWidth + SLIDE_OFFSET / 2}px + var(--reading-offset, 0px))`,
+                  // Centered over the SLIDE_OFFSET gap on the panel's left —
+                  // the one boundary in the layout, whether the list or the
+                  // reader is on the far side of it.
+                  right: panelWidth + SLIDE_OFFSET / 2,
                   width: HANDLE_SIZE,
                   transform:
                     phase === "closed"
