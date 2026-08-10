@@ -19,7 +19,7 @@ import { IndexFailure, toIndexFailure } from "./failure";
 // How many items' chunks go out in one provider call. Bounded because a
 // failure fails the whole batch: small enough that one bad pass is cheap to
 // redo, large enough that the per-request overhead stops dominating.
-export const EMBED_BATCH_ITEMS = 8;
+const EMBED_BATCH_ITEMS = 8;
 
 export type EmbedSource = {
   itemId: string;

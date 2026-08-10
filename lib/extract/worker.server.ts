@@ -42,7 +42,7 @@ import { isPaused } from "./pipeline-control.server";
 
 export type IndexState = "pending" | "running" | "ready" | "failed";
 
-export type ContentSource = "server" | "live" | "extension";
+type ContentSource = "server" | "live" | "extension";
 
 // How many items one pass takes. Also the embedding batch size, since the
 // pass embeds everything it extracted in a single provider call.
@@ -185,7 +185,7 @@ const claimBatch = async (limit: number): Promise<Claimed[]> => {
  * invisible — and needed a dedicated sweep to find. Now the same crash leaves
  * a row in `running`, which is plainly visible, and boot puts it back.
  */
-export const resetRunning = async (): Promise<number> => {
+const resetRunning = async (): Promise<number> => {
   const rows = await db.execute(sql`
     UPDATE item_content SET state = 'pending', updated_at = now()
     WHERE state = 'running'
@@ -355,12 +355,6 @@ export const startIndexer = (): void => {
     })
     .catch((error) => console.warn("[index] reclaim failed", error))
     .finally(() => schedule(TICK_MS));
-};
-
-export const stopIndexer = (): void => {
-  stopped = true;
-  if (timer) clearTimeout(timer);
-  timer = null;
 };
 
 // ---------------------------------------------------------------------------

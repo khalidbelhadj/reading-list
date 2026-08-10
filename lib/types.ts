@@ -1,7 +1,7 @@
-import type { flashcards, items, tags } from "@/db/schema";
+import type { items, tags } from "@/db/schema";
 
 // DB-level types (source of truth)
-export type DbItem = typeof items.$inferSelect;
+type DbItem = typeof items.$inferSelect;
 export type DbTag = typeof tags.$inferSelect;
 
 // App-level types with joined tags.
@@ -16,6 +16,3 @@ export type Item = Omit<DbItem, "read" | "previewImageUrl"> & {
   read: boolean;
   readAt: string | null;
 };
-
-// Flashcard type
-export type Flashcard = typeof flashcards.$inferSelect;

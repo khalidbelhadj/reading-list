@@ -73,7 +73,7 @@ export const FAILURE_REASON_VALUES = Object.keys(
   FAILURE_REASONS,
 ) as FailureReason[];
 
-export const isFailureReason = (value: string): value is FailureReason =>
+const isFailureReason = (value: string): value is FailureReason =>
   value in FAILURE_REASONS;
 
 /**
@@ -83,9 +83,6 @@ export const isFailureReason = (value: string): value is FailureReason =>
  */
 export const describeFailure = (reason: string | null) =>
   FAILURE_REASONS[reason && isFailureReason(reason) ? reason : "internal"];
-
-export const isRetryable = (reason: string | null): boolean =>
-  describeFailure(reason).retryable;
 
 /**
  * A failure with its reason already decided. Thrown at the point that knows

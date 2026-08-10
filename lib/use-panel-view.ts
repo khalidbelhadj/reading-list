@@ -27,7 +27,7 @@ export type PanelView = {
   applyView: (next: PanelViewPatch, opts?: { push?: boolean }) => void;
 };
 
-export type PanelViewPatch = {
+type PanelViewPatch = {
   item?: string | null;
   read?: string | null;
   expanded?: boolean;

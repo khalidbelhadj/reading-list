@@ -124,7 +124,7 @@ const isPrivateIPv6 = (ip: string): boolean => {
   return false;
 };
 
-export const isPrivateIP = (ip: string): boolean => {
+const isPrivateIP = (ip: string): boolean => {
   const family = isIP(ip);
   if (family === 4) return isPrivateIPv4(ip);
   if (family === 6) return isPrivateIPv6(ip);
