@@ -2,7 +2,7 @@
 
 The app supports secondary windows on both platforms with one code path:
 `window.open` on app-origin URLs. On the web that yields a tab; in Electron
-the main process intercepts it (`setWindowOpenHandler` in `electron/main.ts`)
+the main process intercepts it (`setWindowOpenHandler` in `electron/web-contents.ts`)
 and creates a real child `BrowserWindow` with the same preload, navigation
 guards, zoom, and theme handling as the main window (all wired globally via
 `app.on("web-contents-created")`, so nothing is main-window-specific anymore).

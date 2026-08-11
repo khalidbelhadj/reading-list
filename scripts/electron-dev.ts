@@ -6,7 +6,7 @@
  * reads the port Vite *actually* bound from its stdout, waits for the server to
  * answer, then starts Electron pointed at that exact URL via ELECTRON_DEV_URL.
  *
- * Because electron/main.ts keys its userData dir + single-instance lock off the
+ * Because electron/app-identity.ts keys its userData dir + single-instance lock off the
  * port, every invocation lands on its own port and therefore its own isolated
  * window — so this command can be run N times (or by N agents) with zero
  * coordination. Set PORT=xxxx to pin a specific port instead of auto-selecting.

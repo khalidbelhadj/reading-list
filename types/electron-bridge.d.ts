@@ -1,5 +1,7 @@
 import type * as React from "react";
 
+import type { BrowserTab, BrowserTabRef } from "@/electron/channels";
+
 export {};
 
 // Minimal structural types for the Electron <webview> tag used by the in-app
@@ -41,6 +43,9 @@ declare global {
       onNativeThemeChange: (cb: (dark: boolean) => void) => () => void;
       getZoomFactor: () => Promise<number>;
       onZoomChange: (cb: (zoom: number) => void) => () => void;
+      // Subscribing is what makes the main process poll; the teardown stops it.
+      onBrowserTabs: (cb: (tabs: BrowserTab[]) => void) => () => void;
+      focusBrowserTab: (ref: BrowserTabRef) => Promise<void>;
     };
   }
 }

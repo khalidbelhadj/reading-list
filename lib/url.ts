@@ -50,6 +50,58 @@ export const getYouTubeVideoId = (raw: string): string | null => {
   }
 };
 
+// Query params that identify a campaign/referrer rather than the page itself.
+// Stripped when building a match key so a link saved from a newsletter still
+// matches the same page open in a browser tab.
+const TRACKING_PARAMS = [
+  /^utm_/,
+  /^mc_/,
+  /^_hs/,
+  /^(fbclid|gclid|gbraid|wbraid|msclkid|igshid|mkt_tok|ref|ref_src|source|si)$/,
+];
+
+const isTrackingParam = (name: string) =>
+  TRACKING_PARAMS.some((pattern) => pattern.test(name));
+
+/**
+ * A canonical key for "is this the same page?" — used to match reading-list
+ * items against open browser tabs (lib/open-tabs.ts).
+ *
+ * Deliberately more aggressive than normalizeUrl (which stays conservative
+ * because it feeds duplicate *detection* on save): protocol, `www.`, trailing
+ * slash, hash and tracking params are all dropped, and remaining params are
+ * sorted so ordering doesn't matter. Meaningful params are kept — `?v=` is what
+ * distinguishes two YouTube videos — so this collapses noise, not identity.
+ *
+ * Returns null for anything that isn't an http(s) URL (chrome://, about:blank,
+ * file:// — never a reading-list item).
+ */
+export const urlMatchKey = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // YouTube is the common case where the same video has many URL shapes
+  // (youtu.be, /shorts, /embed, extra playlist params) — collapse them all.
+  const videoId = getYouTubeVideoId(trimmed);
+  if (videoId) return `youtube:${videoId}`;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+
+    for (const name of [...url.searchParams.keys()]) {
+      if (isTrackingParam(name)) url.searchParams.delete(name);
+    }
+    url.searchParams.sort();
+
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const path = url.pathname.replace(/\/+$/, "");
+    return `${host}${path}${url.search}`;
+  } catch {
+    return null;
+  }
+};
+
 export const normalizeUrl = (raw: string): string | null => {
   const trimmed = raw.trim();
   if (!trimmed) return null;

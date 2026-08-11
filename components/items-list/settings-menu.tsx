@@ -7,6 +7,7 @@ import {
   IconArrowsMaximize,
   IconArrowsSort,
   IconBrain,
+  IconBrowser,
   IconBulb,
   IconCalendar,
   IconCircleOff,
@@ -114,6 +115,7 @@ export const SettingsMenu = ({
     sortBy,
     showRead,
     showSuggestions,
+    showOpenTabs,
     tagsOpen,
     reviewsInNewWindow,
     openOnSingleClick,
@@ -145,6 +147,11 @@ export const SettingsMenu = ({
 
   const handleShowSuggestionsChange = React.useCallback(
     (checked: boolean) => setSetting("showSuggestions", checked),
+    [setSetting],
+  );
+
+  const handleShowOpenTabsChange = React.useCallback(
+    (checked: boolean) => setSetting("showOpenTabs", checked),
     [setSetting],
   );
 
@@ -197,6 +204,15 @@ export const SettingsMenu = ({
           <IconBulb />
           Show suggestions
         </DropdownMenuSwitchItem>
+        <ElectronOnly>
+          <DropdownMenuSwitchItem
+            checked={showOpenTabs}
+            onCheckedChange={handleShowOpenTabsChange}
+          >
+            <IconBrowser />
+            Show open browser tabs
+          </DropdownMenuSwitchItem>
+        </ElectronOnly>
         <DropdownMenuSwitchItem
           checked={tagsOpen}
           onCheckedChange={handleTagsOpenChange}

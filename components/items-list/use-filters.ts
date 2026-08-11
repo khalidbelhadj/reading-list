@@ -1,5 +1,6 @@
 import React from "react";
 
+import { useOpenTabItems } from "@/lib/open-tabs";
 import { type DbTag, type Item } from "@/lib/types";
 import { useLocalStorage } from "@/lib/use-local-storage";
 import { useSettings } from "@/lib/use-settings";
@@ -281,21 +282,42 @@ export const useItemsFilters = (
     [setActiveTags],
   );
 
+  // Items that are also open in a local browser tab right now (desktop only).
+  // They get their own section above Pinned and are excluded from the other
+  // two: one row per item, so the keyboard-nav registry never sees the same id
+  // twice. Empty on web, while searching, and when the setting is off — which
+  // also stops the main process from polling at all.
+  const openTabMatches = useOpenTabItems(filteredItems);
+  const openTabItems = React.useMemo(
+    () => (searchOrder !== null ? [] : openTabMatches),
+    [openTabMatches, searchOrder],
+  );
+  const openTabIds = React.useMemo(
+    () => new Set(openTabItems.map((item) => item.id)),
+    [openTabItems],
+  );
+
   // While searching, the results are already ordered (local-first, then
   // server-only) — collapse pinned/grouped into the flat filtered list so the
   // render path stays a single ordered column.
   const pinnedItems = React.useMemo(
     () =>
-      searchOrder !== null ? [] : filteredItems.filter((item) => item.starred),
-    [filteredItems, searchOrder],
+      searchOrder !== null
+        ? []
+        : filteredItems.filter(
+            (item) => item.starred && !openTabIds.has(item.id),
+          ),
+    [filteredItems, searchOrder, openTabIds],
   );
 
   const unpinnedItems = React.useMemo(
     () =>
       searchOrder !== null
         ? filteredItems
-        : filteredItems.filter((item) => !item.starred),
-    [filteredItems, searchOrder],
+        : filteredItems.filter(
+            (item) => !item.starred && !openTabIds.has(item.id),
+          ),
+    [filteredItems, searchOrder, openTabIds],
   );
 
   const groups = React.useMemo(
@@ -309,6 +331,7 @@ export const useItemsFilters = (
     allTags,
     filteredItems,
     hiddenReadCount,
+    openTabItems,
     pinnedItems,
     unpinnedItems,
     activeTags,

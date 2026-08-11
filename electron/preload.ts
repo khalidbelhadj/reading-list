@@ -20,6 +20,19 @@ contextBridge.exposeInMainWorld("readingList", {
       ipcRenderer.off("native-theme", listener);
     };
   },
+  // Open browser tabs. The main process only polls while at least one renderer
+  // is subscribed, so the returned teardown genuinely stops the work.
+  onBrowserTabs: (cb: (tabs: unknown[]) => void) => {
+    const listener = (_event: unknown, tabs: unknown[]) => cb(tabs);
+    ipcRenderer.on("browser-tabs", listener);
+    void ipcRenderer.invoke("browser-tabs-subscribe");
+    return () => {
+      ipcRenderer.off("browser-tabs", listener);
+      void ipcRenderer.invoke("browser-tabs-unsubscribe");
+    };
+  },
+  focusBrowserTab: (ref: unknown): Promise<void> =>
+    ipcRenderer.invoke("browser-tabs-focus", ref),
   getZoomFactor: (): Promise<number> => ipcRenderer.invoke("zoom-current"),
   onZoomChange: (cb: (zoom: number) => void) => {
     const listener = (_event: unknown, zoom: number) => cb(zoom);
