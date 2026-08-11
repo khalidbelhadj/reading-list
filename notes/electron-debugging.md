@@ -13,7 +13,7 @@ so one listener exposes the whole window tree.
 
 ## Turning it on
 
-Nothing to turn on: `electron/main.ts` opens the listener automatically in dev
+Nothing to turn on: `electron/cdp.ts` opens the listener automatically in dev
 (never when packaged) and prints the port:
 
 ```

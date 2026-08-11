@@ -191,7 +191,7 @@ Server fn `submitLiveContent({ itemId, url, html, title })`:
   through a small auth-guarded proxy route (`app/routes/api.proxy-pdf.ts`,
   SSRF-guarded, streaming) so CORS never blocks and range requests work.
 - **WebEmbed (Electron only)** — `<webview>` tag:
-  - `electron/main.ts`: enable `webviewTag: true` only for app windows, and
+  - `electron/windows.ts`: enable `webviewTag: true` only for app windows, and
     harden with a `will-attach-webview` handler (strip `nodeIntegration`,
     enforce our preload path, `sandbox: true`, `contextIsolation: true`,
     `partition: "persist:viewer"`).

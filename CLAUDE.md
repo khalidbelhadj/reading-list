@@ -22,7 +22,7 @@ If asked to run the dev server, run it in the background and read its output to 
 
 **Verifying anything Electron-specific — secondary item/review windows, the
 viewer `<webview>`, traffic-light clearance, zoom, native theme, deep links —
-means driving the real app, not the browser preview.** `electron/main.ts` opens
+means driving the real app, not the browser preview.** `electron/cdp.ts` opens
 a CDP listener in dev (port `9222 + (devPort - 3000)`, printed at startup), and
 `bun run cdp` attaches to it: `list` enumerates every window and webview as its
 own target, `screenshot --all` captures them, and `eval` / `click` / `console`
@@ -173,7 +173,8 @@ the value is in the part that isn't recoverable from the code.
 Current notes: viewer/context pipeline plan, multi-window architecture,
 multi-select, local Supabase setup, Electron debugging, the pdf.js
 `measureText` freeze, CSP vs. dev HMR, live-DB-vs-schema drift, base-ui popups
-inside tiptap, the reader replacing the list.
+inside tiptap, the reader replacing the list, the main-process module map,
+browser-tab visibility.
 
 ## Known Issues
 

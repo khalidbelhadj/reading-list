@@ -29,6 +29,7 @@ import {
   type ScrollToIdOptions,
   useNavRegistry,
 } from "./items-list/list-nav-registry";
+import { OpenTabsSection } from "./items-list/open-tabs-section";
 import { PinnedSection } from "./items-list/pinned-section";
 import { SearchBar } from "./items-list/search-bar";
 import {
@@ -87,6 +88,7 @@ export const ItemsList = ({
   const [scrolled, setScrolled] = React.useState(false);
   const [pinnedOpen, setPinnedOpen] = React.useState(true);
   const [suggestedOpen, setSuggestedOpen] = React.useState(true);
+  const [openTabsOpen, setOpenTabsOpen] = React.useState(true);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
 
   // Search — all search state, URL sync, and local/backend passes live in the
@@ -181,6 +183,7 @@ export const ItemsList = ({
     allTags,
     filteredItems,
     hiddenReadCount,
+    openTabItems,
     pinnedItems,
     unpinnedItems,
     activeTags,
@@ -690,6 +693,12 @@ export const ItemsList = ({
                             open={suggestedOpen}
                             onToggleOpen={() => setSuggestedOpen((p) => !p)}
                             onHide={() => setSetting("showSuggestions", false)}
+                          />
+
+                          <OpenTabsSection
+                            items={openTabItems}
+                            open={openTabsOpen}
+                            onToggleOpen={() => setOpenTabsOpen((p) => !p)}
                           />
 
                           <PinnedSection

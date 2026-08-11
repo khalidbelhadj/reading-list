@@ -1,6 +1,6 @@
 // Client-only helpers for multi-window flows. On the web a "window" is a
 // browser tab; in Electron the main process intercepts window.open for
-// app-origin URLs (electron/main.ts setWindowOpenHandler) and creates a real
+// app-origin URLs (electron/web-contents.ts setWindowOpenHandler) and creates a real
 // child window instead. Either way the secondary window keeps window.opener
 // pointing at the window that spawned it, which is what routes "show this
 // item" requests back to the original window — no platform branching needed.

@@ -15,6 +15,8 @@ const settingsSchema = z.object({
     .catch("created-desc"),
   showRead: z.boolean().catch(false),
   showSuggestions: z.boolean().catch(false),
+  // Desktop only: surface items that are open in a browser tab right now.
+  showOpenTabs: z.boolean().catch(true),
   tagsOpen: z.boolean().catch(false),
   reviewsInNewWindow: z.boolean().catch(true),
   // When false, a plain row click only selects the row and the panel opens on
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sortBy: "created-desc",
   showRead: false,
   showSuggestions: false,
+  showOpenTabs: true,
   tagsOpen: false,
   reviewsInNewWindow: true,
   openOnSingleClick: true,

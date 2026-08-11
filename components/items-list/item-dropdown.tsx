@@ -6,6 +6,7 @@ import {
   IconArrowUpRight,
   IconArticle,
   IconBolt,
+  IconBrowser,
   IconCalendarDue,
   IconCards,
   IconCheck,
@@ -53,6 +54,7 @@ import {
 import { openChatWithClaude } from "@/lib/chat-with-claude";
 import { absoluteTimestamp } from "@/lib/format-time";
 import { stripBlankLineSentinel } from "@/lib/markdown";
+import { focusBrowserTab, useOpenTab } from "@/lib/open-tabs";
 import { dispatchReadItem } from "@/lib/panel-events";
 import { useIsElectron } from "@/lib/platform";
 import { type Item } from "@/lib/types";
@@ -296,6 +298,14 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     openChatWithClaude(item);
   }, [item]);
 
+  // Desktop only: this item is already open in a browser tab, so offer to jump
+  // to it rather than opening a second copy. Null whenever the feature is off,
+  // on web, or when nothing matches.
+  const openTab = useOpenTab(item.url);
+  const handleGoToTab = React.useCallback(() => {
+    if (openTab) focusBrowserTab(openTab.ref);
+  }, [openTab]);
+
   // "Read in app" opens the reading panel beside the item's content, in
   // whichever layout is hosting us — PanelLayout in the main window,
   // ItemWindow in a dedicated one. Both subscribe.
@@ -320,6 +330,8 @@ const useItemMenuActions = ({ item }: { item: Item }) => {
     handleOpenInApp,
     handleChatWithClaude,
     handleReadInApp,
+    openTab,
+    handleGoToTab,
     inItemWindow,
     handleOpenInList,
     canOpenUrl,
@@ -409,6 +421,8 @@ const ItemMenuItems = ({ actions }: { actions: ItemMenuState }) => {
     handleOpenInApp,
     handleChatWithClaude,
     handleReadInApp,
+    openTab,
+    handleGoToTab,
     inItemWindow,
     handleOpenInList,
     handleCopyId,
@@ -424,6 +438,12 @@ const ItemMenuItems = ({ actions }: { actions: ItemMenuState }) => {
 
   return (
     <>
+      {openTab && (
+        <DropdownMenuItem onClick={handleGoToTab}>
+          <IconBrowser />
+          Go to {openTab.browser} tab
+        </DropdownMenuItem>
+      )}
       {canOpenUrl && (
         <OpenInNewTabItem url={item.url ?? ""} onOpen={handleOpenInNewTab} />
       )}
