@@ -12,10 +12,8 @@
  *                        postgresql://postgres:postgres@localhost:54322/postgres).
  *                        Must be localhost — the script refuses remote targets.
  *
- * Copies: items, tags, items_tags, flashcards, review_sessions, card_reviews,
- * review_events, user_settings. Serial ids (tags, review_events) are re-issued
- * locally; items_tags is remapped through tag names. Storage objects (preview
- * images, PDFs) are NOT copied — those URLs will still point at prod.
+ * Copies: items, flashcards, user_settings. Storage objects (preview images,
+ * note images) are NOT copied — those URLs will still point at prod.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -97,9 +95,9 @@ const local = postgres(localUrl, { prepare: false });
 
 type Row = Record<string, unknown>;
 
-// Prod has drifted from db/schema.ts (e.g. items.position exists only in
-// prod), so keep just the columns the local table actually has and report
-// what got dropped.
+// Prod can drift from db/schema.ts (legacy columns linger until the drop
+// migration runs), so keep just the columns the local table actually has and
+// report what got dropped.
 const localColumns = async (table: string): Promise<Set<string>> => {
   const rows = await local<{ column_name: string }[]>`
     SELECT column_name FROM information_schema.columns
@@ -149,39 +147,17 @@ const chunked = async (
 const main = async () => {
   console.log(`Reading prod data for user ${prodUserId}…`);
 
-  const [
-    items,
-    tags,
-    itemsTags,
-    flashcards,
-    reviewSessions,
-    cardReviews,
-    reviewEvents,
-    userSettings,
-  ] = await Promise.all([
+  const [items, flashcards, userSettings] = await Promise.all([
     prod`SELECT * FROM items WHERE user_id = ${prodUserId}`,
-    prod`SELECT * FROM tags WHERE user_id = ${prodUserId}`,
-    prod`SELECT it.* FROM items_tags it
-         JOIN items i ON i.id = it.item_id
-         WHERE i.user_id = ${prodUserId}`,
     prod`SELECT * FROM flashcards WHERE user_id = ${prodUserId}`,
-    prod`SELECT * FROM review_sessions WHERE user_id = ${prodUserId}`,
-    prod`SELECT * FROM card_reviews WHERE user_id = ${prodUserId}`,
-    prod`SELECT * FROM review_events WHERE user_id = ${prodUserId}`,
     prod`SELECT * FROM user_settings WHERE user_id = ${prodUserId}`,
   ]);
 
   console.log(
-    `  ${items.length} items, ${tags.length} tags, ${itemsTags.length} item-tag links,`,
-  );
-  console.log(
-    `  ${flashcards.length} flashcards, ${reviewSessions.length} review sessions, ${cardReviews.length} card reviews,`,
-  );
-  console.log(
-    `  ${reviewEvents.length} review events, ${userSettings.length} settings row(s)`,
+    `  ${items.length} items, ${flashcards.length} flashcards, ${userSettings.length} settings row(s)`,
   );
 
-  if (items.length === 0 && tags.length === 0 && flashcards.length === 0) {
+  if (items.length === 0 && flashcards.length === 0) {
     console.error(
       "Prod user has no data — aborting instead of wiping the local user.",
     );
@@ -190,21 +166,6 @@ const main = async () => {
 
   const fittedItems = await fitToLocal("items", reassign(items));
   const fittedFlashcards = await fitToLocal("flashcards", reassign(flashcards));
-  const fittedSessions = await fitToLocal(
-    "review_sessions",
-    jsonify(reassign(reviewSessions), ["scope", "card_ids"]),
-  );
-  const fittedCardReviews = await fitToLocal(
-    "card_reviews",
-    reassign(cardReviews),
-  );
-  // review_events.id is bigserial: drop the prod ids and let local re-issue.
-  const fittedEvents = await fitToLocal(
-    "review_events",
-    jsonify(reassign(reviewEvents), ["data"]).map(
-      ({ id: _id, ...rest }) => rest,
-    ),
-  );
   const fittedSettings = await fitToLocal(
     "user_settings",
     jsonify(reassign(userSettings), ["data"]),
@@ -213,55 +174,14 @@ const main = async () => {
   console.log(`\nReplacing local data for user ${localUserId}…`);
 
   await local.begin(async (tx) => {
-    // Delete children before parents (card_reviews/review_events reference
-    // review_sessions without ON DELETE CASCADE); items cascades items_tags.
-    await tx`DELETE FROM review_events WHERE user_id = ${localUserId}`;
-    await tx`DELETE FROM card_reviews WHERE user_id = ${localUserId}`;
-    await tx`DELETE FROM review_sessions WHERE user_id = ${localUserId}`;
     await tx`DELETE FROM flashcards WHERE user_id = ${localUserId}`;
     await tx`DELETE FROM items WHERE user_id = ${localUserId}`;
-    await tx`DELETE FROM tags WHERE user_id = ${localUserId}`;
     await tx`DELETE FROM user_settings WHERE user_id = ${localUserId}`;
 
     await chunked(fittedItems, (chunk) => tx`INSERT INTO items ${tx(chunk)}`);
-
-    // tags.id is serial: insert without ids, then remap items_tags through
-    // the (unique per user) tag name.
-    const tagIdByName = new Map<string, number>();
-    for (const tag of tags) {
-      const [inserted] = await tx<{ id: number }[]>`
-        INSERT INTO tags (user_id, name)
-        VALUES (${localUserId}, ${tag.name as string})
-        RETURNING id`;
-      tagIdByName.set(tag.name as string, inserted!.id);
-    }
-    const prodTagNameById = new Map<number, string>(
-      tags.map((tag) => [tag.id as number, tag.name as string]),
-    );
-    const remappedItemsTags = itemsTags.map((link) => ({
-      item_id: link.item_id,
-      tag_id: tagIdByName.get(prodTagNameById.get(link.tag_id as number)!)!,
-    }));
-    await chunked(
-      remappedItemsTags,
-      (chunk) => tx`INSERT INTO items_tags ${tx(chunk)}`,
-    );
-
     await chunked(
       fittedFlashcards,
       (chunk) => tx`INSERT INTO flashcards ${tx(chunk)}`,
-    );
-    await chunked(
-      fittedSessions,
-      (chunk) => tx`INSERT INTO review_sessions ${tx(chunk)}`,
-    );
-    await chunked(
-      fittedCardReviews,
-      (chunk) => tx`INSERT INTO card_reviews ${tx(chunk)}`,
-    );
-    await chunked(
-      fittedEvents,
-      (chunk) => tx`INSERT INTO review_events ${tx(chunk)}`,
     );
     await chunked(
       fittedSettings,

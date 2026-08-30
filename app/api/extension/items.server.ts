@@ -50,8 +50,8 @@ export async function GET(request: Request) {
   }
 }
 
-// Save endpoint for the Chrome extension. Auth + CORS are handled by
-// middleware.ts (Supabase cookie session or Bearer token). The body mirrors
+// Save endpoint for the Chrome extension. Auth + CORS are handled by the
+// request guard (Supabase cookie session or Bearer token). The body mirrors
 // a subset of createItem's args; if no title is supplied (e.g. a dragged
 // link), the server fetches one from the page.
 export async function POST(request: Request) {
@@ -91,7 +91,6 @@ export async function POST(request: Request) {
     const result = await createItem(
       resolvedTitle,
       url,
-      [],
       isHttpUrl(faviconUrl) ? faviconUrl : undefined,
       undefined,
       undefined,

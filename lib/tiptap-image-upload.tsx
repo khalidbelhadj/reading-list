@@ -9,7 +9,7 @@ import {
 } from "@tiptap/react";
 import React from "react";
 
-import { Spinner } from "@/components/ui/spinner";
+import { Spinner } from "@/components/system/spinner";
 
 export type ImageUploadFn = (file: File) => Promise<string>;
 export type ImageUploadErrorFn = (message: string) => void;

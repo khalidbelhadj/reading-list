@@ -22,11 +22,6 @@ interface FnEntry {
   name: string;
   /** Zero-argument action: no validator, wrapper takes no args. */
   zeroArg?: boolean;
-  /**
-   * Some impl signatures (optional params) don't survive `Parameters<>` as a
-   * validator input type; widen the wire type and assert back.
-   */
-  widenValidator?: string;
 }
 
 interface Section {
@@ -34,16 +29,8 @@ interface Section {
   header: string;
   /** Import specifier of the impl module, e.g. "./items". */
   module: string;
-  /**
-   * Type-only re-exports from this module. `top: true` hoists the export
-   * above the sections (next to the header comment), matching the original
-   * file's layout for review-session/review-stats.
-   */
-  typeExports?: { names: string[]; top?: boolean };
   fns: FnEntry[];
 }
-
-const WIDE_ARGS = "Array<string | number | undefined>";
 
 const manifest: Section[] = [
   {
@@ -56,62 +43,16 @@ const manifest: Section[] = [
       { name: "createItem" },
       { name: "updateItem" },
       { name: "setItemRead" },
-      { name: "bulkDeleteItems" },
-      { name: "bulkTag" },
-      { name: "bulkMarkRead" },
-      { name: "bulkSetStarred" },
       { name: "generateItemPreview" },
     ],
   },
   {
-    header: "intelligence (extracted content, embeddings, semantic search)",
-    module: "./intelligence",
-    typeExports: {
-      names: [
-        "ContentOverviewRow",
-        "FailureGroup",
-        "IndexSummary",
-        "IntelligenceOverview",
-        "ItemChunk",
-        "ItemContentDetail",
-      ],
-    },
+    header: "queries",
+    module: "./queries",
     fns: [
-      { name: "getIntelligenceOverview", zeroArg: true },
-      { name: "getItemContent" },
-      { name: "getItemChunks" },
-      { name: "getEmbeddingSettings", zeroArg: true },
-      { name: "updateEmbeddingSettings" },
-      { name: "submitLiveContent" },
+      { name: "fetchItems", zeroArg: true },
+      { name: "fetchItemPreviews", zeroArg: true },
     ],
-  },
-  {
-    header: "indexer controls (pause, queue, retry)",
-    module: "./pipeline",
-    typeExports: { names: ["PipelineRunState"] },
-    fns: [
-      { name: "getPipelineRunState", zeroArg: true },
-      { name: "setPipelinePaused" },
-      { name: "indexEverything", zeroArg: true },
-      { name: "retryFailedItems", zeroArg: true },
-      { name: "retryFailureReason" },
-      { name: "reindexItems" },
-      { name: "reembedForCurrentModel", zeroArg: true },
-    ],
-  },
-  {
-    header: "semantic search (vector queries over the embeddings)",
-    module: "./semantic-search",
-    typeExports: { names: ["RelatedItem", "SemanticHit"] },
-    fns: [
-      { name: "semanticSearch", widenValidator: WIDE_ARGS },
-      { name: "getRelatedItems", widenValidator: WIDE_ARGS },
-    ],
-  },
-  {
-    header: "tags",
-    module: "./tags",
-    fns: [{ name: "renameTag" }, { name: "deleteTag" }],
   },
   {
     header: "settings",
@@ -122,48 +63,14 @@ const manifest: Section[] = [
     header: "flashcards",
     module: "./flashcards",
     fns: [
-      { name: "getFlashcards" },
       { name: "getAllFlashcards", zeroArg: true },
-      { name: "createFlashcard" },
       { name: "updateFlashcard" },
-      { name: "deleteFlashcard" },
     ],
   },
   {
-    header: "reviews (session lifecycle)",
-    module: "./review-session",
-    typeExports: {
-      top: true,
-      names: [
-        "BatchedReviewEvent",
-        "FlashcardWithItem",
-        "ReviewMode",
-        "ReviewScope",
-        "ReviewSessionCard",
-        "ReviewSessionData",
-      ],
-    },
-    fns: [
-      { name: "startReviewSession" },
-      { name: "getReviewSession" },
-      { name: "rateCard" },
-      { name: "logSessionEvent" },
-      { name: "skipCard" },
-      { name: "endReviewSession" },
-    ],
-  },
-  {
-    header: "reviews (aggregate stats)",
-    module: "./review-stats",
-    typeExports: {
-      top: true,
-      names: ["ItemReviewStatus", "SessionSummary"],
-    },
-    fns: [
-      { name: "getSessionSummary" },
-      { name: "getReviewStatus", zeroArg: true },
-      { name: "getItemReviewStatus" },
-    ],
+    header: "reviews",
+    module: "./review",
+    fns: [{ name: "rateCard" }],
   },
 ];
 
@@ -189,9 +96,7 @@ const emitFn = (section: Section, fn: FnEntry): string => {
       `export const ${fn.name}: typeof ${ref} = () => ${fn.name}Fn();`,
     ].join("\n");
   }
-  const validator = fn.widenValidator
-    ? `.validator((args: ${fn.widenValidator}) => args as Parameters<typeof ${ref}>)`
-    : `.validator((args: Parameters<typeof ${ref}>) => args)`;
+  const validator = `.validator((args: Parameters<typeof ${ref}>) => args)`;
   return [
     `const ${fn.name}Fn = createServerFn({ method: "POST" })`,
     `  ${validator}`,
@@ -199,9 +104,6 @@ const emitFn = (section: Section, fn: FnEntry): string => {
     `export const ${fn.name}: typeof ${ref} = (...args) => ${fn.name}Fn({ data: args });`,
   ].join("\n");
 };
-
-const emitTypeExport = (module: string, names: string[]): string =>
-  `export type { ${names.join(", ")} } from "${module}";`;
 
 const generate = async (): Promise<string> => {
   const parts: string[] = [];
@@ -234,19 +136,8 @@ const generate = async (): Promise<string> => {
   parts.push("");
 
   for (const section of manifest) {
-    if (section.typeExports?.top) {
-      parts.push(emitTypeExport(section.module, section.typeExports.names));
-    }
-  }
-  parts.push("");
-
-  for (const section of manifest) {
     parts.push(`// --- ${section.header} ---`);
     parts.push("");
-    if (section.typeExports && !section.typeExports.top) {
-      parts.push(emitTypeExport(section.module, section.typeExports.names));
-      parts.push("");
-    }
     for (const fn of section.fns) {
       parts.push(emitFn(section, fn));
       parts.push("");

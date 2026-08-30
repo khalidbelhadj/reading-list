@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-import { NonIdealState } from "@/components/ui/non-ideal-state";
+import { Button } from "@/components/system/button";
+import { NonIdealState } from "@/components/system/non-ideal-state";
 
 // The standalone 404 page (the old Next.js app/not-found.tsx design). Shown
 // when a route throws notFound() — e.g. the dev-gated /debug pages in
@@ -15,7 +15,7 @@ export const NotFound = () => {
       title="Page not found"
       description="We couldn't find what you were looking for. It may have been moved or never existed."
       actions={
-        <Button nativeButton={false} render={<Link to="/" />}>
+        <Button variant="primary" nativeButton={false} render={<Link to="/" />}>
           Go home
         </Button>
       }

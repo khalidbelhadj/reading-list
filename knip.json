@@ -8,8 +8,7 @@
     "electron/main.ts",
     "electron/*preload*.ts",
     "scripts/**/*.ts",
-    "app/actions/index.ts",
-    "lib/queries.ts"
+    "app/actions/index.ts"
   ],
   "project": [
     "app/**/*.{ts,tsx}",
@@ -19,7 +18,7 @@
     "electron/**/*.ts",
     "types/**/*.ts"
   ],
-  "ignore": ["app/routeTree.gen.ts", "components/ui/**"],
+  "ignore": ["app/routeTree.gen.ts"],
   "ignoreDependencies": [
     "@fontsource-variable/dm-sans",
     "@fontsource/dm-mono",

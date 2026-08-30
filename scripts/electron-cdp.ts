@@ -3,11 +3,10 @@
  * Attach to the running dev Electron app over the Chrome DevTools Protocol.
  *
  * The Browser pane / preview harness can only ever show the *web* build in a
- * tab. Electron differs in ways that only reproduce in the real app: secondary
- * item and review windows (window.open → real BrowserWindows), the viewer
- * <webview> guests, traffic-light clearance, app-wide zoom, native theme, deep
- * links. Every one of those webContents is its own CDP target, so attaching
- * here is the way to see and drive the desktop UI as it actually runs.
+ * tab. Electron differs in ways that only reproduce in the real app:
+ * traffic-light clearance, vibrancy, app-wide zoom, native theme, deep links,
+ * open-in-browser tabs. Attaching here is the way to see and drive the
+ * desktop UI as it actually runs.
  *
  * Start the app first (`bun run electron:local`), then:
  *
@@ -160,17 +159,12 @@ const fetchTargets = async (port: number) => {
     );
 };
 
-// Windows the app opens carry their identity in the URL: ?window= is a
-// dedicated item window, /review/ is a review session, everything else on the
-// app origin is a list window. Surfaced in `list` so the right one is pickable.
+// Surfaced in `list` so the right target is pickable.
 const describeTarget = (target: Target) => {
-  if (target.type === "webview") return "viewer webview";
   try {
     const url = new URL(target.url);
-    if (url.pathname.startsWith("/review/")) return "review window";
-    if (url.searchParams.get("window") != null) return "item window";
-    if (url.searchParams.get("item") != null) return "list window (item open)";
-    return "list window";
+    if (url.searchParams.get("item") != null) return "app window (item open)";
+    return "app window";
   } catch {
     return target.type;
   }

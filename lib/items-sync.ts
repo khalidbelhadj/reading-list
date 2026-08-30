@@ -29,33 +29,20 @@ export const getSyncOriginId = (): string => {
 };
 
 // React Query cache roots a change to each table can affect. The items query
-// embeds tags and flashcard counts, so tag/join/flashcard changes invalidate
-// ["items"] too. Review-session queries are deliberately excluded — they pin
-// their data for the duration of a session.
+// embeds flashcard counts, so flashcard changes invalidate ["items"] too. An
+// in-progress review run is deliberately unaffected — the pane freezes its
+// queue on entry.
 export const queryKeysForTable = (table: string): string[] => {
   switch (table) {
     case "items":
-    case "tags":
-    case "items_tags":
       // "item-previews" is deliberately NOT invalidated here: the preview map
       // is a ~2.4MB payload and generic item writes never change it. Previews
       // change only via generateItemPreview, which invalidates its own cache
       // on the device that generated it; other devices pick new previews up
-      // on the next cozy-mode mount.
+      // on the next preview-mode mount.
       return ["items"];
     case "flashcards":
-      return [
-        "items",
-        "all-flashcards",
-        "flashcards",
-        "review-status",
-        "item-review-status",
-      ];
-    case "item_content":
-      // Reader view + intelligence debug page. (Worker writes on the owner
-      // connection may not broadcast — realtime.send is RLS-checked against
-      // the authenticated role — so these caches also refetch on focus.)
-      return ["item-content", "intelligence"];
+      return ["items", "all-flashcards"];
     default:
       return [];
   }

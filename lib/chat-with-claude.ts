@@ -1,8 +1,7 @@
 import { stripBlankLineSentinel } from "@/lib/markdown";
 import { type Item } from "@/lib/types";
 
-// Open Claude with the item pre-loaded as context. Used by the item menu and
-// the ⌘⇧J keyboard shortcut, so the prompt shape stays identical across both.
+// Open Claude with the item pre-loaded as context, from the item menu.
 export const openChatWithClaude = (item: Item) => {
   const lines = ["This is an item from my reading list:", ""];
   lines.push(`- **ID:** ${item.id}`);

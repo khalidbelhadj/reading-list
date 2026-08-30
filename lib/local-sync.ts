@@ -12,14 +12,8 @@ export const LOCAL_SYNC_CHANNEL = "local-sync";
 // Top-level query keys worth mirroring across windows — shared server data
 // only, matching the roots the Realtime watcher invalidates
 // (queryKeysForTable in lib/items-sync.ts). Everything else (searches,
-// previews, pinned review-session data) is window-local by design.
-export const LOCAL_SYNC_KEYS = new Set([
-  "items",
-  "all-flashcards",
-  "flashcards",
-  "review-status",
-  "item-review-status",
-]);
+// previews) is window-local by design.
+export const LOCAL_SYNC_KEYS = new Set(["items", "all-flashcards"]);
 
 type LocalSyncMessage = { keys: string[] };
 

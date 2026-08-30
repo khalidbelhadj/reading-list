@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/system/button";
 
 import { submitOAuthDecision } from "./actions";
 
@@ -77,14 +77,19 @@ export const ConsentForm = ({
 
       <div className="flex gap-2">
         <Button
-          variant="outline"
+          variant="secondary"
           className="flex-1"
           disabled={busy}
           onClick={handleDeny}
         >
           Deny
         </Button>
-        <Button className="flex-1" disabled={busy} onClick={handleApprove}>
+        <Button
+          variant="primary"
+          className="flex-1"
+          disabled={busy}
+          onClick={handleApprove}
+        >
           Approve
         </Button>
       </div>

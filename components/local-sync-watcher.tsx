@@ -48,9 +48,8 @@ export const LocalSyncWatcher = () => {
       channel.postMessage(localSyncMessage(keys));
     };
 
-    // A window can close (item windows self-close on delete) before its
-    // coalescing timer fires, which would drop the invalidation and leave
-    // sibling windows stale. pagehide fires while the window is still
+    // A closing window's coalescing timer would otherwise drop pending
+    // invalidations and leave sibling windows stale. pagehide fires while the window is still
     // scriptable, so flush any pending keys synchronously on the way out.
     const onPageHide = () => flush();
     window.addEventListener("pagehide", onPageHide);
@@ -72,7 +71,6 @@ export const LocalSyncWatcher = () => {
       applyingRemote = true;
       try {
         for (const key of keys) {
-          // Prefix match: "flashcards" also covers ["flashcards", itemId].
           // Active queries refetch immediately; inactive ones on next mount.
           void queryClient.invalidateQueries({ queryKey: [key] });
         }

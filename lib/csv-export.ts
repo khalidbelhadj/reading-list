@@ -11,12 +11,11 @@ export const defaultCsvFilename = () =>
   `reading-list-${new Date().toISOString().slice(0, 10)}`;
 
 const itemsToCsv = (items: Item[]): string => {
-  const header = "title,url,tags,notes,read,created_at,updated_at";
+  const header = "title,url,notes,read,created_at,updated_at";
   const rows = items.map((item) =>
     [
       escape(item.title),
       escape(item.url),
-      escape(item.tags.map((t) => t.name).join("; ")),
       escape(item.notes ?? ""),
       item.read ? "true" : "false",
       item.createdAt,

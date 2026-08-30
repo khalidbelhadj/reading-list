@@ -2,8 +2,8 @@ import { createRequire } from "node:module";
 
 import { createCanvas } from "@napi-rs/canvas";
 
-import { getPdfUrl } from "@/lib/extract/classify";
-import { readCapped } from "@/lib/url.server";
+import { getPdfUrl } from "@/lib/pdf-url";
+import { readCapped, safeFetch } from "@/lib/url.server";
 
 // Network probe: fetch the first 4 bytes via a Range request and check the
 // PDF magic number (`%PDF`, hex 25 50 44 46). Catches PDFs served behind
@@ -12,14 +12,15 @@ const looksLikePdfByMagic = async (rawUrl: string): Promise<boolean> => {
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-    const res = await fetch(rawUrl, {
+    // safeFetch (not bare fetch): item URLs are user-controlled, so every hop
+    // must pass the SSRF guard.
+    const res = await safeFetch(rawUrl, {
       headers: {
         Range: "bytes=0-3",
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReadingListPreviewBot/1.0",
       },
       signal: AbortSignal.timeout(5_000),
-      redirect: "follow",
     });
     // 206 = honored the Range; 200 = served the full body anyway (still fine,
     // we'll only read the first chunk and bail).
@@ -44,8 +45,8 @@ const looksLikePdfByMagic = async (rawUrl: string): Promise<boolean> => {
 };
 
 // Resolve an item URL to a fetchable PDF URL, or null if the link isn't a
-// PDF. Tries the cheap suffix/arxiv check (getPdfUrl from lib/extract/
-// classify) first, then falls back to a magic-byte probe over the network.
+// PDF. Tries the cheap suffix/arxiv check (getPdfUrl from lib/pdf-url.ts)
+// first, then falls back to a magic-byte probe over the network.
 export const getPdfUrlForItem = async (
   rawUrl: string,
 ): Promise<string | null> => {
@@ -76,9 +77,8 @@ const loadPdfjs = async () => {
   return pdfjs;
 };
 
-// Exported for the extraction pipeline (lib/extract/extractors.server.ts),
-// which reuses the same Node-friendly pdfjs setup for text extraction.
-export const loadPdfDocument = async (data: Uint8Array) => {
+// Node-friendly pdfjs setup shared by the preview render and title extract.
+const loadPdfDocument = async (data: Uint8Array) => {
   const pdfjs = await loadPdfjs();
   return pdfjs.getDocument({ data, disableFontFace: true }).promise;
 };
@@ -87,7 +87,9 @@ type PdfDoc = Awaited<ReturnType<typeof loadPdfDocument>>;
 type PdfPage = Awaited<ReturnType<PdfDoc["getPage"]>>;
 
 const fetchPdfBytes = async (pdfUrl: string): Promise<Uint8Array | null> => {
-  const res = await fetch(pdfUrl, {
+  // safeFetch (not bare fetch): the URL derives from user-controlled item
+  // URLs, so every hop must pass the SSRF guard.
+  const res = await safeFetch(pdfUrl, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ReadingListPreviewBot/1.0",

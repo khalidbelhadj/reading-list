@@ -1,25 +1,18 @@
 import { z } from "zod";
 
-// The reading surface used to own a persisted width (`readingPanel`), back
-// when it was a third column docked to the right. It now stands in for the
-// items list and takes its size from the item panel's own width, so there is
-// nothing left to remember here — stored values for the old key are dropped
-// on the next write, like the `readerNotes` key before it.
+// Stored values keep their historical names (`density: "cozy"` is what the
+// UI calls "preview") so existing rows parse without migration; unknown or
+// removed values fall back via `.catch`.
 const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).catch("system"),
   density: z.enum(["compact", "cozy"]).catch("cozy"),
-  fullWidth: z.boolean().catch(true),
-  groupBy: z.enum(["none", "tag", "day"]).catch("day"),
+  groupBy: z.enum(["none", "day"]).catch("day"),
   sortBy: z
     .enum(["created-desc", "created-asc", "updated-desc", "updated-asc"])
     .catch("created-desc"),
   showRead: z.boolean().catch(false),
-  showSuggestions: z.boolean().catch(false),
-  tagsOpen: z.boolean().catch(false),
-  reviewsInNewWindow: z.boolean().catch(true),
-  // When false, a plain row click only selects the row and the panel opens on
-  // double-click instead.
-  openOnSingleClick: z.boolean().catch(true),
+  // Desktop only: surface items that are open in a browser tab right now.
+  showOpenTabs: z.boolean().catch(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -27,14 +20,10 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   density: "cozy",
-  fullWidth: true,
   groupBy: "day",
   sortBy: "created-desc",
   showRead: false,
-  showSuggestions: false,
-  tagsOpen: false,
-  reviewsInNewWindow: true,
-  openOnSingleClick: true,
+  showOpenTabs: true,
 };
 
 // Let zod own the whole decision: every field already `.catch`es to its

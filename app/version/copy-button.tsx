@@ -1,7 +1,7 @@
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/system/button";
 
 export const CopyButton = ({ value }: { value: string }) => {
   const [copied, setCopied] = useState(false);
@@ -14,12 +14,8 @@ export const CopyButton = ({ value }: { value: string }) => {
   }, [value]);
 
   return (
-    <Button variant="outline" size="sm" onClick={handleCopy}>
-      {copied ? (
-        <IconCheck data-icon="inline-start" />
-      ) : (
-        <IconCopy data-icon="inline-start" />
-      )}
+    <Button variant="secondary" size="sm" onClick={handleCopy}>
+      {copied ? <IconCheck /> : <IconCopy />}
       {copied ? "Copied" : "Copy"}
     </Button>
   );

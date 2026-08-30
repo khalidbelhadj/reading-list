@@ -7,8 +7,9 @@ import {
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { devViewLabel, useDevView } from "@/components/shell/view";
+import { Button } from "@/components/system/button";
+import { Switch } from "@/components/system/switch";
 import { useIsElectron } from "@/lib/platform";
 import { useDevDevtools } from "@/lib/use-dev-devtools";
 import { cn } from "@/lib/utils";
@@ -16,27 +17,14 @@ import { cn } from "@/lib/utils";
 // Static list of navigable page routes (no API/route handlers). Dynamic routes
 // expose a template so you can fill in the param. Keep in sync with app/.
 const ROUTES: { href: string; title: string }[] = [
-  { href: "/", title: "Reading list (home)" },
+  { href: "/", title: "Reading list (app shell)" },
+  { href: "/design", title: "Design board - Foundations" },
+  { href: "/design/components", title: "Design board - Components" },
+  { href: "/design/rounds", title: "Design board - Rounds" },
   { href: "/login", title: "Login" },
   { href: "/oauth/consent", title: "OAuth consent" },
   { href: "/auth/return-to-app", title: "Return to app" },
   { href: "/dev-error", title: "Dev error page" },
-  { href: "/review/", title: "Review session (append :sessionId)" },
-  { href: "/debug", title: "Debug index" },
-  { href: "/debug/code-block", title: "Debug - Code block" },
-  { href: "/debug/design-system", title: "Debug - Design system" },
-  { href: "/debug/empty-states", title: "Debug - Empty states" },
-  { href: "/debug/kbd", title: "Debug - Kbd styles" },
-  { href: "/debug/review-count-animations", title: "Debug - Count animations" },
-  { href: "/debug/review-dialogs", title: "Debug - Review dialogs" },
-  {
-    href: "/debug/review-session-preview",
-    title: "Debug - Review session",
-  },
-  { href: "/debug/review-summary-preview", title: "Debug - Review summary" },
-  { href: "/debug/spinners", title: "Debug - Spinners" },
-  { href: "/debug/suggested-cards", title: "Debug - Suggested cards" },
-  { href: "/debug/toasts", title: "Debug - Toasts" },
   { href: "/version", title: "Version & build info" },
 ];
 
@@ -69,6 +57,8 @@ const BACKEND = IS_LOCAL_BACKEND
 const DevBannerInner = () => {
   const router = useRouter();
   const pathname = useLocation({ select: (location) => location.pathname });
+  // The app shell's in-memory selection (null off that route).
+  const devView = useDevView();
   const isElectron = useIsElectron();
 
   const [devtoolsEnabled, setDevtoolsEnabled] = useDevDevtools();
@@ -200,12 +190,17 @@ const DevBannerInner = () => {
       <span className="hidden items-center gap-1 truncate opacity-80 md:flex">
         <IconChevronRight className="size-2.5 shrink-0" />
         <span className="truncate">{pathname}</span>
+        {devView && (
+          <>
+            <IconChevronRight className="size-3 shrink-0 opacity-60" />
+            <span className="truncate">{devViewLabel(devView)}</span>
+          </>
+        )}
       </span>
 
       <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 font-semibold whitespace-nowrap select-none">
         <span>RQ Devtools</span>
         <Switch
-          size="sm"
           checked={devtoolsEnabled}
           onCheckedChange={setDevtoolsEnabled}
           className={BACKEND.switchOn}
@@ -264,7 +259,7 @@ const DevBannerInner = () => {
 
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         onClick={toggleCollapsed}
         aria-label="Hide dev banner"
         className="size-4 shrink-0 text-current hover:bg-current/10 hover:text-current"

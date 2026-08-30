@@ -11,30 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VersionDotjsonRouteImport } from './routes/version[.]json'
 import { Route as VersionRouteImport } from './routes/version'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DevErrorRouteImport } from './routes/dev-error'
+import { Route as DesignRouteImport } from './routes/design'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ReviewIndexRouteImport } from './routes/review.index'
-import { Route as DebugIndexRouteImport } from './routes/debug.index'
-import { Route as ReviewSessionIdRouteImport } from './routes/review.$sessionId'
+import { Route as DesignIndexRouteImport } from './routes/design.index'
 import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
-import { Route as DebugToastsRouteImport } from './routes/debug.toasts'
-import { Route as DebugSuggestedCardsRouteImport } from './routes/debug.suggested-cards'
-import { Route as DebugSpinnersRouteImport } from './routes/debug.spinners'
-import { Route as DebugReviewSummaryPreviewRouteImport } from './routes/debug.review-summary-preview'
-import { Route as DebugReviewSessionPreviewRouteImport } from './routes/debug.review-session-preview'
-import { Route as DebugReviewDialogsRouteImport } from './routes/debug.review-dialogs'
-import { Route as DebugReviewCountAnimationsRouteImport } from './routes/debug.review-count-animations'
-import { Route as DebugMathRouteImport } from './routes/debug.math'
-import { Route as DebugKbdRouteImport } from './routes/debug.kbd'
-import { Route as DebugIntelligenceRouteImport } from './routes/debug.intelligence'
-import { Route as DebugEmptyStatesRouteImport } from './routes/debug.empty-states'
-import { Route as DebugDesignSystemRouteImport } from './routes/debug.design-system'
-import { Route as DebugCodeBlockRouteImport } from './routes/debug.code-block'
+import { Route as DesignRoundsRouteImport } from './routes/design.rounds'
+import { Route as DesignComponentsRouteImport } from './routes/design.components'
 import { Route as AuthReturnToAppRouteImport } from './routes/auth.return-to-app'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
-import { Route as ApiProxyPdfRouteImport } from './routes/api.proxy-pdf'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
 import { Route as ApiAskRouteImport } from './routes/api.ask'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
@@ -51,11 +37,6 @@ const VersionRoute = VersionRouteImport.update({
   path: '/version',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -66,98 +47,35 @@ const DevErrorRoute = DevErrorRouteImport.update({
   path: '/dev-error',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesignRoute = DesignRouteImport.update({
+  id: '/design',
+  path: '/design',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewIndexRoute = ReviewIndexRouteImport.update({
-  id: '/review/',
-  path: '/review/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugIndexRoute = DebugIndexRouteImport.update({
-  id: '/debug/',
-  path: '/debug/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReviewSessionIdRoute = ReviewSessionIdRouteImport.update({
-  id: '/review/$sessionId',
-  path: '/review/$sessionId',
-  getParentRoute: () => rootRouteImport,
+const DesignIndexRoute = DesignIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DesignRoute,
 } as any)
 const OauthConsentRoute = OauthConsentRouteImport.update({
   id: '/oauth/consent',
   path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DebugToastsRoute = DebugToastsRouteImport.update({
-  id: '/debug/toasts',
-  path: '/debug/toasts',
-  getParentRoute: () => rootRouteImport,
+const DesignRoundsRoute = DesignRoundsRouteImport.update({
+  id: '/rounds',
+  path: '/rounds',
+  getParentRoute: () => DesignRoute,
 } as any)
-const DebugSuggestedCardsRoute = DebugSuggestedCardsRouteImport.update({
-  id: '/debug/suggested-cards',
-  path: '/debug/suggested-cards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugSpinnersRoute = DebugSpinnersRouteImport.update({
-  id: '/debug/spinners',
-  path: '/debug/spinners',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugReviewSummaryPreviewRoute =
-  DebugReviewSummaryPreviewRouteImport.update({
-    id: '/debug/review-summary-preview',
-    path: '/debug/review-summary-preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DebugReviewSessionPreviewRoute =
-  DebugReviewSessionPreviewRouteImport.update({
-    id: '/debug/review-session-preview',
-    path: '/debug/review-session-preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DebugReviewDialogsRoute = DebugReviewDialogsRouteImport.update({
-  id: '/debug/review-dialogs',
-  path: '/debug/review-dialogs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugReviewCountAnimationsRoute =
-  DebugReviewCountAnimationsRouteImport.update({
-    id: '/debug/review-count-animations',
-    path: '/debug/review-count-animations',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DebugMathRoute = DebugMathRouteImport.update({
-  id: '/debug/math',
-  path: '/debug/math',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugKbdRoute = DebugKbdRouteImport.update({
-  id: '/debug/kbd',
-  path: '/debug/kbd',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugIntelligenceRoute = DebugIntelligenceRouteImport.update({
-  id: '/debug/intelligence',
-  path: '/debug/intelligence',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugEmptyStatesRoute = DebugEmptyStatesRouteImport.update({
-  id: '/debug/empty-states',
-  path: '/debug/empty-states',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugDesignSystemRoute = DebugDesignSystemRouteImport.update({
-  id: '/debug/design-system',
-  path: '/debug/design-system',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugCodeBlockRoute = DebugCodeBlockRouteImport.update({
-  id: '/debug/code-block',
-  path: '/debug/code-block',
-  getParentRoute: () => rootRouteImport,
+const DesignComponentsRoute = DesignComponentsRouteImport.update({
+  id: '/components',
+  path: '/components',
+  getParentRoute: () => DesignRoute,
 } as any)
 const AuthReturnToAppRoute = AuthReturnToAppRouteImport.update({
   id: '/auth/return-to-app',
@@ -167,11 +85,6 @@ const AuthReturnToAppRoute = AuthReturnToAppRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiProxyPdfRoute = ApiProxyPdfRouteImport.update({
-  id: '/api/proxy-pdf',
-  path: '/api/proxy-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMcpRoute = ApiMcpRouteImport.update({
@@ -203,34 +116,20 @@ const ApiExtensionItemsRoute = ApiExtensionItemsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/design': typeof DesignRouteWithChildren
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
-  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
-  '/debug/code-block': typeof DebugCodeBlockRoute
-  '/debug/design-system': typeof DebugDesignSystemRoute
-  '/debug/empty-states': typeof DebugEmptyStatesRoute
-  '/debug/intelligence': typeof DebugIntelligenceRoute
-  '/debug/kbd': typeof DebugKbdRoute
-  '/debug/math': typeof DebugMathRoute
-  '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
-  '/debug/review-dialogs': typeof DebugReviewDialogsRoute
-  '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
-  '/debug/review-summary-preview': typeof DebugReviewSummaryPreviewRoute
-  '/debug/spinners': typeof DebugSpinnersRoute
-  '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
-  '/debug/toasts': typeof DebugToastsRoute
+  '/design/components': typeof DesignComponentsRoute
+  '/design/rounds': typeof DesignRoundsRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/review/$sessionId': typeof ReviewSessionIdRoute
-  '/debug/': typeof DebugIndexRoute
-  '/review/': typeof ReviewIndexRoute
+  '/design/': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
@@ -238,66 +137,37 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
-  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
-  '/debug/code-block': typeof DebugCodeBlockRoute
-  '/debug/design-system': typeof DebugDesignSystemRoute
-  '/debug/empty-states': typeof DebugEmptyStatesRoute
-  '/debug/intelligence': typeof DebugIntelligenceRoute
-  '/debug/kbd': typeof DebugKbdRoute
-  '/debug/math': typeof DebugMathRoute
-  '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
-  '/debug/review-dialogs': typeof DebugReviewDialogsRoute
-  '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
-  '/debug/review-summary-preview': typeof DebugReviewSummaryPreviewRoute
-  '/debug/spinners': typeof DebugSpinnersRoute
-  '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
-  '/debug/toasts': typeof DebugToastsRoute
+  '/design/components': typeof DesignComponentsRoute
+  '/design/rounds': typeof DesignRoundsRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/review/$sessionId': typeof ReviewSessionIdRoute
-  '/debug': typeof DebugIndexRoute
-  '/review': typeof ReviewIndexRoute
+  '/design': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/design': typeof DesignRouteWithChildren
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
   '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
   '/api/mcp': typeof ApiMcpRoute
-  '/api/proxy-pdf': typeof ApiProxyPdfRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
-  '/debug/code-block': typeof DebugCodeBlockRoute
-  '/debug/design-system': typeof DebugDesignSystemRoute
-  '/debug/empty-states': typeof DebugEmptyStatesRoute
-  '/debug/intelligence': typeof DebugIntelligenceRoute
-  '/debug/kbd': typeof DebugKbdRoute
-  '/debug/math': typeof DebugMathRoute
-  '/debug/review-count-animations': typeof DebugReviewCountAnimationsRoute
-  '/debug/review-dialogs': typeof DebugReviewDialogsRoute
-  '/debug/review-session-preview': typeof DebugReviewSessionPreviewRoute
-  '/debug/review-summary-preview': typeof DebugReviewSummaryPreviewRoute
-  '/debug/spinners': typeof DebugSpinnersRoute
-  '/debug/suggested-cards': typeof DebugSuggestedCardsRoute
-  '/debug/toasts': typeof DebugToastsRoute
+  '/design/components': typeof DesignComponentsRoute
+  '/design/rounds': typeof DesignRoundsRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/review/$sessionId': typeof ReviewSessionIdRoute
-  '/debug/': typeof DebugIndexRoute
-  '/review/': typeof ReviewIndexRoute
+  '/design/': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
@@ -305,34 +175,20 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/design'
     | '/dev-error'
     | '/login'
-    | '/settings'
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
-    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
-    | '/debug/code-block'
-    | '/debug/design-system'
-    | '/debug/empty-states'
-    | '/debug/intelligence'
-    | '/debug/kbd'
-    | '/debug/math'
-    | '/debug/review-count-animations'
-    | '/debug/review-dialogs'
-    | '/debug/review-session-preview'
-    | '/debug/review-summary-preview'
-    | '/debug/spinners'
-    | '/debug/suggested-cards'
-    | '/debug/toasts'
+    | '/design/components'
+    | '/design/rounds'
     | '/oauth/consent'
-    | '/review/$sessionId'
-    | '/debug/'
-    | '/review/'
+    | '/design/'
     | '/api/extension/items'
     | '/api/storage/$'
   fileRoutesByTo: FileRoutesByTo
@@ -340,99 +196,53 @@ export interface FileRouteTypes {
     | '/'
     | '/dev-error'
     | '/login'
-    | '/settings'
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
-    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
-    | '/debug/code-block'
-    | '/debug/design-system'
-    | '/debug/empty-states'
-    | '/debug/intelligence'
-    | '/debug/kbd'
-    | '/debug/math'
-    | '/debug/review-count-animations'
-    | '/debug/review-dialogs'
-    | '/debug/review-session-preview'
-    | '/debug/review-summary-preview'
-    | '/debug/spinners'
-    | '/debug/suggested-cards'
-    | '/debug/toasts'
+    | '/design/components'
+    | '/design/rounds'
     | '/oauth/consent'
-    | '/review/$sessionId'
-    | '/debug'
-    | '/review'
+    | '/design'
     | '/api/extension/items'
     | '/api/storage/$'
   id:
     | '__root__'
     | '/'
+    | '/design'
     | '/dev-error'
     | '/login'
-    | '/settings'
     | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
     | '/api/mcp'
-    | '/api/proxy-pdf'
     | '/auth/callback'
     | '/auth/return-to-app'
-    | '/debug/code-block'
-    | '/debug/design-system'
-    | '/debug/empty-states'
-    | '/debug/intelligence'
-    | '/debug/kbd'
-    | '/debug/math'
-    | '/debug/review-count-animations'
-    | '/debug/review-dialogs'
-    | '/debug/review-session-preview'
-    | '/debug/review-summary-preview'
-    | '/debug/spinners'
-    | '/debug/suggested-cards'
-    | '/debug/toasts'
+    | '/design/components'
+    | '/design/rounds'
     | '/oauth/consent'
-    | '/review/$sessionId'
-    | '/debug/'
-    | '/review/'
+    | '/design/'
     | '/api/extension/items'
     | '/api/storage/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DesignRoute: typeof DesignRouteWithChildren
   DevErrorRoute: typeof DevErrorRoute
   LoginRoute: typeof LoginRoute
-  SettingsRoute: typeof SettingsRoute
   VersionRoute: typeof VersionRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiAskRoute: typeof ApiAskRoute
   ApiMcpRoute: typeof ApiMcpRoute
-  ApiProxyPdfRoute: typeof ApiProxyPdfRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthReturnToAppRoute: typeof AuthReturnToAppRoute
-  DebugCodeBlockRoute: typeof DebugCodeBlockRoute
-  DebugDesignSystemRoute: typeof DebugDesignSystemRoute
-  DebugEmptyStatesRoute: typeof DebugEmptyStatesRoute
-  DebugIntelligenceRoute: typeof DebugIntelligenceRoute
-  DebugKbdRoute: typeof DebugKbdRoute
-  DebugMathRoute: typeof DebugMathRoute
-  DebugReviewCountAnimationsRoute: typeof DebugReviewCountAnimationsRoute
-  DebugReviewDialogsRoute: typeof DebugReviewDialogsRoute
-  DebugReviewSessionPreviewRoute: typeof DebugReviewSessionPreviewRoute
-  DebugReviewSummaryPreviewRoute: typeof DebugReviewSummaryPreviewRoute
-  DebugSpinnersRoute: typeof DebugSpinnersRoute
-  DebugSuggestedCardsRoute: typeof DebugSuggestedCardsRoute
-  DebugToastsRoute: typeof DebugToastsRoute
   OauthConsentRoute: typeof OauthConsentRoute
-  ReviewSessionIdRoute: typeof ReviewSessionIdRoute
-  DebugIndexRoute: typeof DebugIndexRoute
-  ReviewIndexRoute: typeof ReviewIndexRoute
   ApiExtensionItemsRoute: typeof ApiExtensionItemsRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
 }
@@ -453,13 +263,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VersionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -474,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/design': {
+      id: '/design'
+      path: '/design'
+      fullPath: '/design'
+      preLoaderRoute: typeof DesignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -481,26 +291,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review/': {
-      id: '/review/'
-      path: '/review'
-      fullPath: '/review/'
-      preLoaderRoute: typeof ReviewIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/': {
-      id: '/debug/'
-      path: '/debug'
-      fullPath: '/debug/'
-      preLoaderRoute: typeof DebugIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/review/$sessionId': {
-      id: '/review/$sessionId'
-      path: '/review/$sessionId'
-      fullPath: '/review/$sessionId'
-      preLoaderRoute: typeof ReviewSessionIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/design/': {
+      id: '/design/'
+      path: '/'
+      fullPath: '/design/'
+      preLoaderRoute: typeof DesignIndexRouteImport
+      parentRoute: typeof DesignRoute
     }
     '/oauth/consent': {
       id: '/oauth/consent'
@@ -509,96 +305,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/debug/toasts': {
-      id: '/debug/toasts'
-      path: '/debug/toasts'
-      fullPath: '/debug/toasts'
-      preLoaderRoute: typeof DebugToastsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/design/rounds': {
+      id: '/design/rounds'
+      path: '/rounds'
+      fullPath: '/design/rounds'
+      preLoaderRoute: typeof DesignRoundsRouteImport
+      parentRoute: typeof DesignRoute
     }
-    '/debug/suggested-cards': {
-      id: '/debug/suggested-cards'
-      path: '/debug/suggested-cards'
-      fullPath: '/debug/suggested-cards'
-      preLoaderRoute: typeof DebugSuggestedCardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/spinners': {
-      id: '/debug/spinners'
-      path: '/debug/spinners'
-      fullPath: '/debug/spinners'
-      preLoaderRoute: typeof DebugSpinnersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/review-summary-preview': {
-      id: '/debug/review-summary-preview'
-      path: '/debug/review-summary-preview'
-      fullPath: '/debug/review-summary-preview'
-      preLoaderRoute: typeof DebugReviewSummaryPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/review-session-preview': {
-      id: '/debug/review-session-preview'
-      path: '/debug/review-session-preview'
-      fullPath: '/debug/review-session-preview'
-      preLoaderRoute: typeof DebugReviewSessionPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/review-dialogs': {
-      id: '/debug/review-dialogs'
-      path: '/debug/review-dialogs'
-      fullPath: '/debug/review-dialogs'
-      preLoaderRoute: typeof DebugReviewDialogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/review-count-animations': {
-      id: '/debug/review-count-animations'
-      path: '/debug/review-count-animations'
-      fullPath: '/debug/review-count-animations'
-      preLoaderRoute: typeof DebugReviewCountAnimationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/math': {
-      id: '/debug/math'
-      path: '/debug/math'
-      fullPath: '/debug/math'
-      preLoaderRoute: typeof DebugMathRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/kbd': {
-      id: '/debug/kbd'
-      path: '/debug/kbd'
-      fullPath: '/debug/kbd'
-      preLoaderRoute: typeof DebugKbdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/intelligence': {
-      id: '/debug/intelligence'
-      path: '/debug/intelligence'
-      fullPath: '/debug/intelligence'
-      preLoaderRoute: typeof DebugIntelligenceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/empty-states': {
-      id: '/debug/empty-states'
-      path: '/debug/empty-states'
-      fullPath: '/debug/empty-states'
-      preLoaderRoute: typeof DebugEmptyStatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/design-system': {
-      id: '/debug/design-system'
-      path: '/debug/design-system'
-      fullPath: '/debug/design-system'
-      preLoaderRoute: typeof DebugDesignSystemRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug/code-block': {
-      id: '/debug/code-block'
-      path: '/debug/code-block'
-      fullPath: '/debug/code-block'
-      preLoaderRoute: typeof DebugCodeBlockRouteImport
-      parentRoute: typeof rootRouteImport
+    '/design/components': {
+      id: '/design/components'
+      path: '/components'
+      fullPath: '/design/components'
+      preLoaderRoute: typeof DesignComponentsRouteImport
+      parentRoute: typeof DesignRoute
     }
     '/auth/return-to-app': {
       id: '/auth/return-to-app'
@@ -612,13 +331,6 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/proxy-pdf': {
-      id: '/api/proxy-pdf'
-      path: '/api/proxy-pdf'
-      fullPath: '/api/proxy-pdf'
-      preLoaderRoute: typeof ApiProxyPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/mcp': {
@@ -659,37 +371,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DesignRouteChildren {
+  DesignComponentsRoute: typeof DesignComponentsRoute
+  DesignRoundsRoute: typeof DesignRoundsRoute
+  DesignIndexRoute: typeof DesignIndexRoute
+}
+
+const DesignRouteChildren: DesignRouteChildren = {
+  DesignComponentsRoute: DesignComponentsRoute,
+  DesignRoundsRoute: DesignRoundsRoute,
+  DesignIndexRoute: DesignIndexRoute,
+}
+
+const DesignRouteWithChildren =
+  DesignRoute._addFileChildren(DesignRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DesignRoute: DesignRouteWithChildren,
   DevErrorRoute: DevErrorRoute,
   LoginRoute: LoginRoute,
-  SettingsRoute: SettingsRoute,
   VersionRoute: VersionRoute,
   VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
   ApiAskRoute: ApiAskRoute,
   ApiMcpRoute: ApiMcpRoute,
-  ApiProxyPdfRoute: ApiProxyPdfRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthReturnToAppRoute: AuthReturnToAppRoute,
-  DebugCodeBlockRoute: DebugCodeBlockRoute,
-  DebugDesignSystemRoute: DebugDesignSystemRoute,
-  DebugEmptyStatesRoute: DebugEmptyStatesRoute,
-  DebugIntelligenceRoute: DebugIntelligenceRoute,
-  DebugKbdRoute: DebugKbdRoute,
-  DebugMathRoute: DebugMathRoute,
-  DebugReviewCountAnimationsRoute: DebugReviewCountAnimationsRoute,
-  DebugReviewDialogsRoute: DebugReviewDialogsRoute,
-  DebugReviewSessionPreviewRoute: DebugReviewSessionPreviewRoute,
-  DebugReviewSummaryPreviewRoute: DebugReviewSummaryPreviewRoute,
-  DebugSpinnersRoute: DebugSpinnersRoute,
-  DebugSuggestedCardsRoute: DebugSuggestedCardsRoute,
-  DebugToastsRoute: DebugToastsRoute,
   OauthConsentRoute: OauthConsentRoute,
-  ReviewSessionIdRoute: ReviewSessionIdRoute,
-  DebugIndexRoute: DebugIndexRoute,
-  ReviewIndexRoute: ReviewIndexRoute,
   ApiExtensionItemsRoute: ApiExtensionItemsRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,
 }

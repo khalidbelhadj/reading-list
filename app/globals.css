@@ -18,25 +18,34 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
+  /* Design-system utilities: rounded-control / rounded-surface,
+     shadow-surface, h-row, text-small … text-display. */
+  --radius-control: var(--r-control);
+  --radius-surface: var(--r-surface);
+  --shadow-surface: var(--edge-surface);
+  --spacing-row: var(--row-height);
+  --spacing-sidebar-row: var(--sidebar-row-height);
+  --text-micro: 11px;
+  --text-micro--line-height: 1.3;
+  --text-small: 12px;
+  --text-small--line-height: 1.35;
+  --text-body: 13px;
+  --text-body--line-height: 1.4;
+  --text-title: 15px;
+  --text-title--line-height: 1.3;
+  --text-heading: 20px;
+  --text-heading--line-height: 1.2;
+  --text-display: 28px;
+  --text-display--line-height: 1.05;
   --color-badge: var(--badge);
   --color-badge-foreground: var(--badge-foreground);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --color-starred: var(--starred);
+  --color-link: var(--link);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -46,7 +55,6 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-primary-border: var(--primary-border);
-  --color-destructive-border: var(--destructive-border);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -56,7 +64,6 @@
   --color-background: var(--background);
   --shadow-depth-button: var(--depth-button);
   --shadow-depth-button-primary: var(--depth-button-primary);
-  --shadow-depth-button-destructive: var(--depth-button-destructive);
   --shadow-depth-floating: var(--depth-floating);
   --shadow-depth-elevated: var(--depth-elevated);
   --shadow-depth-tooltip: var(--depth-tooltip);
@@ -70,57 +77,54 @@
 }
 
 :root {
-  --background: oklch(0.992 0.001 95);
-  --foreground: oklch(0.18 0.003 85);
-  --card: oklch(0.978 0.002 85);
-  --card-foreground: oklch(0.18 0.003 85);
-  --surface: oklch(1 0 0);
-  --popover: oklch(0.992 0.001 85);
-  --popover-foreground: oklch(0.18 0.003 85);
-  --primary: oklch(0.62 0.06 150);
-  --primary-foreground: oklch(0.985 0.002 85);
-  --secondary: oklch(0.94 0.003 85);
-  --secondary-foreground: oklch(0.216 0 0);
-  --muted: oklch(0.965 0.002 85);
-  --muted-foreground: oklch(0.553 0 0);
-  --accent: oklch(0.925 0.003 85);
-  --accent-foreground: oklch(0.216 0 0);
-  --badge: oklch(0.94 0.003 85);
-  --badge-foreground: oklch(0.216 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.003 85);
-  --input: oklch(0.92 0.003 85);
-  --ring: oklch(0.709 0 0);
-  --chart-1: oklch(0.869 0 0);
-  --chart-2: oklch(0.553 0 0);
-  --chart-3: oklch(0.444 0 0);
-  --chart-4: oklch(0.374 0 0);
-  --chart-5: oklch(0.268 0 0);
+  --background: oklch(0.985 0.004 80);
+  --foreground: oklch(0.22 0.008 70);
+  --card: oklch(0.97 0.005 80);
+  --card-foreground: oklch(0.22 0.008 70);
+  --surface: oklch(0.995 0.003 80);
+  --popover: oklch(0.985 0.004 80);
+  --popover-foreground: oklch(0.22 0.008 70);
+  --primary: oklch(0.6 0.1 128);
+  --primary-foreground: oklch(0.985 0.004 80);
+  --secondary: oklch(0.935 0.006 80);
+  --secondary-foreground: oklch(0.24 0.008 70);
+  --muted: oklch(0.95 0.005 80);
+  --muted-foreground: oklch(0.52 0.01 70);
+  --accent: oklch(0.92 0.006 80);
+  --accent-foreground: oklch(0.24 0.008 70);
+  --badge: oklch(0.935 0.006 80);
+  --badge-foreground: oklch(0.24 0.008 70);
+  /* Starred items: warm gold on the app's own hue axis. */
+  --starred: oklch(0.75 0.145 85);
+  /* Content links: a normal blue, not the accent. */
+  --link: oklch(0.55 0.16 250);
+  --destructive: oklch(0.59 0.19 27);
+  --destructive-foreground: oklch(0.985 0.002 85);
+  --border: oklch(0.9 0.006 80);
+  --input: oklch(0.9 0.006 80);
+  --ring: oklch(0.7 0.01 75);
   --radius: 0.625rem;
-  --sidebar: oklch(0.982 0.002 85);
-  --sidebar-foreground: oklch(0.18 0.003 85);
-  --sidebar-primary: oklch(0.216 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.965 0.002 85);
-  --sidebar-accent-foreground: oklch(0.216 0 0);
-  --sidebar-border: oklch(0.92 0.003 85);
-  --sidebar-ring: oklch(0.709 0 0);
+  /* Design-system foundations (DESIGN.md). */
+  --r-control: 10px;
+  --r-surface: 20px;
+  --row-height: 26px;
+  /* Sidebar rows sit denser than list rows (Finder density). */
+  --sidebar-row-height: 24px;
+  --edge-surface:
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 6%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.1);
   --toast-error-bg: oklch(0.97 0.015 25);
   --toast-error-text: oklch(0.45 0.18 25);
   --toast-error-border: oklch(0.9 0.04 25);
-  --selection: oklch(0.85 0.04 150 / 0.5);
-  --selection-foreground: oklch(0.18 0.003 85);
+  --selection: oklch(0.85 0.06 128 / 0.5);
+  --selection-foreground: oklch(0.22 0.008 70);
   /* PDF page edge. Darker than --border (0.92): the page is white on a white
      surface, so a border-strength hairline is effectively invisible there. */
-  --pdf-page-outline: oklch(0.72 0.003 85);
   --depth-button:
     inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary:
-    inset 0 -1px 0 0 oklch(0.48 0.07 150 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
-  --depth-button-destructive:
-    inset 0 -1px 0 0 oklch(0.5 0.22 27 / 0.25), 0 1px 2px 0 rgb(0 0 0 / 0.08);
-  --primary-border: oklch(0.56 0.065 150);
-  --destructive-border: oklch(0.62 0.2 27 / 0.35);
+    inset 0 -1px 0 0 oklch(0.46 0.1 128 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
+  --primary-border: oklch(0.54 0.1 128);
   --depth-floating:
     inset 0 -1px 0 0 rgb(0 0 0 / 0.06), 0 6px 14px -2px rgb(0 0 0 / 0.1),
     0 16px 32px -8px rgb(0 0 0 / 0.08);
@@ -133,56 +137,45 @@
 }
 
 .dark {
-  --background: oklch(0.195 0.002 85);
-  --foreground: oklch(0.982 0.002 85);
-  --card: oklch(0.225 0.003 85);
-  --card-foreground: oklch(0.982 0.002 85);
-  --surface: oklch(0.25 0.003 85);
-  --popover: oklch(0.225 0.003 85);
-  --popover-foreground: oklch(0.982 0.002 85);
-  --primary: oklch(0.7 0.1 150);
-  --primary-foreground: oklch(0.18 0.003 85);
-  --secondary: oklch(0.305 0.004 85);
-  --secondary-foreground: oklch(0.982 0.002 85);
-  --muted: oklch(0.285 0.004 85);
-  --muted-foreground: oklch(0.709 0 0);
-  --accent: oklch(0.325 0.004 85);
-  --accent-foreground: oklch(0.982 0.002 85);
-  --badge: oklch(0.305 0.004 85);
-  --badge-foreground: oklch(0.982 0.002 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.3 0.003 85);
-  --input: oklch(0.33 0.003 85);
-  --ring: oklch(0.553 0 0);
-  --chart-1: oklch(0.869 0 0);
-  --chart-2: oklch(0.553 0 0);
-  --chart-3: oklch(0.444 0 0);
-  --chart-4: oklch(0.374 0 0);
-  --chart-5: oklch(0.268 0 0);
-  --sidebar: oklch(0.25 0.003 85);
-  --sidebar-foreground: oklch(0.982 0.002 85);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.982 0.002 85);
-  --sidebar-accent: oklch(0.305 0.004 85);
-  --sidebar-accent-foreground: oklch(0.982 0.002 85);
-  --sidebar-border: oklch(0.3 0.003 85);
-  --sidebar-ring: oklch(0.553 0 0);
-  --toast-error-bg: oklch(0.27 0.04 25);
+  --background: oklch(0.18 0.0035 70);
+  --foreground: oklch(0.96 0.003 80);
+  --card: oklch(0.215 0.004 70);
+  --card-foreground: oklch(0.96 0.003 80);
+  --surface: oklch(0.24 0.004 70);
+  --popover: oklch(0.215 0.004 70);
+  --popover-foreground: oklch(0.96 0.003 80);
+  --primary: oklch(0.74 0.11 128);
+  --primary-foreground: oklch(0.2 0.03 128);
+  --secondary: oklch(0.29 0.004 70);
+  --secondary-foreground: oklch(0.96 0.003 80);
+  --muted: oklch(0.27 0.004 70);
+  --muted-foreground: oklch(0.7 0.006 75);
+  --accent: oklch(0.31 0.004 70);
+  --accent-foreground: oklch(0.96 0.003 80);
+  --badge: oklch(0.29 0.004 70);
+  --badge-foreground: oklch(0.96 0.003 80);
+  --starred: oklch(0.82 0.15 88);
+  --link: oklch(0.72 0.14 245);
+  --destructive: oklch(0.64 0.175 25);
+  --destructive-foreground: oklch(0.985 0.002 85);
+  --border: oklch(0.29 0.004 70);
+  --input: oklch(0.315 0.004 70);
+  --ring: oklch(0.55 0.01 75);
+  --edge-surface:
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 9%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.2), 0 8px 24px -8px rgb(0 0 0 / 0.4);
+  --toast-error-bg: oklch(0.25 0.04 25);
   --toast-error-text: oklch(0.8 0.14 25);
   --toast-error-border: oklch(0.35 0.06 25);
-  --selection: oklch(0.5 0.04 150 / 0.55);
-  --selection-foreground: oklch(0.982 0.002 85);
+  --selection: oklch(0.5 0.06 128 / 0.55);
+  --selection-foreground: oklch(0.96 0.003 80);
   /* Dark mode needs the opposite: a white page already separates hard from
      the dark stage, so this only softens the edge rather than defining it. */
-  --pdf-page-outline: oklch(0.48 0.003 85);
   --depth-button:
     inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary:
-    inset 0 -1px 0 0 oklch(0.52 0.1 150 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --depth-button-destructive:
-    inset 0 -1px 0 0 oklch(0.55 0.18 22 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-  --primary-border: oklch(0.61 0.1 150);
-  --destructive-border: oklch(0.6 0.18 22 / 0.5);
+    inset 0 -1px 0 0 oklch(0.5 0.11 128 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --primary-border: oklch(0.64 0.11 128);
   --depth-floating:
     inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.4),
     0 12px 24px -8px rgb(0 0 0 / 0.25);
@@ -215,48 +208,17 @@
   border-color: var(--toast-error-border) !important;
 }
 
-/* Animated strike-through for read items. Applied to an inner inline span so
-   the line sizes to the text width (not the truncated container). */
-.title-strike {
-  position: relative;
-}
-.title-strike::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 0.25s ease-out;
-  pointer-events: none;
-}
-.title-strike[data-read="true"]::after {
-  transform: scaleX(1);
-}
-
-/* Panel resize drag state (lib/use-panel-resize.ts adds/removes the class).
-   Forces the resize cursor everywhere, prevents text selection, and makes
-   embedded documents inert so iframes/webviews can't swallow the drag —
-   this replaces any full-screen shield element. */
+/* Sidebar resize drag state (components/system/sidebar.tsx adds/removes the
+   class). Forces the resize cursor everywhere and prevents text selection. */
 body.panel-resizing {
   cursor: col-resize;
   user-select: none;
   -webkit-user-select: none;
 }
-body.panel-resizing-row {
-  cursor: row-resize;
-}
-body.panel-resizing :is(iframe, webview, embed, object) {
-  pointer-events: none;
-}
-/* No transitions while a divider is being dragged. Dragging the notes edge
-   moves --notes-inset-right, which resizes the reading panel beside it — the
-   inline `transition` strings would smear each per-move update over ~300ms,
-   making the panels trail the cursor. !important is required to beat those
-   inline styles; scoped to the drag, when nothing should be animating. */
+/* No transitions while the divider is being dragged — they would smear each
+   per-move update over ~300ms, making the pane trail the cursor. !important
+   beats inline transition styles; scoped to the drag, when nothing should be
+   animating. */
 body.panel-resizing * {
   transition: none !important;
 }
@@ -284,36 +246,6 @@ html.electron {
   --traffic-clearance: calc(24px + 56px / var(--zoom, 1));
 }
 
-/* List panel's top bar. Uses a container query so the padding kicks in based
-   on the list's *own* width, not the viewport — which matters when the item
-   panel is open and the list is squeezed even on a wide window. Gradient:
-   0 → clearance as the list's width shrinks from 860px to 700px (the content
-   max-width). Below 700px the content fills the list, so it stays constant. */
-.electron-toolbar-container {
-  container-type: inline-size;
-}
-@container (max-width: 860px) {
-  html.electron .electron-toolbar-container .electron-top-bar-inset {
-    padding-left: clamp(
-      0px,
-      calc(var(--traffic-clearance) - max(0px, (100cqw - 700px) / 2)),
-      var(--traffic-clearance)
-    );
-  }
-}
-
-/* Full-width mode: Electron only. Removes the 700px content cap so the app
-   uses the entire window width. Web ignores .full-width since this requires
-   .electron too. */
-html.electron.full-width .max-w-175 {
-  max-width: none;
-}
-/* Without the centered max-width, content sits flush against the left edge —
-   reserve the full traffic-light clearance unconditionally. */
-html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
-  padding-left: var(--traffic-clearance);
-}
-
 /* Toolbars that cover the top-left of the window — the expanding side panel,
    a detached item window, the reader — always reserve the traffic-light
    clearance, regardless of viewport width. The clearance alone only reaches
@@ -323,19 +255,6 @@ html.electron.full-width .electron-toolbar-container .electron-top-bar-inset {
    which ends at 70px. */
 html.electron .panel-toolbar.electron-top-bar-inset {
   padding-left: calc(var(--traffic-clearance) + 0.25rem);
-}
-
-/* The reader stacks a second toolbar row *below* the traffic lights rather
-   than beside them, so it doesn't want the full clearance — it wants its
-   first control to line up with the dots above it. The dots' left edge is
-   at (18 + 6) * zoom - 6 window points (electron/main.ts), which is
-   `24px - 6px / zoom` in page pixels; the panel itself is inset from the
-   window edge by SLIDE_OFFSET (8px, lib/motion.ts). */
-html.electron .reader-panel .pdf-toolbar {
-  /* Centre the first control on the first dot: dot centre sits at
-     (24px - 6px/zoom - 8px) + 6px from the panel's left edge, and the icon
-     button is 24px wide, so its box starts 12px before that. */
-  padding-left: calc(10px - 6px / var(--zoom, 1));
 }
 
 /* The clearance above ends roughly where the dots end, which reads fine when
@@ -354,6 +273,13 @@ html.electron .electron-top-bar-inset textarea,
 html.electron .electron-top-bar-inset [role="menuitem"],
 html.electron .electron-top-bar-inset [role="combobox"],
 html.electron .electron-top-bar-inset [data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* For interactive elements that overlap a drag bar without living inside it
+   (e.g. the item view's corner menu over the top drag strip). */
+html.electron .app-no-drag {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -394,53 +320,6 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
 }
 *::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-.hide-scrollbar {
-  scrollbar-width: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.detail-panel-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  overflow-y: auto;
-}
-.detail-panel-scroll:hover {
-  scrollbar-color: oklch(0.5 0 0 / 20%) transparent;
-}
-.detail-panel-scroll::-webkit-scrollbar {
-  width: 4px;
-  background: transparent;
-}
-.detail-panel-scroll::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 4px;
-}
-.detail-panel-scroll:hover::-webkit-scrollbar-thumb {
-  background: oklch(0.5 0 0 / 20%);
-}
-
-.debug-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.15) rgb(23 23 23);
-}
-.debug-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.debug-scrollbar::-webkit-scrollbar-track {
-  background: rgb(
-    23 23 23
-  ); /* neutral-900 — opaque so it doesn't show page content behind the translucent panel */
-}
-.debug-scrollbar::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.15);
-  border-radius: 3px;
-}
-.debug-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 0.25);
 }
 
 /* Markdown editor (TipTap) styling */
@@ -922,81 +801,6 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;
 }
-/* Card visuals are intentionally unscoped: when a card is dragged, tiptap
-   clones the .card-node into <body> as the drag image, outside the
-   `.markdown-editor .ProseMirror` scope. Keeping these rules global means the
-   drag preview is styled identically — rounded, padded, with the separator. */
-.card-node {
-  position: relative;
-  margin: 0.5rem 0;
-}
-.card-block {
-  display: block;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-family: var(--font-content), serif;
-}
-front.card-side,
-back.card-side {
-  display: block;
-}
-front.card-side {
-  font-weight: 500;
-}
-back.card-side {
-  color: var(--muted-foreground);
-  /* Edge-to-edge dashed divider: negative horizontal margin pulls the rule out
-     to the card border, then matching padding restores the text inset. */
-  margin: 0.5rem -1rem 0;
-  padding: 0.5rem 1rem 0;
-  border-top: 1px dashed var(--border);
-}
-.card-block > front.card-side > *:first-child,
-.card-block > back.card-side > *:first-child {
-  margin-top: 0;
-}
-/* Card chrome: drag handle + actions menu. Hidden by default (so it never
-   shows in the drag-image clone) and revealed only inside the editor on hover
-   or while the menu is open. */
-.card-controls {
-  position: absolute;
-  top: 0.375rem;
-  right: 0.5rem;
-  z-index: 1;
-  display: flex;
-  gap: 0.125rem;
-  opacity: 0;
-  transition: opacity 0.1s ease;
-}
-.markdown-editor .ProseMirror .card-node:hover .card-controls,
-.markdown-editor .ProseMirror .card-controls[data-menu-open] {
-  opacity: 1;
-}
-.card-control-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 0.25rem;
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
-.card-control-button:hover {
-  background: var(--muted);
-  color: var(--foreground);
-}
-.card-control-button[data-drag-handle] {
-  cursor: grab;
-}
-.card-control-button[data-drag-handle]:active {
-  cursor: grabbing;
-}
-.card-control-button svg {
-  width: 0.875rem;
-  height: 0.875rem;
-}
 /* Empty-state placeholder for contenteditable elements. The element drives
    the placeholder color via --ce-placeholder-color so each caller can
    match the per-field opacity the old <input>/<textarea> had. */
@@ -1017,54 +821,6 @@ back.card-side {
     transparent
   );
   mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
-}
-
-/* Streaming reveal: a soft gradient boundary at the bottom of the live "Ask"
-   feed. Its position (--ask-mask-stop, the opaque/​fade edge in px) is driven
-   from JS to the current content height and eased there with a long, smooth
-   transition — so the boundary glides down as content streams instead of
-   jumping per token, and once content settles it parks *below* the last line
-   (the +3rem fade falls into empty space) so nothing stays obscured. */
-@property --ask-mask-stop {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-.ask-stream-mask {
-  --ask-mask-stop: 0px;
-  transition: --ask-mask-stop 1.1s cubic-bezier(0.22, 1, 0.36, 1);
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 var(--ask-mask-stop),
-    transparent calc(var(--ask-mask-stop) + 3rem)
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    #000 var(--ask-mask-stop),
-    transparent calc(var(--ask-mask-stop) + 3rem)
-  );
-}
-
-/* One-shot downward reveal — a gradient boundary wipes an element into view from
-   top to bottom on mount (used for the final results block, which appears all at
-   once rather than streaming through the boundary above). Ends right as the
-   reveal completes so it eases to a stop instead of finishing early. */
-@keyframes reveal-down {
-  from {
-    -webkit-mask-size: 100% 0%;
-    mask-size: 100% 0%;
-  }
-  to {
-    -webkit-mask-size: 100% 185%;
-    mask-size: 100% 185%;
-  }
-}
-.reveal-down {
-  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  animation: reveal-down 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Square-corners spinner — staggered pulse of four dots (see SquareSpinner). */
@@ -1090,205 +846,347 @@ back.card-side {
 }
 */
 
-/* Reader view (in-app viewer) content styling */
-.reader-content {
-  font-size: 1.0625rem;
-  line-height: 1.75;
-  color: var(--foreground);
-  overflow-wrap: break-word;
+/* App shell (app/routes/index.tsx). The sidebar is translucent:
+   in Electron the window's macOS vibrancy shows through a clear body, so the
+   sidebar only tints; on the web there is nothing behind the page, so it
+   blurs the content that scrolls under it instead. */
+html.electron.app-shell body {
+  background: transparent;
 }
-.reader-content > * + * {
+.x-sidebar {
+  /* Own compositor layer: over a vibrancy window, hover backgrounds inside a
+     transparent region otherwise leave ghost pixels behind when they clear. */
+  transform: translateZ(0);
+  /* Without a translucent window there is nothing behind the sidebar to show
+     through — a transparent wash just reads as murk. On web it is a solid
+     quiet lift off the background instead; Electron overrides below. */
+  background: color-mix(in oklab, var(--foreground) 3.5%, var(--background));
+}
+/* While the window is translucent (the app shell), nothing may use
+   backdrop-filter: a blurred element over a transparent root makes Chromium
+   paint an opaque backdrop for the whole page, which switches the vibrancy
+   off the moment a menu or hover card appears. Floating surfaces fall back
+   to a stronger tint. */
+/* Vibrancy vs blur, decided 2026-08-24: the see-through sidebar wins. Any
+   backdrop-filter flips the transparent window opaque while visible
+   (electron#19765/#39529, closed not-planned), so floating surfaces in
+   Electron drop the frost and go solid instead — a washed 94% tint read as
+   "transparent but not blurry". Web keeps the full frost. */
+html.electron.app-shell .glass,
+html.electron.app-shell .inline-math-popover {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--surface);
+}
+html.electron .x-sidebar {
+  /* The vibrancy material already carries the app's theme (see
+     use-window-vibrancy.ts), so only a light wash is needed on top. */
+  background: color-mix(in oklab, var(--background) 28%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* The frost surface (DESIGN.md: Frost, 74% tint, 18px blur). Built on the
+   lifted surface tone rather than the card, so a float sits *above* what it
+   covers instead of sinking into it; the edge is a barely-there line and the
+   depth comes from a low shadow. */
+.glass {
+  background: color-mix(in oklab, var(--surface) 74%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 5%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 8px 24px -8px rgb(0 0 0 / 0.12);
+}
+.dark .glass {
+  background: color-mix(in oklab, var(--surface) 74%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 4%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.2),
+    0 8px 24px -8px rgb(0 0 0 / 0.4);
+}
+/* A popup nested inside another .glass surface can't blur the page — a
+   nested backdrop-filter only reaches its parent surface, so it renders as
+   plain transparency. Panels that hang outside their glass parent (the
+   markdown bubble's block menu) opt into a solid fill instead. */
+.glass.glass-solid {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Editor skin on the design-system tokens (DESIGN.md). These override the
+   block above: same selectors, later in the cascade. Body text is the kit's
+   13px body; headings use the type scale; checklist boxes are drawn like the
+   kit Checkbox; code, quotes and math use the quiet fill and control radius;
+   links are the accent. */
+.markdown-editor .ProseMirror {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.markdown-editor .ProseMirror > * + * {
+  margin-top: 0.45rem;
+}
+.markdown-editor .ProseMirror h1,
+.markdown-editor .ProseMirror h2,
+.markdown-editor .ProseMirror h3 {
+  font-family: var(--font-content);
+  line-height: 1.2;
+}
+.markdown-editor .ProseMirror h1 {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.markdown-editor .ProseMirror h2 {
+  font-size: 15px;
+}
+.markdown-editor .ProseMirror h3 {
+  font-size: 13px;
+}
+.markdown-editor .ProseMirror > h1:not(:first-child),
+.markdown-editor .ProseMirror > h2:not(:first-child),
+.markdown-editor .ProseMirror > h3:not(:first-child) {
   margin-top: 1rem;
 }
-.reader-content h1,
-.reader-content h2,
-.reader-content h3,
-.reader-content h4 {
-  font-family: var(--font-content);
-  font-weight: 600;
-  line-height: 1.3;
-  margin-top: 2rem;
+.markdown-editor .ProseMirror h1::before,
+.markdown-editor .ProseMirror h2::before,
+.markdown-editor .ProseMirror h3::before {
+  font-size: 11px;
+  opacity: 0.7;
 }
-.reader-content h1 {
-  font-size: 1.75rem;
-}
-.reader-content h2 {
-  font-size: 1.375rem;
-}
-.reader-content h3 {
-  font-size: 1.125rem;
-}
-.reader-content ul {
-  list-style: disc;
-  padding-left: 1.5rem;
-}
-.reader-content ol {
-  list-style: decimal;
-  padding-left: 1.5rem;
-}
-.reader-content li + li {
-  margin-top: 0.35rem;
-}
-.reader-content a {
+.markdown-editor .ProseMirror a {
+  color: var(--link);
   text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent);
   text-underline-offset: 3px;
+}
+.markdown-editor .ProseMirror a:hover {
+  text-decoration-color: var(--link);
+}
+.markdown-editor .ProseMirror hr {
+  border: 0;
+  height: 1px;
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  margin: 0.75rem 0;
+}
+.markdown-editor .ProseMirror blockquote {
+  border-left: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+}
+.markdown-editor .ProseMirror code {
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  border-radius: 5px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.9em;
+}
+.markdown-editor .ProseMirror pre {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  border-radius: var(--r-control);
+  padding: 0.625rem 0.75rem;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.markdown-editor .ProseMirror pre code {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  font-size: inherit;
+}
+/* Checklist boxes: the kit Checkbox, drawn with a native input so tiptap's
+   task item keeps owning the click. */
+.markdown-editor .ProseMirror ul[data-type="taskList"] li {
+  gap: 0.5rem;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 1px;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  display: grid;
+  place-content: center;
+  cursor: default;
+  color-scheme: normal;
+}
+.markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 40%, transparent);
+}
+.markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  input[type="checkbox"]:checked {
+  background: var(--primary);
+}
+.markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  input[type="checkbox"]:checked::after {
+  content: "";
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--primary-foreground);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5l10 -10'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.markdown-editor
+  .ProseMirror
+  ul[data-type="taskList"]
+  li[data-checked="true"]
+  > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
   text-decoration-color: color-mix(
-    in oklch,
-    var(--foreground) 30%,
+    in oklab,
+    var(--muted-foreground) 60%,
     transparent
   );
 }
-.reader-content a:hover {
-  text-decoration-color: var(--foreground);
+.markdown-editor .ProseMirror img {
+  border: 0;
+  border-radius: var(--r-control);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--foreground) 8%, transparent);
 }
-.reader-content img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius);
-  margin-inline: auto;
+.markdown-editor .ProseMirror .image-upload-wrap[data-loading="true"] {
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  border: 0;
+  border-radius: var(--r-control);
 }
-.reader-content blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: 1rem;
+.markdown-editor .ProseMirror .block-math-display {
+  border-radius: var(--r-control);
+}
+.markdown-editor .ProseMirror .block-math-display:hover {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+.markdown-editor .ProseMirror .block-math-source-box {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  border-radius: var(--r-control);
+  padding: 0.625rem 0.75rem;
+}
+.markdown-editor .ProseMirror .latex-source__pre,
+.markdown-editor .ProseMirror .latex-source__textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.markdown-editor .ProseMirror .inline-math-render:hover,
+.markdown-editor
+  .ProseMirror
+  .inline-math-node[data-active="true"]
+  .inline-math-render {
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+.inline-math-popover {
+  background: color-mix(in oklab, var(--surface) 74%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border-radius: var(--r-control);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 5%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 8px 24px -8px rgb(0 0 0 / 0.12);
+}
+
+/* The inline flashcard node (components/app/flashcard-node.tsx), styled as
+   the Sheet card chosen on the board (round 10): quiet surface, front
+   medium, the back beneath a hairline. */
+.markdown-editor .x-card-node {
+  margin: 0.75rem 0;
+}
+.markdown-editor .x-card {
+  display: block;
+  border-radius: var(--r-surface);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  padding: 1rem 1.25rem;
+  font-family: var(--font-content);
+}
+.markdown-editor front.x-card-side,
+.markdown-editor back.x-card-side {
+  display: block;
+}
+.markdown-editor front.x-card-side {
+  font-weight: 500;
+}
+.markdown-editor back.x-card-side {
   color: var(--muted-foreground);
+  margin: 0.6rem -1.25rem 0;
+  padding: 0.6rem 1.25rem 0;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
 }
-.reader-content pre {
-  background: var(--muted);
-  border-radius: var(--radius);
-  padding: 0.9rem 1rem;
-  overflow-x: auto;
-  font-size: 0.85rem;
-  line-height: 1.55;
+.markdown-editor .x-card > front.x-card-side > *:first-child,
+.markdown-editor .x-card > back.x-card-side > *:first-child {
+  margin-top: 0;
 }
-.reader-content code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.85em;
-  background: var(--muted);
+
+/* Light markdown rendering for flashcard display (components/app/flashcard.tsx):
+   markdown-it output with the editor skin's registers, minus the editor. */
+.x-md :is(p, ul, ol, pre, blockquote) + :is(p, ul, ol, pre, blockquote) {
+  margin-top: 0.4rem;
+}
+.x-md ul {
+  list-style: disc;
+  padding-left: 1.1rem;
+}
+.x-md ol {
+  list-style: decimal;
+  padding-left: 1.1rem;
+}
+.x-md code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
   border-radius: 4px;
-  padding: 0.1em 0.35em;
+  padding: 0.05em 0.3em;
 }
-.reader-content pre code {
+.x-md pre {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  border-radius: var(--r-control);
+  padding: 0.5rem 0.7rem;
+  overflow-x: auto;
+}
+.x-md pre code {
   background: transparent;
   padding: 0;
 }
-.reader-content hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin-block: 2rem;
+.x-md a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.reader-content table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9em;
-  display: block;
-  overflow-x: auto;
-}
-.reader-content th,
-.reader-content td {
-  border: 1px solid var(--border);
-  padding: 0.4rem 0.6rem;
-  text-align: left;
+.x-md blockquote {
+  border-left: 2px solid color-mix(in oklab, var(--foreground) 15%, transparent);
+  padding-left: 0.7rem;
+  color: var(--muted-foreground);
 }
 
-/* pdf.js text layer (custom PDF viewer) — transparent selectable text over the
-   rendered canvas.
-
-   These rules are pdf.js's own contract, not decoration. Since v5 the layer is
-   laid out entirely in *page* units: spans are positioned in percentages and
-   sized from --font-height multiplied by --total-scale-factor, and the
-   container's own width/height come from an inline
-   `round(down, var(--total-scale-factor) * Npx, var(--scale-round-x))`. Every
-   variable below therefore has to exist, or the layer collapses (an undefined
-   --scale-round-x makes the whole width declaration invalid). The payoff is
-   that zoom is a single custom-property change on the page wrapper: no
-   re-render, no re-fetch, no lost selection. */
-.pdf-page {
-  --user-unit: 1;
-  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
-  --scale-round-x: 1px;
-  --scale-round-y: 1px;
-
-  /* A page's text layer is thousands of absolutely-positioned spans. Without
-     containment, any style or layout invalidation anywhere in the stage walks
-     all of them, on every mounted page — which is most of the cost of
-     scrolling a dense document. `strict` is safe here (and not merely
-     `content`) because the element's size is set explicitly from the layout,
-     so size containment can't collapse it. */
-  contain: strict;
-}
-.pdf-page-edge {
-  border: 1px solid var(--pdf-page-outline);
+/* A flashcard side being edited (components/app/flashcard.tsx) inherits the
+   side's own type — review-scale fronts stay 15px/medium while editing, list
+   backs stay 12px — instead of the editor skin's 13px body. Seamless in and
+   out of editing. */
+.x-card-side-editor .ProseMirror {
+  font: inherit;
 }
 
-.pdf-text-layer {
-  color-scheme: only light;
-  position: absolute;
-  inset: 0;
-  overflow: clip;
-  text-align: initial;
-  line-height: 1;
-  letter-spacing: normal;
-  word-spacing: normal;
-  text-size-adjust: none;
-  forced-color-adjust: none;
-  transform-origin: 0 0;
-  caret-color: CanvasText;
-  z-index: 0;
-
-  --min-font-size: 1;
-  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
-  --min-font-size-inv: calc(1 / var(--min-font-size));
+/* One-shot highlight when the item view jumps to a specific card. */
+@keyframes x-card-flash {
+  0%,
+  60% {
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
 }
-/* Rotation. pdf.js lays spans out in *unrotated* page space (percentages of
-   the raw page box) and sizes the container to match; the rotation itself is
-   the layer's `data-main-rotation` attribute plus these transforms — copied
-   from pdf_viewer.css, where they're generic `[data-main-rotation]` rules.
-   Without them a rotated page (or a page with intrinsic /Rotate) paints
-   rotated on the canvas while selection and highlights stay unrotated. */
-.pdf-text-layer[data-main-rotation="90"] {
-  transform: rotate(90deg) translateY(-100%);
-}
-.pdf-text-layer[data-main-rotation="180"] {
-  transform: rotate(180deg) translate(-100%, -100%);
-}
-.pdf-text-layer[data-main-rotation="270"] {
-  transform: rotate(270deg) translateX(-100%);
-}
-.pdf-text-layer :is(span, br) {
-  color: transparent;
-  position: absolute;
-  white-space: pre;
-  cursor: text;
-  transform-origin: 0% 0%;
-  user-select: text;
-}
-.pdf-text-layer > :not(.markedContent),
-.pdf-text-layer .markedContent span:not(.markedContent) {
-  z-index: 1;
-  --font-height: 0;
-  font-size: calc(var(--text-scale-factor) * var(--font-height));
-  --scale-x: 1;
-  --rotate: 0deg;
-  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
-    scale(var(--min-font-size-inv));
-}
-.pdf-text-layer .markedContent {
-  display: contents;
-}
-/* `color: transparent` is not optional here, and leaving it out is the whole
-   reason selection used to paint a second copy of the text over the canvas:
-   a ::selection rule that sets only `background` still lets the UA's default
-   selection *foreground* colour apply, which overrides the layer's
-   `color: transparent` and makes every selected span visible. pdf.js's own
-   stylesheet sets both — so does this.
-
-   `br` gets a transparent background for the same class of reason: the line
-   breaks pdf.js emits would otherwise paint stray selection blocks in the
-   gaps between lines. */
-.pdf-text-layer ::selection {
-  background: color-mix(in oklch, var(--primary) 35%, transparent);
-  color: transparent;
-}
-.pdf-text-layer br::selection {
-  background: transparent;
+.x-card-flash > .x-card {
+  animation: x-card-flash 1.4s ease-out both;
+  border-radius: var(--r-surface);
 }

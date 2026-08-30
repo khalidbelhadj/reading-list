@@ -1,13 +1,9 @@
 import { IconCheck, IconClipboard } from "@tabler/icons-react";
 import React from "react";
 
-import { Button } from "@/components/ui/button";
-import { NonIdealState } from "@/components/ui/non-ideal-state";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Button } from "@/components/system/button";
+import { NonIdealState } from "@/components/system/non-ideal-state";
+import { Tooltip } from "@/components/system/tooltip";
 
 // Router-level error boundary (root route errorComponent). `reset` re-renders
 // the failed route; the copy button shares the error message for bug reports.
@@ -39,7 +35,9 @@ export const RouteError = ({
       description="We hit an unexpected error. Try again, and if it keeps happening let us know."
       actions={
         <>
-          <Button onClick={reset}>Reload</Button>
+          <Button variant="primary" onClick={reset}>
+            Reload
+          </Button>
           <Button
             variant="ghost"
             onClick={() => {
@@ -48,26 +46,19 @@ export const RouteError = ({
           >
             Go home
           </Button>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  aria-label="Copy error reference"
-                  onClick={handleCopyRef}
-                  className="flex size-6 items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity group-hover/error:opacity-100 hover:bg-secondary hover:text-foreground focus-visible:opacity-100"
-                >
-                  {copied ? (
-                    <IconCheck className="size-3.5" />
-                  ) : (
-                    <IconClipboard className="size-3.5" />
-                  )}
-                </button>
-              }
-            />
-            <TooltipContent side="right">
-              {copied ? "Copied" : "Copy error reference"}
-            </TooltipContent>
+          <Tooltip
+            side="right"
+            content={copied ? "Copied" : "Copy error reference"}
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Copy error reference"
+              onClick={handleCopyRef}
+              className="text-muted-foreground/60 opacity-0 transition-opacity group-hover/error:opacity-100 focus-visible:opacity-100"
+            >
+              {copied ? <IconCheck /> : <IconClipboard />}
+            </Button>
           </Tooltip>
         </>
       }
