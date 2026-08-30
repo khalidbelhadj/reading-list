@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { ConsentForm } from "@/app/oauth/consent/consent-form";
-import { NonIdealState } from "@/components/ui/non-ideal-state";
+import { NonIdealState } from "@/components/system/non-ideal-state";
 
 type AuthorizationDetails =
   | { status: "unauthenticated" }

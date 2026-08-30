@@ -13,7 +13,7 @@ import { withUser } from "@/db";
 import { getCurrentUserId } from "@/lib/auth";
 import { searchFlashcards } from "@/lib/search.server";
 
-import { searchItemsWithTags } from "../mcp/search";
+import { searchMcpItems } from "../mcp/search";
 
 // Pinned in one place so swapping the model (or provider) is a one-line change.
 // flash-lite: fast/cheap with usable free-tier headroom — good for prototyping.
@@ -25,13 +25,17 @@ const MODEL = "gemini-3.1-flash-lite";
 const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const SYSTEM_PROMPT = `
-You are a search assistant for the user's personal reading list — a collection of saved articles, papers, videos, and PDFs, each with a title, url, optional notes, and flashcards. Your output is shown to the user as a live, append-only activity feed, so narrate as you go. Before each tool call, write ONE short first-person sentence saying what you're about to look for (e.g. "Searching for the Jane Street incremental talk…"). Keep each line brief.
+You are the search agent for the user's personal reading list — saved articles, papers, videos, and PDFs, each with a title, url, optional notes, and flashcards. Your job is to find what they're asking for, whatever shape the ask takes.
 
-search_items takes a raw POSIX regex \`pattern\` (NOT wrapped in slashes), matched case-insensitively against titles, urls, and notes. Build patterns from the SHORTEST distinguishing word STEM so they match every inflection and the bare root word: pattern 'segment' matches segment, segments, segmenting, segmentation, and "Segment Anything", whereas 'segment(ing|ation)' misses the plain word "Segment". Likewise 'classif' over 'classification'. Never bolt on a suffix that could exclude the root. Use alternation for synonyms ('segment|mask|detect') and optional characters ('b-?tree'). The user's request is broad intent, so map it to several short stems and call search_items several times — one per concept — then union the hits. Prefer precision over recall, but a too-narrow regex that returns nothing is worse than a broad stem: when unsure, widen the stem.
+Read the request for what it is. It might be a literal instruction ("anything whose title mentions X" — search exactly that, don't editorialize), a topic they care about ("I'm into distributed consensus" — cast a wide net: the topic, its synonyms, its neighboring concepts, the systems and people associated with it), a half-remembered item ("that talk about the exchange"), a filter ("unread rust posts", "my 5 newest papers"), or something else entirely. Match your strategy to the ask — don't force every request through the same funnel, and don't substitute your own judgment about what they *should* want for what they asked for.
 
-search_items also takes optional tag / read / starred filters, a sort (newest|oldest|title), and a limit — use them when the request implies them (e.g. "unread rust posts" → pattern 'rust', read: false; "my 5 most recent papers" → sort: 'newest', limit: 5).
+Be persistent. If a search comes back thin, don't stop: widen the stem, try synonyms, try adjacent terms, try a different field or angle (a title word, a domain in the url, a phrase that would appear in notes). Several small searches that you union beat one perfect query. Only conclude nothing matches after you've genuinely tried a few directions.
 
-When you have the best matches, call present_results exactly once with a single short sentence summarizing what you found and the ids of the items to show, ordered best-first. If nothing relevant matches, call present_results with an empty list and a brief explanation.
+Tool mechanics for search_items: it takes a raw POSIX regex \`pattern\` (NOT wrapped in slashes), matched case-insensitively against titles, urls, and notes. Build patterns from the SHORTEST distinguishing word STEM so every inflection and the bare root match: 'segment' catches segment/segments/segmentation/"Segment Anything", where 'segment(ing|ation)' misses the plain word. Use alternation for synonyms ('raft|paxos|consensus') and optional characters ('b-?tree'). The optional read / starred filters, sort (newest|oldest|title), and limit are there when the request implies them.
+
+Your output is a live, append-only activity feed: before each tool call, write ONE short first-person sentence saying what you're trying (e.g. "Trying consensus-adjacent terms…"). Keep lines brief and factual — no opinions, no recommendations, no commentary on the items themselves.
+
+Finish by calling present_results exactly once: a single plain sentence stating what was found, and the item ids ordered most relevant first. If nothing matched after real attempts, present an empty list and say briefly what you tried.
 `;
 
 export async function POST(request: Request) {
@@ -45,9 +49,9 @@ export async function POST(request: Request) {
     search_items: tool({
       // Same tool as the MCP server's search_items (shared code path), so the
       // agent is exactly as powerful: case-insensitive POSIX regex over title,
-      // url, and notes, returning full item fields + the tags + which fields hit.
+      // url, and notes, returning full item fields + which fields hit.
       description:
-        "PREFERRED tool for finding items by content. Use whenever the user asks for items matching a word, phrase, domain, or pattern. POSIX regex via Postgres `~`/`~*`, matched against title, url, and notes (inline flashcards live in notes, so card text is covered here too). Returns each item's id, title, url, notes, tags, starred, read, createdAt, and a `matchedIn` array of which fields hit. Supports filtering by tag/read/starred, sorting, and a result limit — all applied in the database. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout.",
+        "PREFERRED tool for finding items by content. Use whenever the user asks for items matching a word, phrase, domain, or pattern. POSIX regex via Postgres `~`/`~*`, matched against title, url, and notes (inline flashcards live in notes, so card text is covered here too). Returns each item's id, title, url, notes, starred, read, createdAt, and a `matchedIn` array of which fields hit. Supports filtering by read/starred, sorting, and a result limit — all applied in the database. Case-insensitive by default. Capped at 100 results and a 10s server-side timeout.",
       inputSchema: z.object({
         pattern: z
           .string()
@@ -59,12 +63,6 @@ export async function POST(request: Request) {
           .optional()
           .describe(
             "If true, use a case-sensitive match (`~` instead of `~*`).",
-          ),
-        tag: z
-          .string()
-          .optional()
-          .describe(
-            "Only return items carrying this exact tag (case-insensitive). Tag names appear in each result's `tags`, so search once to discover them, then refine.",
           ),
         read: z
           .boolean()
@@ -92,19 +90,10 @@ export async function POST(request: Request) {
           .optional()
           .describe("Max items to return (1–100). Default 100."),
       }),
-      execute: async ({
-        pattern,
-        caseSensitive,
-        tag,
-        read,
-        starred,
-        sort,
-        limit,
-      }) =>
+      execute: async ({ pattern, caseSensitive, read, starred, sort, limit }) =>
         withUser(userId, (tx) =>
-          searchItemsWithTags(tx, userId, pattern, {
+          searchMcpItems(tx, userId, pattern, {
             caseSensitive,
-            tag,
             read,
             starred,
             sort,

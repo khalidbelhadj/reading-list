@@ -66,7 +66,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NEXT_PUBLIC_DEV_BANNER": JSON.stringify(
         process.env.NEXT_PUBLIC_DEV_BANNER ?? "",
       ),
-      // Stamp the moment of the build so /debug/version can report it.
+      // Stamp the moment of the build so /version can report it.
       "process.env.BUILD_TIME": JSON.stringify(new Date().toISOString()),
     },
   };

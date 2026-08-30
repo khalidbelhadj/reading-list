@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { NonIdealState } from "@/components/ui/non-ideal-state";
+import { Button } from "@/components/system/button";
+import { NonIdealState } from "@/components/system/non-ideal-state";
 
 const ReturnToApp = () => {
   const { code, next } = Route.useSearch();
@@ -46,7 +46,11 @@ const ReturnToApp = () => {
           : "Opening Reading List…"
       }
       actions={
-        <Button nativeButton={false} render={<a href={deepLink} />}>
+        <Button
+          variant="primary"
+          nativeButton={false}
+          render={<a href={deepLink} />}
+        >
           Open Reading List
         </Button>
       }

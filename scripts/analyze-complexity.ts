@@ -95,16 +95,14 @@ const walkFiles = (dir: string, acc: string[]) => {
 /** Group label used to cluster files in the treemap (the immediate meaningful folder). */
 const groupOf = (rel: string): string => {
   const parts = rel.split("/");
-  if (parts[0] === "components" && parts[1] === "items-list")
-    return "components/items-list";
-  if (parts[0] === "components" && parts[1] === "ui") return "components/ui";
-  if (parts[0] === "components" && parts[1] === "flashcards")
-    return "components/flashcards";
+  if (parts[0] === "components" && parts[1] === "system")
+    return "components/system";
+  if (parts[0] === "components" && parts[1] === "app") return "components/app";
+  if (parts[0] === "components" && parts[1] === "shell")
+    return "components/shell";
   if (parts[0] === "components") return "components";
   if (parts[0] === "app" && parts[1] === "actions") return "app/actions";
   if (parts[0] === "app" && parts[1] === "api") return "app/api";
-  if (parts[0] === "app" && parts[1] === "debug") return "app/debug";
-  if (parts[0] === "app" && parts[1] === "review") return "app/review";
   if (parts[0] === "app") return "app";
   return parts[0] ?? rel;
 };

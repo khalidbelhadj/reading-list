@@ -13,7 +13,6 @@ export type McpItem = {
   notes: string | null;
   starred: boolean;
   read: boolean;
-  tags: string[];
   createdAt: string;
 };
 
@@ -42,23 +41,21 @@ type ItemSource = {
   createdAt: string;
 };
 
-export const toMcpItem = (item: ItemSource, tags: string[]): McpItem => ({
+export const toMcpItem = (item: ItemSource): McpItem => ({
   id: item.id,
   title: item.title,
   url: item.url,
   notes: item.notes,
   starred: item.starred,
   read: item.read,
-  tags,
   createdAt: item.createdAt,
 });
 
 export const toMcpSearchItem = (
   item: ItemSource,
-  tags: string[],
   matchedIn: McpSearchMatch[],
 ): McpSearchItem => ({
-  ...toMcpItem(item, tags),
+  ...toMcpItem(item),
   matchedIn,
 });
 
@@ -134,9 +131,4 @@ export type SearchFlashcardsResponse = {
     itemTitle: string | null;
     matchedIn: ("front" | "back" | "item_title")[];
   }>;
-};
-
-export type DeleteTagResponse = {
-  deleted: boolean;
-  name: string;
 };

@@ -1,9 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import Image from "@/components/ui/image";
-import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/system/button";
+import { Input } from "@/components/system/input";
+import { Spinner } from "@/components/system/spinner";
 import { isElectron } from "@/lib/platform";
 import { createClient } from "@/lib/supabase/client";
 
@@ -124,7 +123,7 @@ export const LoginForm = ({
       </div>
       <div className="flex w-full items-center gap-2">
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={handleGoogleLogin}
           disabled={isLoading}
           className="w-full"
@@ -132,12 +131,11 @@ export const LoginForm = ({
           {isLoading ? (
             <Spinner className="size-3.5" />
           ) : (
-            <Image
+            <img
               src="/google.svg"
               alt=""
               width={14}
               height={14}
-              unoptimized
               className="size-3.5"
             />
           )}
@@ -184,7 +182,7 @@ export const LoginForm = ({
             </label>
             <Button
               type="submit"
-              variant="outline"
+              variant="secondary"
               disabled={isEmailLoading || !email || !password}
               className="w-full"
             >

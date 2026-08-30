@@ -1,20 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { type db, type Tx } from "@/db";
-import { flashcards, items, itemsTags } from "@/db/schema";
-import { enqueueItems } from "@/lib/extract/worker.server";
+import { flashcards, items } from "@/db/schema";
 import { syncFlashcardsFromNotes } from "@/lib/flashcard-sync.server";
-import {
-  ensureTagsLinkedForItems,
-  pruneOrphanTags,
-  syncItemTags,
-} from "@/lib/tags.server";
 import { normalizeUrl } from "@/lib/url";
 
 export type CreateItemInput = {
   title: string;
   url: string;
-  tagNames?: string[];
   faviconUrl?: string;
   notes?: string;
   id?: string;
@@ -48,27 +41,6 @@ export const createItems = async (
     })),
   );
 
-  // Group items by identical tag sets so we ensure each unique set once
-  const byTagSet = new Map<string, { itemIds: string[]; tagNames: string[] }>();
-  for (const { input, id } of withIds) {
-    const tagNames = input.tagNames ?? [];
-    if (tagNames.length === 0) continue;
-    const key = JSON.stringify(Array.from(new Set(tagNames)).sort());
-    const bucket = byTagSet.get(key);
-    if (bucket) {
-      bucket.itemIds.push(id);
-    } else {
-      byTagSet.set(key, { itemIds: [id], tagNames });
-    }
-  }
-  for (const { itemIds, tagNames } of byTagSet.values()) {
-    await ensureTagsLinkedForItems(tx, userId, itemIds, tagNames);
-  }
-
-  // Queue only — the indexer loop picks these up on its next pass. Nothing
-  // here starts a worker, because one is already running.
-  await enqueueItems(tx, userId, ids);
-
   return ids;
 };
 
@@ -80,7 +52,6 @@ export type UpdateItemFields = {
   notes?: string;
   read?: boolean;
   hiddenFromReview?: boolean;
-  tagNames?: string[];
 };
 
 const updateItem = async (
@@ -99,7 +70,12 @@ const updateItem = async (
   const set: Partial<typeof items.$inferInsert> = {
     updatedAt: now,
     ...(fields.title !== undefined && { title: fields.title }),
-    ...(fields.url !== undefined && { url: fields.url }),
+    // Normalize exactly like createItems, so an edited URL can't dodge the
+    // duplicate check that compares against stored (normalized) urls. Empty
+    // string means "remove the link" and passes through.
+    ...(fields.url !== undefined && {
+      url: fields.url === "" ? "" : (normalizeUrl(fields.url) ?? fields.url),
+    }),
     ...(fields.faviconUrl !== undefined && { faviconUrl: fields.faviconUrl }),
     ...(fields.starred !== undefined && { starred: fields.starred }),
     ...(fields.notes !== undefined && { notes: fields.notes }),
@@ -113,17 +89,6 @@ const updateItem = async (
     .update(items)
     .set(set)
     .where(and(eq(items.id, itemId), eq(items.userId, userId)));
-
-  if (fields.tagNames !== undefined) {
-    await syncItemTags(tx, userId, itemId, fields.tagNames);
-  }
-
-  // A changed URL means the stored text describes the wrong page, so it has
-  // to go: a re-queued row with text still on it skips extraction entirely
-  // and would re-embed the old article under the new URL.
-  if (fields.url !== undefined && fields.url !== "") {
-    await enqueueItems(tx, userId, [itemId], { discardText: true });
-  }
 
   return true;
 };
@@ -171,14 +136,6 @@ export const deleteItems = async (
 
   if (ownedIds.length === 0) return { deleted: [], notFound };
 
-  const affectedTagIds = (
-    await tx
-      .select({ tagId: itemsTags.tagId })
-      .from(itemsTags)
-      .where(inArray(itemsTags.itemId, ownedIds))
-  ).map((r) => r.tagId);
-
-  await tx.delete(itemsTags).where(inArray(itemsTags.itemId, ownedIds));
   await tx
     .delete(flashcards)
     .where(
@@ -187,8 +144,6 @@ export const deleteItems = async (
   await tx
     .delete(items)
     .where(and(inArray(items.id, ownedIds), eq(items.userId, userId)));
-
-  await pruneOrphanTags(tx, userId, affectedTagIds);
 
   return { deleted: ownedIds, notFound };
 };

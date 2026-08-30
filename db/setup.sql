@@ -5,9 +5,7 @@
 -- indexes, row-level security, per-user policies, role grants, and the
 -- cross-device Realtime sync trigger — lives here because push never touches
 -- it. This file is the source of truth for the database's security and sync
--- layer; the old numbered drizzle/*.sql migration history was removed because
--- the project uses push (reconcile), not migrate (replay), so those files were
--- never applied and had drifted out of sync with the live schema.
+-- layer.
 --
 -- Idempotent: every statement is CREATE ... IF NOT EXISTS, ENABLE (no-op if
 -- already on), or DROP POLICY IF EXISTS ... CREATE. Safe to re-run.
@@ -24,10 +22,8 @@ BEGIN;
 -- ---------------------------------------------------------------------------
 -- 1. Extensions
 -- ---------------------------------------------------------------------------
--- Trigram similarity powers MCP search (lib/trigram.ts).
+-- Trigram similarity powers fuzzy search (lib/search.server.ts).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
--- pgvector powers the semantic index (item_content.embedding, item_chunks).
-CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------------------
 -- 2. Trigram (GIN) search indexes
@@ -41,23 +37,6 @@ CREATE INDEX IF NOT EXISTS flashcards_front_trgm_idx
 CREATE INDEX IF NOT EXISTS flashcards_back_trgm_idx
   ON public.flashcards USING gin (back gin_trgm_ops);
 
--- Approximate nearest-neighbor index for semantic search over chunks.
--- (The item-level embedding on item_content is scanned exactly — corpus-scale
--- rows don't need an ANN index there.)
---
--- The index covers `embedding` alone, so both the user_id and model filters
--- are post-filters over its candidate set. lib/extract/vector-search.server.ts
--- turns on pgvector's iterative scan so a filtered query still fills its LIMIT.
-CREATE INDEX IF NOT EXISTS item_chunks_embedding_hnsw_idx
-  ON public.item_chunks USING hnsw (embedding vector_cosine_ops);
-
--- Every search filters chunks to one model's corpus (vectors from different
--- models are not comparable), so that predicate needs an index of its own.
-CREATE INDEX IF NOT EXISTS item_chunks_user_model_idx
-  ON public.item_chunks (user_id, model);
-CREATE INDEX IF NOT EXISTS item_content_model_idx
-  ON public.item_content (user_id, embedding_model);
-
 -- ---------------------------------------------------------------------------
 -- 3. Grants for the `authenticated` role used by withUser() (db/index.ts)
 -- ---------------------------------------------------------------------------
@@ -66,49 +45,21 @@ CREATE INDEX IF NOT EXISTS item_content_model_idx
 -- and so the security layer is legible in one place.
 GRANT USAGE ON SCHEMA public TO authenticated;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.items           TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.tags            TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.items_tags      TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.flashcards      TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_sessions TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.card_reviews    TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_events   TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings   TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_content    TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_chunks     TO authenticated;
--- public.app_settings is deliberately absent: it holds app-global config (the
--- active embedding model), is read and written only over the owner connection,
--- and has no user_id to write an RLS policy against. No grant is the policy.
-
-GRANT USAGE, SELECT ON SEQUENCE public.tags_id_seq          TO authenticated;
-GRANT USAGE, SELECT ON SEQUENCE public.review_events_id_seq TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.items         TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.flashcards    TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. Enable row-level security
 -- ---------------------------------------------------------------------------
--- ENABLE on every user table. FORCE (RLS applies even to the table owner) is
--- set only on the four core content tables — this matches the current live
--- state; review_* and user_settings are enabled-but-not-forced. The app never
--- connects as the owner (it runs as `authenticated`), so FORCE does not change
--- request-path behavior; forcing the remaining tables for consistency is a
--- safe future tightening.
-ALTER TABLE public.items           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.items           FORCE  ROW LEVEL SECURITY;
-ALTER TABLE public.tags            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tags            FORCE  ROW LEVEL SECURITY;
-ALTER TABLE public.items_tags      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.items_tags      FORCE  ROW LEVEL SECURITY;
-ALTER TABLE public.flashcards      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.flashcards      FORCE  ROW LEVEL SECURITY;
-ALTER TABLE public.review_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.card_reviews    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.review_events   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_settings   ENABLE ROW LEVEL SECURITY;
--- Enabled but not FORCEd: the extraction worker (lib/extract/worker.server.ts)
--- claims pending rows across users on the owner connection, same rationale as
--- review_* above.
-ALTER TABLE public.item_content    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.item_chunks     ENABLE ROW LEVEL SECURITY;
+-- The app never connects as the owner (it runs as `authenticated`), so FORCE
+-- does not change request-path behavior; it just closes the owner loophole.
+ALTER TABLE public.items         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.items         FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.flashcards    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.flashcards    FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_settings FORCE  ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------
 -- 5. Owner-only policies (DROP-then-CREATE for idempotency)
@@ -128,41 +79,6 @@ CREATE POLICY "items_update_own" ON public.items
 CREATE POLICY "items_delete_own" ON public.items
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
--- tags
-DROP POLICY IF EXISTS "tags_select_own" ON public.tags;
-DROP POLICY IF EXISTS "tags_insert_own" ON public.tags;
-DROP POLICY IF EXISTS "tags_update_own" ON public.tags;
-DROP POLICY IF EXISTS "tags_delete_own" ON public.tags;
-CREATE POLICY "tags_select_own" ON public.tags
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "tags_insert_own" ON public.tags
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "tags_update_own" ON public.tags
-  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "tags_delete_own" ON public.tags
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- items_tags (ownership derived through the parent item / tag)
-DROP POLICY IF EXISTS "items_tags_select_own" ON public.items_tags;
-DROP POLICY IF EXISTS "items_tags_insert_own" ON public.items_tags;
-DROP POLICY IF EXISTS "items_tags_delete_own" ON public.items_tags;
-CREATE POLICY "items_tags_select_own" ON public.items_tags
-  FOR SELECT TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM public.items i WHERE i.id = items_tags.item_id AND i.user_id = auth.uid())
-  );
-CREATE POLICY "items_tags_insert_own" ON public.items_tags
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM public.items i WHERE i.id = items_tags.item_id AND i.user_id = auth.uid())
-    AND EXISTS (SELECT 1 FROM public.tags t WHERE t.id = items_tags.tag_id AND t.user_id = auth.uid())
-  );
-CREATE POLICY "items_tags_delete_own" ON public.items_tags
-  FOR DELETE TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM public.items i WHERE i.id = items_tags.item_id AND i.user_id = auth.uid())
-  );
-
 -- flashcards
 DROP POLICY IF EXISTS "flashcards_select_own" ON public.flashcards;
 DROP POLICY IF EXISTS "flashcards_insert_own" ON public.flashcards;
@@ -175,45 +91,6 @@ CREATE POLICY "flashcards_insert_own" ON public.flashcards
 CREATE POLICY "flashcards_update_own" ON public.flashcards
   FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY "flashcards_delete_own" ON public.flashcards
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- review_sessions
-DROP POLICY IF EXISTS "review_sessions_select_own" ON public.review_sessions;
-DROP POLICY IF EXISTS "review_sessions_insert_own" ON public.review_sessions;
-DROP POLICY IF EXISTS "review_sessions_update_own" ON public.review_sessions;
-DROP POLICY IF EXISTS "review_sessions_delete_own" ON public.review_sessions;
-CREATE POLICY "review_sessions_select_own" ON public.review_sessions
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "review_sessions_insert_own" ON public.review_sessions
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "review_sessions_update_own" ON public.review_sessions
-  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "review_sessions_delete_own" ON public.review_sessions
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- card_reviews
-DROP POLICY IF EXISTS "card_reviews_select_own" ON public.card_reviews;
-DROP POLICY IF EXISTS "card_reviews_insert_own" ON public.card_reviews;
-DROP POLICY IF EXISTS "card_reviews_update_own" ON public.card_reviews;
-DROP POLICY IF EXISTS "card_reviews_delete_own" ON public.card_reviews;
-CREATE POLICY "card_reviews_select_own" ON public.card_reviews
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "card_reviews_insert_own" ON public.card_reviews
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "card_reviews_update_own" ON public.card_reviews
-  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "card_reviews_delete_own" ON public.card_reviews
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- review_events (append-only: no UPDATE policy)
-DROP POLICY IF EXISTS "review_events_select_own" ON public.review_events;
-DROP POLICY IF EXISTS "review_events_insert_own" ON public.review_events;
-DROP POLICY IF EXISTS "review_events_delete_own" ON public.review_events;
-CREATE POLICY "review_events_select_own" ON public.review_events
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "review_events_insert_own" ON public.review_events
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "review_events_delete_own" ON public.review_events
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
 -- user_settings
@@ -230,34 +107,6 @@ CREATE POLICY "user_settings_update_own" ON public.user_settings
 CREATE POLICY "user_settings_delete_own" ON public.user_settings
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
--- item_content
-DROP POLICY IF EXISTS "item_content_select_own" ON public.item_content;
-DROP POLICY IF EXISTS "item_content_insert_own" ON public.item_content;
-DROP POLICY IF EXISTS "item_content_update_own" ON public.item_content;
-DROP POLICY IF EXISTS "item_content_delete_own" ON public.item_content;
-CREATE POLICY "item_content_select_own" ON public.item_content
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "item_content_insert_own" ON public.item_content
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "item_content_update_own" ON public.item_content
-  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "item_content_delete_own" ON public.item_content
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- item_chunks
-DROP POLICY IF EXISTS "item_chunks_select_own" ON public.item_chunks;
-DROP POLICY IF EXISTS "item_chunks_insert_own" ON public.item_chunks;
-DROP POLICY IF EXISTS "item_chunks_update_own" ON public.item_chunks;
-DROP POLICY IF EXISTS "item_chunks_delete_own" ON public.item_chunks;
-CREATE POLICY "item_chunks_select_own" ON public.item_chunks
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "item_chunks_insert_own" ON public.item_chunks
-  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "item_chunks_update_own" ON public.item_chunks
-  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "item_chunks_delete_own" ON public.item_chunks
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
 -- ---------------------------------------------------------------------------
 -- 6. Cross-device sync: broadcast-from-database Realtime trigger
 -- ---------------------------------------------------------------------------
@@ -269,10 +118,9 @@ CREATE POLICY "item_chunks_delete_own" ON public.item_chunks
 -- postgres_changes, so no publication setup is needed.
 --
 -- SECURITY INVOKER (the default): app writes run as `authenticated` inside
--- withUser(), so auth.uid() is set and the items_tags -> items ownership
--- lookup passes RLS. realtime.send() is also SECURITY INVOKER, so its INSERT
--- into realtime.messages is RLS-checked and needs the "items_sync_send_own"
--- policy below to emit at all.
+-- withUser(), so auth.uid() is set. realtime.send() is also SECURITY INVOKER,
+-- so its INSERT into realtime.messages is RLS-checked and needs the
+-- "items_sync_send_own" policy below to emit at all.
 CREATE OR REPLACE FUNCTION public.items_sync_notify()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -281,16 +129,7 @@ AS $func$
 DECLARE
   sync_user_id uuid;
 BEGIN
-  -- items_tags has no user_id column; derive the owner from the parent item.
-  -- On cascade deletes the parent row is already gone — that's fine, the
-  -- items trigger broadcasts for the same transaction.
-  IF TG_TABLE_NAME = 'items_tags' THEN
-    IF TG_OP = 'DELETE' THEN
-      SELECT i.user_id INTO sync_user_id FROM public.items i WHERE i.id = OLD.item_id;
-    ELSE
-      SELECT i.user_id INTO sync_user_id FROM public.items i WHERE i.id = NEW.item_id;
-    END IF;
-  ELSIF TG_OP = 'DELETE' THEN
+  IF TG_OP = 'DELETE' THEN
     sync_user_id := OLD.user_id;
   ELSE
     sync_user_id := NEW.user_id;
@@ -330,24 +169,9 @@ CREATE TRIGGER items_sync_notify
   AFTER INSERT OR UPDATE OR DELETE ON public.items
   FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
 
-DROP TRIGGER IF EXISTS items_sync_notify ON public.tags;
-CREATE TRIGGER items_sync_notify
-  AFTER INSERT OR UPDATE OR DELETE ON public.tags
-  FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
-
-DROP TRIGGER IF EXISTS items_sync_notify ON public.items_tags;
-CREATE TRIGGER items_sync_notify
-  AFTER INSERT OR UPDATE OR DELETE ON public.items_tags
-  FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
-
 DROP TRIGGER IF EXISTS items_sync_notify ON public.flashcards;
 CREATE TRIGGER items_sync_notify
   AFTER INSERT OR UPDATE OR DELETE ON public.flashcards
-  FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
-
-DROP TRIGGER IF EXISTS items_sync_notify ON public.item_content;
-CREATE TRIGGER items_sync_notify
-  AFTER INSERT OR UPDATE OR DELETE ON public.item_content
   FOR EACH ROW EXECUTE FUNCTION public.items_sync_notify();
 
 -- Let each user SEND broadcasts on their own private topic. realtime.send()

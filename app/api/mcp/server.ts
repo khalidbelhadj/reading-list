@@ -4,11 +4,11 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { withUser } from "@/db";
-import { flashcards, items, tags } from "@/db/schema";
+import { flashcards, items } from "@/db/schema";
 import { getCurrentUserIdFromRequest, UnauthorizedError } from "@/lib/auth";
 import {
   createItems as createItemsLib,
@@ -19,7 +19,6 @@ import { ActionError } from "@/lib/safe-action";
 import {
   mcpCreateItemsSchema,
   mcpDeleteItemsSchema,
-  mcpDeleteTagSchema,
   mcpGetFlashcardsSchema,
   mcpGetItemSchema,
   mcpGetItemsSchema,
@@ -29,13 +28,11 @@ import {
   parseInput,
 } from "@/lib/schemas";
 import { searchFlashcards } from "@/lib/search.server";
-import { deleteTagById } from "@/lib/tags.server";
 
-import { searchItemsWithTags } from "./search";
+import { searchMcpItems } from "./search";
 import {
   type CreateItemsResponse,
   type DeleteItemsResponse,
-  type DeleteTagResponse,
   type GetFlashcardsResponse,
   type GetItemResponse,
   type GetItemsResponse,
@@ -102,11 +99,10 @@ const defineTool = <S extends z.ZodTypeAny>(def: {
 const TOOLS: Record<string, McpTool> = {
   get_items: defineTool({
     description:
-      "Browse items in creation order (newest first) — use this only when you need everything, or items filtered by tag. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports limit and offset for pagination.",
+      "Browse items in creation order (newest first) — use this only when you need everything. DO NOT use get_items to find items by content; if the user is asking for items matching a word, phrase, regex, or domain (e.g. 'items about rust', 'YouTube links', 'anything mentioning auth'), use search_items instead. Paginating get_items to filter is wasteful and may miss matches in notes/flashcards. Supports limit and offset for pagination.",
     inputSchema: {
       type: "object",
       properties: {
-        tag: { type: "string", description: "Filter by tag name" },
         limit: {
           type: "number",
           description:
@@ -121,28 +117,24 @@ const TOOLS: Record<string, McpTool> = {
     },
     schema: mcpGetItemsSchema,
     handle: async (parsed, userId) => {
-      const allItems = await withUser(userId, (tx) =>
-        tx.query.items.findMany({
-          where: eq(items.userId, userId),
-          orderBy: [desc(items.createdAt)],
-          with: { itemsTags: { with: { tag: true } } },
-        }),
-      );
-      let result = allItems.map((item) =>
-        toMcpItem(
-          item,
-          item.itemsTags.map((t) => t.tag.name),
-        ),
-      );
-      if (parsed.tag)
-        result = result.filter((i) => i.tags.includes(parsed.tag!));
-      const total = result.length;
       const offset = parsed.offset ?? 0;
-      if (offset > 0) result = result.slice(offset);
-      if (parsed.limit) result = result.slice(0, parsed.limit);
+      const [rows, [count]] = await withUser(userId, (tx) =>
+        Promise.all([
+          tx.query.items.findMany({
+            where: eq(items.userId, userId),
+            orderBy: [desc(items.createdAt)],
+            offset,
+            ...(parsed.limit !== undefined && { limit: parsed.limit }),
+          }),
+          tx
+            .select({ total: sql<number>`count(*)::int` })
+            .from(items)
+            .where(eq(items.userId, userId)),
+        ]),
+      );
       return jsonText<GetItemsResponse>({
-        items: result,
-        total,
+        items: rows.map(toMcpItem),
+        total: count?.total ?? 0,
         offset,
         limit: parsed.limit ?? null,
       });
@@ -167,17 +159,11 @@ const TOOLS: Record<string, McpTool> = {
       const [item] = await withUser(userId, (tx) =>
         tx.query.items.findMany({
           where: condition,
-          with: { itemsTags: { with: { tag: true } } },
           limit: 1,
         }),
       );
       if (!item) return text("Not found");
-      return jsonText<GetItemResponse>(
-        toMcpItem(
-          item,
-          item.itemsTags.map((t) => t.tag.name),
-        ),
-      );
+      return jsonText<GetItemResponse>(toMcpItem(item));
     },
   }),
 
@@ -206,7 +192,7 @@ const TOOLS: Record<string, McpTool> = {
       const caseSensitive = parsed.caseSensitive ?? false;
       try {
         const results = await withUser(userId, (tx) =>
-          searchItemsWithTags(tx, userId, parsed.pattern, { caseSensitive }),
+          searchMcpItems(tx, userId, parsed.pattern, { caseSensitive }),
         );
 
         return jsonText<SearchItemsResponse>({
@@ -237,11 +223,6 @@ const TOOLS: Record<string, McpTool> = {
             properties: {
               title: { type: "string" },
               url: { type: "string" },
-              tagNames: {
-                type: "array",
-                items: { type: "string" },
-                default: [],
-              },
               notes: { type: "string" },
             },
             required: ["title", "url"],
@@ -276,7 +257,6 @@ const TOOLS: Record<string, McpTool> = {
               notes: { type: "string" },
               starred: { type: "boolean" },
               read: { type: "boolean" },
-              tagNames: { type: "array", items: { type: "string" } },
             },
             required: ["id"],
           },
@@ -395,33 +375,6 @@ const TOOLS: Record<string, McpTool> = {
         if (message) return text(message);
         throw e;
       }
-    },
-  }),
-
-  delete_tag: defineTool({
-    description:
-      "Delete a tag by name. Removes the tag from every item that uses it (items themselves are kept). Returns `deleted: false` if no tag with that name exists for the user.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: "Tag name to delete (exact match, case-sensitive).",
-        },
-      },
-      required: ["name"],
-    },
-    schema: mcpDeleteTagSchema,
-    handle: async (parsed, userId) => {
-      const deleted = await withUser(userId, async (tx) => {
-        const [tag] = await tx
-          .select({ id: tags.id })
-          .from(tags)
-          .where(and(eq(tags.userId, userId), eq(tags.name, parsed.name)));
-        if (!tag) return false;
-        return deleteTagById(tx, userId, tag.id);
-      });
-      return jsonText<DeleteTagResponse>({ deleted, name: parsed.name });
     },
   }),
 };

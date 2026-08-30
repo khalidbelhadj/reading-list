@@ -6,7 +6,6 @@
 //
 //   isElectron()     imperative code — handlers, effects, plain modules
 //   useIsElectron()  render-time gating inside a component
-//   <ElectronOnly>   gating a whole subtree or page (components/electron-only)
 //
 // CSS gates on `html.electron` instead (also set by the preload) — see the
 // electron-top-bar-inset block in app/globals.css.

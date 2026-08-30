@@ -1,7 +1,7 @@
 // Null-rendering watcher for the global side effects driven by settings:
 // applies the theme class to <html> (tracking the system dark media query
-// while theme="system") and toggles the full-width class. Mounted once in
-// the root route; the theme bootstrap script handles first paint.
+// while theme="system"). Mounted once in the root route; the theme bootstrap
+// script handles first paint.
 import React from "react";
 
 import { useSettings } from "@/lib/use-settings";
@@ -18,7 +18,7 @@ const applyTheme = (theme: ThemeKey) => {
 
 export const SettingsEffects = () => {
   const { settings } = useSettings();
-  const { theme, fullWidth } = settings;
+  const { theme } = settings;
 
   // Apply theme to <html>. Watches both settings.theme and the system dark
   // media query so "system" tracks OS changes without a manual toggle.
@@ -30,10 +30,6 @@ export const SettingsEffects = () => {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [theme]);
-
-  React.useEffect(() => {
-    document.documentElement.classList.toggle("full-width", fullWidth);
-  }, [fullWidth]);
 
   return null;
 };

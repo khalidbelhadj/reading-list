@@ -18,12 +18,6 @@ export const withCurrentUser = async <T>(
   return withUser(userId, (tx) => fn(tx, userId), label);
 };
 
-// Auth gate for actions that discard the user id (e.g. cross-user pipeline
-// controls): any signed-in user may call, nobody else.
-export const requireAuth = async (): Promise<void> => {
-  await getCurrentUserId();
-};
-
 // Join condition for enriching flashcards with their (user-owned) item via
 // leftJoin — orphan cards survive as null item columns.
 export const flashcardItemJoin = (userId: string): SQL =>

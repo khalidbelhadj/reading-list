@@ -11,17 +11,6 @@ import {
   serializeCookieHeader,
 } from "@supabase/ssr";
 
-import { startIndexer } from "@/lib/extract/worker.server";
-
-// The indexer is started here as well as from app/server.ts because that entry
-// is only used by the production server — `vite dev` never evaluates it, so in
-// development the loop would simply never run, and the queue would look
-// mysteriously stuck. This module is server-only, dynamically imported, and
-// evaluated exactly once per process in every environment, which makes it the
-// one place that reliably means "the server is up". startIndexer is idempotent,
-// so being called from both is fine.
-startIndexer();
-
 // Per-request CSP nonce. TanStack Start streams its hydration payload via
 // inline <script> tags whose bodies change per request, so static hashes
 // can't cover them. The router is given the nonce (see app/router.tsx), so
@@ -49,17 +38,12 @@ const buildCsp = (nonce: string): string => {
     // Schemeless sources only match http(s) — wss: must be listed explicitly
     // or the browser blocks Supabase Realtime's WebSocket.
     `connect-src 'self' *.supabase.co wss://*.supabase.co${devConnect}`,
-    // https:: the in-app viewer (/read/:itemId) embeds the item's real page
-    // in an iframe pane (mini browser) plus the youtube-nocookie player;
-    // frames are sandboxed at the element level in components/viewer/.
-    "frame-src 'self' accounts.google.com https:",
+    "frame-src 'self' accounts.google.com",
     "frame-ancestors 'none'",
     "form-action 'self' accounts.google.com",
     "base-uri 'self'",
     "object-src 'none'",
-    // pdf.js renders in a worker (custom PDF viewer); vite serves it same-
-    // origin in prod and may wrap it in a blob in dev.
-    "worker-src 'self' blob:",
+    "worker-src 'self'",
   ];
   return directives.join("; ");
 };
@@ -204,17 +188,7 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
   // CORS + auth for API routes.
   if (pathname.startsWith("/api/")) {
     const isMcp = pathname.startsWith("/api/mcp");
-    // The in-app viewer embeds the PDF proxy in a same-origin <iframe>; the
-    // blanket X-Frame-Options: DENY would make the browser refuse our own
-    // response (ERR_BLOCKED_BY_RESPONSE).
-    const securityHeaders =
-      pathname === "/api/proxy-pdf"
-        ? {
-            ...SECURITY_HEADERS,
-            "X-Frame-Options": "SAMEORIGIN",
-            "Content-Security-Policy": "frame-ancestors 'self'",
-          }
-        : SECURITY_HEADERS;
+    const securityHeaders = SECURITY_HEADERS;
 
     if (request.method === "OPTIONS") {
       return new Response(null, {

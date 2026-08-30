@@ -31,20 +31,13 @@ const readCache = (): Settings => {
     const legacy: SettingsPatch = {};
     const theme = localStorage.getItem("theme");
     if (theme === "light" || theme === "dark") legacy.theme = theme;
-    if (localStorage.getItem("full-width") === "1") legacy.fullWidth = true;
     const density = localStorage.getItem("view-mode");
     if (density === "compact" || density === "cozy") legacy.density = density;
     const groupBy = localStorage.getItem("groupBy");
-    if (groupBy === "none" || groupBy === "tag" || groupBy === "day") {
-      legacy.groupBy = groupBy;
-    }
+    if (groupBy === "none" || groupBy === "day") legacy.groupBy = groupBy;
     const showRead = localStorage.getItem("showRead");
     if (showRead === "true" || showRead === "false") {
       legacy.showRead = showRead === "true";
-    }
-    const tagsOpen = localStorage.getItem("tagsOpen");
-    if (tagsOpen === "true" || tagsOpen === "false") {
-      legacy.tagsOpen = tagsOpen === "true";
     }
 
     const parsed = parseSettings(legacy);
@@ -67,8 +60,8 @@ export const useSettings = () => {
     },
     initialData: readCache,
     // initialData gives us a synchronous value (no loading state). Server
-    // values arrive via the SSR prefetch in app/[[...slug]]/page.tsx on every
-    // full page load, so no per-mount refetch is needed — "always" here made
+    // values arrive via the root route's SSR loader prefetch on every full
+    // page load, so no per-mount refetch is needed — "always" here made
     // every navigation re-run getSettings (~140ms + a DB transaction each).
     // Trade-off: settings changed on another device mid-session apply on the
     // next page load rather than the next navigation.

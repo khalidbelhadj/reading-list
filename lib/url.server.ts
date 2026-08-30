@@ -131,7 +131,7 @@ const isPrivateIP = (ip: string): boolean => {
   return true;
 };
 
-export const assertPublicUrl = async (url: string): Promise<void> => {
+const assertPublicUrl = async (url: string): Promise<void> => {
   const parsed = new URL(url);
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {

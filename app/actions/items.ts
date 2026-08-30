@@ -2,9 +2,10 @@
 // goes through the createServerFn RPC layer in ./index.ts, whose handlers
 // dynamically import this file so none of it reaches the client bundle.
 // Server routes (e.g. the extension API) may call these directly.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { items } from "@/db/schema";
+import { getCurrentUserId } from "@/lib/auth";
 import { withCurrentUser } from "@/lib/db-helpers.server";
 import {
   createItems as createItemsLib,
@@ -16,10 +17,6 @@ import { getPdfUrlForItem, renderPdfFirstPage } from "@/lib/pdf-preview.server";
 import { time } from "@/lib/perf";
 import { ActionError, safeAction } from "@/lib/safe-action";
 import {
-  bulkDeleteItemsSchema,
-  bulkMarkReadSchema,
-  bulkSetStarredSchema,
-  bulkTagSchema,
   createItemSchema,
   deleteItemSchema,
   fetchPageTitleSchema,
@@ -31,7 +28,6 @@ import {
   searchItems as searchItemsQuery,
   type SearchResult,
 } from "@/lib/search.server";
-import { ensureTagsLinkedForItems } from "@/lib/tags.server";
 import { type DuplicateItem, normalizeUrl } from "@/lib/url";
 
 export const searchItems = safeAction(async function searchItems(
@@ -56,6 +52,9 @@ export const deleteItem = safeAction(async function deleteItem(itemId: string) {
 export const fetchPageTitle = safeAction(async function fetchPageTitle(
   url: string,
 ): Promise<string | null> {
+  // No data access, but this makes the server fetch a caller-supplied URL —
+  // never expose that to anonymous callers.
+  await getCurrentUserId();
   parseInput(fetchPageTitleSchema, { url });
   return fetchPageTitleForUrl(url);
 }, "Could not fetch page title. Please try again.");
@@ -66,13 +65,12 @@ export type CreateItemResult =
 export const createItem = safeAction(async function createItem(
   title: string,
   url: string,
-  tagNames: string[],
   faviconUrl?: string,
   notes?: string,
   id?: string,
   allowDuplicateUrl?: boolean,
 ): Promise<CreateItemResult> {
-  parseInput(createItemSchema, { title, url, tagNames, faviconUrl, notes, id });
+  parseInput(createItemSchema, { title, url, faviconUrl, notes, id });
   return withCurrentUser(async (tx, userId) => {
     if (!allowDuplicateUrl) {
       const normalized = normalizeUrl(url);
@@ -91,7 +89,7 @@ export const createItem = safeAction(async function createItem(
       }
     }
     const [itemId] = await createItemsLib(tx, userId, [
-      { title, url, tagNames, faviconUrl, notes, id },
+      { title, url, faviconUrl, notes, id },
     ]);
     if (itemId === undefined) {
       throw new ActionError("Failed to create item.");
@@ -110,7 +108,6 @@ export const updateItem = safeAction(async function updateItem(
     notes?: string;
     read?: boolean;
     hiddenFromReview?: boolean;
-    tagNames?: string[];
   },
 ) {
   parseInput(updateItemSchema, { itemId, fields });
@@ -132,33 +129,6 @@ export const setItemRead = safeAction(async function setItemRead(
       .where(and(eq(items.id, itemId), eq(items.userId, userId)));
   });
 }, "Could not mark item as read. Please try again.");
-
-export const bulkDeleteItems = safeAction(async function bulkDeleteItems(
-  itemIds: string[],
-) {
-  parseInput(bulkDeleteItemsSchema, { itemIds });
-  if (itemIds.length === 0) return;
-  await withCurrentUser((tx, userId) => deleteItemsLib(tx, userId, itemIds));
-}, "Could not delete items. Please try again.");
-
-export const bulkTag = safeAction(async function bulkTag(
-  itemIds: string[],
-  tagNames: string[],
-) {
-  parseInput(bulkTagSchema, { itemIds, tagNames });
-  if (itemIds.length === 0 || tagNames.length === 0) return;
-
-  await withCurrentUser(async (tx, userId) => {
-    const owned = await tx
-      .select({ id: items.id })
-      .from(items)
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-    const ownedIds = owned.map((i) => i.id);
-    if (ownedIds.length === 0) return;
-
-    await ensureTagsLinkedForItems(tx, userId, ownedIds, tagNames);
-  });
-}, "Could not tag items. Please try again.");
 
 // A title is "junk" if it's clearly a placeholder that the user would want
 // auto-corrected. Anything they've actually typed is left alone.
@@ -201,7 +171,7 @@ export const generateItemPreview = safeAction(
       const pdfUrl = await getPdfUrlForItem(item.url);
       if (!pdfUrl) {
         // Confirmed not a PDF — stamp empty string so we don't probe again on
-        // every cozy mount.
+        // every preview-row mount.
         await tx
           .update(items)
           .set({ previewImageUrl: "", updatedAt: new Date().toISOString() })
@@ -211,7 +181,8 @@ export const generateItemPreview = safeAction(
 
       const result = await renderPdfFirstPage(pdfUrl);
       // If render failed (network/timeout/oversized), leave previewImageUrl
-      // null so the next cozy mount retries. Non-PDFs already returned above.
+      // null so the next preview mount retries. Non-PDFs already returned
+      // above.
       if (!result) return null;
 
       const now = new Date().toISOString();
@@ -233,35 +204,3 @@ export const generateItemPreview = safeAction(
   },
   "Could not generate preview.",
 );
-
-export const bulkMarkRead = safeAction(async function bulkMarkRead(
-  itemIds: string[],
-  read: boolean,
-) {
-  parseInput(bulkMarkReadSchema, { itemIds, read });
-  if (itemIds.length === 0) return;
-
-  const now = new Date().toISOString();
-  await withCurrentUser(async (tx, userId) => {
-    await tx
-      .update(items)
-      .set({ read, readAt: read ? now : null, updatedAt: now })
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-  });
-}, "Could not update items. Please try again.");
-
-export const bulkSetStarred = safeAction(async function bulkSetStarred(
-  itemIds: string[],
-  starred: boolean,
-) {
-  parseInput(bulkSetStarredSchema, { itemIds, starred });
-  if (itemIds.length === 0) return;
-
-  const now = new Date().toISOString();
-  await withCurrentUser(async (tx, userId) => {
-    await tx
-      .update(items)
-      .set({ starred, updatedAt: now })
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-  });
-}, "Could not update items. Please try again.");

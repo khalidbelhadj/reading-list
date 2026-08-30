@@ -1,7 +1,7 @@
 // Pure, dependency-light parsing for inline `<card>` blocks. Shared by the
-// server-side notes→DB sync (lib/flashcard-sync.ts) and the client editor's
-// markdown-it rule (components/editor/markdown-card.ts), so it must NOT import the
-// DB or any server-only module.
+// server-side notes→DB sync (lib/flashcard-sync.server.ts) and the client
+// editor's card node (components/app/flashcard-node.tsx), so it must NOT
+// import the DB or any server-only module.
 //
 // The hard requirement is robustness against delimiter-looking text the user
 // can legitimately write inside code — `</card>` in a code block must not close
@@ -182,4 +182,70 @@ export const normalizeCardIds = (
   }
 
   return { notes: changed ? lines.join("\n") : notes, changed };
+};
+
+// A standalone structural-tag line inside a card side would corrupt the block
+// on the next parse (`</card>` would close the card early). Escape the `<`
+// with a backslash — markdown renders it as the same literal text — exactly
+// as the editor's serializer does for typed delimiter text.
+const STRUCTURAL_LINE = /^<\/?(card|front|back)\b[^>]*>$/i;
+const escapeStructuralLines = (text: string): string =>
+  text
+    .split("\n")
+    .map((line) => (STRUCTURAL_LINE.test(line.trim()) ? `\\${line}` : line))
+    .join("\n");
+
+/**
+ * Rewrite one `<card>` block's sides in a notes document, by id. Everything
+ * outside the card — and the card's own open line, id included — is preserved
+ * byte-for-byte; the body is rebuilt in canonical form. Fence-aware like every
+ * other scanner here, so card-looking text inside code blocks is never
+ * touched. Returns null when no card with that id exists (caller falls back
+ * or surfaces the miss).
+ */
+export const replaceCardInNotes = (
+  notes: string,
+  cardId: string,
+  front: string,
+  back: string,
+): string | null => {
+  const lines = notes.split("\n");
+  const getLine = (i: number) => lines[i];
+  let insideFence = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === undefined) break;
+    const trimmed = line.trim();
+    if (FENCE.test(trimmed)) {
+      insideFence = !insideFence;
+      continue;
+    }
+    if (insideFence) continue;
+
+    const openMatch = trimmed.match(CARD_OPEN);
+    if (!openMatch) continue;
+    const close = findCardClose(getLine, i + 1, lines.length);
+    if (close === -1) continue;
+
+    const idMatch = (openMatch[1] ?? "").match(ID_ATTR);
+    if (!idMatch || idMatch[1] !== cardId) {
+      i = close;
+      continue;
+    }
+
+    const body = [
+      "<front>",
+      escapeStructuralLines(front),
+      "</front>",
+      "<back>",
+      escapeStructuralLines(back),
+      "</back>",
+    ];
+    return [...lines.slice(0, i + 1), ...body, ...lines.slice(close)].join(
+      "\n",
+    );
+  }
+
+  return null;
 };

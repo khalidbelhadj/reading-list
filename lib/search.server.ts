@@ -43,7 +43,6 @@ export type SearchSort = "newest" | "oldest" | "title";
 // correct against the full match set, not a capped slice). Currently honored by
 // regex search only — that's the path the MCP/Ask `search_items` tools use.
 type SearchFilters = {
-  tag?: string;
   read?: boolean;
   starred?: boolean;
   sort?: SearchSort;
@@ -115,14 +114,6 @@ const regexSearch = async (
     filters?.starred !== undefined
       ? sql` AND i.starred = ${filters.starred}`
       : sql``;
-  const tagClause = filters?.tag
-    ? sql` AND EXISTS (
-        SELECT 1 FROM items_tags it
-        JOIN tags t ON t.id = it.tag_id
-        WHERE it.item_id = i.id AND lower(t.name) = lower(${filters.tag})
-      )`
-    : sql``;
-
   const orderBy =
     filters?.sort === "oldest"
       ? sql`m.created_at ASC`
@@ -140,7 +131,7 @@ const regexSearch = async (
         (i.url   ${op} ${pattern})               AS m_url,
         (COALESCE(i.notes, '') ${op} ${pattern}) AS m_notes
       FROM items i
-      WHERE i.user_id = ${userId}${readClause}${starredClause}${tagClause}
+      WHERE i.user_id = ${userId}${readClause}${starredClause}
     )
     SELECT
       m.id, m.title, m.url, m.notes, m.starred, m.read,

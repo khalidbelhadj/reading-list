@@ -3,36 +3,17 @@
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 
-// Short SRS interval, e.g. "30m", "5h", "2d", "3mo". Always at least "1m"
-// for non-negative intervals so "due in a few seconds" still renders.
-export const intervalShort = (dueIso: string, nowIso: string): string => {
-  const ms = new Date(dueIso).getTime() - new Date(nowIso).getTime();
+// Coarse relative age for list rows, e.g. "just now", "3h ago", "2d ago".
+export const timeAgo = (iso: string, nowIso: string): string => {
+  const ms = new Date(nowIso).getTime() - new Date(iso).getTime();
   const minutes = Math.floor(ms / MINUTE);
-  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
+  if (days < 30) return `${days}d ago`;
   const months = Math.floor(days / 30);
-  return `${months}mo`;
-};
-
-// Absolute timestamp for the item context menu, e.g. "Jun 12, 2026, 3:42 PM".
-export const absoluteTimestamp = (iso: string): string =>
-  new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-// Elapsed duration, e.g. "45s", "2m", "2m 13s".
-export const duration = (ms: number): string => {
-  const seconds = Math.floor(ms / SECOND);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
 };

@@ -1,14 +1,33 @@
 // Page-title resolution engine behind the fetchPageTitle action: YouTube
 // oEmbed, PDF title extraction, then a capped HTML fetch parsed for
 // og:title / <title>.
-import {
-  collapseWhitespace,
-  decodeHtmlEntities,
-} from "@/lib/extract/extractors.server";
 import { extractPdfTitleOnly } from "@/lib/pdf-preview.server";
+import { getPdfUrl } from "@/lib/pdf-url";
 import { readCapped, safeFetch } from "@/lib/url.server";
 
-import { getPdfUrl } from "./extract/classify";
+const fromCodePoint = (code: number): string =>
+  Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+    ? String.fromCodePoint(code)
+    : "";
+
+const decodeHtmlEntities = (value: string): string =>
+  value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
+      fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&amp;/g, "&");
+
+// Collapse runs of whitespace to single spaces and trim. Titles arrive with
+// source line wrapping that carries no meaning.
+const collapseWhitespace = (value: string): string =>
+  value.replace(/\s+/g, " ").trim();
 
 const MAX_TITLE_HTML_BYTES = 512 * 1024;
 

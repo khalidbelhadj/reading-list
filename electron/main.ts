@@ -9,6 +9,7 @@ import {
   shell,
 } from "electron";
 
+import { registerBrowserTabs } from "./browser-tabs";
 import { APP_CHANNELS } from "./channels";
 
 const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
@@ -28,10 +29,9 @@ const devPort = (() => {
 })();
 
 // Chromium's DevTools Protocol listener, dev only — packaged builds never open
-// it. It exposes *every* webContents this app creates as its own CDP target:
-// the main window, each secondary item/review window, and the viewer <webview>
-// guests. That's what lets tooling (scripts/electron-cdp.ts, chrome://inspect)
-// inspect the real desktop UI, windows and all, instead of a browser tab.
+// it. It exposes the app's webContents as CDP targets, which is what lets
+// tooling (scripts/electron-cdp.ts, chrome://inspect) inspect the real
+// desktop UI instead of a browser tab.
 //
 // The port is derived from the dev port exactly like userData is, so parallel
 // dev instances each get their own listener rather than fighting over 9222.
@@ -115,8 +115,6 @@ const trafficLightInset = (zoom: number) =>
 // Single source of truth for zoom. Applies the factor to the page, repositions
 // the traffic lights to track the scaled content, and tells the renderer so its
 // CSS can widen the toolbar's left clearance (gap = clearance / zoom).
-// Zoom is a single app-wide factor applied to every window (main and any
-// secondary item/review windows), so the whole app scales together.
 const applyZoomToWindow = (win: BrowserWindow) => {
   win.webContents.setZoomFactor(zoomFactor);
   if (process.platform === "darwin") {
@@ -154,74 +152,15 @@ const sharedWebPreferences = () => ({
   contextIsolation: true,
   nodeIntegration: false,
   sandbox: true,
-  // The in-app viewer (/read/:itemId) embeds arbitrary web pages in a
-  // <webview>. Hardened per-attach in attachWindowBehavior's
-  // will-attach-webview handler.
-  webviewTag: true,
 });
 
-// Viewer <webview> guests host third-party pages: window.open and any
-// escape-hatch navigation goes to the system browser; the guest itself may
-// browse http(s) freely (it IS a browser pane).
-const attachViewerWebviewBehavior = (contents: Electron.WebContents) => {
-  contents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) shell.openExternal(url);
-    return { action: "deny" };
-  });
-  contents.on("will-navigate", (event, url) => {
-    if (!/^https?:/i.test(url)) event.preventDefault();
-  });
-};
-
-// Per-webContents wiring shared by the main window and any secondary windows
-// the renderer opens (item windows, review windows). Registered globally via
-// app.on("web-contents-created") so child windows get the exact same
-// navigation guards, zoom handling, and dev title stamp as the main window.
+// Per-webContents wiring for the main window. Registered globally via
+// app.on("web-contents-created") so any window gets the exact same
+// navigation guards, zoom handling, and dev title stamp.
 const attachWindowBehavior = (contents: Electron.WebContents) => {
-  // Enforce guest hardening no matter what attributes the renderer put on
-  // the <webview> tag: our preload, no node, sandboxed, isolated session.
-  contents.on("will-attach-webview", (_event, webPreferences) => {
-    webPreferences.preload = path.join(__dirname, "viewer-preload.js");
-    webPreferences.nodeIntegration = false;
-    webPreferences.contextIsolation = true;
-    webPreferences.sandbox = true;
-    // Chromium's built-in PDF viewer (PDFium), for live guest pages that
-    // navigate to a raw PDF URL. A guest doesn't inherit the embedder's
-    // webPreferences, so it has to be set here rather than on the host window.
-    // (The app's own PDF pane renders via pdf.js, not this.)
-    webPreferences.plugins = true;
-  });
-
-  // window.open() — app-origin URLs become real child windows (keeping their
-  // window.opener link back to the parent, which the renderer uses to hand
-  // items back to the originating window); everything else goes to the
-  // system browser.
+  // window.open() always goes to the system browser — the app is a single
+  // window.
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAppNavigation(url)) {
-      // Dedicated single-item windows (?window=1) open narrow, framing the
-      // item's reading column rather than the full list-width app.
-      let isItemWindow = false;
-      try {
-        isItemWindow = new URL(url).searchParams.get("window") != null;
-      } catch {}
-      return {
-        action: "allow",
-        overrideBrowserWindowOptions: {
-          width: isItemWindow ? 600 : 1000,
-          height: isItemWindow ? 820 : 760,
-          minWidth: 400,
-          minHeight: 400,
-          titleBarStyle: "hiddenInset",
-          trafficLightPosition: {
-            x: trafficLightInset(zoomFactor),
-            y: trafficLightInset(zoomFactor),
-          },
-          backgroundColor: themeBg(),
-          icon: iconPath("icon.png"),
-          webPreferences: sharedWebPreferences(),
-        },
-      };
-    }
     shell.openExternal(url);
     return { action: "deny" };
   });
@@ -349,16 +288,8 @@ if (!gotLock) {
     sendDeepLink(url);
   });
 
-  // Guards + zoom + dev title for every window, including child windows the
-  // renderer opens via window.open (which never pass through createWindow).
-  // Viewer webview guests get browser-pane behavior instead — the app-origin
-  // navigation guard would otherwise eject every embedded page to the system
-  // browser.
+  // Guards + zoom + dev title for every window.
   app.on("web-contents-created", (_event, contents) => {
-    if (contents.getType() === "webview") {
-      attachViewerWebviewBehavior(contents);
-      return;
-    }
     attachWindowBehavior(contents);
   });
 
@@ -366,35 +297,43 @@ if (!gotLock) {
     shell.openExternal(url),
   );
 
-  // Raise the calling window. Used when a secondary window hands an item back
-  // to the window that opened it — the renderer can't focus a window itself.
-  ipcMain.handle(APP_CHANNELS.focusWindow, (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
-
   // Renderer reads the current zoom on mount so its toolbar clearance is
   // correct even if it remounts (HMR) after the last "zoom" broadcast.
   ipcMain.handle(APP_CHANNELS.zoomCurrent, () => zoomFactor);
 
-  // Chromium's matchMedia("(prefers-color-scheme: dark)") doesn't fire its
-  // "change" listener when the macOS appearance flips while the app is
-  // running. nativeTheme.on("updated", ...) is the authoritative signal —
-  // forward it to every renderer so the theme follows the OS live, and keep
-  // each window's background color in sync so resizes don't flash.
+  // Windows showing a translucent layout (the app shell) keep a
+  // clear background so the desktop shows through the vibrancy; a theme flip
+  // must not paint them opaque again.
+  const vibrantWindows = new WeakSet<BrowserWindow>();
+  // The vibrancy material takes its light/dark look from the native
+  // appearance, not from the page, so a dark app over a light desktop would
+  // get a light frosted sidebar with light text on it. While a window is
+  // translucent, pin the native appearance to the app's theme; release it to
+  // the OS when the translucent layout goes away.
   ipcMain.handle(
-    APP_CHANNELS.nativeThemeCurrent,
-    () => nativeTheme.shouldUseDarkColors,
+    APP_CHANNELS.setVibrancy,
+    (event, enabled: boolean, appearance?: "light" | "dark") => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
+      if (enabled) {
+        vibrantWindows.add(win);
+        nativeTheme.themeSource = appearance ?? "system";
+        win.setVibrancy("sidebar");
+        win.setBackgroundColor("#00000000");
+      } else {
+        vibrantWindows.delete(win);
+        nativeTheme.themeSource = "system";
+        win.setVibrancy(null);
+        win.setBackgroundColor(themeBg());
+      }
+    },
   );
+
+  // Keep each window's background color in sync with the OS appearance so
+  // resizes don't flash (vibrant windows stay clear — see setVibrancy).
   nativeTheme.on("updated", () => {
     for (const win of BrowserWindow.getAllWindows()) {
-      win.setBackgroundColor(themeBg());
-      win.webContents.send(
-        APP_CHANNELS.nativeTheme,
-        nativeTheme.shouldUseDarkColors,
-      );
+      if (!vibrantWindows.has(win)) win.setBackgroundColor(themeBg());
     }
   });
 
@@ -402,6 +341,10 @@ if (!gotLock) {
     if (process.platform === "darwin") {
       app.dock?.setIcon(iconPath("icon.png"));
     }
+
+    // Browser-tab visibility: polls local browsers while a renderer is
+    // subscribed and a window is focused (see electron/browser-tabs.ts).
+    registerBrowserTabs();
 
     // Custom menu so the zoom shortcuts route through setZoom (which also
     // repositions the traffic lights). Everything else reuses Electron's

@@ -2,14 +2,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import type * as flashcardsImpl from "./flashcards";
-import type * as intelligenceImpl from "./intelligence";
 import type * as itemsImpl from "./items";
-import type * as pipelineImpl from "./pipeline";
-import type * as reviewSessionImpl from "./review-session";
-import type * as reviewStatsImpl from "./review-stats";
-import type * as semanticSearchImpl from "./semantic-search";
+import type * as queriesImpl from "./queries";
+import type * as reviewImpl from "./review";
 import type * as settingsImpl from "./settings";
-import type * as tagsImpl from "./tags";
 
 // RPC layer between client code and the server-only implementations. Each
 // exported function keeps the exact signature of its implementation (callers
@@ -17,16 +13,6 @@ import type * as tagsImpl from "./tags";
 // handlers dynamically import the impl modules so db/pdf/etc. code never
 // reaches the client bundle. Thrown ActionError/UnauthorizedError messages
 // serialize across the wire, so mutation error toasts behave as before.
-
-export type {
-  BatchedReviewEvent,
-  FlashcardWithItem,
-  ReviewMode,
-  ReviewScope,
-  ReviewSessionCard,
-  ReviewSessionData,
-} from "./review-session";
-export type { ItemReviewStatus, SessionSummary } from "./review-stats";
 
 // --- items ---
 
@@ -68,36 +54,6 @@ const setItemReadFn = createServerFn({ method: "POST" })
 export const setItemRead: typeof itemsImpl.setItemRead = (...args) =>
   setItemReadFn({ data: args });
 
-const bulkDeleteItemsFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof itemsImpl.bulkDeleteItems>) => args)
-  .handler(({ data }) =>
-    import("./items").then((m) => m.bulkDeleteItems(...data)),
-  );
-export const bulkDeleteItems: typeof itemsImpl.bulkDeleteItems = (...args) =>
-  bulkDeleteItemsFn({ data: args });
-
-const bulkTagFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof itemsImpl.bulkTag>) => args)
-  .handler(({ data }) => import("./items").then((m) => m.bulkTag(...data)));
-export const bulkTag: typeof itemsImpl.bulkTag = (...args) =>
-  bulkTagFn({ data: args });
-
-const bulkMarkReadFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof itemsImpl.bulkMarkRead>) => args)
-  .handler(({ data }) =>
-    import("./items").then((m) => m.bulkMarkRead(...data)),
-  );
-export const bulkMarkRead: typeof itemsImpl.bulkMarkRead = (...args) =>
-  bulkMarkReadFn({ data: args });
-
-const bulkSetStarredFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof itemsImpl.bulkSetStarred>) => args)
-  .handler(({ data }) =>
-    import("./items").then((m) => m.bulkSetStarred(...data)),
-  );
-export const bulkSetStarred: typeof itemsImpl.bulkSetStarred = (...args) =>
-  bulkSetStarredFn({ data: args });
-
 const generateItemPreviewFn = createServerFn({ method: "POST" })
   .validator((args: Parameters<typeof itemsImpl.generateItemPreview>) => args)
   .handler(({ data }) =>
@@ -107,162 +63,18 @@ export const generateItemPreview: typeof itemsImpl.generateItemPreview = (
   ...args
 ) => generateItemPreviewFn({ data: args });
 
-// --- intelligence (extracted content, embeddings, semantic search) ---
+// --- queries ---
 
-export type {
-  ContentOverviewRow,
-  FailureGroup,
-  IndexSummary,
-  IntelligenceOverview,
-  ItemChunk,
-  ItemContentDetail,
-} from "./intelligence";
-
-const getIntelligenceOverviewFn = createServerFn({ method: "POST" }).handler(
-  () => import("./intelligence").then((m) => m.getIntelligenceOverview()),
+const fetchItemsFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./queries").then((m) => m.fetchItems()),
 );
-export const getIntelligenceOverview: typeof intelligenceImpl.getIntelligenceOverview =
-  () => getIntelligenceOverviewFn();
+export const fetchItems: typeof queriesImpl.fetchItems = () => fetchItemsFn();
 
-const getItemContentFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof intelligenceImpl.getItemContent>) => args)
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.getItemContent(...data)),
-  );
-export const getItemContent: typeof intelligenceImpl.getItemContent = (
-  ...args
-) => getItemContentFn({ data: args });
-
-const getItemChunksFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof intelligenceImpl.getItemChunks>) => args)
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.getItemChunks(...data)),
-  );
-export const getItemChunks: typeof intelligenceImpl.getItemChunks = (...args) =>
-  getItemChunksFn({ data: args });
-
-const getEmbeddingSettingsFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./intelligence").then((m) => m.getEmbeddingSettings()),
+const fetchItemPreviewsFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./queries").then((m) => m.fetchItemPreviews()),
 );
-export const getEmbeddingSettings: typeof intelligenceImpl.getEmbeddingSettings =
-  () => getEmbeddingSettingsFn();
-
-const updateEmbeddingSettingsFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof intelligenceImpl.updateEmbeddingSettings>) => args,
-  )
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.updateEmbeddingSettings(...data)),
-  );
-export const updateEmbeddingSettings: typeof intelligenceImpl.updateEmbeddingSettings =
-  (...args) => updateEmbeddingSettingsFn({ data: args });
-
-const submitLiveContentFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof intelligenceImpl.submitLiveContent>) => args,
-  )
-  .handler(({ data }) =>
-    import("./intelligence").then((m) => m.submitLiveContent(...data)),
-  );
-export const submitLiveContent: typeof intelligenceImpl.submitLiveContent = (
-  ...args
-) => submitLiveContentFn({ data: args });
-
-// --- indexer controls (pause, queue, retry) ---
-
-export type { PipelineRunState } from "./pipeline";
-
-const getPipelineRunStateFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./pipeline").then((m) => m.getPipelineRunState()),
-);
-export const getPipelineRunState: typeof pipelineImpl.getPipelineRunState =
-  () => getPipelineRunStateFn();
-
-const setPipelinePausedFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof pipelineImpl.setPipelinePaused>) => args)
-  .handler(({ data }) =>
-    import("./pipeline").then((m) => m.setPipelinePaused(...data)),
-  );
-export const setPipelinePaused: typeof pipelineImpl.setPipelinePaused = (
-  ...args
-) => setPipelinePausedFn({ data: args });
-
-const indexEverythingFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./pipeline").then((m) => m.indexEverything()),
-);
-export const indexEverything: typeof pipelineImpl.indexEverything = () =>
-  indexEverythingFn();
-
-const retryFailedItemsFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./pipeline").then((m) => m.retryFailedItems()),
-);
-export const retryFailedItems: typeof pipelineImpl.retryFailedItems = () =>
-  retryFailedItemsFn();
-
-const retryFailureReasonFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof pipelineImpl.retryFailureReason>) => args)
-  .handler(({ data }) =>
-    import("./pipeline").then((m) => m.retryFailureReason(...data)),
-  );
-export const retryFailureReason: typeof pipelineImpl.retryFailureReason = (
-  ...args
-) => retryFailureReasonFn({ data: args });
-
-const reindexItemsFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof pipelineImpl.reindexItems>) => args)
-  .handler(({ data }) =>
-    import("./pipeline").then((m) => m.reindexItems(...data)),
-  );
-export const reindexItems: typeof pipelineImpl.reindexItems = (...args) =>
-  reindexItemsFn({ data: args });
-
-const reembedForCurrentModelFn = createServerFn({ method: "POST" }).handler(
-  () => import("./pipeline").then((m) => m.reembedForCurrentModel()),
-);
-export const reembedForCurrentModel: typeof pipelineImpl.reembedForCurrentModel =
-  () => reembedForCurrentModelFn();
-
-// --- semantic search (vector queries over the embeddings) ---
-
-export type { RelatedItem, SemanticHit } from "./semantic-search";
-
-const semanticSearchFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Array<string | number | undefined>) =>
-      args as Parameters<typeof semanticSearchImpl.semanticSearch>,
-  )
-  .handler(({ data }) =>
-    import("./semantic-search").then((m) => m.semanticSearch(...data)),
-  );
-export const semanticSearch: typeof semanticSearchImpl.semanticSearch = (
-  ...args
-) => semanticSearchFn({ data: args });
-
-const getRelatedItemsFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Array<string | number | undefined>) =>
-      args as Parameters<typeof semanticSearchImpl.getRelatedItems>,
-  )
-  .handler(({ data }) =>
-    import("./semantic-search").then((m) => m.getRelatedItems(...data)),
-  );
-export const getRelatedItems: typeof semanticSearchImpl.getRelatedItems = (
-  ...args
-) => getRelatedItemsFn({ data: args });
-
-// --- tags ---
-
-const renameTagFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof tagsImpl.renameTag>) => args)
-  .handler(({ data }) => import("./tags").then((m) => m.renameTag(...data)));
-export const renameTag: typeof tagsImpl.renameTag = (...args) =>
-  renameTagFn({ data: args });
-
-const deleteTagFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof tagsImpl.deleteTag>) => args)
-  .handler(({ data }) => import("./tags").then((m) => m.deleteTag(...data)));
-export const deleteTag: typeof tagsImpl.deleteTag = (...args) =>
-  deleteTagFn({ data: args });
+export const fetchItemPreviews: typeof queriesImpl.fetchItemPreviews = () =>
+  fetchItemPreviewsFn();
 
 // --- settings ---
 
@@ -282,28 +94,11 @@ export const updateSettings: typeof settingsImpl.updateSettings = (...args) =>
 
 // --- flashcards ---
 
-const getFlashcardsFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof flashcardsImpl.getFlashcards>) => args)
-  .handler(({ data }) =>
-    import("./flashcards").then((m) => m.getFlashcards(...data)),
-  );
-export const getFlashcards: typeof flashcardsImpl.getFlashcards = (...args) =>
-  getFlashcardsFn({ data: args });
-
 const getAllFlashcardsFn = createServerFn({ method: "POST" }).handler(() =>
   import("./flashcards").then((m) => m.getAllFlashcards()),
 );
 export const getAllFlashcards: typeof flashcardsImpl.getAllFlashcards = () =>
   getAllFlashcardsFn();
-
-const createFlashcardFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof flashcardsImpl.createFlashcard>) => args)
-  .handler(({ data }) =>
-    import("./flashcards").then((m) => m.createFlashcard(...data)),
-  );
-export const createFlashcard: typeof flashcardsImpl.createFlashcard = (
-  ...args
-) => createFlashcardFn({ data: args });
 
 const updateFlashcardFn = createServerFn({ method: "POST" })
   .validator((args: Parameters<typeof flashcardsImpl.updateFlashcard>) => args)
@@ -314,103 +109,10 @@ export const updateFlashcard: typeof flashcardsImpl.updateFlashcard = (
   ...args
 ) => updateFlashcardFn({ data: args });
 
-const deleteFlashcardFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof flashcardsImpl.deleteFlashcard>) => args)
-  .handler(({ data }) =>
-    import("./flashcards").then((m) => m.deleteFlashcard(...data)),
-  );
-export const deleteFlashcard: typeof flashcardsImpl.deleteFlashcard = (
-  ...args
-) => deleteFlashcardFn({ data: args });
-
-// --- reviews (session lifecycle) ---
-
-const startReviewSessionFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewSessionImpl.startReviewSession>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.startReviewSession(...data)),
-  );
-export const startReviewSession: typeof reviewSessionImpl.startReviewSession = (
-  ...args
-) => startReviewSessionFn({ data: args });
-
-const getReviewSessionFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewSessionImpl.getReviewSession>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.getReviewSession(...data)),
-  );
-export const getReviewSession: typeof reviewSessionImpl.getReviewSession = (
-  ...args
-) => getReviewSessionFn({ data: args });
+// --- reviews ---
 
 const rateCardFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof reviewSessionImpl.rateCard>) => args)
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.rateCard(...data)),
-  );
-export const rateCard: typeof reviewSessionImpl.rateCard = (...args) =>
+  .validator((args: Parameters<typeof reviewImpl.rateCard>) => args)
+  .handler(({ data }) => import("./review").then((m) => m.rateCard(...data)));
+export const rateCard: typeof reviewImpl.rateCard = (...args) =>
   rateCardFn({ data: args });
-
-const logSessionEventFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewSessionImpl.logSessionEvent>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.logSessionEvent(...data)),
-  );
-export const logSessionEvent: typeof reviewSessionImpl.logSessionEvent = (
-  ...args
-) => logSessionEventFn({ data: args });
-
-const skipCardFn = createServerFn({ method: "POST" })
-  .validator((args: Parameters<typeof reviewSessionImpl.skipCard>) => args)
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.skipCard(...data)),
-  );
-export const skipCard: typeof reviewSessionImpl.skipCard = (...args) =>
-  skipCardFn({ data: args });
-
-const endReviewSessionFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewSessionImpl.endReviewSession>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-session").then((m) => m.endReviewSession(...data)),
-  );
-export const endReviewSession: typeof reviewSessionImpl.endReviewSession = (
-  ...args
-) => endReviewSessionFn({ data: args });
-
-// --- reviews (aggregate stats) ---
-
-const getSessionSummaryFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewStatsImpl.getSessionSummary>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-stats").then((m) => m.getSessionSummary(...data)),
-  );
-export const getSessionSummary: typeof reviewStatsImpl.getSessionSummary = (
-  ...args
-) => getSessionSummaryFn({ data: args });
-
-const getReviewStatusFn = createServerFn({ method: "POST" }).handler(() =>
-  import("./review-stats").then((m) => m.getReviewStatus()),
-);
-export const getReviewStatus: typeof reviewStatsImpl.getReviewStatus = () =>
-  getReviewStatusFn();
-
-const getItemReviewStatusFn = createServerFn({ method: "POST" })
-  .validator(
-    (args: Parameters<typeof reviewStatsImpl.getItemReviewStatus>) => args,
-  )
-  .handler(({ data }) =>
-    import("./review-stats").then((m) => m.getItemReviewStatus(...data)),
-  );
-export const getItemReviewStatus: typeof reviewStatsImpl.getItemReviewStatus = (
-  ...args
-) => getItemReviewStatusFn({ data: args });

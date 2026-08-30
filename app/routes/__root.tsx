@@ -12,11 +12,10 @@ import {
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
-import React from "react";
+import type React from "react";
 
 import { getSettings } from "@/app/actions";
 import { AuthWatcher } from "@/components/auth-watcher";
-import { DeepLinkItemWatcher } from "@/components/deep-link-item-watcher";
 import { DevBanner } from "@/components/dev-banner";
 import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
 import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
@@ -24,10 +23,8 @@ import { LocalSyncWatcher } from "@/components/local-sync-watcher";
 import { NotFound } from "@/components/not-found";
 import { RouteError } from "@/components/route-error";
 import { SettingsEffects } from "@/components/settings-effects";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { TOOLTIP_DELAY_MS } from "@/components/ui/tooltip-config";
-import { WindowMessageWatcher } from "@/components/window-message-watcher";
+import { Toaster } from "@/components/system/toast";
+import { TooltipProvider } from "@/components/system/tooltip";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 import { useDevDevtools } from "@/lib/use-dev-devtools";
 
@@ -50,24 +47,14 @@ const DevQueryDevtools = () => {
 };
 
 const RootComponent = () => {
-  // One-shot cleanup for the removed Prompts feature's localStorage entry.
-  // Safe to remove once it has shipped to all clients.
-  React.useEffect(() => {
-    try {
-      localStorage.removeItem("copy-prompts");
-    } catch {}
-  }, []);
-
   return (
     <>
       <AuthWatcher />
-      <DeepLinkItemWatcher />
-      <WindowMessageWatcher />
       <ElectronZoomWatcher />
       <ItemsSyncWatcher />
       <LocalSyncWatcher />
       <SettingsEffects />
-      <TooltipProvider delay={TOOLTIP_DELAY_MS}>
+      <TooltipProvider>
         <Outlet />
       </TooltipProvider>
       <Toaster />
@@ -101,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         ...(process.env.NODE_ENV === "development"
           ? [{ src: "http://localhost:8097" }]
           : []),
-        // Applies theme + full-width from localStorage before paint, so
+        // Applies the theme from localStorage before paint, so
         // hydration never flashes the wrong theme.
         { children: THEME_BOOTSTRAP_SCRIPT },
       ],
