@@ -6,6 +6,11 @@ dist/
 .tanstack/
 .nitro/
 .output/
+.vercel/
+# bun-only repo: stray lockfiles from other package managers switch Vercel installs
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
 out/
 
 # electron

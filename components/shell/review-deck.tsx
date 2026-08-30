@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
 import { getAllFlashcards } from "@/app/actions";
+import { Favicon } from "@/components/app/favicon";
 import { Flashcard } from "@/components/app/flashcard";
 import { TextLink } from "@/components/system/link";
 import { Skeleton } from "@/components/system/skeleton";
@@ -47,12 +48,19 @@ export const Deck = ({ onBack }: { onBack: () => void }) => {
   const groups = React.useMemo(() => {
     const byItem = new Map<
       string,
-      { title: string; cards: NonNullable<typeof cards> }
+      {
+        title: string;
+        itemUrl: string;
+        itemFaviconUrl: string | null;
+        cards: NonNullable<typeof cards>;
+      }
     >();
     for (const flashcard of cards ?? []) {
       const key = flashcard.itemId ?? "";
       const group = byItem.get(key) ?? {
         title: flashcard.itemTitle || "No item",
+        itemUrl: flashcard.itemUrl ?? "",
+        itemFaviconUrl: flashcard.itemFaviconUrl,
         cards: [],
       };
       group.cards.push(flashcard);
@@ -86,8 +94,18 @@ export const Deck = ({ onBack }: { onBack: () => void }) => {
       {cards ? (
         groups.map((group) => (
           <section key={group.itemId} className="flex flex-col gap-1.5">
-            <h2 className="px-2 text-micro font-medium text-muted-foreground">
-              {group.title}
+            {/* Same inline favicon + title as the review card's source line. */}
+            <h2 className="flex min-w-0 items-center gap-1.5 px-2 text-small font-normal text-muted-foreground">
+              {group.itemId && (
+                <Favicon
+                  item={{
+                    url: group.itemUrl,
+                    faviconUrl: group.itemFaviconUrl,
+                  }}
+                  size={12}
+                />
+              )}
+              <span className="min-w-0 truncate">{group.title}</span>
             </h2>
             <div className="flex flex-col gap-1.5">
               {group.cards.map((flashcard) => (

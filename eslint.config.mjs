@@ -21,6 +21,7 @@ const config = [
       ".claude/",
       "dist/",
       ".output/",
+      ".vercel/",
       ".tanstack/",
       ".nitro/",
       "dist-electron/",
