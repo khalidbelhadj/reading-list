@@ -305,43 +305,43 @@ export const AppSidebar = ({
         />
       </nav>
 
-      {items && openInBrowser.length > 0 && (
-        <SidebarItemGroup
-          label="Open in browser"
-          icon={<IconWorld className="size-2.5" />}
-          items={openInBrowser}
-          view={view}
-          onViewChange={onViewChange}
-          onMenuOpenChange={handleMenuOpenChange}
-          onHoverItem={handleHoverItem}
-          onHoverLeave={hover.leave}
-        />
-      )}
+      <div
+        className="fade-y min-h-0 flex-1 overflow-y-auto pb-4"
+        onPointerLeave={hover.leave}
+      >
+        {items && openInBrowser.length > 0 && (
+          <SidebarItemGroup
+            label="Open in browser"
+            icon={<IconWorld className="size-2.5" />}
+            items={openInBrowser}
+            view={view}
+            onViewChange={onViewChange}
+            onMenuOpenChange={handleMenuOpenChange}
+            onHoverItem={handleHoverItem}
+            onHoverLeave={hover.leave}
+          />
+        )}
 
-      {items && starred.length > 0 && (
-        <SidebarItemGroup
-          label="Starred"
-          icon={<IconStarFilled className="size-2.5 text-starred" />}
-          items={starred}
-          view={view}
-          showStar={false}
-          onViewChange={onViewChange}
-          onMenuOpenChange={handleMenuOpenChange}
-          onHoverItem={handleHoverItem}
-          onHoverLeave={hover.leave}
-        />
-      )}
+        {items && starred.length > 0 && (
+          <SidebarItemGroup
+            label="Starred"
+            icon={<IconStarFilled className="size-2.5 text-starred" />}
+            items={starred}
+            view={view}
+            showStar={false}
+            onViewChange={onViewChange}
+            onMenuOpenChange={handleMenuOpenChange}
+            onHoverItem={handleHoverItem}
+            onHoverLeave={hover.leave}
+          />
+        )}
 
-      <div className="mt-5 flex min-h-0 flex-1 flex-col gap-1 px-2">
-        <p className="px-2 text-micro font-medium text-muted-foreground">
-          Recent
-        </p>
-        {items ? (
-          <>
-            <ul
-              className="flex flex-col gap-0.5 overflow-y-auto"
-              onPointerLeave={hover.leave}
-            >
+        <div className="mt-5 flex flex-col gap-1 px-2">
+          <p className="px-2 text-micro font-medium text-muted-foreground">
+            Recent
+          </p>
+          {items ? (
+            <ul className="flex flex-col gap-0.5" onPointerLeave={hover.leave}>
               {recent.map((item) => (
                 <li key={item.id}>
                   <ItemRow
@@ -358,44 +358,45 @@ export const AppSidebar = ({
                 </li>
               ))}
             </ul>
-            <HoverCard
-              anchor={hover.anchor}
-              open={hover.open && hovered !== null && openMenus === 0}
-              width={400}
-            >
-              {hovered && (
-                <ItemPreview
-                  item={hovered}
-                  previewImageUrl={hoverPreviewUrl}
-                  nowIso={nowIso}
-                />
-              )}
-            </HoverCard>
-          </>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {Array.from({ length: 6 }, (_, index) => (
-              <Skeleton key={index} className="h-sidebar-row w-full" />
-            ))}
-          </div>
-        )}
-        {items && (
-          <div className="flex h-sidebar-row shrink-0 items-center px-2">
-            <TextLink
-              variant="quiet"
-              href="#"
-              className="flex items-center gap-0.5 text-micro font-medium"
-              onClick={(event) => {
-                event.preventDefault();
-                showItems();
-              }}
-            >
-              See all items
-              <IconChevronRight className="size-3" />
-            </TextLink>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="h-sidebar-row w-full" />
+              ))}
+            </div>
+          )}
+          {items && (
+            <div className="flex h-sidebar-row shrink-0 items-center px-2">
+              <TextLink
+                variant="quiet"
+                href="#"
+                className="flex items-center gap-0.5 text-micro font-medium"
+                onClick={(event) => {
+                  event.preventDefault();
+                  showItems();
+                }}
+              >
+                See all items
+                <IconChevronRight className="size-3" />
+              </TextLink>
+            </div>
+          )}
+        </div>
       </div>
+
+      <HoverCard
+        anchor={hover.anchor}
+        open={hover.open && hovered !== null && openMenus === 0}
+        width={400}
+      >
+        {hovered && (
+          <ItemPreview
+            item={hovered}
+            previewImageUrl={hoverPreviewUrl}
+            nowIso={nowIso}
+          />
+        )}
+      </HoverCard>
 
       {/* The gear, pinned in the bottom-right corner. */}
       <div className="flex shrink-0 items-center justify-end px-2 pt-1 pb-2">

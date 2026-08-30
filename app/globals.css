@@ -823,6 +823,26 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
 }
 
+/* Vertical scroll area whose content fades out at the top and bottom edges
+   instead of clipping hard. Give the content matching top/bottom padding so
+   nothing rests inside the faded band. */
+.fade-y {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent
+  );
+}
+
 /* Square-corners spinner — staggered pulse of four dots (see SquareSpinner). */
 @keyframes spinner-dot-pulse {
   0%,
