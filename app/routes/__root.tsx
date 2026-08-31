@@ -22,6 +22,7 @@ import { ItemsSyncWatcher } from "@/components/items-sync-watcher";
 import { LocalSyncWatcher } from "@/components/local-sync-watcher";
 import { NotFound } from "@/components/not-found";
 import { RouteError } from "@/components/route-error";
+import { ScrollbarVisibilityWatcher } from "@/components/scrollbar-visibility-watcher";
 import { SettingsEffects } from "@/components/settings-effects";
 import { Toaster } from "@/components/system/toast";
 import { TooltipProvider } from "@/components/system/tooltip";
@@ -53,6 +54,7 @@ const RootComponent = () => {
       <ElectronZoomWatcher />
       <ItemsSyncWatcher />
       <LocalSyncWatcher />
+      <ScrollbarVisibilityWatcher />
       <SettingsEffects />
       <TooltipProvider>
         <Outlet />

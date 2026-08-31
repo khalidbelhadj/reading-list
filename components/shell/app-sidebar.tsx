@@ -22,6 +22,7 @@ import { TextLink } from "@/components/system/link";
 import { Sidebar } from "@/components/system/sidebar";
 import { Skeleton } from "@/components/system/skeleton";
 import { Tooltip } from "@/components/system/tooltip";
+import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
 import { isElectron } from "@/lib/platform";
 import { type Item } from "@/lib/types";
@@ -178,7 +179,7 @@ export const AppSidebar = ({
     () =>
       (items ?? [])
         .filter((item) => !item.starred && !item.read)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .sort(compareItems)
         .slice(0, RECENT_LIMIT),
     [items],
   );
@@ -186,7 +187,7 @@ export const AppSidebar = ({
     () =>
       (items ?? [])
         .filter((item) => item.starred && !item.read)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        .sort(compareItems),
     [items],
   );
   // Items open in a browser tab right now (desktop only; empty elsewhere).

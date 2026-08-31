@@ -2,6 +2,7 @@ import {
   IconCopy,
   IconDeviceDesktop,
   IconDownload,
+  IconInfoCircle,
   IconLogout,
   IconMoon,
   IconPalette,
@@ -9,6 +10,7 @@ import {
   IconSun,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
 import { logout } from "@/app/logout/actions";
@@ -45,6 +47,7 @@ const THEMES = [
 // on the Reading list page, not here.
 export const SettingsMenu = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { settings, setSetting } = useSettings();
   const { data: user } = useCurrentUser();
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -111,6 +114,12 @@ export const SettingsMenu = () => {
           </MenuSub>
           <MenuItem icon={<IconDownload />} onClick={() => setExportOpen(true)}>
             Export as CSV
+          </MenuItem>
+          <MenuItem
+            icon={<IconInfoCircle />}
+            onClick={() => void navigate({ to: "/version" })}
+          >
+            Version
           </MenuItem>
           <MenuSeparator />
           <MenuSub>
