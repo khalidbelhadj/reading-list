@@ -1,5 +1,5 @@
 // Server-only implementations — see ./index.ts for the RPC layer.
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { flashcards, items } from "@/db/schema";
 import { withCurrentUser } from "@/lib/db-helpers.server";
@@ -49,7 +49,9 @@ export const fetchItems = safeAction(async function fetchItems(): Promise<
           // loaded separately via fetchItemPreviews.
           columns: { previewImageUrl: false },
           where: eq(items.userId, userId),
-          orderBy: [desc(items.createdAt)],
+          // Ties on createdAt (e.g. items created in one MCP batch) need a
+          // total order or they swap between refetches.
+          orderBy: [desc(items.createdAt), asc(items.title), asc(items.id)],
         }),
         tx
           .select({

@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/system/skeleton";
 import { Spinner } from "@/components/system/spinner";
 import { groupByDate } from "@/lib/date-groups";
 import { timeAgo } from "@/lib/format-time";
+import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
@@ -103,7 +104,7 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
     () =>
       (items ?? [])
         .filter((item) => item.starred && (settings.showRead || !item.read))
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        .sort(compareItems),
     [items, settings.showRead],
   );
 
@@ -112,7 +113,7 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
     const direction = sortBy.endsWith("asc") ? 1 : -1;
     return (items ?? [])
       .filter((item) => !item.starred && (settings.showRead || !item.read))
-      .sort((a, b) => direction * a[sortKey].localeCompare(b[sortKey]));
+      .sort((a, b) => compareItems(a, b, sortKey, direction));
   }, [items, settings.showRead, sortBy]);
 
   const groups = React.useMemo(

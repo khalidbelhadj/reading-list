@@ -296,9 +296,15 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   app-region: no-drag;
 }
 
-/* Global thin overlay-style scrollbar — no gutter, thumb floats over content. */
+/* Global thin overlay-style scrollbar — no gutter, thumb floats over content.
+   Thumbs are hidden until their element is actually scrolling: the
+   ScrollbarVisibilityWatcher stamps [data-scrolling] on the scrolling element
+   and removes it shortly after the scroll settles. */
 * {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+[data-scrolling] {
   scrollbar-color: oklch(0.4 0 0 / 40%) transparent;
 }
 *::-webkit-scrollbar {
@@ -310,12 +316,15 @@ html.electron:has([role="alertdialog"]) .electron-top-bar-inset {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: oklch(0.4 0 0 / 40%);
+  background-color: transparent;
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
-*::-webkit-scrollbar-thumb:hover {
+[data-scrolling]::-webkit-scrollbar-thumb {
+  background-color: oklch(0.4 0 0 / 40%);
+}
+[data-scrolling]::-webkit-scrollbar-thumb:hover {
   background-color: oklch(0.4 0 0 / 55%);
 }
 *::-webkit-scrollbar-corner {
