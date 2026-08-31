@@ -1,4 +1,4 @@
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch, IconStarFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
@@ -97,11 +97,21 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   const now = React.useMemo(() => new Date(), []);
   const nowIso = React.useMemo(() => now.toISOString(), [now]);
 
+  // Starred items get their own section above the browse list (mirroring the
+  // sidebar), so the date groups exclude them.
+  const starred = React.useMemo(
+    () =>
+      (items ?? [])
+        .filter((item) => item.starred && (settings.showRead || !item.read))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [items, settings.showRead],
+  );
+
   const browseItems = React.useMemo(() => {
     const sortKey = sortBy.startsWith("updated") ? "updatedAt" : "createdAt";
     const direction = sortBy.endsWith("asc") ? 1 : -1;
     return (items ?? [])
-      .filter((item) => settings.showRead || !item.read)
+      .filter((item) => !item.starred && (settings.showRead || !item.read))
       .sort((a, b) => direction * a[sortKey].localeCompare(b[sortKey]));
   }, [items, settings.showRead, sortBy]);
 
@@ -117,9 +127,10 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   const openInBrowser = useOpenTabItems(items);
 
   const renderRow = React.useCallback(
-    (item: Item) => (
+    (item: Item, showStar = true) => (
       <ItemRow
         item={item}
+        showStar={showStar}
         onOpen={onOpen}
         variant={density}
         meta={
@@ -212,6 +223,7 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
       ) : items ? (
         <BrowseList
           openInBrowser={openInBrowser}
+          starred={starred}
           groups={groups}
           browseItems={browseItems}
           renderRow={renderRow}
@@ -223,18 +235,20 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   );
 };
 
-// The browse view: the open-in-browser section (when any), then the date
-// groups or the flat sorted list.
+// The browse view: the open-in-browser and starred sections (when any), then
+// the date groups or the flat sorted list.
 const BrowseList = ({
   openInBrowser,
+  starred,
   groups,
   browseItems,
   renderRow,
 }: {
   openInBrowser: Item[];
+  starred: Item[];
   groups: ReturnType<typeof groupByDate<Item>> | null;
   browseItems: Item[];
-  renderRow: (item: Item) => React.ReactNode;
+  renderRow: (item: Item, showStar?: boolean) => React.ReactNode;
 }) => (
   <>
     {openInBrowser.length > 0 && (
@@ -245,6 +259,19 @@ const BrowseList = ({
         <ul className="flex flex-col gap-0.5">
           {openInBrowser.map((item) => (
             <li key={item.id}>{renderRow(item)}</li>
+          ))}
+        </ul>
+      </section>
+    )}
+    {starred.length > 0 && (
+      <section className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-1.5 px-2 text-micro font-medium text-muted-foreground">
+          <IconStarFilled className="size-2.5 text-starred" />
+          Starred
+        </h2>
+        <ul className="flex flex-col gap-0.5">
+          {starred.map((item) => (
+            <li key={item.id}>{renderRow(item, false)}</li>
           ))}
         </ul>
       </section>
