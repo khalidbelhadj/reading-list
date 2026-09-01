@@ -62,6 +62,8 @@ export const NonIdealState = ({
         "flex w-full max-w-md flex-col gap-4",
         ALIGN[align],
         align === "center" && "mx-auto",
+        // Placeholder copy is chrome; error text stays copyable.
+        !isError && "select-none",
         className,
       )}
     >

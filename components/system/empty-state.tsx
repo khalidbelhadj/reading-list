@@ -24,6 +24,8 @@ export const EmptyState = ({
     className={cn(
       "flex flex-col gap-1",
       align === "center" ? "items-center text-center" : "items-start text-left",
+      // Placeholder copy is chrome; error text stays copyable.
+      tone !== "error" && "select-none",
       className,
     )}
   >

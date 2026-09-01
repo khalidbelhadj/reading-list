@@ -16,7 +16,7 @@ decoration.
 | Foundation | Decision | Values |
 | --- | --- | --- |
 | Neutrals | **Whisper**: warm grey, hue 70 to 80, chroma ≈0.004 | light bg `oklch(0.985 0.004 80)`, fg `oklch(0.22 0.008 70)`; dark bg `oklch(0.2 0.005 70)`, fg `oklch(0.96 0.004 80)` |
-| Accent | **Ceremonial matcha** | light `oklch(0.6 0.1 128)` on `oklch(0.985 0.004 80)` text; dark `oklch(0.74 0.11 128)` on `oklch(0.2 0.03 128)` text |
+| Accent | **Assistant blue**: the Google Assistant mic blue, Blue 600 in light and Blue 200 in dark (replaced ceremonial matcha on 2026-09-01) | light `oklch(0.575 0.195 258)` on `oklch(0.985 0.002 80)` text; dark `oklch(0.76 0.11 260)` on `oklch(0.2 0.04 260)` text |
 | Radius | **Pillowy**: 10px controls, 20px surfaces | `--radius-control: 10px`, `--radius-surface: 20px` |
 | Glass | **Frost**: 74% tint, 18px blur, saturate 1.2 | `color-mix(in oklab, var(--card) 74%, transparent)` + `blur(18px)` |
 | Type | **Compact**: micro 11, small 12, body 13, title 15, heading 20, display 28; line heights 1.3 / 1.35 / 1.4 / 1.3 / 1.2 / 1.05 (dense, never `leading-relaxed`). Use the small steps: micro for key caps, group labels and captions; small for meta | `text-micro` `text-small` `text-body` `text-title` `text-heading` `text-display` |
@@ -31,6 +31,11 @@ decoration.
 - No borders as decoration; no side stripes; no gradient text; no middle dots
   (`·`) or em dashes in UI copy.
 - Surfaces are either opaque (`--card`) or frost (`.glass`); never a third kind. Tooltips are the one exception: a flat solid fill, no hairline, no blur.
+- Chrome is non-selectable; content is selectable. The sidebar, toolbars,
+  section headings, tooltips, hover cards, toasts, field labels, and empty
+  states carry `select-none`, set on the container rather than per label.
+  Notes, card faces, item titles and metadata, dialog descriptions, error
+  text, and anything typed stay selectable.
 - Every shared component lives in `components/system/` with a sibling
   `*.demo.tsx` rendered on `/design`; the build fails without the demo.
 

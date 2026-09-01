@@ -82,7 +82,7 @@ export const HoverCard = ({
           }}
           style={{ maxWidth: width }}
           className={cn(
-            "glass pointer-events-none fixed top-0 left-0 z-50 w-max rounded-control px-3 py-2.5 text-body text-foreground",
+            "glass pointer-events-none fixed top-0 left-0 z-50 w-max rounded-control px-3 py-2.5 text-body text-foreground select-none",
             className,
           )}
         >

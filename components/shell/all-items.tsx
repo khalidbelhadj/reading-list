@@ -145,7 +145,7 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   );
 
   const trailing = query.trim().length > 0 && (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-1.5 select-none">
       {search.isRegex && <Badge>regex</Badge>}
       {search.resultCount !== null ? (
         <span className="text-micro text-muted-foreground tabular-nums">
@@ -254,7 +254,7 @@ const BrowseList = ({
   <>
     {openInBrowser.length > 0 && (
       <section className="flex flex-col gap-1">
-        <h2 className="px-2 text-micro font-medium text-muted-foreground">
+        <h2 className="px-2 text-micro font-medium text-muted-foreground select-none">
           Open in browser
         </h2>
         <ul className="flex flex-col gap-0.5">
@@ -266,7 +266,7 @@ const BrowseList = ({
     )}
     {starred.length > 0 && (
       <section className="flex flex-col gap-1">
-        <h2 className="flex items-center gap-1.5 px-2 text-micro font-medium text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 px-2 text-micro font-medium text-muted-foreground select-none">
           <IconStarFilled className="size-2.5 text-starred" />
           Starred
         </h2>
@@ -281,7 +281,7 @@ const BrowseList = ({
       <div className="flex flex-col gap-3">
         {groups.map(({ group, entries }) => (
           <section key={group.key} className="flex flex-col gap-1">
-            <h2 className="px-2 text-micro font-medium text-muted-foreground">
+            <h2 className="px-2 text-micro font-medium text-muted-foreground select-none">
               {group.label}
             </h2>
             <ul className="flex flex-col gap-0.5">

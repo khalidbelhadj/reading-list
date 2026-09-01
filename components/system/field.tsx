@@ -25,7 +25,8 @@ export const Field = ({
     <label
       data-slot="field"
       className={cn(
-        "flex",
+        // Label and note are chrome; the control inside stays editable.
+        "flex select-none",
         orientation === "vertical"
           ? "flex-col gap-1.5"
           : "min-h-row items-center justify-between gap-6",

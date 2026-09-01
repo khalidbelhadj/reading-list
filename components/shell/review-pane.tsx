@@ -53,7 +53,7 @@ const ReviewHeader = ({
   onOpenDeck: () => void;
 }) => (
   <>
-    <div className="app-no-drag absolute top-3 left-4 z-20 flex items-center gap-3 text-small text-muted-foreground">
+    <div className="app-no-drag absolute top-3 left-4 z-20 flex items-center gap-3 text-small text-muted-foreground select-none">
       {itemId ? (
         <>
           <Select
@@ -117,7 +117,7 @@ const ReviewHeader = ({
     <TextLink
       variant="quiet"
       href="#"
-      className="app-no-drag absolute top-4 right-4 z-20 text-micro font-medium"
+      className="app-no-drag absolute top-4 right-4 z-20 text-micro font-medium select-none"
       onClick={(event) => {
         event.preventDefault();
         onOpenDeck();

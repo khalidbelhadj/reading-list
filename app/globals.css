@@ -84,7 +84,9 @@
   --surface: oklch(0.995 0.0015 80);
   --popover: oklch(0.985 0.002 80);
   --popover-foreground: oklch(0.22 0.004 70);
-  --primary: oklch(0.6 0.1 128);
+  /* Accent: the Google Assistant blue. Blue 600 (#1A73E8) here, Blue 200
+     (#8AB4F8) in dark mode; the neutrals stay on the warm hue-80 axis. */
+  --primary: oklch(0.575 0.195 258);
   --primary-foreground: oklch(0.985 0.002 80);
   --secondary: oklch(0.935 0.003 80);
   --secondary-foreground: oklch(0.24 0.004 70);
@@ -116,15 +118,15 @@
   --toast-error-bg: oklch(0.97 0.015 25);
   --toast-error-text: oklch(0.45 0.18 25);
   --toast-error-border: oklch(0.9 0.04 25);
-  --selection: oklch(0.85 0.06 128 / 0.5);
+  --selection: oklch(0.85 0.07 258 / 0.5);
   --selection-foreground: oklch(0.22 0.004 70);
   /* PDF page edge. Darker than --border (0.92): the page is white on a white
      surface, so a border-strength hairline is effectively invisible there. */
   --depth-button:
     inset 0 -1px 0 0 rgb(0 0 0 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --depth-button-primary:
-    inset 0 -1px 0 0 oklch(0.46 0.1 128 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
-  --primary-border: oklch(0.54 0.1 128);
+    inset 0 -1px 0 0 oklch(0.44 0.15 259 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.12);
+  --primary-border: oklch(0.53 0.18 258);
   --depth-floating:
     inset 0 -1px 0 0 rgb(0 0 0 / 0.06), 0 6px 14px -2px rgb(0 0 0 / 0.1),
     0 16px 32px -8px rgb(0 0 0 / 0.08);
@@ -144,8 +146,8 @@
   --surface: oklch(0.24 0.004 70);
   --popover: oklch(0.215 0.004 70);
   --popover-foreground: oklch(0.96 0.003 80);
-  --primary: oklch(0.74 0.11 128);
-  --primary-foreground: oklch(0.2 0.03 128);
+  --primary: oklch(0.76 0.11 260);
+  --primary-foreground: oklch(0.2 0.04 260);
   --secondary: oklch(0.29 0.004 70);
   --secondary-foreground: oklch(0.96 0.003 80);
   --muted: oklch(0.27 0.004 70);
@@ -167,15 +169,15 @@
   --toast-error-bg: oklch(0.25 0.04 25);
   --toast-error-text: oklch(0.8 0.14 25);
   --toast-error-border: oklch(0.35 0.06 25);
-  --selection: oklch(0.5 0.06 128 / 0.55);
+  --selection: oklch(0.5 0.1 258 / 0.55);
   --selection-foreground: oklch(0.96 0.003 80);
   /* Dark mode needs the opposite: a white page already separates hard from
      the dark stage, so this only softens the edge rather than defining it. */
   --depth-button:
     inset 0 1px 0 0 rgb(255 255 255 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.25);
   --depth-button-primary:
-    inset 0 -1px 0 0 oklch(0.5 0.11 128 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --primary-border: oklch(0.64 0.11 128);
+    inset 0 -1px 0 0 oklch(0.5 0.13 258 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --primary-border: oklch(0.64 0.12 259);
   --depth-floating:
     inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.4),
     0 12px 24px -8px rgb(0 0 0 / 0.25);

@@ -42,7 +42,7 @@ export const Notification = ({
     kind="frost"
     padding="none"
     role="status"
-    className="relative flex w-88 gap-3 p-4 pr-10 text-body"
+    className="relative flex w-88 gap-3 p-4 pr-10 text-body select-none"
   >
     {icon && (
       <div className="flex size-8 shrink-0 items-center justify-center [&>svg]:size-5">
