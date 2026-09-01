@@ -15,6 +15,7 @@ import { ItemPalette } from "./command-palette";
 import { ItemView, ItemViewActions } from "./item-view";
 import { ReviewPane } from "./review-pane";
 import { clipboardUrl, useCreateItem } from "./use-create-item";
+import { VersionPane } from "./version-pane";
 import { publishDevView, useViewCommands, type View } from "./view";
 
 // Paste targets that should keep their native paste (the search input, the
@@ -67,8 +68,8 @@ const usePaneScrollMemory = (view: View) => {
 };
 
 // The app shell: a translucent, resizable sidebar and a content pane. The
-// shell owns the one selection (All items, Review, or a single item); the
-// sidebar highlights it and the pane renders it.
+// shell owns the one selection (All items, Review, a single item, or the
+// Version info); the sidebar highlights it and the pane renders it.
 const sameView = (a: View, b: View) => {
   if (a.kind !== b.kind) return false;
   if (a.kind === "item" && b.kind === "item") return a.id === b.id;
@@ -325,6 +326,7 @@ export const AppShell = ({
               onOpenCardInNotes={openCardInNotes}
             />
           )}
+          {view.kind === "version" && <VersionPane />}
           {view.kind === "item" && selectedItem && (
             <ItemView
               key={selectedItem.id}

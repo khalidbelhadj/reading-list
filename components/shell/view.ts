@@ -6,7 +6,10 @@ export type View =
   | { kind: "items" }
   // An itemId scopes the review to that item's cards (cram mode).
   | { kind: "review"; itemId?: string }
-  | { kind: "item"; id: string };
+  | { kind: "item"; id: string }
+  // Build and deploy info (the settings menu's Version entry). Nothing in
+  // the sidebar highlights it, but it sits in the history like any view.
+  | { kind: "version" };
 
 export const isActiveView = (view: View, kind: View["kind"], id?: string) =>
   view.kind === "item" ? kind === "item" && view.id === id : view.kind === kind;

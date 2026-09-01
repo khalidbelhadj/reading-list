@@ -228,6 +228,10 @@ export const AppSidebar = ({
     () => onViewChange({ kind: "review" }),
     [onViewChange],
   );
+  const showVersion = React.useCallback(
+    () => onViewChange({ kind: "version" }),
+    [onViewChange],
+  );
 
   // The paste affordance on New item: revealed on hover, and in Electron only
   // when the clipboard actually holds a link (the sniff is silent there; on
@@ -401,7 +405,7 @@ export const AppSidebar = ({
 
       {/* The gear, pinned in the bottom-right corner. */}
       <div className="flex shrink-0 items-center justify-end px-2 pt-1 pb-2">
-        <SettingsMenu />
+        <SettingsMenu onShowVersion={showVersion} />
       </div>
     </Sidebar>
   );
