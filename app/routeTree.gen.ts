@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VersionDotjsonRouteImport } from './routes/version[.]json'
-import { Route as VersionRouteImport } from './routes/version'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DevErrorRouteImport } from './routes/dev-error'
 import { Route as DesignRouteImport } from './routes/design'
@@ -30,11 +29,6 @@ import { Route as ApiExtensionItemsRouteImport } from './routes/api.extension.it
 const VersionDotjsonRoute = VersionDotjsonRouteImport.update({
   id: '/version.json',
   path: '/version.json',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VersionRoute = VersionRouteImport.update({
-  id: '/version',
-  path: '/version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -119,7 +113,6 @@ export interface FileRoutesByFullPath {
   '/design': typeof DesignRouteWithChildren
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
@@ -137,7 +130,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
@@ -157,7 +149,6 @@ export interface FileRoutesById {
   '/design': typeof DesignRouteWithChildren
   '/dev-error': typeof DevErrorRoute
   '/login': typeof LoginRoute
-  '/version': typeof VersionRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
@@ -178,7 +169,6 @@ export interface FileRouteTypes {
     | '/design'
     | '/dev-error'
     | '/login'
-    | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
@@ -196,7 +186,6 @@ export interface FileRouteTypes {
     | '/'
     | '/dev-error'
     | '/login'
-    | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
@@ -215,7 +204,6 @@ export interface FileRouteTypes {
     | '/design'
     | '/dev-error'
     | '/login'
-    | '/version'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
@@ -235,7 +223,6 @@ export interface RootRouteChildren {
   DesignRoute: typeof DesignRouteWithChildren
   DevErrorRoute: typeof DevErrorRoute
   LoginRoute: typeof LoginRoute
-  VersionRoute: typeof VersionRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiAskRoute: typeof ApiAskRoute
@@ -254,13 +241,6 @@ declare module '@tanstack/react-router' {
       path: '/version.json'
       fullPath: '/version.json'
       preLoaderRoute: typeof VersionDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/version': {
-      id: '/version'
-      path: '/version'
-      fullPath: '/version'
-      preLoaderRoute: typeof VersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -391,7 +371,6 @@ const rootRouteChildren: RootRouteChildren = {
   DesignRoute: DesignRouteWithChildren,
   DevErrorRoute: DevErrorRoute,
   LoginRoute: LoginRoute,
-  VersionRoute: VersionRoute,
   VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,

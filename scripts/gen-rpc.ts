@@ -72,6 +72,11 @@ const manifest: Section[] = [
     module: "./review",
     fns: [{ name: "rateCard" }],
   },
+  {
+    header: "version",
+    module: "./version",
+    fns: [{ name: "getVersionInfo", zeroArg: true }],
+  },
 ];
 
 // --- emission ---

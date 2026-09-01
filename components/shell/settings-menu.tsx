@@ -10,7 +10,6 @@ import {
   IconSun,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import React from "react";
 
 import { logout } from "@/app/logout/actions";
@@ -42,12 +41,17 @@ const THEMES = [
 
 // The gear at the sidebar's foot: the settings that survived the redesign.
 // Theme writes through useSettings (applied globally by SettingsEffects);
-// export reuses the classic CSV dialog; the account block sits behind the
-// initials submenu. List view options (show read, group/sort/density) belong
-// on the Reading list page, not here.
-export const SettingsMenu = () => {
+// export reuses the classic CSV dialog; Version swaps the pane to the build
+// info view (the shell owns the view, so the sidebar hands the callback
+// down); the account block sits behind the initials submenu. List view
+// options (show read, group/sort/density) belong on the Reading list page,
+// not here.
+export const SettingsMenu = ({
+  onShowVersion,
+}: {
+  onShowVersion: () => void;
+}) => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { settings, setSetting } = useSettings();
   const { data: user } = useCurrentUser();
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -115,10 +119,7 @@ export const SettingsMenu = () => {
           <MenuItem icon={<IconDownload />} onClick={() => setExportOpen(true)}>
             Export as CSV
           </MenuItem>
-          <MenuItem
-            icon={<IconInfoCircle />}
-            onClick={() => void navigate({ to: "/version" })}
-          >
+          <MenuItem icon={<IconInfoCircle />} onClick={onShowVersion}>
             Version
           </MenuItem>
           <MenuSeparator />

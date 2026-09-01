@@ -25,7 +25,6 @@ const ROUTES: { href: string; title: string }[] = [
   { href: "/oauth/consent", title: "OAuth consent" },
   { href: "/auth/return-to-app", title: "Return to app" },
   { href: "/dev-error", title: "Dev error page" },
-  { href: "/version", title: "Version & build info" },
 ];
 
 const COLLAPSED_KEY = "dev-banner-collapsed";

@@ -6,6 +6,7 @@ import type * as itemsImpl from "./items";
 import type * as queriesImpl from "./queries";
 import type * as reviewImpl from "./review";
 import type * as settingsImpl from "./settings";
+import type * as versionImpl from "./version";
 
 // RPC layer between client code and the server-only implementations. Each
 // exported function keeps the exact signature of its implementation (callers
@@ -116,3 +117,11 @@ const rateCardFn = createServerFn({ method: "POST" })
   .handler(({ data }) => import("./review").then((m) => m.rateCard(...data)));
 export const rateCard: typeof reviewImpl.rateCard = (...args) =>
   rateCardFn({ data: args });
+
+// --- version ---
+
+const getVersionInfoFn = createServerFn({ method: "POST" }).handler(() =>
+  import("./version").then((m) => m.getVersionInfo()),
+);
+export const getVersionInfo: typeof versionImpl.getVersionInfo = () =>
+  getVersionInfoFn();
