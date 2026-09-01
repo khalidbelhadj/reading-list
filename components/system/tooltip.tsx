@@ -45,7 +45,7 @@ export const Tooltip = ({
         <TooltipPrimitive.Popup
           data-slot="tooltip"
           className={cn(
-            "inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-[calc(var(--r-control)-2px)] bg-secondary px-2 py-1 text-small text-secondary-foreground transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
+            "inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-[calc(var(--r-control)-2px)] bg-secondary px-2 py-1 text-small text-secondary-foreground transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] select-none data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0",
             className,
           )}
         >

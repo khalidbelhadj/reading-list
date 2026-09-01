@@ -75,7 +75,7 @@ export const Deck = ({ onBack }: { onBack: () => void }) => {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-8 pt-12 pb-16">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between select-none">
         <p className="text-small text-muted-foreground">
           {cards ? `${cards.length} cards` : "Cards"}
         </p>
@@ -95,7 +95,7 @@ export const Deck = ({ onBack }: { onBack: () => void }) => {
         groups.map((group) => (
           <section key={group.itemId} className="flex flex-col gap-1.5">
             {/* Same inline favicon + title as the review card's source line. */}
-            <h2 className="flex min-w-0 items-center gap-1.5 px-2 text-small font-normal text-muted-foreground">
+            <h2 className="flex min-w-0 items-center gap-1.5 px-2 text-small font-normal text-muted-foreground select-none">
               {group.itemId && (
                 <Favicon
                   item={{

@@ -144,7 +144,7 @@ export const CommandPalette = <T,>({
             {body ?? (
               <>
                 {header && entries.length > 0 && (
-                  <p className="px-2 pt-1 text-micro font-medium text-muted-foreground">
+                  <p className="px-2 pt-1 text-micro font-medium text-muted-foreground select-none">
                     {header}
                   </p>
                 )}
@@ -160,7 +160,7 @@ export const CommandPalette = <T,>({
                 ))}
                 {footer}
                 {entries.length === 0 && emptyText != null && (
-                  <p className="px-2 py-3 text-small text-muted-foreground">
+                  <p className="px-2 py-3 text-small text-muted-foreground select-none">
                     {emptyText}
                   </p>
                 )}

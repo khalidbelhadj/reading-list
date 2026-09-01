@@ -22,7 +22,8 @@ const readStoredWidth = (key: string | undefined, fallback: number) => {
 // collapses it to nothing (animated); the content keeps its width while the
 // frame shrinks so text doesn't reflow mid-slide. In Electron the frost is
 // real vibrancy (see use-window-vibrancy.ts); on the web it is a solid quiet
-// lift off the background.
+// lift off the background. Everything in it is chrome, so nothing is
+// selectable (labels, rows, links); inputs inside stay editable regardless.
 export const Sidebar = ({
   defaultWidth = 224,
   minWidth = 180,
@@ -107,7 +108,7 @@ export const Sidebar = ({
       data-slot="sidebar"
       data-resizing={dragging ? "" : undefined}
       className={cn(
-        "x-sidebar relative flex h-full shrink-0 flex-col overflow-hidden",
+        "x-sidebar relative flex h-full shrink-0 flex-col overflow-hidden select-none",
         !dragging &&
           "transition-[width] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)]",
         className,
