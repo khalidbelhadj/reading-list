@@ -6,7 +6,11 @@ import { fetchItems } from "@/app/actions";
 import { EmptyState } from "@/components/system/empty-state";
 import { Skeleton } from "@/components/system/skeleton";
 import { notify } from "@/components/system/toast";
-import { playCardRated, playQueueFinished } from "@/lib/sounds";
+import {
+  playCardRated,
+  playCardSkipped,
+  playQueueFinished,
+} from "@/lib/sounds";
 import { parseCardState, type Rating, schedule } from "@/lib/srs";
 import { type Item } from "@/lib/types";
 
@@ -182,8 +186,16 @@ export const ReviewPane = ({
     [card, itemId, scopedMode, stack, queryClient, advance, queue, index],
   );
 
-  // Space reveals, 1-4 rate once revealed, S skips (sets the card aside for
-  // this run only; nothing is written). Typing contexts are left alone.
+  // Skip sets the card aside for this run only; nothing is written. Like a
+  // rating, skipping the last card ends the run and gets the finish chord.
+  const skip = React.useCallback(() => {
+    if (queue && index === queue.length - 1) playQueueFinished();
+    else playCardSkipped();
+    advance();
+  }, [queue, index, advance]);
+
+  // Space reveals, 1-4 rate once revealed, S skips. Typing contexts are left
+  // alone.
   React.useEffect(() => {
     if (deckOpen || !card) return;
     const handler = (event: KeyboardEvent) => {
@@ -203,7 +215,7 @@ export const ReviewPane = ({
       }
       if (event.key === "s" || event.key === "S") {
         event.preventDefault();
-        advance();
+        skip();
         return;
       }
       if (revealed) {
@@ -216,7 +228,7 @@ export const ReviewPane = ({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [deckOpen, card, revealed, reveal, rate, advance]);
+  }, [deckOpen, card, revealed, reveal, rate, skip]);
 
   if (deckOpen) return <Deck onBack={() => setDeckOpen(false)} />;
 
@@ -270,7 +282,7 @@ export const ReviewPane = ({
       <ReviewControls
         active={loaded && !!card && !composing}
         revealed={revealed}
-        onSkip={advance}
+        onSkip={skip}
         onRate={rate}
       />
     </div>
