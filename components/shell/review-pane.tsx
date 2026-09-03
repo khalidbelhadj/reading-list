@@ -3,152 +3,58 @@ import React from "react";
 
 import { getAllFlashcards, rateCard } from "@/app/actions";
 import { fetchItems } from "@/app/actions";
-import { Favicon } from "@/components/app/favicon";
-import { Flashcard } from "@/components/app/flashcard";
-import { Button } from "@/components/system/button";
-import { ButtonGroup } from "@/components/system/button-group";
 import { EmptyState } from "@/components/system/empty-state";
-import { Kbd } from "@/components/system/kbd";
-import { TextLink } from "@/components/system/link";
-import { Select } from "@/components/system/select";
 import { Skeleton } from "@/components/system/skeleton";
 import { notify } from "@/components/system/toast";
-import { Tooltip } from "@/components/system/tooltip";
+import { playCardRated, playQueueFinished } from "@/lib/sounds";
 import { parseCardState, type Rating, schedule } from "@/lib/srs";
 import { type Item } from "@/lib/types";
 
+import { RATINGS, ReviewCard, ReviewControls } from "./review-controls";
 import { Deck } from "./review-deck";
-import { itemQueues, type QueueCard, standingQueue } from "./review-queues";
+import { ReviewHeader, type ReviewMode } from "./review-header";
+import { type QueueCard } from "./review-queues";
+import { ReviewTopic } from "./review-topic";
 import { useEditFlashcard } from "./use-edit-flashcard";
+import { useReviewQueue } from "./use-review-queue";
+import { type ReviewStack } from "./view";
 
-const RATINGS: Array<{ value: Rating; label: string; key: string }> = [
-  { value: "again", label: "Again", key: "1" },
-  { value: "hard", label: "Hard", key: "2" },
-  { value: "good", label: "Good", key: "3" },
-  { value: "easy", label: "Easy", key: "4" },
-];
-
-// The page furniture pinned to the pane's corners: the Due/New switch (or
-// the cram label when item-scoped) with the count top-left, the deck door
-// top-right.
-const ReviewHeader = ({
-  itemId,
-  scopeItem,
-  showCount,
-  remaining,
-  mode,
-  onModeChange,
-  scopedMode,
-  onScopedModeChange,
-  onOpenDeck,
-}: {
-  itemId?: string;
-  scopeItem: { title: string; url: string; faviconUrl?: string | null } | null;
-  showCount: boolean;
-  remaining: number;
-  mode: "due" | "new";
-  onModeChange: (mode: "due" | "new") => void;
-  scopedMode: "due" | "all" | null;
-  onScopedModeChange: (mode: "due" | "all") => void;
-  onOpenDeck: () => void;
-}) => (
-  <>
-    <div className="app-no-drag absolute top-3 left-4 z-20 flex items-center gap-3 text-small text-muted-foreground select-none">
-      {itemId ? (
-        <>
-          <Select
-            value={scopedMode ?? "due"}
-            onValueChange={onScopedModeChange}
-            aria-label="Item review queue"
-            className="w-20"
-            items={[
-              {
-                value: "due",
-                label: "Due",
-                description: "This item's cards scheduled for now",
-              },
-              {
-                value: "all",
-                label: "All",
-                description: "Every card, scheduling untouched",
-              },
-            ]}
-          />
-          {showCount && <span className="tabular-nums">{remaining} left</span>}
-          {/* The item wears the same inline favicon + title as the card's
-              context line below. */}
-          <span className="flex min-w-0 items-center gap-1">
-            {scopedMode === "all" ? "Cramming" : "Due in"}
-            {scopeItem && (
-              <>
-                <Favicon item={scopeItem} size={12} />
-                <span className="max-w-56 truncate">
-                  {scopeItem.title || "Untitled"}
-                </span>
-              </>
-            )}
-            {scopedMode === "all" && ", scheduling untouched"}
-          </span>
-        </>
-      ) : (
-        <>
-          <Select
-            value={mode}
-            onValueChange={onModeChange}
-            aria-label="Review queue"
-            className="w-20"
-            items={[
-              {
-                value: "due",
-                label: "Due",
-                description: "Cards scheduled for now",
-              },
-              {
-                value: "new",
-                label: "New",
-                description: "Cards you haven't learned yet",
-              },
-            ]}
-          />
-          {showCount && <span className="tabular-nums">{remaining} left</span>}
-        </>
-      )}
-    </div>
-    <TextLink
-      variant="quiet"
-      href="#"
-      className="app-no-drag absolute top-4 right-4 z-20 text-micro font-medium select-none"
-      onClick={(event) => {
-        event.preventDefault();
-        onOpenDeck();
-      }}
-    >
-      All cards
-    </TextLink>
-  </>
-);
+// A stack mixes cards in every state. Rating a card that is due (or brand
+// new) is a real review and moves its schedule; rating one that isn't due
+// yet is a cram pass and leaves the schedule alone.
+const stackRatingAffectsSchedule = (card: QueueCard, now: string) =>
+  card.state === "new" || card.due <= now;
 
 // The always-on review, local-first: the due queue is derived from the
 // ["all-flashcards"] cache the moment the tab opens — no server round trip in
 // the way of the first card (the shell keeps the cache warm). Rating a card
 // is a single fire-and-forget scheduling update; there is no session. Review
 // one card or all of them, then just leave. "All cards" is the quiet corner
-// into the deck.
+// into the deck. Topic mode asks the review agent for a stack instead.
 export const ReviewPane = ({
   itemId,
+  stack: initialStack,
   onOpenCardInNotes,
 }: {
   itemId?: string;
+  // A stack to run instead of a standing queue (from the topic composer or
+  // a search result). The pane owns it from here: switching to Due or New
+  // drops it.
+  stack?: ReviewStack;
   // Jump to this card inside its item's notes.
   onOpenCardInNotes?: (itemId: string, cardId: string) => void;
 }) => {
   const queryClient = useQueryClient();
   const [deckOpen, setDeckOpen] = React.useState(false);
-  // The two standing queues; an itemId scopes the pane to that item, with
-  // its own choice of just-the-due (scheduled) or everything (cram).
-  const [mode, setMode] = React.useState<"due" | "new">("due");
-  // null until the cards arrive: the default is Due when the item has due
-  // cards, All (cram) otherwise.
+  // The standing queues, the topic composer, or a stack; an itemId scopes
+  // the pane to that item, with its own choice of just-the-due (scheduled)
+  // or everything (cram).
+  const [mode, setMode] = React.useState<ReviewMode>(
+    initialStack ? "topic" : "due",
+  );
+  const [stack, setStack] = React.useState<ReviewStack | null>(
+    initialStack ?? null,
+  );
   const [scopedMode, setScopedMode] = React.useState<"due" | "all" | null>(
     null,
   );
@@ -161,47 +67,40 @@ export const ReviewPane = ({
     queryFn: fetchItems,
   });
 
-  // The queue freezes on entry (per mode) from the first data that arrives
-  // (usually the cache, instantly); background refetches don't reshuffle a
-  // session in progress. Hidden-from-review items are excluded from the
-  // standing queues, mirroring the server's rules; orphan cards are always
-  // kept, and an explicit cram surfaces the item's cards regardless.
-  const [queue, setQueue] = React.useState<QueueCard[] | null>(null);
-  const [index, setIndex] = React.useState(0);
-  const [revealed, setRevealed] = React.useState(false);
-  React.useEffect(() => {
-    setQueue(null);
-    setIndex(0);
-    setRevealed(false);
-  }, [mode, scopedMode]);
-  React.useEffect(() => {
-    if (queue !== null || !allCards) return;
-    if (itemId) {
-      const { itemCards, dueCards } = itemQueues(allCards, itemId);
-      if (scopedMode === null) {
-        setScopedMode(dueCards.length > 0 ? "due" : "all");
-        return; // re-derive with the resolved mode
-      }
-      setQueue(scopedMode === "due" ? dueCards : itemCards);
-      return;
-    }
-    // Standing queues need the items list too (hidden-from-review lives on
-    // the item); freezing before it arrives would skip that exclusion.
-    if (!items) return;
-    setQueue(standingQueue(allCards, items, mode));
-  }, [allCards, items, queue, itemId, mode, scopedMode]);
+  const changeMode = React.useCallback((next: ReviewMode) => {
+    if (next !== "topic") setStack(null);
+    setMode(next);
+  }, []);
+
+  const {
+    queue,
+    setQueue,
+    index,
+    revealed,
+    setRevealed,
+    advance,
+    card,
+    remaining,
+    loaded,
+  } = useReviewQueue({
+    itemId,
+    mode,
+    stack,
+    scopedMode,
+    setScopedMode,
+    allCards,
+    items,
+  });
 
   // Reconcile locally-advanced due dates with the server's scheduling on the
   // way out of a run.
+  const stackId = stack?.id ?? null;
   React.useEffect(() => {
     return () => {
       void queryClient.invalidateQueries({ queryKey: ["all-flashcards"] });
     };
-  }, [queryClient, itemId, mode, scopedMode]);
+  }, [queryClient, itemId, mode, scopedMode, stackId]);
 
-  const card = queue?.[index] ?? null;
-  const remaining = queue ? queue.length - index : 0;
-  const loaded = queue !== null;
   const scopeItem = itemId
     ? (items?.find((item) => item.id === itemId) ?? null)
     : null;
@@ -223,7 +122,7 @@ export const ReviewPane = ({
           : current,
       );
     },
-    [index],
+    [index, setQueue],
   );
   const commitCard = React.useCallback(() => {
     if (!cardDirtyRef.current) return;
@@ -234,14 +133,19 @@ export const ReviewPane = ({
 
   const reveal = React.useCallback(() => {
     setRevealed(true);
-  }, []);
+  }, [setRevealed]);
 
   // A scoped All-cards run is a cram: it never touches the schedule.
-  const affectsSchedule = !(itemId && scopedMode === "all");
   const rate = React.useCallback(
     (rating: Rating) => {
       if (!card) return;
       const nowIso = new Date().toISOString();
+      const affectsSchedule =
+        itemId && scopedMode === "all"
+          ? false
+          : stack
+            ? stackRatingAffectsSchedule(card, nowIso)
+            : true;
       // Advance instantly; the write is fire-and-forget. The cache mirrors
       // the server's scheduling (same lib/srs) so the sidebar's due count
       // moves with the rating; the unmount reconcile squares any drift.
@@ -269,13 +173,17 @@ export const ReviewPane = ({
           notify({ tone: "error", title: "Could not save the review" });
         },
       );
-      setIndex((current) => current + 1);
-      setRevealed(false);
+      // The last card's rating ends the run: the finish chord replaces the
+      // tap, since the two smear together.
+      if (queue && index === queue.length - 1) playQueueFinished();
+      else playCardRated(rating);
+      advance();
     },
-    [card, affectsSchedule, queryClient],
+    [card, itemId, scopedMode, stack, queryClient, advance, queue, index],
   );
 
-  // Space reveals, 1-4 rate once revealed. Typing contexts are left alone.
+  // Space reveals, 1-4 rate once revealed, S skips (sets the card aside for
+  // this run only; nothing is written). Typing contexts are left alone.
   React.useEffect(() => {
     if (deckOpen || !card) return;
     const handler = (event: KeyboardEvent) => {
@@ -293,6 +201,11 @@ export const ReviewPane = ({
         reveal();
         return;
       }
+      if (event.key === "s" || event.key === "S") {
+        event.preventDefault();
+        advance();
+        return;
+      }
       if (revealed) {
         const rating = RATINGS.find(({ key }) => key === event.key);
         if (rating) {
@@ -303,9 +216,18 @@ export const ReviewPane = ({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [deckOpen, card, revealed, reveal, rate]);
+  }, [deckOpen, card, revealed, reveal, rate, advance]);
 
   if (deckOpen) return <Deck onBack={() => setDeckOpen(false)} />;
+
+  const composing = !itemId && mode === "topic" && !stack;
+  const emptyDescription = itemId
+    ? "This item has no cards."
+    : stack
+      ? "This stack is done."
+      : mode === "new"
+        ? "No new cards right now."
+        : "No cards are due right now.";
 
   return (
     <div className="relative flex h-full w-full flex-col px-12 pt-12 pb-6">
@@ -315,86 +237,42 @@ export const ReviewPane = ({
         showCount={loaded && (itemId ? true : !!card)}
         remaining={remaining}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={changeMode}
+        stackTitle={stack?.title ?? null}
         scopedMode={scopedMode}
         onScopedModeChange={setScopedMode}
         onOpenDeck={() => setDeckOpen(true)}
       />
 
-      {!loaded ? (
+      {composing ? (
+        <ReviewTopic onStart={setStack} />
+      ) : !loaded ? (
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center">
           <Skeleton className="h-48 w-full rounded-surface" />
         </div>
       ) : card ? (
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-3">
-          {card.itemTitle && (
-            // Clicking the source line jumps to this card in the item's notes.
-            <Tooltip content="Open in notes">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="-ml-1 w-fit max-w-full gap-1.5 px-1 font-normal text-muted-foreground"
-                disabled={!card.itemId || !onOpenCardInNotes}
-                onClick={() =>
-                  card.itemId && onOpenCardInNotes?.(card.itemId, card.id)
-                }
-              >
-                <Favicon
-                  item={{
-                    url: card.itemUrl ?? "",
-                    faviconUrl: card.itemFaviconUrl,
-                  }}
-                  size={12}
-                />
-                <span className="min-w-0 truncate">{card.itemTitle}</span>
-              </Button>
-            </Tooltip>
-          )}
-          <Flashcard
-            key={card.id}
-            scale="review"
-            front={card.front}
-            back={card.back}
-            revealed={revealed}
-            onRevealedChange={(next) => {
-              if (next) reveal();
-            }}
-            onFrontChange={(front) => patchCard({ front })}
-            onBackChange={(back) => patchCard({ back })}
-            onCommit={commitCard}
-          />
-        </div>
+        <ReviewCard
+          card={card}
+          revealed={revealed}
+          onReveal={reveal}
+          onPatch={patchCard}
+          onCommit={commitCard}
+          onOpenCardInNotes={onOpenCardInNotes}
+        />
       ) : (
         <EmptyState
           className="flex-1 justify-center"
           title="All done"
-          description={
-            itemId
-              ? "This item has no cards."
-              : mode === "new"
-                ? "No new cards right now."
-                : "No cards are due right now."
-          }
+          description={emptyDescription}
         />
       )}
 
-      {/* Grades anchor to the bottom centre of the page. */}
-      <div className="flex min-h-9 justify-center">
-        {loaded && card && revealed && (
-          <ButtonGroup>
-            {RATINGS.map((rating) => (
-              <Button
-                key={rating.value}
-                variant="secondary"
-                onClick={() => rate(rating.value)}
-              >
-                {rating.label}
-                <Kbd className="ml-0.5">{rating.key}</Kbd>
-              </Button>
-            ))}
-          </ButtonGroup>
-        )}
-      </div>
+      <ReviewControls
+        active={loaded && !!card && !composing}
+        revealed={revealed}
+        onSkip={advance}
+        onRate={rate}
+      />
     </div>
   );
 };
