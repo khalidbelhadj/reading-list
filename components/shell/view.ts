@@ -1,11 +1,21 @@
 import React from "react";
 
+// A review stack: a named set of cards to run through, compiled by the
+// review agent for a prompt ("distributed systems") or built from a search
+// result. Lives in memory only; the queue is derived from the cards cache.
+export type ReviewStack = {
+  id: string;
+  title: string;
+  cardIds: string[];
+};
+
 // What the pane shows and what the sidebar highlights: exactly one of these
 // at a time. Owned by the shell, passed down.
 export type View =
   | { kind: "items" }
-  // An itemId scopes the review to that item's cards (cram mode).
-  | { kind: "review"; itemId?: string }
+  // An itemId scopes the review to that item's cards (cram mode); a stack
+  // runs an explicit set of cards.
+  | { kind: "review"; itemId?: string; stack?: ReviewStack }
   | { kind: "item"; id: string }
   // Build and deploy info (the settings menu's Version entry). Nothing in
   // the sidebar highlights it, but it sits in the history like any view.
@@ -20,7 +30,9 @@ export const isActiveView = (view: View, kind: View["kind"], id?: string) =>
 // subscriber.
 export type ViewCommand =
   | { kind: "edit-link"; itemId: string }
-  | { kind: "review-item"; itemId: string };
+  | { kind: "review-item"; itemId: string }
+  | { kind: "review-stack"; stack: ReviewStack }
+  | { kind: "open-item"; itemId: string };
 
 const commandListeners = new Set<(command: ViewCommand) => void>();
 

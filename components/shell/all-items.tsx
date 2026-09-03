@@ -2,7 +2,7 @@ import { IconSearch, IconStarFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { fetchItems } from "@/app/actions";
+import { fetchItems, getAllFlashcards } from "@/app/actions";
 import {
   type ListDensity,
   type ListGroupBy,
@@ -18,13 +18,16 @@ import { groupByDate } from "@/lib/date-groups";
 import { timeAgo } from "@/lib/format-time";
 import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
+import { playStackStarted } from "@/lib/sounds";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
 
 import { AskResults } from "./ask-results";
 import { ItemRow } from "./item-row";
+import { buildReviewStack } from "./review-queues";
 import { useAsk } from "./use-ask";
 import { useItemSearch } from "./use-search";
+import { dispatchViewCommand } from "./view";
 
 const LoadingRows = ({ count }: { count: number }) => (
   <div className="flex flex-col gap-0.5">
@@ -49,6 +52,23 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   const search = useItemSearch(query, items);
   const ask = useAsk();
   const { clearAsk } = ask;
+  // Ask results can become a review stack: every card of every item found.
+  const { data: allCards } = useQuery({
+    queryKey: ["all-flashcards"],
+    queryFn: getAllFlashcards,
+  });
+  const askStack = React.useMemo(
+    () =>
+      ask.resultIds && ask.resultIds.length > 0 && allCards
+        ? buildReviewStack(query.trim(), ask.resultIds, [], allCards)
+        : null,
+    [ask.resultIds, allCards, query],
+  );
+  const reviewAskResults = React.useCallback(() => {
+    if (!askStack) return;
+    playStackStarted();
+    dispatchViewCommand({ kind: "review-stack", stack: askStack });
+  }, [askStack]);
 
   const handleChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +225,16 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
           error={ask.error}
           items={items ?? []}
           onOpen={onOpen}
+          action={
+            askStack && askStack.cardIds.length > 0 ? (
+              <div className="mt-1">
+                <Button variant="secondary" onClick={reviewAskResults}>
+                  Review {askStack.cardIds.length} card
+                  {askStack.cardIds.length === 1 ? "" : "s"}
+                </Button>
+              </div>
+            ) : null
+          }
         />
       ) : search.active ? (
         <div className="flex flex-col gap-0.5">

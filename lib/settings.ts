@@ -13,6 +13,8 @@ const settingsSchema = z.object({
   showRead: z.boolean().catch(false),
   // Desktop only: surface items that are open in a browser tab right now.
   showOpenTabs: z.boolean().catch(true),
+  // The UI sounds (lib/sounds.ts).
+  sounds: z.boolean().catch(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sortBy: "created-desc",
   showRead: false,
   showOpenTabs: true,
+  sounds: true,
 };
 
 // Let zod own the whole decision: every field already `.catch`es to its

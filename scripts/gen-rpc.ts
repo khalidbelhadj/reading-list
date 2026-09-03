@@ -73,6 +73,11 @@ const manifest: Section[] = [
     fns: [{ name: "rateCard" }],
   },
   {
+    header: "index",
+    module: "./index-content",
+    fns: [{ name: "semanticSearch" }, { name: "reindexItem" }],
+  },
+  {
     header: "version",
     module: "./version",
     fns: [{ name: "getVersionInfo", zeroArg: true }],

@@ -44,7 +44,14 @@ export default defineConfig(({ mode }) => {
       viteReact(),
       tailwindcss(),
     ],
-    optimizeDeps: { exclude: nativeServerPackages },
+    optimizeDeps: {
+      // transformers.js resolves its ONNX runtime and wasm at run time; the
+      // dependency optimizer rewrites those paths and breaks the worker.
+      exclude: [...nativeServerPackages, "@huggingface/transformers"],
+    },
+    // The index worker (lib/index-worker) uses dynamic imports, which need
+    // the ES module worker format.
+    worker: { format: "es" },
     ssr: {
       external: nativeServerPackages,
       optimizeDeps: { exclude: nativeServerPackages },

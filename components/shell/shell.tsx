@@ -6,6 +6,7 @@ import { getAllFlashcards } from "@/app/actions";
 import { fetchItems } from "@/app/actions";
 import { Button } from "@/components/system/button";
 import { Tooltip } from "@/components/system/tooltip";
+import { startIndexer } from "@/lib/index-client";
 import { type Item } from "@/lib/types";
 import { useWindowVibrancy } from "@/lib/use-window-vibrancy";
 
@@ -45,6 +46,32 @@ const useDeepLinkedItem = (openItem: (id: string) => void) => {
   }, [openItem]);
 };
 
+// ⌘[ / ⌘] navigate, Chrome-style; ⌘K toggles the palette.
+const useShellShortcuts = (
+  goBack: () => void,
+  goForward: () => void,
+  setPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>,
+) => {
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey)
+        return;
+      if (event.key === "[") {
+        event.preventDefault();
+        goBack();
+      } else if (event.key === "]") {
+        event.preventDefault();
+        goForward();
+      } else if (event.key === "k") {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goBack, goForward, setPaletteOpen]);
+};
+
 // The pane is one shared scroll container, so a view change would reset the
 // Reading list's position. Remember it while the list is showing and put it
 // back on return; every other view starts at the top.
@@ -73,7 +100,8 @@ const usePaneScrollMemory = (view: View) => {
 const sameView = (a: View, b: View) => {
   if (a.kind !== b.kind) return false;
   if (a.kind === "item" && b.kind === "item") return a.id === b.id;
-  if (a.kind === "review" && b.kind === "review") return a.itemId === b.itemId;
+  if (a.kind === "review" && b.kind === "review")
+    return a.itemId === b.itemId && a.stack?.id === b.stack?.id;
   return true;
 };
 
@@ -132,26 +160,7 @@ export const AppShell = ({
 
   // ⌘K opens the item palette.
   const [paletteOpen, setPaletteOpen] = React.useState(false);
-
-  // ⌘[ / ⌘] navigate, Chrome-style; ⌘K toggles the palette.
-  React.useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey)
-        return;
-      if (event.key === "[") {
-        event.preventDefault();
-        goBack();
-      } else if (event.key === "]") {
-        event.preventDefault();
-        goForward();
-      } else if (event.key === "k") {
-        event.preventDefault();
-        setPaletteOpen((current) => !current);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [goBack, goForward]);
+  useShellShortcuts(goBack, goForward, setPaletteOpen);
   const [sidebarOpen, setSidebarOpen] = React.useState(
     () =>
       typeof window === "undefined" ||
@@ -170,13 +179,14 @@ export const AppShell = ({
     queryFn: fetchItems,
   });
   const queryClient = useQueryClient();
-  // Keep the deck warm so the review tab derives its queue instantly from
-  // cache instead of showing a skeleton.
+  // Keep the deck warm (the review tab derives its queue from cache) and
+  // start the index worker (lib/index-worker) now the signed-in app is up.
   React.useEffect(() => {
     void queryClient.prefetchQuery({
       queryKey: ["all-flashcards"],
       queryFn: getAllFlashcards,
     });
+    startIndexer();
   }, [queryClient]);
   // Surface the in-memory selection in the dev banner.
   React.useEffect(() => {
@@ -227,6 +237,9 @@ export const AppShell = ({
     if (command.kind === "edit-link") requestUrlEdit(command.itemId);
     else if (command.kind === "review-item")
       setView({ kind: "review", itemId: command.itemId });
+    else if (command.kind === "review-stack")
+      setView({ kind: "review", stack: command.stack });
+    else if (command.kind === "open-item") openItem(command.itemId);
   });
 
   // Requests are one-shot: navigating away from their target item consumes
@@ -324,8 +337,9 @@ export const AppShell = ({
           {view.kind === "items" && <AllItems onOpen={openItem} />}
           {view.kind === "review" && (
             <ReviewPane
-              key={view.itemId ?? "due"}
+              key={view.stack?.id ?? view.itemId ?? "due"}
               itemId={view.itemId}
+              stack={view.stack}
               onOpenCardInNotes={openCardInNotes}
             />
           )}

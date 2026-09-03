@@ -129,11 +129,12 @@ Single-page reading list app with an MCP server for AI integrations.
 
 ### Database
 
-Three tables in `db/schema.ts` — deliberately simple:
+Three core tables in `db/schema.ts` — deliberately simple — plus two disposable index tables:
 
 - `items` — the list (title, url, notes, starred/read/hidden flags, favicon + preview image)
 - `flashcards` — cards with their SRS scheduling state inline (state, due, interval, easeFactor, reps, lapses); linked to items via nullable `itemId`
 - `user_settings` — one jsonb blob per user (validated by `lib/settings.ts`)
+- `item_content` / `chunks` — the search index (extracted markdown + the extraction job; pgvector embeddings of content, notes, and cards). Best effort, droppable. See `notes/index-and-review-agent.md`.
 
 Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via `DATABASE_URL`. Config in `drizzle.config.ts`. `db/setup.sql` owns everything push doesn't (RLS, policies, trgm indexes, sync trigger, storage bucket) — run it after every push. `db/drop-legacy.sql` is the one-shot migration that removed the pre-2026-08-30 tables (tags, review bookkeeping, extraction/embeddings).
 
@@ -148,6 +149,10 @@ Client in `db/index.ts` uses `postgres` (postgres.js) connecting to Supabase via
 - Default body font is Inter (`--font-sans`)
 - Content font (titles, flashcards) uses `font-content` Tailwind class (`--font-content: DM Sans Variable`)
 - Do not use inline `style={{ fontFamily }}` — always use the `font-content` class
+
+### Index and agents
+
+The search index is built in the client by a Web Worker (`lib/index-worker/`: loop, extractor ladder, transformers.js embeddings on WebGPU/wasm), started once from the shell via `lib/index-client.ts` and kicked by every successful mutation and every sync ping. The server is storage only: `app/api/index/server.ts` (reconcile, lease jobs, store content and embeddings) and the SSRF-guarded fetch proxy `app/api/fetch/server.ts`; `lib/index/indexer.server.ts` holds the SQL. Nothing schedules on the server. `lib/semantic-search.server.ts` ranks chunks for a query vector the worker produced. `/api/ask` serves two agent modes over the same tools (regex, semantic, flashcards, read_item): `search` (the Ask box) and `review` (the Topic composer in the review pane, which turns the agent's `present_review` into a `ReviewStack`). `semantic_search` is a client-executed tool (`components/shell/use-ask.ts`) because only the worker has the model. Models: `ASK_MODEL` / `REVIEW_MODEL` env, default `gemini-3.1-flash-lite`. See `notes/index-and-review-agent.md`.
 
 ### MCP Server
 

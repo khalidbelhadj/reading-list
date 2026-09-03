@@ -3,6 +3,7 @@ import React from "react";
 
 import { createItem, fetchPageTitle, updateItem } from "@/app/actions";
 import { notify } from "@/components/system/toast";
+import { playItemCreated } from "@/lib/sounds";
 import { type Item } from "@/lib/types";
 import { normalizeUrl } from "@/lib/url";
 
@@ -128,6 +129,9 @@ export const useCreateItem = (onOpen: (id: string) => void) => {
     mutationFn: ({ id, url }: { id: string; url: string }) =>
       createItem(hostnameOf(url), url, undefined, undefined, id),
     onMutate: async ({ id, url }) => {
+      // The sound means a new item actually landed: only the url paste
+      // paths (⌘V and the paste affordance) come through here.
+      playItemCreated();
       await insertIntoCache(id, { title: hostnameOf(url), url });
       const notifyId = notify({
         title: hostnameOf(url),

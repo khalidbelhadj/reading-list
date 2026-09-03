@@ -2,6 +2,7 @@ import { IconX } from "@tabler/icons-react";
 import type React from "react";
 import { toast as sonner, Toaster as Sonner, type ToasterProps } from "sonner";
 
+import { playError } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 
 import { Button } from "./button";
@@ -103,9 +104,11 @@ export const Notification = ({
   </Surface>
 );
 
-// Show a notification. Returns the id, for dismissing it early.
-export const notify = (options: NotifyOptions) =>
-  sonner.custom(
+// Show a notification. Returns the id, for dismissing it early. An error
+// gets its sound here, the one place every failure passes through.
+export const notify = (options: NotifyOptions) => {
+  if (options.tone === "error") playError();
+  return sonner.custom(
     (id) => <Notification {...options} onClose={() => sonner.dismiss(id)} />,
     {
       // Sonner's own chrome would double the surface; the card is the toast.
@@ -117,6 +120,7 @@ export const notify = (options: NotifyOptions) =>
       duration: options.duration ?? (options.actions?.length ? 10_000 : 4_000),
     },
   );
+};
 
 notify.dismiss = (id?: string | number) => sonner.dismiss(id);
 

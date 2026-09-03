@@ -12,7 +12,7 @@ import { type AskStep } from "./use-ask";
 
 type ToolStep = Extract<AskStep, { kind: "tool" }>;
 
-// Shapes the tools return (see app/api/ask/server.ts). Output is `unknown` on
+// Shapes the tools return (see app/api/ask/tools.ts). Output is `unknown` on
 // the part, so we narrow defensively when rendering.
 type SearchItemOutput = { id: string };
 type FlashcardOutput = {
@@ -20,13 +20,32 @@ type FlashcardOutput = {
   front: string;
   itemTitle: string | null;
 };
+type ReadItemOutput = { title?: string; cards?: unknown[]; error?: string };
+
+const isCardRows = (rows: unknown[]): rows is FlashcardOutput[] =>
+  rows.length > 0 &&
+  typeof rows[0] === "object" &&
+  rows[0] !== null &&
+  "front" in rows[0];
 
 // The step header text — "Searched items, N results".
 const describeTool = (step: ToolStep): string => {
+  if (step.name === "read_item") {
+    const output = step.output as ReadItemOutput | undefined;
+    return output?.title ? `Read ${output.title}` : "Read item";
+  }
+  const scope =
+    step.input && typeof step.input === "object" && "scope" in step.input
+      ? (step.input as { scope?: string }).scope
+      : undefined;
   const verb =
     step.name === "search_flashcards"
       ? "Searched flashcards"
-      : "Searched items";
+      : step.name === "semantic_search"
+        ? scope === "cards"
+          ? "Searched flashcards by meaning"
+          : "Searched by meaning"
+        : "Searched items";
   if (!Array.isArray(step.output)) return verb;
   const count = step.output.length;
   return `${verb}, ${count} result${count === 1 ? "" : "s"}`;
@@ -58,11 +77,23 @@ const ToolStepRow = ({
   const [open, setOpen] = React.useState(false);
 
   const body = React.useMemo(() => {
+    if (step.name === "read_item") {
+      const output = step.output as ReadItemOutput | undefined;
+      const cardCount = Array.isArray(output?.cards) ? output.cards.length : 0;
+      return (
+        <p className="p-2 text-small text-muted-foreground">
+          {output?.error ??
+            (output
+              ? `${cardCount} card${cardCount === 1 ? "" : "s"}`
+              : "Reading…")}
+        </p>
+      );
+    }
     if (!Array.isArray(step.output)) {
       return <p className="p-2 text-small text-muted-foreground">Running…</p>;
     }
 
-    if (step.name === "search_flashcards") {
+    if (step.name === "search_flashcards" || isCardRows(step.output)) {
       const cards = step.output as FlashcardOutput[];
       if (cards.length === 0) {
         return (
@@ -157,7 +188,8 @@ const ToolStepRow = ({
 };
 
 // The Ask activity feed: the agent's narration and tool calls stream in, in
-// order, followed by the summary line and then the chosen items as rows.
+// order, followed by the summary line, an optional action (start the review,
+// review these), and then the chosen items as rows.
 export const AskResults = ({
   steps,
   summary,
@@ -167,6 +199,7 @@ export const AskResults = ({
   error,
   items,
   onOpen,
+  action,
 }: {
   steps: AskStep[];
   summary: string | null;
@@ -176,6 +209,7 @@ export const AskResults = ({
   error: Error | null;
   items: Item[];
   onOpen: (id: string) => void;
+  action?: React.ReactNode;
 }) => {
   const itemsById = React.useMemo(() => {
     const map = new Map<string, Item>();
@@ -241,6 +275,7 @@ export const AskResults = ({
         )}
 
         {isAsking && <SquareSpinner className="mt-1" />}
+        {!isAsking && action}
       </div>
 
       {showEmpty && (

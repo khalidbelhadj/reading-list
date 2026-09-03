@@ -24,6 +24,8 @@ BEGIN;
 -- ---------------------------------------------------------------------------
 -- Trigram similarity powers fuzzy search (lib/search.server.ts).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- pgvector powers semantic search over the index (lib/index/*).
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------------------
 -- 2. Trigram (GIN) search indexes
@@ -37,6 +39,11 @@ CREATE INDEX IF NOT EXISTS flashcards_front_trgm_idx
 CREATE INDEX IF NOT EXISTS flashcards_back_trgm_idx
   ON public.flashcards USING gin (back gin_trgm_ops);
 
+-- Approximate nearest-neighbour index for semantic search
+-- (lib/semantic-search.server.ts orders by `embedding <=> query`).
+CREATE INDEX IF NOT EXISTS chunks_embedding_hnsw_idx
+  ON public.chunks USING hnsw (embedding vector_cosine_ops);
+
 -- ---------------------------------------------------------------------------
 -- 3. Grants for the `authenticated` role used by withUser() (db/index.ts)
 -- ---------------------------------------------------------------------------
@@ -48,6 +55,8 @@ GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.items         TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.flashcards    TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_settings TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.item_content  TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.chunks        TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. Enable row-level security
@@ -60,6 +69,10 @@ ALTER TABLE public.flashcards    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.flashcards    FORCE  ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_settings FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.item_content  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.item_content  FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.chunks        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chunks        FORCE  ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------
 -- 5. Owner-only policies (DROP-then-CREATE for idempotency)
@@ -105,6 +118,34 @@ CREATE POLICY "user_settings_insert_own" ON public.user_settings
 CREATE POLICY "user_settings_update_own" ON public.user_settings
   FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY "user_settings_delete_own" ON public.user_settings
+  FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- item_content
+DROP POLICY IF EXISTS "item_content_select_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_insert_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_update_own" ON public.item_content;
+DROP POLICY IF EXISTS "item_content_delete_own" ON public.item_content;
+CREATE POLICY "item_content_select_own" ON public.item_content
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "item_content_insert_own" ON public.item_content
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_content_update_own" ON public.item_content
+  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "item_content_delete_own" ON public.item_content
+  FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- chunks
+DROP POLICY IF EXISTS "chunks_select_own" ON public.chunks;
+DROP POLICY IF EXISTS "chunks_insert_own" ON public.chunks;
+DROP POLICY IF EXISTS "chunks_update_own" ON public.chunks;
+DROP POLICY IF EXISTS "chunks_delete_own" ON public.chunks;
+CREATE POLICY "chunks_select_own" ON public.chunks
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "chunks_insert_own" ON public.chunks
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY "chunks_update_own" ON public.chunks
+  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "chunks_delete_own" ON public.chunks
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------------

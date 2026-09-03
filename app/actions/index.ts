@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import type * as flashcardsImpl from "./flashcards";
+import type * as indexContentImpl from "./index-content";
 import type * as itemsImpl from "./items";
 import type * as queriesImpl from "./queries";
 import type * as reviewImpl from "./review";
@@ -117,6 +118,25 @@ const rateCardFn = createServerFn({ method: "POST" })
   .handler(({ data }) => import("./review").then((m) => m.rateCard(...data)));
 export const rateCard: typeof reviewImpl.rateCard = (...args) =>
   rateCardFn({ data: args });
+
+// --- index ---
+
+const semanticSearchFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof indexContentImpl.semanticSearch>) => args)
+  .handler(({ data }) =>
+    import("./index-content").then((m) => m.semanticSearch(...data)),
+  );
+export const semanticSearch: typeof indexContentImpl.semanticSearch = (
+  ...args
+) => semanticSearchFn({ data: args });
+
+const reindexItemFn = createServerFn({ method: "POST" })
+  .validator((args: Parameters<typeof indexContentImpl.reindexItem>) => args)
+  .handler(({ data }) =>
+    import("./index-content").then((m) => m.reindexItem(...data)),
+  );
+export const reindexItem: typeof indexContentImpl.reindexItem = (...args) =>
+  reindexItemFn({ data: args });
 
 // --- version ---
 
