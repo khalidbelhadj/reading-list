@@ -32,7 +32,7 @@ export const ReviewHeader = ({
   onOpenDeck: () => void;
 }) => (
   <>
-    <div className="app-no-drag absolute top-3 left-4 z-20 flex items-center gap-3 text-small text-muted-foreground select-none">
+    <div className="app-no-drag absolute top-3 left-(--pane-start) z-20 flex items-center gap-3 text-small text-muted-foreground select-none">
       {itemId ? (
         <>
           <Select

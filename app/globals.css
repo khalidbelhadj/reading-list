@@ -279,6 +279,22 @@ html.electron .electron-top-bar-inset [data-no-drag] {
   app-region: no-drag;
 }
 
+/* Where content pinned to the main pane's top-left corner may start. With the
+   sidebar open the corner is empty and the plain 1rem inset applies. Closed,
+   the shell's reopen toggle (px-2 + size-7) sits there, and in Electron the
+   traffic lights sit before it (the toolbar's clearance + 0.25rem, see
+   .panel-toolbar above), so the start moves past the toggle plus a 0.5rem
+   gap. Pane content reads it via left-(--pane-start). */
+.main-pane {
+  --pane-start: 1rem;
+}
+.main-pane[data-sidebar-open="false"] {
+  --pane-start: calc(0.5rem + 1.75rem + 0.5rem);
+}
+html.electron .main-pane[data-sidebar-open="false"] {
+  --pane-start: calc(var(--traffic-clearance) + 0.25rem + 1.75rem + 0.5rem);
+}
+
 /* For interactive elements that overlap a drag bar without living inside it
    (e.g. the item view's corner menu over the top drag strip). */
 html.electron .app-no-drag {

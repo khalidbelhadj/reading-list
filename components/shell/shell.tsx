@@ -46,6 +46,32 @@ const useDeepLinkedItem = (openItem: (id: string) => void) => {
   }, [openItem]);
 };
 
+// ⌘[ / ⌘] navigate, Chrome-style; ⌘K toggles the palette.
+const useShellShortcuts = (
+  goBack: () => void,
+  goForward: () => void,
+  setPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>,
+) => {
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey)
+        return;
+      if (event.key === "[") {
+        event.preventDefault();
+        goBack();
+      } else if (event.key === "]") {
+        event.preventDefault();
+        goForward();
+      } else if (event.key === "k") {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goBack, goForward, setPaletteOpen]);
+};
+
 // The pane is one shared scroll container, so a view change would reset the
 // Reading list's position. Remember it while the list is showing and put it
 // back on return; every other view starts at the top.
@@ -87,9 +113,6 @@ export const AppShell = ({
   initialItemId?: string;
 }) => {
   useWindowVibrancy();
-  // The search index is built by a Web Worker (lib/index-worker); the shell
-  // only starts it once the signed-in app is up.
-  React.useEffect(startIndexer, []);
   // Browser-style history over the view state: navigating pushes, back and
   // forward walk the stack (⌘[ / ⌘], or the sidebar arrows).
   const [history, setHistory] = React.useState<{
@@ -137,26 +160,7 @@ export const AppShell = ({
 
   // ⌘K opens the item palette.
   const [paletteOpen, setPaletteOpen] = React.useState(false);
-
-  // ⌘[ / ⌘] navigate, Chrome-style; ⌘K toggles the palette.
-  React.useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey)
-        return;
-      if (event.key === "[") {
-        event.preventDefault();
-        goBack();
-      } else if (event.key === "]") {
-        event.preventDefault();
-        goForward();
-      } else if (event.key === "k") {
-        event.preventDefault();
-        setPaletteOpen((current) => !current);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [goBack, goForward]);
+  useShellShortcuts(goBack, goForward, setPaletteOpen);
   const [sidebarOpen, setSidebarOpen] = React.useState(
     () =>
       typeof window === "undefined" ||
@@ -175,13 +179,14 @@ export const AppShell = ({
     queryFn: fetchItems,
   });
   const queryClient = useQueryClient();
-  // Keep the deck warm so the review tab derives its queue instantly from
-  // cache instead of showing a skeleton.
+  // Keep the deck warm (the review tab derives its queue from cache) and
+  // start the index worker (lib/index-worker) now the signed-in app is up.
   React.useEffect(() => {
     void queryClient.prefetchQuery({
       queryKey: ["all-flashcards"],
       queryFn: getAllFlashcards,
     });
+    startIndexer();
   }, [queryClient]);
   // Surface the in-memory selection in the dev banner.
   React.useEffect(() => {
@@ -293,7 +298,10 @@ export const AppShell = ({
         onBack={goBack}
         onForward={goForward}
       />
-      <div className="relative min-w-0 flex-1">
+      <div
+        className="main-pane relative min-w-0 flex-1"
+        data-sidebar-open={sidebarOpen}
+      >
         <div className="electron-top-bar-inset panel-toolbar absolute inset-x-0 top-0 z-10 flex h-12 items-center px-2">
           {/* With the sidebar closed the traffic lights float over the main
               pane; the reopen toggle sits next to them, same spot as before. */}
