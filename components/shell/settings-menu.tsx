@@ -1,5 +1,6 @@
 import {
   IconCopy,
+  IconDatabase,
   IconDeviceDesktop,
   IconDownload,
   IconInfoCircle,
@@ -30,8 +31,33 @@ import {
 } from "@/components/system/menu";
 import { Tooltip } from "@/components/system/tooltip";
 import { broadcastSignOut } from "@/lib/auth-broadcast";
+import { useIndexProgress } from "@/lib/index-client";
+import { type IndexProgress } from "@/lib/index-worker/protocol";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { useSettings } from "@/lib/use-settings";
+
+// The index's state in two quiet lines: how many linked items have their
+// content, and how many passages are embedded (or what the worker is doing
+// instead). Read-only; the worker in lib/index-worker does the work.
+const indexLines = (status: IndexProgress | null): [string, string] => {
+  if (!status) return ["Index", "Starting"];
+  const stuck = status.failed + status.unsupported;
+  const items = `${status.ok} of ${status.items} items indexed${
+    status.pending > 0 ? `, ${status.pending} queued` : ""
+  }${stuck > 0 ? `, ${stuck} skipped` : ""}`;
+  if (status.phase === "loading-model") {
+    const percent = Math.round((status.modelProgress ?? 0) * 100);
+    return [items, `Downloading the embedding model, ${percent}%`];
+  }
+  if (status.phase === "signed-out" || status.phase === "error") {
+    return [items, status.message ?? status.phase];
+  }
+  const passages =
+    status.embedded < status.chunks
+      ? `${status.embedded} of ${status.chunks} passages embedded`
+      : `${status.chunks} passages embedded`;
+  return [items, passages];
+};
 
 const THEMES = [
   { value: "system", label: "System", Icon: IconDeviceDesktop },
@@ -55,6 +81,7 @@ export const SettingsMenu = ({
   const { settings, setSetting } = useSettings();
   const { data: user } = useCurrentUser();
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [indexItems, indexPassages] = indexLines(useIndexProgress());
 
   const fullName =
     (user?.user_metadata?.full_name as string | undefined) ??
@@ -119,6 +146,15 @@ export const SettingsMenu = ({
           <MenuItem icon={<IconDownload />} onClick={() => setExportOpen(true)}>
             Export as CSV
           </MenuItem>
+          <MenuSub>
+            <MenuSubTrigger icon={<IconDatabase />}>Index</MenuSubTrigger>
+            <MenuSubContent>
+              <MenuGroup>
+                <MenuLabel>{indexItems}</MenuLabel>
+                <MenuLabel>{indexPassages}</MenuLabel>
+              </MenuGroup>
+            </MenuSubContent>
+          </MenuSub>
           <MenuItem icon={<IconInfoCircle />} onClick={onShowVersion}>
             Version
           </MenuItem>

@@ -6,6 +6,7 @@ import { getAllFlashcards } from "@/app/actions";
 import { fetchItems } from "@/app/actions";
 import { Button } from "@/components/system/button";
 import { Tooltip } from "@/components/system/tooltip";
+import { startIndexer } from "@/lib/index-client";
 import { type Item } from "@/lib/types";
 import { useWindowVibrancy } from "@/lib/use-window-vibrancy";
 
@@ -73,7 +74,8 @@ const usePaneScrollMemory = (view: View) => {
 const sameView = (a: View, b: View) => {
   if (a.kind !== b.kind) return false;
   if (a.kind === "item" && b.kind === "item") return a.id === b.id;
-  if (a.kind === "review" && b.kind === "review") return a.itemId === b.itemId;
+  if (a.kind === "review" && b.kind === "review")
+    return a.itemId === b.itemId && a.stack?.id === b.stack?.id;
   return true;
 };
 
@@ -85,6 +87,9 @@ export const AppShell = ({
   initialItemId?: string;
 }) => {
   useWindowVibrancy();
+  // The search index is built by a Web Worker (lib/index-worker); the shell
+  // only starts it once the signed-in app is up.
+  React.useEffect(startIndexer, []);
   // Browser-style history over the view state: navigating pushes, back and
   // forward walk the stack (⌘[ / ⌘], or the sidebar arrows).
   const [history, setHistory] = React.useState<{
@@ -227,6 +232,9 @@ export const AppShell = ({
     if (command.kind === "edit-link") requestUrlEdit(command.itemId);
     else if (command.kind === "review-item")
       setView({ kind: "review", itemId: command.itemId });
+    else if (command.kind === "review-stack")
+      setView({ kind: "review", stack: command.stack });
+    else if (command.kind === "open-item") openItem(command.itemId);
   });
 
   // Requests are one-shot: navigating away from their target item consumes
@@ -321,8 +329,9 @@ export const AppShell = ({
           {view.kind === "items" && <AllItems onOpen={openItem} />}
           {view.kind === "review" && (
             <ReviewPane
-              key={view.itemId ?? "due"}
+              key={view.stack?.id ?? view.itemId ?? "due"}
               itemId={view.itemId}
+              stack={view.stack}
               onOpenCardInNotes={openCardInNotes}
             />
           )}

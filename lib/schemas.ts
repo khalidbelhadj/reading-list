@@ -84,6 +84,17 @@ export const rateCardSchema = z.object({
   affectsSchedule: z.boolean(),
 });
 
+export const reindexItemSchema = z.object({
+  itemId: idSchema,
+});
+
+export const semanticSearchSchema = z.object({
+  model: z.string().min(1).max(200),
+  vector: z.array(z.number()).min(1).max(4096),
+  scope: z.enum(["items", "cards"]),
+  limit: z.number().int().min(1).max(40),
+});
+
 // MCP tool schemas
 export const mcpGetItemsSchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),

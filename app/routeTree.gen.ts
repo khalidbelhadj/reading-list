@@ -21,8 +21,10 @@ import { Route as DesignComponentsRouteImport } from './routes/design.components
 import { Route as AuthReturnToAppRouteImport } from './routes/auth.return-to-app'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
+import { Route as ApiFetchRouteImport } from './routes/api.fetch'
 import { Route as ApiAskRouteImport } from './routes/api.ask'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
+import { Route as ApiIndexSplatRouteImport } from './routes/api.index.$'
 import { Route as ApiStorageSplatRouteImport } from './routes/api.storage.$'
 import { Route as ApiExtensionItemsRouteImport } from './routes/api.extension.items'
 
@@ -86,6 +88,11 @@ const ApiMcpRoute = ApiMcpRouteImport.update({
   path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFetchRoute = ApiFetchRouteImport.update({
+  id: '/api/fetch',
+  path: '/api/fetch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAskRoute = ApiAskRouteImport.update({
   id: '/api/ask',
   path: '/api/ask',
@@ -97,6 +104,11 @@ const DotwellKnownOauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIndexSplatRoute = ApiIndexSplatRouteImport.update({
+  id: '/api/index/$',
+  path: '/api/index/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStorageSplatRoute = ApiStorageSplatRouteImport.update({
   id: '/api/storage/$',
   path: '/api/storage/$',
@@ -116,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -125,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/design/': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/index/$': typeof ApiIndexSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,6 +147,7 @@ export interface FileRoutesByTo {
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -142,6 +157,7 @@ export interface FileRoutesByTo {
   '/design': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/index/$': typeof ApiIndexSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +168,7 @@ export interface FileRoutesById {
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/return-to-app': typeof AuthReturnToAppRoute
@@ -161,6 +178,7 @@ export interface FileRoutesById {
   '/design/': typeof DesignIndexRoute
   '/api/extension/items': typeof ApiExtensionItemsRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
+  '/api/index/$': typeof ApiIndexSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,6 +190,7 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
+    | '/api/fetch'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -181,6 +200,7 @@ export interface FileRouteTypes {
     | '/design/'
     | '/api/extension/items'
     | '/api/storage/$'
+    | '/api/index/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -189,6 +209,7 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
+    | '/api/fetch'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -198,6 +219,7 @@ export interface FileRouteTypes {
     | '/design'
     | '/api/extension/items'
     | '/api/storage/$'
+    | '/api/index/$'
   id:
     | '__root__'
     | '/'
@@ -207,6 +229,7 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
     | '/api/ask'
+    | '/api/fetch'
     | '/api/mcp'
     | '/auth/callback'
     | '/auth/return-to-app'
@@ -216,6 +239,7 @@ export interface FileRouteTypes {
     | '/design/'
     | '/api/extension/items'
     | '/api/storage/$'
+    | '/api/index/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -226,12 +250,14 @@ export interface RootRouteChildren {
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiAskRoute: typeof ApiAskRoute
+  ApiFetchRoute: typeof ApiFetchRoute
   ApiMcpRoute: typeof ApiMcpRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthReturnToAppRoute: typeof AuthReturnToAppRoute
   OauthConsentRoute: typeof OauthConsentRoute
   ApiExtensionItemsRoute: typeof ApiExtensionItemsRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
+  ApiIndexSplatRoute: typeof ApiIndexSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -320,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/fetch': {
+      id: '/api/fetch'
+      path: '/api/fetch'
+      fullPath: '/api/fetch'
+      preLoaderRoute: typeof ApiFetchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ask': {
       id: '/api/ask'
       path: '/api/ask'
@@ -332,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/oauth-protected-resource'
       fullPath: '/.well-known/oauth-protected-resource'
       preLoaderRoute: typeof DotwellKnownOauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/index/$': {
+      id: '/api/index/$'
+      path: '/api/index/$'
+      fullPath: '/api/index/$'
+      preLoaderRoute: typeof ApiIndexSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/storage/$': {
@@ -375,12 +415,14 @@ const rootRouteChildren: RootRouteChildren = {
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
   ApiAskRoute: ApiAskRoute,
+  ApiFetchRoute: ApiFetchRoute,
   ApiMcpRoute: ApiMcpRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthReturnToAppRoute: AuthReturnToAppRoute,
   OauthConsentRoute: OauthConsentRoute,
   ApiExtensionItemsRoute: ApiExtensionItemsRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,
+  ApiIndexSplatRoute: ApiIndexSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

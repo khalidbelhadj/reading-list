@@ -4,7 +4,7 @@
 
 // arXiv id from /abs/<id> or /pdf/<id>. Ids look like "2103.00020v2" or the
 // older "cs/0112017" style.
-const getArxivId = (raw: string): string | null => {
+export const getArxivId = (raw: string): string | null => {
   try {
     const url = new URL(raw);
     const host = url.hostname.replace(/^www\./, "").toLowerCase();

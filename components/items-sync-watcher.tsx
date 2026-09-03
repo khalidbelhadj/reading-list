@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
+import { kickIndexer } from "@/lib/index-client";
 import {
   getSyncOriginId,
   ITEMS_SYNC_EVENT,
@@ -33,6 +34,8 @@ export const ItemsSyncWatcher = () => {
       flushTimer = null;
       for (const key of pendingKeys) {
         queryClient.invalidateQueries({ queryKey: [key] });
+        // Another device (or the MCP server) wrote: the index has work.
+        kickIndexer();
       }
       pendingKeys.clear();
     };
