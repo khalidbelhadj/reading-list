@@ -18,6 +18,7 @@ import { groupByDate } from "@/lib/date-groups";
 import { timeAgo } from "@/lib/format-time";
 import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
+import { playStackStarted } from "@/lib/sounds";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
 
@@ -64,8 +65,9 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
     [ask.resultIds, allCards, query],
   );
   const reviewAskResults = React.useCallback(() => {
-    if (askStack)
-      dispatchViewCommand({ kind: "review-stack", stack: askStack });
+    if (!askStack) return;
+    playStackStarted();
+    dispatchViewCommand({ kind: "review-stack", stack: askStack });
   }, [askStack]);
 
   const handleChange = React.useCallback(

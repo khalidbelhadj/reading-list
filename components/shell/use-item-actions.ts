@@ -7,6 +7,11 @@ import {
   updateItem,
 } from "@/app/actions";
 import { notify } from "@/components/system/toast";
+import {
+  playItemDeleted,
+  playItemStarred,
+  playItemUnstarred,
+} from "@/lib/sounds";
 import { type Item } from "@/lib/types";
 
 /**
@@ -63,6 +68,8 @@ export const useItemActions = () => {
     mutationFn: ({ id, starred }: { id: string; starred: boolean }) =>
       updateItem(id, { starred }),
     onMutate: async ({ id, starred }) => {
+      if (starred) playItemStarred();
+      else playItemUnstarred();
       const previous = await snapshot();
       patchItem(id, { starred });
       return { previous };
@@ -77,6 +84,7 @@ export const useItemActions = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteItemAction(id),
     onMutate: async (id) => {
+      playItemDeleted();
       const previous = await snapshot();
       queryClient.setQueryData<Item[]>(["items"], (old) =>
         old?.filter((item) => item.id !== id),

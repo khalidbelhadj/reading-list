@@ -2,6 +2,7 @@ import { MutationCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { kickIndexer } from "@/lib/index-client";
+import { playError } from "@/lib/sounds";
 
 // One QueryClient per browser session (the router creates a fresh one per
 // SSR request via getRouter). Mutation errors surface as toasts; an
@@ -25,6 +26,7 @@ export const makeQueryClient = () => {
           window.location.href = "/login";
           return;
         }
+        playError();
         const message =
           error instanceof Error ? error.message : "Something went wrong";
         const [title, ...rest] = message.split(". ");

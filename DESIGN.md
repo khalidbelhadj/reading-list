@@ -53,6 +53,30 @@ Defined once in `app/globals.css` and exposed as Tailwind utilities:
 | `--starred` | `text-starred` | the gold star on starred items (light `oklch(0.75 0.145 85)`, dark `oklch(0.82 0.15 88)`) |
 | `--link` | `text-link` | content links, a normal blue rather than the accent (light `oklch(0.55 0.16 250)`, dark `oklch(0.72 0.14 245)`) |
 
+## Sounds
+
+One instrument, used rarely. Every sound is a short sine tap from
+`lib/sounds.ts` (Web Audio, no assets), same envelope family, most under
+200 ms, master gain 0.25. A sound marks a moment the eye can miss or a
+beginning or an end; it never narrates navigation, saving, sync, or
+background work. The full set, auditionable on `/design/components` under
+Sound board:
+
+| Moment | Sound |
+|---|---|
+| A pasted url lands | ascending arpeggio (784, 988, 1318) |
+| Answer revealed | the smallest tick (587) |
+| Card rated | one tap, pitch steps with the grade (440 + 110 per step) |
+| Card skipped | a low tap sliding down (330 to 247), quieter than a grade |
+| Queue finished | soft detuned major chord, replaces the last tap |
+| Stack started | rising phrase (523, 659, 784), lighter than the paste |
+| Starred / unstarred | two notes up (659, 988) / the same two down |
+| Item deleted | a low thud (110 to 70), the one weighty sound |
+| An error | two low notes down (330, 262); the toast carries the words |
+
+Silent on purpose: opening things, switching queues, notes saving, sync from
+another device, the index working.
+
 ## Components
 
 Two layers, both presentation only:

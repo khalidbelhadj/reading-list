@@ -8,8 +8,10 @@ import { Skeleton } from "@/components/system/skeleton";
 import { notify } from "@/components/system/toast";
 import {
   playCardRated,
+  playCardRevealed,
   playCardSkipped,
   playQueueFinished,
+  playStackStarted,
 } from "@/lib/sounds";
 import { parseCardState, type Rating, schedule } from "@/lib/srs";
 import { type Item } from "@/lib/types";
@@ -75,6 +77,12 @@ export const ReviewPane = ({
     if (next !== "topic") setStack(null);
     setMode(next);
   }, []);
+  // A compiled stack starting from the composer (a stack arriving from a
+  // search result played its sound at the click that navigated here).
+  const startStack = React.useCallback((next: ReviewStack) => {
+    playStackStarted();
+    setStack(next);
+  }, []);
 
   const {
     queue,
@@ -136,6 +144,7 @@ export const ReviewPane = ({
   }, [queue, index, saveFlashcard]);
 
   const reveal = React.useCallback(() => {
+    playCardRevealed();
     setRevealed(true);
   }, [setRevealed]);
 
@@ -257,7 +266,7 @@ export const ReviewPane = ({
       />
 
       {composing ? (
-        <ReviewTopic onStart={setStack} />
+        <ReviewTopic onStart={startStack} />
       ) : !loaded ? (
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center">
           <Skeleton className="h-48 w-full rounded-surface" />

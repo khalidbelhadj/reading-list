@@ -83,6 +83,43 @@ export const playCardSkipped = () => {
   tone({ freq: 330, glideTo: 247, dur: 0.09, peak: 0.18 });
 };
 
+// The answer shows: the smallest tick in the set, below the rating taps so
+// the sequence reads reveal, then grade.
+export const playCardRevealed = () => {
+  tone({ freq: 587, dur: 0.05, peak: 0.15 });
+};
+
+// Starred: two notes up; unstarred: the same two, down.
+export const playItemStarred = () => {
+  tone({ freq: 659, dur: 0.07, peak: 0.2 });
+  tone({ freq: 988, at: 0.07, dur: 0.09, peak: 0.2 });
+};
+
+export const playItemUnstarred = () => {
+  tone({ freq: 988, dur: 0.07, peak: 0.2 });
+  tone({ freq: 659, at: 0.07, dur: 0.09, peak: 0.2 });
+};
+
+// Deleted: a low thud, the one weighty sound in the set, because this is the
+// one thing the app can't undo.
+export const playItemDeleted = () => {
+  tone({ freq: 110, glideTo: 70, dur: 0.18, peak: 0.3, attack: 0.003 });
+};
+
+// A stack starts: a rising phrase, lighter than the paste arpeggio, the
+// opening bracket to the finish chord.
+export const playStackStarted = () => {
+  tone({ freq: 523, dur: 0.07, peak: 0.18 });
+  tone({ freq: 659, at: 0.07, dur: 0.07, peak: 0.18 });
+  tone({ freq: 784, at: 0.14, dur: 0.12, peak: 0.18 });
+};
+
+// Something failed: two low notes, down. Quiet; the toast carries the words.
+export const playError = () => {
+  tone({ freq: 330, dur: 0.12, peak: 0.22 });
+  tone({ freq: 262, at: 0.09, dur: 0.16, peak: 0.22 });
+};
+
 // The queue is done: a soft, slightly detuned major chord.
 export const playQueueFinished = () => {
   [523, 659, 784, 1046].forEach((freq, index) => {
