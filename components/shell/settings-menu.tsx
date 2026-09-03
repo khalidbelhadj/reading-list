@@ -9,6 +9,7 @@ import {
   IconPalette,
   IconSettings,
   IconSun,
+  IconVolume,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
@@ -143,6 +144,13 @@ export const SettingsMenu = ({
               ))}
             </MenuSubContent>
           </MenuSub>
+          <MenuCheckboxItem
+            icon={<IconVolume />}
+            checked={settings.sounds}
+            onCheckedChange={(checked) => setSetting("sounds", checked)}
+          >
+            Sounds
+          </MenuCheckboxItem>
           <MenuItem icon={<IconDownload />} onClick={() => setExportOpen(true)}>
             Export as CSV
           </MenuItem>

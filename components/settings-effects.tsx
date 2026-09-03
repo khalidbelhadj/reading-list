@@ -1,9 +1,11 @@
 // Null-rendering watcher for the global side effects driven by settings:
 // applies the theme class to <html> (tracking the system dark media query
-// while theme="system"). Mounted once in the root route; the theme bootstrap
-// script handles first paint.
+// while theme="system") and tells the sounds module whether it may play.
+// Mounted once in the root route; the theme bootstrap script handles first
+// paint.
 import React from "react";
 
+import { setSoundsEnabled } from "@/lib/sounds";
 import { useSettings } from "@/lib/use-settings";
 
 type ThemeKey = "system" | "light" | "dark";
@@ -18,7 +20,11 @@ const applyTheme = (theme: ThemeKey) => {
 
 export const SettingsEffects = () => {
   const { settings } = useSettings();
-  const { theme } = settings;
+  const { theme, sounds } = settings;
+
+  React.useEffect(() => {
+    setSoundsEnabled(sounds);
+  }, [sounds]);
 
   // Apply theme to <html>. Watches both settings.theme and the system dark
   // media query so "system" tracks OS changes without a manual toggle.

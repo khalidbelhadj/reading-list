@@ -6,6 +6,14 @@ import { type Rating } from "@/lib/srs";
 
 const MASTER_GAIN = 0.25;
 
+// The settings toggle, mirrored here by SettingsEffects so this module stays
+// free of React and settings plumbing. Sounds are on until told otherwise.
+let enabled = true;
+
+export const setSoundsEnabled = (next: boolean) => {
+  enabled = next;
+};
+
 let audioContext: AudioContext | null = null;
 let master: GainNode | null = null;
 
@@ -39,6 +47,7 @@ const tone = ({
   attack?: number;
   glideTo?: number;
 }) => {
+  if (!enabled) return;
   const destination = getMaster();
   if (!destination || !audioContext) return;
   const start = audioContext.currentTime + at;

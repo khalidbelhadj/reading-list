@@ -75,7 +75,8 @@ Sound board:
 | An error | two low notes down (330, 262); the toast carries the words |
 
 Silent on purpose: opening things, switching queues, notes saving, sync from
-another device, the index working.
+another device, the index working. The whole set can be switched off with
+Sounds in the settings menu.
 
 ## Components
 
