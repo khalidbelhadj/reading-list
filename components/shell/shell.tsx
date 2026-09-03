@@ -285,7 +285,10 @@ export const AppShell = ({
         onBack={goBack}
         onForward={goForward}
       />
-      <div className="relative min-w-0 flex-1">
+      <div
+        className="main-pane relative min-w-0 flex-1"
+        data-sidebar-open={sidebarOpen}
+      >
         <div className="electron-top-bar-inset panel-toolbar absolute inset-x-0 top-0 z-10 flex h-12 items-center px-2">
           {/* With the sidebar closed the traffic lights float over the main
               pane; the reopen toggle sits next to them, same spot as before. */}
