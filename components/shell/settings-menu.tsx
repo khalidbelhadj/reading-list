@@ -1,4 +1,5 @@
 import {
+  IconCalculator,
   IconCopy,
   IconDatabase,
   IconDeviceDesktop,
@@ -150,6 +151,15 @@ export const SettingsMenu = ({
             onCheckedChange={(checked) => setSetting("sounds", checked)}
           >
             Sounds
+          </MenuCheckboxItem>
+          <MenuCheckboxItem
+            icon={<IconCalculator />}
+            checked={settings.showMentalMaths}
+            onCheckedChange={(checked) =>
+              setSetting("showMentalMaths", checked)
+            }
+          >
+            Mental maths
           </MenuCheckboxItem>
           <MenuItem icon={<IconDownload />} onClick={() => setExportOpen(true)}>
             Export as CSV
