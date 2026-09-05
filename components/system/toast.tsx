@@ -143,7 +143,11 @@ export const Toaster = (props: ToasterProps) => (
     }
     toastOptions={{
       classNames: {
-        toast: "!shadow-surface !text-body data-[type=error]:!text-destructive",
+        // Scoped to sonner's own styled toasts: a notify() card is the toast,
+        // and the surface edge on its unstyled, unrounded wrapper would draw a
+        // square ring behind the card.
+        toast:
+          "data-[styled=true]:!shadow-surface !text-body data-[type=error]:!text-destructive",
         description: "!text-small !text-muted-foreground",
       },
     }}
