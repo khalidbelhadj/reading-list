@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+import { DURATIONS, OPERATIONS } from "@/lib/mental-maths";
+
+// How many Mental maths runs the blob keeps; the oldest fall off.
+export const MATHS_RUNS_LIMIT = 300;
+
+const mathsRunSchema = z.object({
+  at: z.string(),
+  settings: z.object({
+    digits: z.number().int().min(1).max(4),
+    operations: z.array(z.enum(OPERATIONS)),
+    durationSeconds: z.union([
+      z.literal(DURATIONS[0]),
+      z.literal(DURATIONS[1]),
+      z.literal(DURATIONS[2]),
+      z.literal(DURATIONS[3]),
+    ]),
+  }),
+  solved: z.number().int().min(0),
+  attempts: z.number().int().min(0),
+  averageMs: z.number().min(0),
+});
+
 // Stored values keep their historical names (`density: "cozy"` is what the
 // UI calls "preview") so existing rows parse without migration; unknown or
 // removed values fall back via `.catch`.
@@ -15,6 +37,10 @@ const settingsSchema = z.object({
   showOpenTabs: z.boolean().catch(true),
   // The UI sounds (lib/sounds.ts).
   sounds: z.boolean().catch(true),
+  // The Mental maths place in the sidebar.
+  showMentalMaths: z.boolean().catch(true),
+  // Finished Mental maths runs, oldest first (components/shell/mental-maths-pane.tsx).
+  mathsRuns: z.array(mathsRunSchema).max(MATHS_RUNS_LIMIT).catch([]),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -27,6 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showRead: false,
   showOpenTabs: true,
   sounds: true,
+  showMentalMaths: true,
+  mathsRuns: [],
 };
 
 // Let zod own the whole decision: every field already `.catch`es to its

@@ -8,12 +8,14 @@ import { Button } from "@/components/system/button";
 import { Tooltip } from "@/components/system/tooltip";
 import { startIndexer } from "@/lib/index-client";
 import { type Item } from "@/lib/types";
+import { useSettings } from "@/lib/use-settings";
 import { useWindowVibrancy } from "@/lib/use-window-vibrancy";
 
 import { AllItems } from "./all-items";
 import { AppSidebar } from "./app-sidebar";
 import { ItemPalette } from "./command-palette";
 import { ItemView, ItemViewActions } from "./item-view";
+import { MentalMathsPane } from "./mental-maths-pane";
 import { ReviewPane } from "./review-pane";
 import { clipboardUrl, useCreateItem } from "./use-create-item";
 import { VersionPane } from "./version-pane";
@@ -277,12 +279,16 @@ export const AppShell = ({
       : null;
 
   // The open item can vanish under us (deleted here or on another device);
-  // fall back to All items rather than an empty pane.
+  // fall back to All items rather than an empty pane. Same when Mental maths
+  // is switched off while it is showing.
+  const { settings } = useSettings();
   React.useEffect(() => {
     if (view.kind === "item" && items && !selectedItem) {
       setView({ kind: "items" });
+    } else if (view.kind === "maths" && !settings.showMentalMaths) {
+      setView({ kind: "items" });
     }
-  }, [view, items, selectedItem, setView]);
+  }, [view, items, selectedItem, setView, settings.showMentalMaths]);
 
   return (
     <div className="flex h-dvh overflow-hidden">
@@ -343,6 +349,7 @@ export const AppShell = ({
               onOpenCardInNotes={openCardInNotes}
             />
           )}
+          {view.kind === "maths" && <MentalMathsPane />}
           {view.kind === "version" && <VersionPane />}
           {view.kind === "item" && selectedItem && (
             <ItemView

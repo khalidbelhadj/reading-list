@@ -1,4 +1,5 @@
 import {
+  IconCalculator,
   IconCards,
   IconChevronLeft,
   IconChevronRight,
@@ -26,6 +27,7 @@ import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
 import { isElectron } from "@/lib/platform";
 import { type Item } from "@/lib/types";
+import { useSettings } from "@/lib/use-settings";
 
 import { ItemRow } from "./item-row";
 import { SettingsMenu } from "./settings-menu";
@@ -140,10 +142,68 @@ const SidebarItemGroup = ({
   </div>
 );
 
-// The app's sidebar: one action (New item), two places (All items, Review),
-// then the twenty most recent items (favicon and title). One thing is
-// active at a time (All items, Review, or an item); the shell owns that
-// state and this only renders and requests changes to it.
+// New item, with its paste affordance: revealed on hover, and in Electron
+// only when the clipboard actually holds a link (the sniff is silent there;
+// on web reading the clipboard can prompt, so the icon shows on hover and
+// the click validates instead).
+const NewItemRow = ({
+  onNewItem,
+  onPasteUrl,
+}: {
+  onNewItem: () => void;
+  onPasteUrl: () => void;
+}) => {
+  const [pasteReady, setPasteReady] = React.useState(false);
+  const sniffClipboard = React.useCallback(() => {
+    if (!isElectron()) {
+      setPasteReady(true);
+      return;
+    }
+    navigator.clipboard
+      .readText()
+      .then((text) => setPasteReady(clipboardUrl(text) !== null))
+      .catch(() => setPasteReady(false));
+  }, []);
+  const handlePasteClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      // The affordance sits inside the row; don't also create a blank item.
+      event.stopPropagation();
+      onPasteUrl();
+    },
+    [onPasteUrl],
+  );
+  return (
+    <SidebarItem
+      role="button"
+      tabIndex={0}
+      icon={<IconCirclePlus />}
+      label="New item"
+      className="group/new"
+      onClick={onNewItem}
+      onPointerEnter={sniffClipboard}
+      trailing={
+        pasteReady && (
+          <Tooltip content="Add from clipboard">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Add from clipboard"
+              className="-mr-1 hidden size-5 group-hover/new:inline-flex"
+              onClick={handlePasteClick}
+            >
+              <IconClipboard />
+            </Button>
+          </Tooltip>
+        )
+      }
+    />
+  );
+};
+
+// The app's sidebar: one action (New item), three places (Reading list,
+// Review, Mental maths), then the twenty most recent items (favicon and
+// title). One thing is active at a time (a place or an item); the shell owns
+// that state and this only renders and requests changes to it.
 export const AppSidebar = ({
   view,
   onViewChange,
@@ -172,6 +232,7 @@ export const AppSidebar = ({
     queryFn: fetchItems,
   });
   const dueCount = useDueCount();
+  const { settings } = useSettings();
   // The sidebar is the working set: read items drop out of both groups (they
   // stay in the Reading list). Starred items have their own group above, so
   // Recent excludes them too.
@@ -224,37 +285,9 @@ export const AppSidebar = ({
     () => onViewChange({ kind: "items" }),
     [onViewChange],
   );
-  const showReview = React.useCallback(
-    () => onViewChange({ kind: "review" }),
-    [onViewChange],
-  );
   const showVersion = React.useCallback(
     () => onViewChange({ kind: "version" }),
     [onViewChange],
-  );
-
-  // The paste affordance on New item: revealed on hover, and in Electron only
-  // when the clipboard actually holds a link (the sniff is silent there; on
-  // web reading the clipboard can prompt, so the icon shows on hover and the
-  // click validates instead).
-  const [pasteReady, setPasteReady] = React.useState(false);
-  const sniffClipboard = React.useCallback(() => {
-    if (!isElectron()) {
-      setPasteReady(true);
-      return;
-    }
-    navigator.clipboard
-      .readText()
-      .then((text) => setPasteReady(clipboardUrl(text) !== null))
-      .catch(() => setPasteReady(false));
-  }, []);
-  const handlePasteClick = React.useCallback(
-    (event: React.MouseEvent) => {
-      // The affordance sits inside the row; don't also create a blank item.
-      event.stopPropagation();
-      onPasteUrl();
-    },
-    [onPasteUrl],
   );
 
   return (
@@ -267,30 +300,7 @@ export const AppSidebar = ({
         onForward={onForward}
       />
       <nav className="flex flex-col gap-0.5 px-2">
-        <SidebarItem
-          role="button"
-          tabIndex={0}
-          icon={<IconCirclePlus />}
-          label="New item"
-          className="group/new"
-          onClick={onNewItem}
-          onPointerEnter={sniffClipboard}
-          trailing={
-            pasteReady && (
-              <Tooltip content="Add from clipboard">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Add from clipboard"
-                  className="-mr-1 hidden size-5 group-hover/new:inline-flex"
-                  onClick={handlePasteClick}
-                >
-                  <IconClipboard />
-                </Button>
-              </Tooltip>
-            )
-          }
-        />
+        <NewItemRow onNewItem={onNewItem} onPasteUrl={onPasteUrl} />
         <SidebarItem
           role="button"
           tabIndex={0}
@@ -305,9 +315,19 @@ export const AppSidebar = ({
           icon={<IconCards />}
           label="Review"
           active={isActiveView(view, "review")}
-          onClick={showReview}
+          onClick={() => onViewChange({ kind: "review" })}
           count={dueCount > 0 ? dueCount : undefined}
         />
+        {settings.showMentalMaths && (
+          <SidebarItem
+            role="button"
+            tabIndex={0}
+            icon={<IconCalculator />}
+            label="Mental maths"
+            active={isActiveView(view, "maths")}
+            onClick={() => onViewChange({ kind: "maths" })}
+          />
+        )}
       </nav>
 
       <div

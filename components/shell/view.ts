@@ -17,6 +17,8 @@ export type View =
   // runs an explicit set of cards.
   | { kind: "review"; itemId?: string; stack?: ReviewStack }
   | { kind: "item"; id: string }
+  // Timed arithmetic drills. The run is in-memory state inside the pane.
+  | { kind: "maths" }
   // Build and deploy info (the settings menu's Version entry). Nothing in
   // the sidebar highlights it, but it sits in the history like any view.
   | { kind: "version" };
