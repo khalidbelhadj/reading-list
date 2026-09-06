@@ -92,7 +92,7 @@ export const MentalMathsSetup = ({
   onStart,
 }: {
   settings: MathsSettings;
-  // Every kept run; the ones matching the current settings show below.
+  // Every kept run; the ones matching the current settings show at the top.
   runs: RunRecord[];
   onSettingsChange: (settings: MathsSettings) => void;
   onStart: () => void;
@@ -134,12 +134,11 @@ export const MentalMathsSetup = ({
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-7">
-      <div className="flex flex-col gap-1">
-        <h2 className="font-content text-heading font-medium">Mental maths</h2>
-        <p className="text-body text-muted-foreground">
-          One expression at a time. Work it out, reveal the answer, say whether
-          you had it. The clock decides when you stop.
-        </p>
+      <div className="flex flex-col gap-2">
+        <span className="text-small font-medium text-muted-foreground select-none">
+          Previous runs with these settings
+        </span>
+        <MathsHistory runs={matchingRuns} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -210,13 +209,6 @@ export const MentalMathsSetup = ({
             ↵
           </Kbd>
         </Button>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-small font-medium text-muted-foreground select-none">
-          Previous runs with these settings
-        </span>
-        <MathsHistory runs={matchingRuns} />
       </div>
     </div>
   );
