@@ -4,7 +4,7 @@
  *
  * Full local setup:
  *   bunx supabase start          # boots local Postgres/Auth/Realtime/Storage
- *   bun run env:local            # point .env.local at the local stack
+ *   bun run dev                  # the web dev server (local is the default backend)
  *   bun run db:push              # create tables from db/schema.ts
  *   bun run db:setup             # RLS, policies, grants, sync trigger, bucket
  *   bun run scripts/setup-local-supabase.ts        # <- this: create dev user
@@ -15,14 +15,16 @@
  */
 import postgres from "postgres";
 
+import { DEV_USER } from "./profiles";
+
 // Standard `supabase start` defaults (stable across machines; local-only).
 const API_URL = "http://localhost:54321";
 const DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres";
 const SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
-const DEV_EMAIL = process.env.DEV_USER_EMAIL ?? "dev@reading.local";
-const DEV_PASSWORD = process.env.DEV_USER_PASSWORD ?? "devpassword123";
+const DEV_EMAIL = DEV_USER.email;
+const DEV_PASSWORD = DEV_USER.password;
 
 const createDevUser = async (): Promise<string> => {
   const res = await fetch(`${API_URL}/auth/v1/admin/users`, {

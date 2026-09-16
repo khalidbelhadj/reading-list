@@ -8,10 +8,12 @@
     "electron/main.ts",
     "electron/*preload*.ts",
     "scripts/**/*.ts",
-    "app/actions/index.ts"
+    "db/setup.ts",
+    "db/seed.ts"
   ],
   "project": [
     "app/**/*.{ts,tsx}",
+    "editor-host/**/*.{ts,tsx}",
     "components/**/*.{ts,tsx}",
     "lib/**/*.{ts,tsx}",
     "db/**/*.ts",
@@ -34,5 +36,6 @@
     "enumMembers": "warn",
     "duplicates": "warn",
     "unresolved": "warn"
-  }
+  },
+  "ignoreBinaries": ["screencapture", "sips", "swift"]
 }

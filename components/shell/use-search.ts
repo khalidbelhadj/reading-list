@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { searchItems } from "@/app/actions";
+import { api } from "@/lib/api/client";
 import { type Item } from "@/lib/types";
 import { useDebounced } from "@/lib/use-debounced";
 
@@ -44,7 +44,7 @@ export const useItemSearch = (query: string, items: Item[] | undefined) => {
 
   const { data: serverResults } = useQuery({
     queryKey: ["items", "search", debouncedQuery],
-    queryFn: () => searchItems(debouncedQuery),
+    queryFn: () => api("searchItems", { input: { query: debouncedQuery } }),
     enabled: debouncedQuery.length > 0,
     staleTime: Infinity,
   });

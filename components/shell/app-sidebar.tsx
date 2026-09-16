@@ -13,7 +13,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { fetchItems } from "@/app/actions";
 import { ItemPreview } from "@/components/app/item-preview";
 import { SidebarItem } from "@/components/app/sidebar-item";
 import { useDueCount } from "@/components/shell/review-queues";
@@ -23,6 +22,7 @@ import { TextLink } from "@/components/system/link";
 import { Sidebar } from "@/components/system/sidebar";
 import { Skeleton } from "@/components/system/skeleton";
 import { Tooltip } from "@/components/system/tooltip";
+import { api } from "@/lib/api/client";
 import { compareItems } from "@/lib/item-sort";
 import { useOpenTabItems } from "@/lib/open-tabs";
 import { isElectron } from "@/lib/platform";
@@ -229,7 +229,7 @@ export const AppSidebar = ({
 }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
   const dueCount = useDueCount();
   const { settings } = useSettings();

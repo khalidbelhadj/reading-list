@@ -27,3 +27,9 @@ dist/
 .tanstack/
 .nitro/
 app/routeTree.gen.ts
+
+# Generated for the Mac app (bun run gen:openapi / gen:fixtures); the
+# generators own the formatting and `bun run check` fails on drift
+openapi/openapi.json
+mac/Sources/ReadingListAPI/openapi.json
+mac/Tests/ReadingListTests/Fixtures/

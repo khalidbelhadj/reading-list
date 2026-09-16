@@ -14,7 +14,6 @@ import {
 } from "@tanstack/react-router";
 import type React from "react";
 
-import { getSettings } from "@/app/actions";
 import { AuthWatcher } from "@/components/auth-watcher";
 import { DevBanner } from "@/components/dev-banner";
 import { ElectronZoomWatcher } from "@/components/electron-zoom-watcher";
@@ -26,6 +25,7 @@ import { ScrollbarVisibilityWatcher } from "@/components/scrollbar-visibility-wa
 import { SettingsEffects } from "@/components/settings-effects";
 import { Toaster } from "@/components/system/toast";
 import { TooltipProvider } from "@/components/system/tooltip";
+import { loadSettings } from "@/lib/settings-loader";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 import { useDevDevtools } from "@/lib/use-dev-devtools";
 
@@ -100,7 +100,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     loader: ({ context }) =>
       context.queryClient.prefetchQuery({
         queryKey: ["settings"],
-        queryFn: () => getSettings(),
+        queryFn: () => loadSettings(),
       }),
     shellComponent: RootDocument,
     component: RootComponent,

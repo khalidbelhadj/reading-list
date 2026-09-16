@@ -5,16 +5,18 @@ import { Button } from "@/components/system/button";
 import { NonIdealState } from "@/components/system/non-ideal-state";
 
 const ReturnToApp = () => {
-  const { code, next } = Route.useSearch();
+  const { code, next, scheme } = Route.useSearch();
   const [opened, setOpened] = useState(false);
 
+  // The desktop app's own url scheme (a dev build has its own), on the
+  // callback path every desktop client shares.
   const deepLink = useMemo(() => {
     if (!code) return null;
-    const url = new URL("readinglist://auth/complete");
+    const url = new URL(`${scheme ?? "readinglist"}://auth/callback`);
     url.searchParams.set("code", code);
     url.searchParams.set("next", next ?? "/");
     return url.toString();
-  }, [code, next]);
+  }, [code, next, scheme]);
 
   useEffect(() => {
     if (!deepLink) return;
@@ -61,9 +63,15 @@ const ReturnToApp = () => {
 export const Route = createFileRoute("/auth/return-to-app")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { code?: string; next?: string } => ({
+  ): { code?: string; next?: string; scheme?: string } => ({
     code: typeof search.code === "string" ? search.code : undefined,
     next: typeof search.next === "string" ? search.next : undefined,
+    // Only the app's own schemes are ever opened from this page.
+    scheme:
+      typeof search.scheme === "string" &&
+      /^readinglist(-mac)?(-dev)?$/.test(search.scheme)
+        ? search.scheme
+        : undefined,
   }),
   component: ReturnToApp,
 });

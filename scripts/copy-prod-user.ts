@@ -6,7 +6,7 @@
  *   bun scripts/copy-prod-user.ts <prod-user-id> <local-user-id>
  *
  * Connections:
- *   PROD_DATABASE_URL  — source (falls back to DATABASE_URL from .env.hosted;
+ *   PROD_DATABASE_URL  — source (falls back to DATABASE_URL from .env.prod;
  *                        must NOT be localhost). Opened read-only.
  *   LOCAL_DATABASE_URL — target (defaults to the `supabase start` Postgres,
  *                        postgresql://postgres:postgres@localhost:54322/postgres).
@@ -56,11 +56,11 @@ const [prodUserId, localUserId] =
   args.length === 2 ? (args as [string, string]) : await confirmDefaults();
 
 // Prefer the explicit env var; otherwise pull the hosted URL straight from
-// .env.hosted so the script runs with no setup. The shell's DATABASE_URL is
+// .env.prod so the script runs with no setup. The shell's DATABASE_URL is
 // deliberately ignored — it typically points at the local stack.
 const readHostedUrl = (): string | undefined => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const file = join(root, ".env.hosted");
+  const file = join(root, ".env.prod");
   if (!existsSync(file)) return undefined;
   const line = readFileSync(file, "utf8")
     .split("\n")
@@ -71,7 +71,7 @@ const readHostedUrl = (): string | undefined => {
 const prodUrl = process.env.PROD_DATABASE_URL ?? readHostedUrl();
 if (!prodUrl || isLocalUrl(prodUrl)) {
   console.error(
-    "Source must be the hosted DB: set PROD_DATABASE_URL, or put the Supabase pooler URL in .env.hosted as DATABASE_URL.",
+    "Source must be the hosted DB: set PROD_DATABASE_URL, or put the Supabase pooler URL in .env.prod as DATABASE_URL.",
   );
   process.exit(1);
 }

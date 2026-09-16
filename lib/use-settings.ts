@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { getSettings, updateSettings } from "@/app/actions";
+import { api } from "@/lib/api/client";
 import {
   DEFAULT_SETTINGS,
   parseSettings,
@@ -54,7 +54,7 @@ export const useSettings = () => {
   const { data } = useQuery<Settings>({
     queryKey: SETTINGS_QUERY_KEY,
     queryFn: async () => {
-      const fromServer = await getSettings();
+      const fromServer = await api("getSettings");
       writeCache(fromServer);
       return fromServer;
     },
@@ -81,7 +81,7 @@ export const useSettings = () => {
     const patch = pendingRef.current;
     pendingRef.current = {};
     if (Object.keys(patch).length === 0) return;
-    void updateSettings(patch).catch(() => {});
+    void api("updateSettings", { input: patch }).catch(() => {});
   }, []);
 
   React.useEffect(() => () => flush(), [flush]);

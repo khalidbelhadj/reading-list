@@ -14,7 +14,11 @@ import { APP_CHANNELS } from "./channels";
 
 const DEV_URL = process.env.ELECTRON_DEV_URL ?? "http://localhost:3000";
 const PROD_URL = "https://reading-list.khalidbelhadj.com";
-const PROTOCOL = "readinglist";
+// Dev builds claim their own scheme so a packaged app and a dev window never
+// fight over deep links (the native app has its own family, readinglist-mac
+// and readinglist-mac-dev). The web's sign-in return page is told which one
+// to open.
+const PROTOCOL = app.isPackaged ? "readinglist" : "readinglist-dev";
 
 // The dev server's port doubles as a per-instance id: each dev window targets
 // its own port, so keying identity off the port lets arbitrarily many dev
@@ -296,6 +300,7 @@ if (!gotLock) {
   ipcMain.handle(APP_CHANNELS.openExternal, (_event, url: string) =>
     shell.openExternal(url),
   );
+  ipcMain.handle(APP_CHANNELS.protocol, () => PROTOCOL);
 
   // Renderer reads the current zoom on mount so its toolbar clearance is
   // correct even if it remounts (HMR) after the last "zoom" broadcast.

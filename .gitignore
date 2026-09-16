@@ -20,13 +20,10 @@ release/
 # build
 *.tsbuildinfo
 
-# env
+# env: every profile file holds real secrets. --env=local reads
+# .env.local-stack, --env=prod reads .env.prod (see scripts/profiles.ts).
 .env
-.env.local
-.env.*.local
-# Supabase connection profiles (hold real secrets; swapped via bun run env:*)
-.env.hosted
-.env.localdev
+.env.*
 
 # debug
 npm-debug.log*
@@ -62,3 +59,9 @@ reading-list-extension.zip
 
 # Local-only profiling notes (kept out of the repo)
 notes/performance-profile-2026-07-02.md
+
+# mac app (SwiftPM output + the assembled dev bundle, see mac/README.md)
+mac/.build/
+mac/build/
+# the hosted markdown editor page, built by `bun run build:editor`
+mac/Sources/ReadingList/Resources/Editor/

@@ -1,0 +1,1729 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Reading List API",
+    "version": "0.3.0",
+    "description": "The reading list's HTTP API. Authenticate with a Supabase access token as a bearer, or the web session cookie."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/items": {
+      "get": {
+        "operationId": "listItems",
+        "summary": "Every item of the signed-in user, newest first, with its flashcard count.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Item"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createItem",
+        "summary": "Create an item. The id may be chosen by the client; without a title, one is fetched from the page.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateItemResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/search": {
+      "post": {
+        "operationId": "searchItems",
+        "summary": "Search items by title, url and notes (regex when wrapped in slashes).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchResult"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/previews": {
+      "get": {
+        "operationId": "listItemPreviews",
+        "summary": "Preview images by item id (empty string: checked, none).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/{id}": {
+      "patch": {
+        "operationId": "updateItem",
+        "summary": "Update an item's fields. Notes are reconciled into flashcards; urls are normalised.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemFields"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteItem",
+        "summary": "Delete an item and its flashcards.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/{id}/read": {
+      "post": {
+        "operationId": "setItemRead",
+        "summary": "Mark an item read or unread.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/{id}/preview": {
+      "post": {
+        "operationId": "generateItemPreview",
+        "summary": "Render (or return) the item's first-page preview image.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "previewImageUrl": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "previewImageUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/items/{id}/reindex": {
+      "post": {
+        "operationId": "reindexItem",
+        "summary": "Queue the item for the search index again.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/page-title": {
+      "post": {
+        "operationId": "fetchPageTitle",
+        "summary": "The title of a web page.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/flashcards": {
+      "get": {
+        "operationId": "listFlashcards",
+        "summary": "Every flashcard with its scheduling state and its item.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Flashcard"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/flashcards/{id}": {
+      "patch": {
+        "operationId": "updateFlashcard",
+        "summary": "Edit a flashcard's sides (also rewrites the card block in the notes).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFlashcardInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/flashcards/{id}/rate": {
+      "post": {
+        "operationId": "rateCard",
+        "summary": "Rate a card; reschedules it unless this is a cram pass.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateCardInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/semantic": {
+      "post": {
+        "operationId": "semanticSearch",
+        "summary": "Nearest items or cards to a query vector (the client owns the model).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "vector": {
+                    "minItems": 1,
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "items",
+                      "cards"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 40
+                  }
+                },
+                "required": [
+                  "model",
+                  "vector",
+                  "scope",
+                  "limit"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SemanticItemResult"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SemanticCardResult"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "summary": "The user's settings.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSettings",
+        "summary": "Merge a settings patch.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/storage/uploads": {
+      "post": {
+        "operationId": "requestImageUpload",
+        "summary": "A one-shot signed upload url for a note image, and the src to embed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImageUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadUrl": {
+                      "type": "string"
+                    },
+                    "src": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "uploadUrl",
+                    "src"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "operationId": "getVersion",
+        "summary": "Build and deployment info.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionInfo"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "faviconUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "notes": {
+            "nullable": true,
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hiddenFromReview": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "flashcardCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "title",
+          "url",
+          "faviconUrl",
+          "starred",
+          "notes",
+          "read",
+          "readAt",
+          "hiddenFromReview",
+          "createdAt",
+          "updatedAt",
+          "flashcardCount"
+        ]
+      },
+      "Flashcard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "front": {
+            "type": "string"
+          },
+          "back": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "due": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "easeFactor": {
+            "type": "number"
+          },
+          "reps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lapses": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "itemId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "itemTitle": {
+            "nullable": true,
+            "type": "string"
+          },
+          "itemUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "itemFaviconUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "front",
+          "back",
+          "state",
+          "due",
+          "interval",
+          "easeFactor",
+          "reps",
+          "lapses",
+          "itemId",
+          "itemTitle",
+          "itemUrl",
+          "itemFaviconUrl",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "notes": {
+            "nullable": true,
+            "type": "string"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "matchedIn": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "title",
+                "url",
+                "notes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "notes",
+          "starred",
+          "read",
+          "createdAt",
+          "matchedIn"
+        ]
+      },
+      "SemanticItemResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "flashcardCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "score": {
+            "type": "number"
+          },
+          "matchedIn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "snippet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "read",
+          "starred",
+          "flashcardCount",
+          "score",
+          "matchedIn",
+          "snippet"
+        ]
+      },
+      "SemanticCardResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "itemId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "itemTitle": {
+            "nullable": true,
+            "type": "string"
+          },
+          "front": {
+            "type": "string"
+          },
+          "back": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "itemId",
+          "itemTitle",
+          "front",
+          "back",
+          "score"
+        ]
+      },
+      "VersionInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "buildTime": {
+            "nullable": true,
+            "type": "string"
+          },
+          "commit": {
+            "type": "object",
+            "properties": {
+              "sha": {
+                "nullable": true,
+                "type": "string"
+              },
+              "shortSha": {
+                "nullable": true,
+                "type": "string"
+              },
+              "branch": {
+                "nullable": true,
+                "type": "string"
+              },
+              "message": {
+                "nullable": true,
+                "type": "string"
+              },
+              "url": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "sha",
+              "shortSha",
+              "branch",
+              "message",
+              "url"
+            ]
+          },
+          "deployment": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "nullable": true,
+                "type": "string"
+              },
+              "region": {
+                "nullable": true,
+                "type": "string"
+              },
+              "url": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "region",
+              "url"
+            ]
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "node": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "node"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "environment",
+          "buildTime",
+          "commit",
+          "deployment",
+          "runtime"
+        ]
+      },
+      "CreateItemInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "faviconUrl": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "allowDuplicateUrl": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RateCardInput": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "string",
+            "enum": [
+              "again",
+              "hard",
+              "good",
+              "easy"
+            ]
+          },
+          "affectsSchedule": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rating",
+          "affectsSchedule"
+        ]
+      },
+      "RequestImageUploadInput": {
+        "type": "object",
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "contentType",
+          "size"
+        ]
+      },
+      "UpdateFlashcardInput": {
+        "type": "object",
+        "properties": {
+          "front": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "back": {
+            "type": "string",
+            "maxLength": 10000
+          }
+        }
+      },
+      "CreatedItem": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "itemId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "itemId",
+          "title"
+        ]
+      },
+      "DuplicateItem": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "faviconUrl": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "url",
+              "faviconUrl"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "duplicate"
+        ]
+      },
+      "CreateItemResult": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CreatedItem"
+          },
+          {
+            "$ref": "#/components/schemas/DuplicateItem"
+          }
+        ]
+      },
+      "UpdateItemFields": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "faviconUrl": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "hiddenFromReview": {
+            "type": "boolean"
+          },
+          "refreshTitle": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "default": "system",
+            "type": "string",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ]
+          },
+          "density": {
+            "default": "cozy",
+            "type": "string",
+            "enum": [
+              "compact",
+              "cozy"
+            ]
+          },
+          "groupBy": {
+            "default": "day",
+            "type": "string",
+            "enum": [
+              "none",
+              "day"
+            ]
+          },
+          "sortBy": {
+            "default": "created-desc",
+            "type": "string",
+            "enum": [
+              "created-desc",
+              "created-asc",
+              "updated-desc",
+              "updated-asc"
+            ]
+          },
+          "showRead": {
+            "default": false,
+            "type": "boolean"
+          },
+          "showOpenTabs": {
+            "default": true,
+            "type": "boolean"
+          },
+          "sounds": {
+            "default": true,
+            "type": "boolean"
+          },
+          "showMentalMaths": {
+            "default": true,
+            "type": "boolean"
+          },
+          "mathsRuns": {
+            "default": [],
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "settings": {
+                  "type": "object",
+                  "properties": {
+                    "digits": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "operations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "addition",
+                          "subtraction",
+                          "multiplication",
+                          "division"
+                        ]
+                      }
+                    },
+                    "durationSeconds": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "enum": [
+                            30
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            60
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            120
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            300
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "digits",
+                    "operations",
+                    "durationSeconds"
+                  ]
+                },
+                "solved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "attempts": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "averageMs": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "at",
+                "settings",
+                "solved",
+                "attempts",
+                "averageMs"
+              ]
+            }
+          }
+        },
+        "required": [
+          "theme",
+          "density",
+          "groupBy",
+          "sortBy",
+          "showRead",
+          "showOpenTabs",
+          "sounds",
+          "showMentalMaths",
+          "mathsRuns"
+        ]
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "default": "system",
+            "type": "string",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ]
+          },
+          "density": {
+            "default": "cozy",
+            "type": "string",
+            "enum": [
+              "compact",
+              "cozy"
+            ]
+          },
+          "groupBy": {
+            "default": "day",
+            "type": "string",
+            "enum": [
+              "none",
+              "day"
+            ]
+          },
+          "sortBy": {
+            "default": "created-desc",
+            "type": "string",
+            "enum": [
+              "created-desc",
+              "created-asc",
+              "updated-desc",
+              "updated-asc"
+            ]
+          },
+          "showRead": {
+            "default": false,
+            "type": "boolean"
+          },
+          "showOpenTabs": {
+            "default": true,
+            "type": "boolean"
+          },
+          "sounds": {
+            "default": true,
+            "type": "boolean"
+          },
+          "showMentalMaths": {
+            "default": true,
+            "type": "boolean"
+          },
+          "mathsRuns": {
+            "default": [],
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "settings": {
+                  "type": "object",
+                  "properties": {
+                    "digits": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "operations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "addition",
+                          "subtraction",
+                          "multiplication",
+                          "division"
+                        ]
+                      }
+                    },
+                    "durationSeconds": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "enum": [
+                            30
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            60
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            120
+                          ]
+                        },
+                        {
+                          "type": "number",
+                          "enum": [
+                            300
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "digits",
+                    "operations",
+                    "durationSeconds"
+                  ]
+                },
+                "solved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "attempts": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "averageMs": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "at",
+                "settings",
+                "solved",
+                "attempts",
+                "averageMs"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

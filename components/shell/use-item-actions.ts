@@ -1,12 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import {
-  deleteItem as deleteItemAction,
-  setItemRead,
-  updateItem,
-} from "@/app/actions";
 import { notify } from "@/components/system/toast";
+import { api } from "@/lib/api/client";
 import {
   playItemDeleted,
   playItemStarred,
@@ -51,7 +47,7 @@ export const useItemActions = () => {
 
   const readMutation = useMutation({
     mutationFn: ({ id, read }: { id: string; read: boolean }) =>
-      setItemRead(id, read),
+      api("setItemRead", { params: { id }, input: { read } }),
     onMutate: async ({ id, read }) => {
       const previous = await snapshot();
       patchItem(id, { read, readAt: read ? new Date().toISOString() : null });
@@ -66,7 +62,7 @@ export const useItemActions = () => {
 
   const starMutation = useMutation({
     mutationFn: ({ id, starred }: { id: string; starred: boolean }) =>
-      updateItem(id, { starred }),
+      api("updateItem", { params: { id }, input: { starred } }),
     onMutate: async ({ id, starred }) => {
       if (starred) playItemStarred();
       else playItemUnstarred();
@@ -82,7 +78,7 @@ export const useItemActions = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteItemAction(id),
+    mutationFn: (id: string) => api("deleteItem", { params: { id: id } }),
     onMutate: async (id) => {
       playItemDeleted();
       const previous = await snapshot();
@@ -114,7 +110,10 @@ export const useItemActions = () => {
 
   const hiddenMutation = useMutation({
     mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) =>
-      updateItem(id, { hiddenFromReview: hidden }),
+      api("updateItem", {
+        params: { id },
+        input: { hiddenFromReview: hidden },
+      }),
     onMutate: async ({ id, hidden }) => {
       const previous = await snapshot();
       patchItem(id, { hiddenFromReview: hidden });

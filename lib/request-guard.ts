@@ -3,7 +3,6 @@
 // static security headers that used to live in next.config.ts. Invoked by the
 // global request middleware in app/start.ts (via dynamic import so none of
 // this reaches the client bundle).
-import "@/lib/env";
 
 import {
   createServerClient,
@@ -159,9 +158,7 @@ const isPublicPath = (pathname: string): boolean =>
 // Per-request phase timings, surfaced as a Server-Timing header so prod
 // latency is attributable straight from a browser (or the extension's)
 // network panel: `auth` is session resolution, `handler` is everything the
-// route itself does. Dev perfLog output only covers the server functions,
-// and MOCK_USER_ID skips auth entirely there — this is the only view of
-// what auth actually costs against a real Supabase project.
+// route itself does.
 const serverTiming = (marks: [string, number][]): string =>
   marks.map(([name, ms]) => `${name};dur=${ms.toFixed(1)}`).join(", ");
 
@@ -224,18 +221,6 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
       }
     }
 
-    // Dev bypass: with an explicit mock user there is no real Supabase session,
-    // so let same-origin API calls through (mirrors the page-route bypass
-    // below). The routes themselves resolve the mock user via getCurrentUserId.
-    if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
-      const result = await next();
-      applyHeaders(result.response, {
-        ...securityHeaders,
-        ...corsHeaders(request, isMcp),
-      });
-      return result;
-    }
-
     // Fall back to Supabase cookie session
     const authStart = performance.now();
     const { userId, setCookies } = await getSessionFromRequest(request);
@@ -290,11 +275,6 @@ export async function guardRequest<TResult extends GuardNextResult>(opts: {
     const publicAuthStart = performance.now();
     const { setCookies } = await getSessionFromRequest(request);
     return finish(setCookies, performance.now() - publicAuthStart);
-  }
-
-  // Allow bypass in development with explicit mock user
-  if (process.env.NODE_ENV === "development" && process.env.MOCK_USER_ID) {
-    return finish([], 0);
   }
 
   // Check session for web routes, redirect to login if unauthenticated

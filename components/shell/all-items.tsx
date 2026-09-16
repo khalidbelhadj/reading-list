@@ -2,7 +2,6 @@ import { IconSearch, IconStarFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { fetchItems, getAllFlashcards } from "@/app/actions";
 import {
   type ListDensity,
   type ListGroupBy,
@@ -14,6 +13,7 @@ import { Button } from "@/components/system/button";
 import { Input } from "@/components/system/input";
 import { Skeleton } from "@/components/system/skeleton";
 import { Spinner } from "@/components/system/spinner";
+import { api } from "@/lib/api/client";
 import { groupByDate } from "@/lib/date-groups";
 import { timeAgo } from "@/lib/format-time";
 import { compareItems } from "@/lib/item-sort";
@@ -45,7 +45,7 @@ const LoadingRows = ({ count }: { count: number }) => (
 export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
 
   const [query, setQuery] = React.useState("");
@@ -55,7 +55,7 @@ export const AllItems = ({ onOpen }: { onOpen: (id: string) => void }) => {
   // Ask results can become a review stack: every card of every item found.
   const { data: allCards } = useQuery({
     queryKey: ["all-flashcards"],
-    queryFn: getAllFlashcards,
+    queryFn: () => api("listFlashcards"),
   });
   const askStack = React.useMemo(
     () =>

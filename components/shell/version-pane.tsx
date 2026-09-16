@@ -2,11 +2,11 @@ import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { getVersionInfo } from "@/app/actions";
 import { Button } from "@/components/system/button";
 import { EmptyState } from "@/components/system/empty-state";
 import { TextLink } from "@/components/system/link";
 import { Skeleton } from "@/components/system/skeleton";
+import { api } from "@/lib/api/client";
 import type { VersionInfo } from "@/lib/version";
 
 const ROW_COUNT = 9;
@@ -98,7 +98,7 @@ const VersionRows = ({ info }: { info: VersionInfo }) => {
 export const VersionPane = () => {
   const { data: info, error } = useQuery({
     queryKey: ["version"],
-    queryFn: getVersionInfo,
+    queryFn: () => api("getVersion"),
     staleTime: Infinity,
   });
 

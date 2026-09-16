@@ -2,10 +2,9 @@ import { IconLayoutSidebar } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { getAllFlashcards } from "@/app/actions";
-import { fetchItems } from "@/app/actions";
 import { Button } from "@/components/system/button";
 import { Tooltip } from "@/components/system/tooltip";
+import { api } from "@/lib/api/client";
 import { startIndexer } from "@/lib/index-client";
 import { type Item } from "@/lib/types";
 import { useSettings } from "@/lib/use-settings";
@@ -178,7 +177,7 @@ export const AppShell = ({
   }, []);
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
   const queryClient = useQueryClient();
   // Keep the deck warm (the review tab derives its queue from cache) and
@@ -186,7 +185,7 @@ export const AppShell = ({
   React.useEffect(() => {
     void queryClient.prefetchQuery({
       queryKey: ["all-flashcards"],
-      queryFn: getAllFlashcards,
+      queryFn: () => api("listFlashcards"),
     });
     startIndexer();
   }, [queryClient]);

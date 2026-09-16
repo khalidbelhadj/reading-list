@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { createItem, fetchPageTitle, updateItem } from "@/app/actions";
 import { notify } from "@/components/system/toast";
+import { api } from "@/lib/api/client";
 import { playItemCreated } from "@/lib/sounds";
 import { type Item } from "@/lib/types";
 import { normalizeUrl } from "@/lib/url";
@@ -73,13 +73,18 @@ export const useRetitleItem = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: { id: string; url: string; fallback: string }) => {
-      const fetched = (await fetchPageTitle(args.url))?.trim();
+      const fetched = (
+        await api("fetchPageTitle", { input: { url: args.url } })
+      ).title?.trim();
       if (!fetched || fetched === args.fallback) return null;
       const current = queryClient
         .getQueryData<Item[]>(["items"])
         ?.find((item) => item.id === args.id);
       if (current && current.title !== args.fallback) return null;
-      await updateItem(args.id, { title: fetched });
+      await api("updateItem", {
+        params: { id: args.id },
+        input: { title: fetched },
+      });
       return { id: args.id, title: fetched };
     },
     onSuccess: (result) => {
@@ -127,7 +132,7 @@ export const useCreateItem = (onOpen: (id: string) => void) => {
 
   const createFromUrlMutation = useMutation({
     mutationFn: ({ id, url }: { id: string; url: string }) =>
-      createItem(hostnameOf(url), url, undefined, undefined, id),
+      api("createItem", { input: { id, title: hostnameOf(url), url } }),
     onMutate: async ({ id, url }) => {
       // The sound means a new item actually landed: only the url paste
       // paths (⌘V and the paste affordance) come through here.
@@ -169,7 +174,8 @@ export const useCreateItem = (onOpen: (id: string) => void) => {
 
   const createBlankMutation = useMutation({
     // An empty url skips the duplicate check server-side.
-    mutationFn: (id: string) => createItem("", "", undefined, undefined, id),
+    mutationFn: (id: string) =>
+      api("createItem", { input: { id, title: "", url: "" } }),
     onMutate: async (id) => {
       await insertIntoCache(id);
       onOpen(id);

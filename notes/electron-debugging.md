@@ -76,4 +76,4 @@ terminal running the dev command. For a debugger there, launch Electron with
 - Each dev instance has its own `userData`, so a freshly launched instance is
   signed out even when another one is signed in.
 - The dev app is pointed at the **real** Supabase project unless launched with
-  `electron:local`. Treat CDP evaluation as read-only there.
+  `bun run electron`. Treat CDP evaluation as read-only there.

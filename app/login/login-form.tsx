@@ -57,7 +57,11 @@ export const LoginForm = ({
       // ?from=electron and bounces back to a readinglist:// deep link so the
       // renderer (which already owns the PKCE verifier) can complete the
       // exchange itself.
-      callback.searchParams.set("from", "electron");
+      callback.searchParams.set("from", "desktop");
+      callback.searchParams.set(
+        "scheme",
+        await window.readingList.getProtocol(),
+      );
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -96,8 +100,9 @@ export const LoginForm = ({
       } catch {
         return;
       }
-      // Expect readinglist://auth/complete?code=...&next=...
-      if (parsed.hostname !== "auth" || parsed.pathname !== "/complete") return;
+      // Expect <scheme>://auth/callback?code=...&next=... (the same path the
+      // native app receives from Supabase directly).
+      if (parsed.hostname !== "auth" || parsed.pathname !== "/callback") return;
       const code = parsed.searchParams.get("code");
       const next = parsed.searchParams.get("next") ?? "/";
       if (!code) return;

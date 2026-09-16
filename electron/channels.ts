@@ -10,8 +10,10 @@ export const APP_CHANNELS = {
   zoomCurrent: "zoom-current",
   /** main → renderer: zoom factor changed. */
   zoom: "zoom",
-  /** main → renderer: a readinglist:// deep link arrived. */
+  /** main → renderer: a deep link (the app's url scheme) arrived. */
   deepLink: "deep-link",
+  /** invoke: the url scheme this build registered (readinglist or readinglist-dev). */
+  protocol: "protocol",
   /** invoke: switch the calling window's macOS vibrancy on or off. */
   setVibrancy: "set-vibrancy",
   /** invoke: start receiving browser-tab pushes on this renderer. */

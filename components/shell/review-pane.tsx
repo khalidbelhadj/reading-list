@@ -1,11 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { getAllFlashcards, rateCard } from "@/app/actions";
-import { fetchItems } from "@/app/actions";
 import { EmptyState } from "@/components/system/empty-state";
 import { Skeleton } from "@/components/system/skeleton";
 import { notify } from "@/components/system/toast";
+import { api } from "@/lib/api/client";
 import {
   playCardRated,
   playCardRevealed,
@@ -66,11 +65,11 @@ export const ReviewPane = ({
   );
   const { data: allCards } = useQuery({
     queryKey: ["all-flashcards"],
-    queryFn: getAllFlashcards,
+    queryFn: () => api("listFlashcards"),
   });
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
 
   const changeMode = React.useCallback((next: ReviewMode) => {
@@ -181,11 +180,12 @@ export const ReviewPane = ({
           ),
         );
       }
-      void rateCard({ flashcardId: card.id, rating, affectsSchedule }).catch(
-        () => {
-          notify({ tone: "error", title: "Could not save the review" });
-        },
-      );
+      void api("rateCard", {
+        params: { id: card.id },
+        input: { rating, affectsSchedule },
+      }).catch(() => {
+        notify({ tone: "error", title: "Could not save the review" });
+      });
       // The last card's rating ends the run: the finish chord replaces the
       // tap, since the two smear together.
       if (queue && index === queue.length - 1) playQueueFinished();

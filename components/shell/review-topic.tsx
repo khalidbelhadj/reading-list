@@ -2,7 +2,6 @@ import { IconSparkles } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { fetchItems, getAllFlashcards } from "@/app/actions";
 import {
   ReviewStackCard,
   type ReviewStackSource,
@@ -10,6 +9,7 @@ import {
 } from "@/components/app/review-stack-card";
 import { Button } from "@/components/system/button";
 import { Input } from "@/components/system/input";
+import { api } from "@/lib/api/client";
 import { type Item } from "@/lib/types";
 
 import { AskResults } from "./ask-results";
@@ -71,11 +71,11 @@ export const ReviewTopic = ({
 }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
   const { data: allCards } = useQuery({
     queryKey: ["all-flashcards"],
-    queryFn: getAllFlashcards,
+    queryFn: () => api("listFlashcards"),
   });
   const [prompt, setPrompt] = React.useState("");
   const ask = useAsk("review");

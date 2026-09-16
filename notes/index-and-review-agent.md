@@ -93,7 +93,7 @@ noticing.
   on the GPU; fp16 runs at 12/s. Keep q8 for the wasm fallback.
 - **Vite needs `worker: { format: "es" }`** for the worker's dynamic imports,
   and `@huggingface/transformers` must be excluded from `optimizeDeps`.
-- **Local verification without a password.** `.env.localdev` carries
+- **Local verification without a password.** `.env.local-stack` carries
   `MOCK_USER_ID` for the `db:setup-local` user, so the local Electron window
   is signed in as that user with no session. Check which stack `.env.local`
   points at before any CLI database command.

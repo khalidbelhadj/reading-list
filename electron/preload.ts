@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("readingList", {
   },
   getZoomFactor: (): Promise<number> =>
     ipcRenderer.invoke(channel("zoom-current")),
+  getProtocol: (): Promise<string> => ipcRenderer.invoke(channel("protocol")),
   // Open browser tabs. The main process only polls while at least one renderer
   // is subscribed, so the returned teardown genuinely stops the work.
   onBrowserTabs: (cb: (tabs: unknown[]) => void) => {

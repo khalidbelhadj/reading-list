@@ -5,14 +5,15 @@
 //   bun run db:setup
 //
 // Idempotent and safe to re-run.
-import { config } from "dotenv";
 import postgres from "postgres";
 
-config({ path: ".env.local" });
+import { applyBackend } from "../scripts/profiles";
+
+applyBackend();
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  console.error("DATABASE_URL is required (set it in .env.local).");
+  console.error("DATABASE_URL is required (set it in the backend profile).");
   process.exit(1);
 }
 

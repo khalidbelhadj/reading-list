@@ -25,7 +25,7 @@ const mathsRunSchema = z.object({
 // Stored values keep their historical names (`density: "cozy"` is what the
 // UI calls "preview") so existing rows parse without migration; unknown or
 // removed values fall back via `.catch`.
-const settingsSchema = z.object({
+export const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).catch("system"),
   density: z.enum(["compact", "cozy"]).catch("cozy"),
   groupBy: z.enum(["none", "day"]).catch("day"),

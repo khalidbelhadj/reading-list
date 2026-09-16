@@ -8,7 +8,7 @@
  * open-in-browser tabs. Attaching here is the way to see and drive the
  * desktop UI as it actually runs.
  *
- * Start the app first (`bun run electron:local`), then:
+ * Start the app first (`bun run electron`), then:
  *
  *   bun scripts/electron-cdp.ts list
  *   bun scripts/electron-cdp.ts screenshot --all --out /tmp/shots
@@ -122,7 +122,7 @@ const resolvePort = async () => {
   if (first === undefined) {
     return fail(
       "No Electron CDP listener found on 9222-9231.\n" +
-        "Start the app with `bun run electron:local` (the listener is dev-only,\n" +
+        "Start the app with `bun run electron` (the listener is dev-only,\n" +
         "and its port is printed as `[electron] CDP listening on ...`).",
     );
   }
@@ -403,6 +403,7 @@ const HELP = `bun scripts/electron-cdp.ts <command> [args] [flags]
   list                      every window / webview target, with an index
   eval <expression>         run JS in the target and print the result
   text [selector]           innerText of the selector (default: body)
+  find <text>               visible elements whose text, label or test id contains text
   html [selector]           outerHTML of the selector (default: documentElement)
   screenshot [file]         PNG of the target; --all captures every window
   console                   tail console + errors (--ms=5000)
@@ -466,6 +467,33 @@ const run = async () => {
         await evaluate(
           session,
           `document.querySelector(${JSON.stringify(selector)})?.innerText ?? null`,
+        ),
+      );
+      break;
+    }
+    case "find": {
+      // Visible elements whose text, label or test id contains the query:
+      // role, name and viewport rect, like `bun run mac find`.
+      const query = firstArg ?? "";
+      console.log(
+        await evaluate(
+          session,
+          `(() => {
+            const q = ${JSON.stringify(query)}.toLowerCase();
+            const rows = [];
+            for (const el of document.querySelectorAll("body *")) {
+              const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(" ").trim();
+              const label = el.getAttribute("aria-label") ?? "";
+              const testId = el.getAttribute("data-testid") ?? "";
+              const hay = (own + " " + label + " " + testId).toLowerCase();
+              if (!q || !hay.includes(q)) continue;
+              const r = el.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) continue;
+              rows.push(\`\${el.tagName.toLowerCase()}\${el.getAttribute("role") ? "[" + el.getAttribute("role") + "]" : ""} "\${(own || label).slice(0, 80)}"\${testId ? " #" + testId : ""} (\${Math.round(r.x)},\${Math.round(r.y)} \${Math.round(r.width)}x\${Math.round(r.height)})\`);
+              if (rows.length >= 20) break;
+            }
+            return rows.length ? rows.join("\\n") : "no visible match";
+          })()`,
         ),
       );
       break;

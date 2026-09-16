@@ -1,0 +1,7 @@
+/* The app's stylesheet, plus where Tailwind must look for classes: this
+   build's root is editor-host/, so the components the editor is made of
+   would otherwise go unscanned. */
+@import "../app/globals.css";
+@source "../components";
+@source "../lib";
+@source "../app";
