@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Reading List API",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "The reading list's HTTP API. Authenticate with a Supabase access token as a bearer, or the web session cookie."
   },
   "servers": [
