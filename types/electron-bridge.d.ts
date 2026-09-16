@@ -10,7 +10,10 @@ declare global {
       onDeepLink: (cb: (url: string) => void) => () => void;
       getZoomFactor: () => Promise<number>;
       // The url scheme this build registered: readinglist, or readinglist-dev.
-      getProtocol: () => Promise<string>;
+      // Optional: desktop builds shipped before this bridge method was added
+      // don't expose it, and they load the current (newer) web bundle, so the
+      // renderer must tolerate its absence rather than throw.
+      getProtocol?: () => Promise<string>;
       onZoomChange: (cb: (zoom: number) => void) => () => void;
       // Subscribing is what makes the main process poll; the teardown stops it.
       onBrowserTabs: (cb: (tabs: BrowserTab[]) => void) => () => void;

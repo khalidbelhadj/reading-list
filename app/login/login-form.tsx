@@ -47,43 +47,57 @@ export const LoginForm = ({
   const handleGoogleLogin = useCallback(async () => {
     setIsLoading(true);
     setElectronError(null);
-    const supabase = createClient();
-    const callback = new URL("/auth/callback", window.location.origin);
-    if (redirectTo) callback.searchParams.set("next", redirectTo);
+    // Any failure below must reset the spinner and surface an error — an
+    // unhandled rejection here would otherwise leave the button spinning
+    // forever (e.g. a desktop build that predates a bridge method the web
+    // now calls).
+    try {
+      const supabase = createClient();
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (redirectTo) callback.searchParams.set("next", redirectTo);
 
-    if (isElectron() && window.readingList) {
-      // Get the OAuth URL but don't navigate the Electron renderer to it —
-      // Google blocks embedded browser flows. The /auth/callback route detects
-      // ?from=electron and bounces back to a readinglist:// deep link so the
-      // renderer (which already owns the PKCE verifier) can complete the
-      // exchange itself.
-      callback.searchParams.set("from", "desktop");
-      callback.searchParams.set(
-        "scheme",
-        await window.readingList.getProtocol(),
-      );
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: callback.toString(),
-          skipBrowserRedirect: true,
-        },
-      });
-      if (error || !data.url) {
-        setIsLoading(false);
-        setElectronError(error?.message ?? "Could not start sign-in");
+      if (isElectron() && window.readingList) {
+        // Get the OAuth URL but don't navigate the Electron renderer to it —
+        // Google blocks embedded browser flows. The /auth/callback route
+        // detects ?from=desktop and bounces back to a <scheme>:// deep link so
+        // the renderer (which already owns the PKCE verifier) can complete the
+        // exchange itself.
+        callback.searchParams.set("from", "desktop");
+        // getProtocol was added to the preload bridge after some shipped
+        // desktop builds, which now load this (newer) web bundle. When it's
+        // absent, omit the scheme and let /auth/return-to-app fall back to the
+        // default "readinglist" scheme — the packaged app's own — instead of
+        // throwing and hanging the spinner.
+        const scheme = await window.readingList.getProtocol?.();
+        if (scheme) callback.searchParams.set("scheme", scheme);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: callback.toString(),
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error || !data.url) {
+          setIsLoading(false);
+          setElectronError(error?.message ?? "Could not start sign-in");
+          return;
+        }
+        await window.readingList.openExternal(data.url);
+        // Loading state remains until the deep-link arrives and the
+        // exchange-handler completes (see useEffect below).
         return;
       }
-      await window.readingList.openExternal(data.url);
-      // Loading state remains until the deep-link arrives and the
-      // exchange-handler completes (see useEffect below).
-      return;
-    }
 
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callback.toString() },
-    });
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: callback.toString() },
+      });
+    } catch (error) {
+      setIsLoading(false);
+      setElectronError(
+        error instanceof Error ? error.message : "Could not start sign-in",
+      );
+    }
   }, [redirectTo]);
 
   const handleCancel = useCallback(() => {
