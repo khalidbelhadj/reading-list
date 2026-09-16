@@ -12,6 +12,8 @@ import tseslint from "typescript-eslint";
 const config = [
   {
     ignores: [
+      // The native app: Swift, plus the built editor page under its resources.
+      "mac/**",
       "node_modules/",
       "extension/",
       // Both contain a directory literally named "Bun Next.js" — ESLint's
@@ -138,14 +140,13 @@ const config = [
               message: "Server-only module. Import the RPC wrapper instead.",
             },
             {
-              // The action *impls* under app/actions/* don't end in .server.ts,
-              // so the barrel is the only safe entry — importing a subpath
-              // (e.g. @/app/actions/items) would pull db code into the client
-              // bundle with no other lint error.
-              group: ["@/app/actions/*"],
+              // The action impls under app/actions/* don't end in .server.ts;
+              // importing one would pull db code into the client bundle with
+              // no other lint error. Client code talks to them over HTTP.
+              group: ["@/app/actions", "@/app/actions/*"],
               allowTypeImports: true,
               message:
-                "Import from the @/app/actions barrel, not the impl module.",
+                "Server-only. Call the API through @/lib/api/client instead.",
             },
           ],
         },

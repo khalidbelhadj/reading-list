@@ -21,7 +21,7 @@ files:
 asar: true
 
 # Register the readinglist:// URL scheme with macOS LaunchServices so the
-# OAuth redirect (browser → readinglist://auth/complete?code=...) can route
+# OAuth redirect (browser → readinglist://auth/callback?code=...) can route
 # back into the desktop app.
 protocols:
   - name: Reading List

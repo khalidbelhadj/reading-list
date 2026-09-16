@@ -8,7 +8,7 @@ import {
 } from "ai";
 import React from "react";
 
-import { semanticSearch } from "@/app/actions";
+import { api } from "@/lib/api/client";
 import { embedQuery, INDEX_MODEL_ID } from "@/lib/index-client";
 
 /**
@@ -93,11 +93,13 @@ export const useAsk = (mode: AskMode = "search") => {
         const input = toolCall.input as SemanticSearchInput;
         try {
           const vector = await embedQuery(input.query);
-          const output = await semanticSearch({
-            model: INDEX_MODEL_ID,
-            vector,
-            scope: input.scope,
-            limit: input.limit ?? 15,
+          const output = await api("semanticSearch", {
+            input: {
+              model: INDEX_MODEL_ID,
+              vector,
+              scope: input.scope,
+              limit: input.limit ?? 15,
+            },
           });
           addToolOutput({
             tool: "semantic_search",

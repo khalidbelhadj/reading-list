@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { fetchItems } from "@/app/actions";
 import { Badge } from "@/components/system/badge";
 import { Button } from "@/components/system/button";
 import { CommandPalette } from "@/components/system/command-palette";
 import { Skeleton } from "@/components/system/skeleton";
 import { Spinner } from "@/components/system/spinner";
+import { api } from "@/lib/api/client";
 import { type Item } from "@/lib/types";
 
 import { AskResults } from "./ask-results";
@@ -34,7 +34,7 @@ export const ItemPalette = ({
 }) => {
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
   const [query, setQuery] = React.useState("");
   const search = useItemSearch(query, items);

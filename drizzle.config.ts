@@ -1,7 +1,9 @@
-import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-config({ path: ".env.local" });
+import { applyBackend } from "./scripts/profiles";
+
+// `bun run db:push [--env=prod]`; the local stack unless asked otherwise.
+applyBackend();
 
 export default defineConfig({
   schema: "./db/schema.ts",

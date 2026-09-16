@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Editor</title>
+    <style>
+      /* The host app paints the background; the page is only the editor. */
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+      }
+      body {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body class="font-sans text-foreground">
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

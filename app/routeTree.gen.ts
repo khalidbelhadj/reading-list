@@ -23,6 +23,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
 import { Route as ApiFetchRouteImport } from './routes/api.fetch'
 import { Route as ApiAskRouteImport } from './routes/api.ask'
+import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
 import { Route as ApiIndexSplatRouteImport } from './routes/api.index.$'
 import { Route as ApiStorageSplatRouteImport } from './routes/api.storage.$'
@@ -98,6 +99,11 @@ const ApiAskRoute = ApiAskRouteImport.update({
   path: '/api/ask',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotwellKnownOauthProtectedResourceRoute =
   DotwellKnownOauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/$': typeof ApiSplatRoute
   '/api/ask': typeof ApiAskRoute
   '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/$': typeof ApiSplatRoute
   '/api/ask': typeof ApiAskRoute
   '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/version.json': typeof VersionDotjsonRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
+  '/api/$': typeof ApiSplatRoute
   '/api/ask': typeof ApiAskRoute
   '/api/fetch': typeof ApiFetchRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/$'
     | '/api/ask'
     | '/api/fetch'
     | '/api/mcp'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/$'
     | '/api/ask'
     | '/api/fetch'
     | '/api/mcp'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/version.json'
     | '/.well-known/oauth-protected-resource'
+    | '/api/$'
     | '/api/ask'
     | '/api/fetch'
     | '/api/mcp'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
+  ApiSplatRoute: typeof ApiSplatRoute
   ApiAskRoute: typeof ApiAskRoute
   ApiFetchRoute: typeof ApiFetchRoute
   ApiMcpRoute: typeof ApiMcpRoute
@@ -360,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAskRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -414,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   VersionDotjsonRoute: VersionDotjsonRoute,
   DotwellKnownOauthProtectedResourceRoute:
     DotwellKnownOauthProtectedResourceRoute,
+  ApiSplatRoute: ApiSplatRoute,
   ApiAskRoute: ApiAskRoute,
   ApiFetchRoute: ApiFetchRoute,
   ApiMcpRoute: ApiMcpRoute,

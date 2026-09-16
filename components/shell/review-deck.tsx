@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { getAllFlashcards } from "@/app/actions";
 import { Favicon } from "@/components/app/favicon";
 import { Flashcard } from "@/components/app/flashcard";
 import { TextLink } from "@/components/system/link";
 import { Skeleton } from "@/components/system/skeleton";
+import { api } from "@/lib/api/client";
 
 import { useEditFlashcard } from "./use-edit-flashcard";
 
@@ -15,7 +15,7 @@ export const Deck = ({ onBack }: { onBack: () => void }) => {
   const queryClient = useQueryClient();
   const { data: cards } = useQuery({
     queryKey: ["all-flashcards"],
-    queryFn: getAllFlashcards,
+    queryFn: () => api("listFlashcards"),
   });
   const saveFlashcard = useEditFlashcard();
 

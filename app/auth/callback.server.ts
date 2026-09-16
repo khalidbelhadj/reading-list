@@ -12,15 +12,19 @@ export async function handleAuthCallback(request: Request): Promise<Response> {
   const code = searchParams.get("code");
   const next = sanitizeRedirect(searchParams.get("next"));
   const from = searchParams.get("from");
+  const scheme = searchParams.get("scheme") ?? "";
 
-  // Electron flow: don't exchange the code here (the renderer that started the
-  // sign-in owns the PKCE verifier). Hand the code to the /auth/return-to-app
-  // page, which triggers the readinglist:// protocol from page JS so the
-  // browser tab settles cleanly while the desktop app activates.
-  if (from === "electron" && code) {
+  // Desktop flow (Electron and the Mac app): don't exchange the code here,
+  // the app that started the sign-in owns the PKCE verifier. Hand the code
+  // to the /auth/return-to-app page, which opens the app's url scheme from
+  // page JS so the browser tab settles cleanly while the app activates.
+  // Only the app's own schemes are ever opened.
+  if ((from === "desktop" || from === "electron") && code) {
     const target = new URL("/auth/return-to-app", origin);
     target.searchParams.set("code", code);
     target.searchParams.set("next", next);
+    if (/^readinglist(-mac)?(-dev)?$/.test(scheme))
+      target.searchParams.set("scheme", scheme);
     return redirect(target.toString());
   }
 

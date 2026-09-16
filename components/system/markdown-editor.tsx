@@ -1,4 +1,4 @@
-import { type AnyExtension } from "@tiptap/core";
+import { type AnyExtension, type Editor } from "@tiptap/core";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -45,6 +45,8 @@ export const MarkdownEditor = ({
   extensions,
   onUploadImage,
   onKeyDown,
+  bubble = true,
+  onEditor,
 }: {
   value: string;
   onChange?: (value: string) => void;
@@ -62,6 +64,11 @@ export const MarkdownEditor = ({
   // cannot be inserted.
   onUploadImage?: (file: File) => Promise<string>;
   onKeyDown?: (event: KeyboardEvent) => boolean | void;
+  // The formatting bubble over a selection; off when a host draws its own
+  // (the Mac app floats a native one over the web view).
+  bubble?: boolean;
+  // The tiptap instance, once it exists, for a host that drives it.
+  onEditor?: (editor: Editor | null) => void;
 }) => {
   const onChangeRef = React.useRef(onChange);
   const onKeyDownRef = React.useRef(onKeyDown);
@@ -185,6 +192,10 @@ export const MarkdownEditor = ({
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [editable, editor]);
 
+  React.useEffect(() => {
+    onEditor?.(editor);
+  }, [editor, onEditor]);
+
   return (
     <div
       data-slot="markdown-editor"
@@ -199,7 +210,7 @@ export const MarkdownEditor = ({
       </div>
       {editor && editable && (
         <>
-          <FormatBubble editor={editor} />
+          {bubble && <FormatBubble editor={editor} />}
           <LinkPopover editor={editor} />
         </>
       )}

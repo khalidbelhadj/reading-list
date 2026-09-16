@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { updateFlashcard, updateItem } from "@/app/actions";
 import { type QueueCard } from "@/components/shell/review-queues";
 import { notify } from "@/components/system/toast";
+import { api } from "@/lib/api/client";
 import { replaceCardInNotes } from "@/lib/card-parse";
 import { type Item } from "@/lib/types";
 
@@ -34,13 +34,19 @@ export const useEditFlashcard = () => {
 
   const { mutate: saveNotes } = useMutation({
     mutationFn: (args: { itemId: string; notes: string }) =>
-      updateItem(args.itemId, { notes: args.notes }),
+      api("updateItem", {
+        params: { id: args.itemId },
+        input: { notes: args.notes },
+      }),
     onError: rollback,
   });
 
   const { mutate: saveRow } = useMutation({
     mutationFn: (args: { id: string; front: string; back: string }) =>
-      updateFlashcard(args.id, { front: args.front, back: args.back }),
+      api("updateFlashcard", {
+        params: { id: args.id },
+        input: { front: args.front, back: args.back },
+      }),
     onError: rollback,
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["all-flashcards"] }),

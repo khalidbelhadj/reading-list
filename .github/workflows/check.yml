@@ -1,0 +1,38 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    # The web and Electron half of `bun run check`.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run check:web
+
+  mac:
+    # The native half: the editor bundle, `swift build`, `swift test`.
+    # macOS 26 with Xcode 26 is the deployment target.
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: sudo xcode-select -s /Applications/Xcode_26.app || true
+      - run: swift --version
+      - run: bun run mac:check

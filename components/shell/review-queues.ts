@@ -4,8 +4,8 @@
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
-import { getAllFlashcards } from "@/app/actions";
-import { fetchItems } from "@/app/actions";
+import { api } from "@/lib/api/client";
+import type { Output } from "@/lib/api/contract";
 import { type Item } from "@/lib/types";
 
 import { interleaveByItem } from "./review-order";
@@ -13,7 +13,7 @@ import { type ReviewStack } from "./view";
 
 // The exact row shape the ["all-flashcards"] cache holds — derived, so the
 // cache type can never drift from what the server actually returns.
-export type QueueCard = Awaited<ReturnType<typeof getAllFlashcards>>[number];
+export type QueueCard = Output<"listFlashcards">[number];
 
 // Never-studied cards default `due` to their creation time, so a bare
 // `due <= now` check would swallow the whole New queue into Due. "Due" means
@@ -91,11 +91,11 @@ export const stackQueue = (
 export const useDueCount = (): number => {
   const { data: allCards } = useQuery({
     queryKey: ["all-flashcards"],
-    queryFn: getAllFlashcards,
+    queryFn: () => api("listFlashcards"),
   });
   const { data: items } = useQuery<Item[]>({
     queryKey: ["items"],
-    queryFn: fetchItems,
+    queryFn: () => api("listItems"),
   });
   return React.useMemo(
     () => (allCards ? standingQueue(allCards, items, "due").length : 0),

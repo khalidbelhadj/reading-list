@@ -1,0 +1,6 @@
+# swift-openapi-generator: the API client only (the server is the web app).
+generate:
+  - types
+  - client
+accessModifier: public
+namingStrategy: idiomatic

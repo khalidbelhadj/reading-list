@@ -1,10 +1,10 @@
-import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+import { applyBackend } from "../scripts/profiles";
 import * as schema from "./schema";
 
-config({ path: ".env.local" });
+applyBackend();
 
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client, { schema });

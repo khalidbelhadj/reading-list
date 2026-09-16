@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { generateItemPreview } from "@/app/actions";
-import { fetchItemPreviews } from "@/app/actions";
+import { api } from "@/lib/api/client";
 import { getYouTubeVideoId } from "@/lib/url";
 
 // Single-flight set so duplicate generation requests aren't fired for the
@@ -33,7 +32,7 @@ export const useItemPreview = (
   const queryClient = useQueryClient();
   const { data: previews, isSuccess: previewsLoaded } = useQuery({
     queryKey: ["item-previews"],
-    queryFn: fetchItemPreviews,
+    queryFn: () => api("listItemPreviews"),
     enabled,
   });
   // Three states, keyed off presence in the previews map: absent → never
@@ -42,7 +41,10 @@ export const useItemPreview = (
   const previewImageUrl = previews?.[item.id] || null;
 
   const { mutate: triggerGenerate } = useMutation({
-    mutationFn: (itemId: string) => generateItemPreview(itemId),
+    mutationFn: (itemId: string) =>
+      api("generateItemPreview", { params: { id: itemId } }).then(
+        (result) => result.previewImageUrl,
+      ),
     onSuccess: (dataUrl, itemId) => {
       // Patch the shared cache in place; null from the action means "not a
       // PDF" and is stored as "" so it isn't probed again.

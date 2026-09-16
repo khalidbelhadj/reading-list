@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { getRequestHeader } from "@tanstack/react-start/server";
 
 import { perfLog } from "@/lib/perf";
 import { createClient } from "@/lib/supabase/server";
@@ -9,11 +10,6 @@ export class UnauthorizedError extends Error {
     this.name = "UnauthorizedError";
   }
 }
-
-const getMockUserId = (): string | null => {
-  if (process.env.NODE_ENV !== "development") return null;
-  return process.env.MOCK_USER_ID ?? null;
-};
 
 // getClaims() verifies the access token's signature locally (WebCrypto,
 // against a JWKS cached per server instance) whenever the Supabase project
@@ -30,16 +26,19 @@ const getMockUserId = (): string | null => {
 export const getCurrentUserId = async (): Promise<string> => {
   const start = performance.now();
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  // A Bearer token (the native apps, MCP clients) is verified the same way
+  // as the cookie session; the request guard has already checked it, but the
+  // user id must come from the same source either way.
+  const authHeader = getRequestHeader("authorization");
+  const bearer = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : undefined;
+  const { data } = await supabase.auth.getClaims(bearer);
   const userId = data?.claims.sub ?? null;
   perfLog("getCurrentUserId", performance.now() - start, {
     hasUser: !!userId,
   });
   if (userId) return userId;
-
-  const mockId = getMockUserId();
-  if (mockId) return mockId;
-
   throw new UnauthorizedError();
 };
 
@@ -63,9 +62,5 @@ export const getCurrentUserIdFromRequest = async (
     if (data?.claims.sub) return data.claims.sub;
   }
 
-  // No MOCK_USER_ID fallback here: middleware already 401s every /api/*
-  // request without a Bearer or cookie session, so this branch was
-  // unreachable — and would silently grant access to the configured user
-  // if middleware ever stopped guarding API routes.
   throw new UnauthorizedError();
 };

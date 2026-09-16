@@ -13,7 +13,7 @@ mock-user shim, no auth/RLS bypass.
 
 ```bash
 bunx supabase start          # boots the local stack (first run pulls images)
-bun run env:local            # point .env.local at the local stack
+bun run dev                  # the web dev server; local is the default backend
 bun run db:push              # create tables from db/schema.ts
 bun run db:setup             # RLS, policies, grants, sync trigger, storage bucket
 bun run db:setup-local       # create the confirmed dev user
@@ -24,15 +24,16 @@ SEED_USER_ID=<printed-id> bun run db:seed   # optional sample data
   prod). It now includes the private `note-images` storage bucket + owner
   policy.
 - `db:setup-local` (scripts/setup-local-supabase.ts) creates a confirmed GoTrue
-  user **dev@reading.local / devpassword123** (override via `DEV_USER_EMAIL` /
-  `DEV_USER_PASSWORD`). Local-only; it just calls the admin API.
+  user **dev@reading.local / devpassword123** (`DEV_USER` in
+  `scripts/profiles.ts`, the one identity every shell and script signs in
+  as; there is no auth bypass). Local-only; it just calls the admin API.
 
 ## Local vs prod
 
 Connection config lives in two gitignored profile files:
 
-- `.env.localdev` — local stack (uses `localhost`, see CSP note below)
-- `.env.hosted` — hosted/production project
+- `.env.local-stack` — local stack (uses `localhost`, see CSP note below)
+- `.env.prod` — hosted/production project
 
 ### Launch an Electron window against either backend
 
@@ -40,8 +41,8 @@ The `.claude/launch.json` configs **local** and **prod** each spin up their own
 Electron dev window:
 
 ```bash
-bun run electron:local   # local stack window
-bun run electron:prod    # prod window (warns: writes hit PRODUCTION data)
+bun run electron             # local stack window
+bun run electron --env=prod  # prod window (warns: writes hit PRODUCTION data)
 ```
 
 These inject the chosen profile's env into the process (not into `.env.local`),
@@ -55,8 +56,8 @@ CLI tools (`db:push`, `db:setup`, `db:seed`) and a plain `bun dev` read
 `.env.local`. Swap which backend that points at with:
 
 ```bash
-bun run env:local              # → local stack
-bun run env:prod               # → hosted/prod
+bun run dev                    # → local stack (the default everywhere)
+bun run dev --env=prod         # → hosted/prod
 bun run scripts/use-supabase.ts   # print the current target
 ```
 

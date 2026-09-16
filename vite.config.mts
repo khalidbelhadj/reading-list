@@ -2,18 +2,17 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitroV2Plugin } from "@tanstack/nitro-v2-vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig(({ mode }) => {
-  // Vite only exposes .env values via import.meta.env; server code (db client,
-  // Supabase auth, MOCK_USER_ID) reads process.env like it did under Next, so
-  // load the .env files into the process explicitly. Real environment
-  // variables win over .env.local values.
-  const fileEnv = loadEnv(mode, process.cwd(), "");
-  for (const [key, value] of Object.entries(fileEnv)) {
-    if (process.env[key] === undefined) process.env[key] = value;
-  }
+import { applyBackend } from "./scripts/profiles";
+
+export default defineConfig(() => {
+  // Server code (db client, Supabase auth) reads process.env.
+  // In development the backend profile fills it (`bun run dev --env=…`,
+  // local by default); a hosted build gets its variables from the platform
+  // and has no profile files, so it is left alone.
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL === undefined) applyBackend();
 
   // pdfjs (legacy build) and @napi-rs/canvas ship native or platform-specific
   // bits (.node binaries) that bundling garbles — keep them external and out

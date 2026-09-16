@@ -1,0 +1,56 @@
+{
+  "now": "2026-09-13T10:00:00.000Z",
+  "groups": [
+    {
+      "key": "today",
+      "label": "Today",
+      "entries": [
+        "2026-09-13T08:00:00.000Z"
+      ]
+    },
+    {
+      "key": "yesterday",
+      "label": "Yesterday",
+      "entries": [
+        "2026-09-12T23:30:00.000Z"
+      ]
+    },
+    {
+      "key": "this-week",
+      "label": "This week",
+      "entries": [
+        "2026-09-11T12:00:00.000Z",
+        "2026-09-07T12:00:00.000Z"
+      ]
+    },
+    {
+      "key": "this-month",
+      "label": "This month",
+      "entries": [
+        "2026-09-06T12:00:00.000Z",
+        "2026-09-01T00:00:00.000Z"
+      ]
+    },
+    {
+      "key": "month-2026-7",
+      "label": "August 2026",
+      "entries": [
+        "2026-08-31T23:59:00.000Z"
+      ]
+    },
+    {
+      "key": "month-2026-6",
+      "label": "July 2026",
+      "entries": [
+        "2026-07-15T12:00:00.000Z"
+      ]
+    },
+    {
+      "key": "month-2025-11",
+      "label": "December 2025",
+      "entries": [
+        "2025-12-31T12:00:00.000Z"
+      ]
+    }
+  ]
+}

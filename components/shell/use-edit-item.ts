@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
-import { updateItem } from "@/app/actions";
 import { notify } from "@/components/system/toast";
+import { api } from "@/lib/api/client";
 import { type Item } from "@/lib/types";
 
 type EditableFields = { title?: string; notes?: string; url?: string };
@@ -39,7 +39,8 @@ export const useEditItem = (itemId: string, item: Item | undefined) => {
   );
 
   const saveMutation = useMutation({
-    mutationFn: (fields: EditableFields) => updateItem(itemId, fields),
+    mutationFn: (fields: EditableFields) =>
+      api("updateItem", { params: { id: itemId }, input: fields }),
     onError: (_error, fields) => {
       // Re-mark the failed fields dirty so a later edit retries them, but
       // never on top of values the user has typed since.
