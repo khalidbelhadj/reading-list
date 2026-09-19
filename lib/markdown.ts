@@ -11,8 +11,13 @@
 // boundary via `stripBlankLineSentinel`.
 export const BLANK_LINE_SENTINEL = "&nbsp;";
 
-// "&nbsp;" contains no regex metacharacters, so it's safe to interpolate directly.
-const SENTINEL_LINE = new RegExp(`^${BLANK_LINE_SENTINEL}$`, "gm");
+// The sentinel is written as the literal "&nbsp;" entity, but it round-trips
+// through the editor as an actual non-breaking space (U+00A0): markdown-it
+// decodes the entity on load, and re-serializing that paragraph emits the raw
+// character rather than the entity. Match a line that is only the sentinel in
+// either form so both generations are stripped wherever stored markdown leaks
+// to plain text (clipboard, Chat with Claude, card parsing).
+const SENTINEL_LINE = new RegExp("^[ \\t]*(?:&nbsp;|\\u00a0)[ \\t]*$", "gm");
 
 export const stripBlankLineSentinel = (markdown: string): string =>
   markdown.replace(SENTINEL_LINE, "");

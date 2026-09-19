@@ -143,11 +143,15 @@ export const ParagraphWithBlankLines = Paragraph.extend({
   },
 });
 
-// tiptap-markdown's `transformCopiedText` serializes the selection to markdown on
-// copy, which emits the blank-line sentinel (see above) into the clipboard. Strip
-// it here so every in-editor copy — notes or flashcards, anywhere the editor is
-// used — yields clean markdown. Higher priority than the Markdown extension (50)
-// so this clipboardTextSerializer wins over tiptap-markdown's.
+// The clipboard serializer for every in-editor copy — notes or flashcards,
+// anywhere the editor is used. tiptap-markdown's own `transformCopiedText`
+// serializer is turned off (see markdown-editor.tsx) precisely so this one
+// wins: ProseMirror picks the first plugin whose clipboardTextSerializer
+// returns a value, and extension priority alone does not reliably order ours
+// ahead of tiptap-markdown's. This serializer serializes the selection to
+// markdown, but copies code-block selections as raw code (no ``` fences) and
+// strips the blank-line sentinel (see above) so neither leaks into the
+// clipboard.
 type MarkdownSerializer = {
   markdown: {
     serializer: { serialize: (content: ProseMirrorNode["content"]) => string };
@@ -163,9 +167,22 @@ export const CleanClipboardMarkdown = Extension.create({
       new Plugin({
         props: {
           clipboardTextSerializer: (slice) => {
+            // A selection wholly inside code blocks should copy as the raw
+            // code, not a fenced markdown block — otherwise grabbing a few
+            // lines out of a snippet drags the ``` fences along with it.
+            const { content } = slice;
+            let allCode = content.childCount > 0;
+            content.forEach((node) => {
+              if (node.type.name !== "codeBlock") allCode = false;
+            });
+            if (allCode) {
+              const lines: string[] = [];
+              content.forEach((node) => lines.push(node.textContent));
+              return lines.join("\n\n");
+            }
             const storage = editor.storage as unknown as MarkdownSerializer;
             return stripBlankLineSentinel(
-              storage.markdown.serializer.serialize(slice.content),
+              storage.markdown.serializer.serialize(content),
             );
           },
         },

@@ -73,25 +73,44 @@ const useShellShortcuts = (
   }, [goBack, goForward, setPaletteOpen]);
 };
 
+// A stable identity for the scroll position we keep per view: the Reading
+// list, and each item individually so returning to one lands where you left
+// it. Every other view shares its kind and starts at the top.
+const scrollKeyOf = (view: View) =>
+  view.kind === "item" ? `item:${view.id}` : view.kind;
+
 // The pane is one shared scroll container, so a view change would reset the
-// Reading list's position. Remember it while the list is showing and put it
-// back on return; every other view starts at the top.
+// current view's position. Remember each view's scrollTop while it shows and
+// put it back on return.
 const usePaneScrollMemory = (view: View) => {
   const mainRef = React.useRef<HTMLElement>(null);
-  const itemsScrollRef = React.useRef(0);
+  const positions = React.useRef(new Map<string, number>());
+  const key = scrollKeyOf(view);
   const handleMainScroll = React.useCallback(
     (event: React.UIEvent<HTMLElement>) => {
-      if (view.kind === "items") {
-        itemsScrollRef.current = event.currentTarget.scrollTop;
-      }
+      positions.current.set(key, event.currentTarget.scrollTop);
     },
-    [view.kind],
+    [key],
   );
   React.useLayoutEffect(() => {
     const main = mainRef.current;
     if (!main) return;
-    main.scrollTop = view.kind === "items" ? itemsScrollRef.current : 0;
-  }, [view]);
+    const target = positions.current.get(key) ?? 0;
+    main.scrollTop = target;
+    if (target === 0) return;
+    // An item's notes editor mounts asynchronously, so the content may not be
+    // tall enough to reach `target` on the first write. Keep nudging across a
+    // handful of frames until it lands (or the content simply isn't that tall).
+    let frame = 0;
+    let raf = 0;
+    const settle = () => {
+      if (Math.abs(main.scrollTop - target) < 1) return;
+      main.scrollTop = target;
+      if (frame++ < 20) raf = requestAnimationFrame(settle);
+    };
+    raf = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(raf);
+  }, [key]);
   return { mainRef, handleMainScroll };
 };
 

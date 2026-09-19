@@ -158,7 +158,13 @@ export const MarkdownEditor = ({
         html: true,
         breaks: true,
         transformPastedText: true,
-        transformCopiedText: true,
+        // Copy is served by CleanClipboardMarkdown, not tiptap-markdown's own
+        // clipboard serializer: ProseMirror picks the first registered
+        // clipboardTextSerializer, and tiptap-markdown's would otherwise win —
+        // dragging ``` fences out of code selections and leaking the blank-line
+        // sentinel into copied text. Ours copies raw code and strips the
+        // sentinel; leaving this on would shadow it.
+        transformCopiedText: false,
       }),
       Placeholder.configure({
         includeChildren: true,
