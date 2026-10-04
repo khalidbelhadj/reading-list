@@ -37,7 +37,7 @@ struct ItemMenuItems: View {
             MenuLabel(item.read ? "Mark as unread" : "Mark as read", item.read ? .circleMinus : .circleCheck)
         }
         Button(action: onToggleStar) {
-            MenuLabel(item.starred ? "Unstar" : "Star", item.starred ? .starOff : .star)
+            MenuLabel(item.starred ? "Unstar" : "Star", item.starred ? .starOff : .star, iconTint: Theme.starred)
         }
         if let onReviewItem {
             Button(action: onReviewItem) { MenuLabel("Review this item", .cards) }

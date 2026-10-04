@@ -7,11 +7,14 @@ struct MenuLabel: View {
     let icon: TablerIcon
     /// Painted in the destructive colour (Delete); pair with `role: .destructive`.
     var destructive = false
+    /// Paints the icon alone (the star gold on Star / Unstar).
+    var iconTint: Color?
 
-    init(_ title: String, _ icon: TablerIcon, destructive: Bool = false) {
+    init(_ title: String, _ icon: TablerIcon, destructive: Bool = false, iconTint: Color? = nil) {
         self.title = title
         self.icon = icon
         self.destructive = destructive
+        self.iconTint = iconTint
     }
 
     var body: some View {
@@ -20,9 +23,11 @@ struct MenuLabel: View {
             // foreground style would be dropped.
             Text(destructive ? coloured(title, Theme.destructive) : AttributedString(title))
         } icon: {
-            Image(nsImage: destructive ? IconStore.menuImage(icon, tint: Theme.destructive) : IconStore.menuImage(icon))
+            Image(nsImage: tint.map { IconStore.menuImage(icon, tint: $0) } ?? IconStore.menuImage(icon))
         }
     }
+
+    private var tint: Color? { destructive ? Theme.destructive : iconTint }
 
     private func coloured(_ text: String, _ color: Color) -> AttributedString {
         var attributed = AttributedString(text)

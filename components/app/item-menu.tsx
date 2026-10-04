@@ -122,7 +122,13 @@ export const ItemMenuItems = ({
       {item.read ? "Mark as unread" : "Mark as read"}
     </MenuItem>
     <MenuItem
-      icon={item.starred ? <IconStarOff /> : <IconStar />}
+      icon={
+        item.starred ? (
+          <IconStarOff className="text-starred!" />
+        ) : (
+          <IconStar className="text-starred!" />
+        )
+      }
       onClick={onToggleStar}
     >
       {item.starred ? "Unstar" : "Star"}
